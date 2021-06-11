@@ -18,38 +18,31 @@ def main():
     t = np.arange(t0, t_end + dt, dt)
 
     #waypoints
-    w1 = waypoint(30,50)
+    w1 = waypoint(0,0)
     w2 = waypoint(150,290)
     w3 = waypoint(400, 100)
-    #vector = np.array([[w2.x - w1.x, w2.y - w1.y], [w3.x - w2.x, w3.y - w2.y]])
+    w4 = waypoint(200, -200)
+    waypoints = [w1, w2, w3, w4]
 
     # creating ships
-    ship1 = Ship(w1.x, w1.y, 10, 0, 'Ship A') #
+    ship1 = Ship(w1.x, w1.y, 1, 0, 'Ship A') #
 
-
-    #m1 = (w2.y-w1.y) / (w2.x-w1.x)
-    #m2 = (w3.y-w2.y) / (w3.x-w2.x)
-    #ang = math.atan(abs((m2-m1)/(1+m1*m2)))
-    #print(math.degrees(ang))
+    magnitude, angles, vectors = waypoint_vectors(ship1, waypoints)
 
 
 
     # creating ships data
     x1, y1, x1_t, y1_t = [], [], [], []
 
-    ship1.c = math.radians(26.57)
+    ship1.c += angles[0]
     for i in range(len(t)):
+        print(ship1.x, ship1.y)
         ship1.move(dt)
         x1.append(int(ship1.x))
         y1.append(int(ship1.y))
         ship1.future_pos(5)
         x1_t.append(int(ship1.x_t))
         y1_t.append(int(ship1.y_t))
-        if i > 25:
-            ship1.c = math.radians(101.07 + 26.57)
-
-
-
 
 
 
@@ -69,6 +62,7 @@ def main():
     w1_scat = ax.scatter(w1.x, w1.y, color = 'r', s = 20)
     w2_scat = ax.scatter(w2.x, w2.y, color='r', s=20)
     w3_scat = ax.scatter(w3.x, w3.y, color='r', s=20)
+    w4_scat = ax.scatter(w4.x, w4.y, color='r', s=20)
 
     origin = np.array([[w1.x,w1.y], [w2.x, w2.y]])
 
@@ -83,9 +77,8 @@ def main():
         w1_scat
         w2_scat
         w3_scat
+        w4_scat
 
-        #plt.axline((w1.x,w1.y), (w2.x, w2.y))
-        #plt.axline((w2.x, w2.y), (w3.x, w3.y))
 
 
 

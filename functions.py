@@ -15,6 +15,7 @@ class Ship:
         self.x_t = 0        # x position in the future for course visualisation
         self.y_t = 0        # y position in the future for course visualisation
 
+
     def move(self, dt):
         self.x -= self.v * math.sin(-self.c) * dt
         self.y += self.v * math.cos(-self.c) * dt
@@ -23,22 +24,42 @@ class Ship:
         self.x_t = self.x - self.v * math.sin(-self.c) * time
         self.y_t = self.y + self.v * math.cos(-self.c) * time
 
-    def update_heading(self, w1, w2):
-        print('before update', math.degrees(self.c))
-        self.c += math.radians(270 + angle(w1,w2))
-        print('after update', math.degrees(self.c))
-        print('---')
-
-
-
-
-
-
 
 class waypoint:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+
+
+def waypoint_vectors (ship, waypoints):
+    vectors = []
+    magnitude = []
+    vectors_unit = []
+    angles = []
+    ship.future_pos(1)
+    v0 = np.array([ship.x_t - ship.x, ship.y_t-ship.y])
+    v0_unit = v0 / np.linalg.norm(v0)
+    vectors_unit.append(v0_unit)
+    for i, (w1, w2) in enumerate(zip(waypoints, waypoints[1:])):
+        vector = np.array([w2.x - w1.x, w2.y - w1.y])
+        vectors.append(vector)
+        magnitude.append(np.linalg.norm(vector))
+        vector_unit = vector / np.linalg.norm(vector)
+        vectors_unit.append(vector_unit)
+        dot_product = np.dot(vectors_unit[i], vectors_unit[i+1])
+        angle = np.arccos(dot_product)
+        angles.append(angle)
+        #angles.append(math.degrees(angle)) # for testing
+    return magnitude, angles, vectors
+
+
+
+
+def distance1(obj1, obj2):
+    euc_dist = int(math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.y - obj2.y) ** 2))
+    return euc_dist
+
+
 
 def angle( obj1, obj2):
     angle = math.degrees(math.atan2((obj2.x - obj1.x), (obj2.y - obj1.y)))
@@ -54,9 +75,7 @@ def angle1(obj1,obj2):
     return math.degrees(angle)
 
 
-def distance1( obj1, obj2):
-    euc_dist = int(math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.y - obj2.y) ** 2))
-    return euc_dist
+
 
 
 
