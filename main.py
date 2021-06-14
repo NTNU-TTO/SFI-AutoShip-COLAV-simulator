@@ -1,9 +1,8 @@
-import math
-import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from functions import *
+from scenario_generator import *
 
 
 def main():
@@ -13,38 +12,47 @@ def main():
 
     # time
     t0 = 0
-    t_end = 60
+    t_end = 100
     dt = 1
     t = np.arange(t0, t_end + dt, dt)
 
-    #waypoints
-    w1 = waypoint(0,0)
-    w2 = waypoint(150,290)
-    w3 = waypoint(400, 100)
-    w4 = waypoint(200, -200)
-    waypoints = [w1, w2, w3, w4]
+    # dimensions of the map
+    width = 4000
+    length = 4000
 
-    # creating ships
-    ship1 = Ship(w1.x, w1.y, 1, 0, 'Ship A') #
+    # number of waypoints
+    wp_number = 7
 
-    magnitude, angles, vectors = waypoint_vectors(ship1, waypoints)
+    ########################################
+    # SCENARIOS
+    ########################################
 
+    # creating random scenarios
+    # scenario_num = 0 -> random selection
+    # scenario_num = 1 -> head on
+    # scenario_num = 2 -> overtaking
+    # scenario_num = 3 -> overtaken
+    # scenario_num = 4 -> crossing give way
+    # scenario_num = 5 -> crossing stand on
 
+    ship_list = ship_generator(Ship, scenario_num=0, map_width=width, map_length=length, os_max_speed=30,
+                               ts_max_speed=30, ship_number=5)
 
-    # creating ships data
-    x1, y1, x1_t, y1_t = [], [], [], []
+    waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 
-    ship1.c += angles[0]
+    data = ship_data(ships=ship_list, waypoints=waypoint_list, time=t, timestep=dt)
+
+    colreg_rules = []
+    dist = []
+    '''
     for i in range(len(t)):
-        print(ship1.x, ship1.y)
-        ship1.move(dt)
-        x1.append(int(ship1.x))
-        y1.append(int(ship1.y))
-        ship1.future_pos(5)
-        x1_t.append(int(ship1.x_t))
-        y1_t.append(int(ship1.y_t))
+        # calculating distances between ships
+        dist_value = distance(ship1, ship2)
+        dist.append(dist_value)
 
-
+        # colreg rules for each target ships
+        iter_colreg_rules(ship1, ship_list, colreg_rules)
+    '''
 
 
 
@@ -52,43 +60,60 @@ def main():
     # ANIMATION PART
     ###############################################
 
-    # template
-    fig, ax = plt.subplots(figsize=(7, 7))
-    ax.set(xlim=(-500, 500), ylim=(-500, 500))
+    # template of the environment
+    x_env = data['Ship1'][0][0]
+    y_env = data['Ship1'][1][0]
+    fig, ax = plt.subplots(figsize=(9, 9), facecolor=(0.8, 0.8, 0.8))
+    ax.set(xlim=(x_env - 2000, x_env + 2000),
+           ylim=(y_env - 2000, y_env + 2000))
 
-    ship1_scat = ax.scatter(x1, y1, color='b', s=40)
-    ship1_vec, = ax.plot([], [], color='b')
+    # ship visualization framework
+    ship_scat_list = []
+    ship_vec_list = []
+    for j in range(1, len(data) + 1):
+        x = data[f'Ship{j}'][0]
+        y = data[f'Ship{j}'][1]
+        if j == 1:
+            name = 'Own ship'
+            c = 'b'
+        elif j == 2:
+            name = 'Target ship'
+            c = 'r'
+        else:
+            name = f'Ship {j}'
+            c = 'k'
+        ship_scat = ax.scatter(x, y, color=c, s=40, label=name)
+        ship_vec, = ax.plot([], [], color=c)
+        ship_scat_list.append(ship_scat)
+        ship_vec_list.append(ship_vec)
 
-    w1_scat = ax.scatter(w1.x, w1.y, color = 'r', s = 20)
-    w2_scat = ax.scatter(w2.x, w2.y, color='r', s=20)
-    w3_scat = ax.scatter(w3.x, w3.y, color='r', s=20)
-    w4_scat = ax.scatter(w4.x, w4.y, color='r', s=20)
+    plt.legend(loc='upper right')
 
-    origin = np.array([[w1.x,w1.y], [w2.x, w2.y]])
-
-
+    # visualizing waypoints
+    for j in range(1, len(data) + 1):
+        if j == 1:
+            c = 'b'
+        elif j == 2:
+            c = 'r'
+        else:
+            c = 'k'
+        waypoints = data[f'Ship{j}'][4]
+        for w in range(0, wp_number):
+            ax.scatter(waypoints[w][0], waypoints[w][1], color=c, s=20, alpha=0.4)
+            ax.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c,
+                    alpha=0.3)
 
     # animation function
     def animate(i):
-        # ship1 movement
-        ship1_scat.set_offsets(np.c_[x1[i], y1[i]])
-        ship1_vec.set_data([x1[i], x1_t[i]], [y1[i], y1_t[i]])
-
-        w1_scat
-        w2_scat
-        w3_scat
-        w4_scat
-
-
-
-
+        for ix in range(1, len(data) + 1):
+            ship_scat_list[ix - 1].set_offsets(np.c_[data[f'Ship{ix}'][0][i], data[f'Ship{ix}'][1][i]])
+            ship_vec_list[ix - 1].set_data([data[f'Ship{ix}'][0][i], data[f'Ship{ix}'][2][i]], [data[f'Ship{ix}'][1][i],
+                                                                                                data[f'Ship{ix}'][3][
+                                                                                                    i]])
 
     # running the animation
     anim = animation.FuncAnimation(fig, animate, interval=100, frames=len(t) - 1)
     plt.show()
-
-
-
 
 
 if __name__ == '__main__':
