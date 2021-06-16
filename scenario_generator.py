@@ -9,7 +9,7 @@ def random_pose(map_width, map_length, os_max_speed, *constraint):
     # random x and y values from map dimension data
     if constraint:
         square = polygon(constraint[0] - 2000, constraint[1] - 2000, 1000)
-        x, y = random_point_polygon(square)
+        x, y = random_point_polygon(square, map_width, map_length)
     else:
         x = random.randint(-map_width / 2, map_width / 2)
         y = random.randint(-map_length / 2, map_length / 2)
