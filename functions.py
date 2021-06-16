@@ -1,23 +1,47 @@
 import math
 import random
-
+import numpy as np
+from matplotlib.patches import Ellipse, Circle
+import shapely
+from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 
 class Ship:
-    def __init__(self, x, y, speed, heading, name):
+    '''
+    x, y : Initial x and y values of the ship.
+    speed: Initial speed value.
+    heading: Initial true heading or course of the ship. It is a value between 0-359 degrees.
+    name: Name of the ship.
+    x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
+    noise: Used to create a random value for ship to be off the route.
+    '''
+    def __init__(self, x, y, speed, heading, length, mmsi):
         self.x = x
         self.y = y
         self.v = speed
         self.c = math.radians(heading)  # In radians
-        self.pivot = 100  # Length of pivot point from the rudder
-        self.name = name
-        self.x_t = 0  # x position in the future for course visualisation
-        self.y_t = 0  # y position in the future for course visualisation
+        self.length = length
+        self.mmsi = mmsi
+        self.x_t = 0
+        self.y_t = 0
 
-        # noise for waypoints
-        noise = random.uniform(0, 20)
+        noise = random.uniform(0, 100)
         self.wp = [(self.x + noise, self.y + noise)]
 
+        # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
+        # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
+        if self.length <= 45:
+            self.message_nr = 18
+        else:
+            self.message_nr = random.randint(1, 3)
+
     def waypoints(self, wp_number):
+        '''
+        Creates random waypoints starting from the ship's position.
+        wp_number: Number of waypoints to create.
+        n: Random distance between waypoints.
+        alpha: Angle in radians to make waypoints in zigzag shape.
+               A bigger value makes the every odd waypoint away from the initial direction.
+        '''
         for each in range(wp_number):
             n = random.randint(200, 1000)
             alpha = random.uniform(0, 0.3)

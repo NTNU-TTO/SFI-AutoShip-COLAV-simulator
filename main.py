@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from functions import *
 from scenario_generator import *
-
+from map import *
+import pandas as pd
 
 def main():
     ###############################################
@@ -17,8 +18,8 @@ def main():
     t = np.arange(t0, t_end + dt, dt)
 
     # dimensions of the map
-    width = 4000
-    length = 4000
+    width = 8000
+    length = 8000
 
     # number of waypoints
     wp_number = 7
@@ -34,27 +35,15 @@ def main():
     # scenario_num = 3 -> overtaken
     # scenario_num = 4 -> crossing give way
     # scenario_num = 5 -> crossing stand on
-
     ship_list = ship_generator(Ship, scenario_num=0, map_width=width, map_length=length, os_max_speed=30,
-                               ts_max_speed=30, ship_number=5)
+                               ts_max_speed=30, ship_number=3)
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 
-    data = ship_data(ships=ship_list, waypoints=waypoint_list, time=t, timestep=dt)
+    data, ais_data = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=dt)
 
-    colreg_rules = []
-    dist = []
-    '''
-    for i in range(len(t)):
-        # calculating distances between ships
-        dist_value = distance(ship1, ship2)
-        dist.append(dist_value)
-
-        # colreg rules for each target ships
-        iter_colreg_rules(ship1, ship_list, colreg_rules)
-    '''
-
-
+    # exporting ais_data.csv
+    ais_data.to_csv('ais_data.csv')
 
     ###############################################
     # ANIMATION PART
@@ -64,12 +53,19 @@ def main():
     x_env = data['Ship1'][0][0]
     y_env = data['Ship1'][1][0]
     fig, ax = plt.subplots(figsize=(9, 9), facecolor=(0.8, 0.8, 0.8))
-    ax.set(xlim=(x_env - 2000, x_env + 2000),
-           ylim=(y_env - 2000, y_env + 2000))
+    ax.set(xlim=(x_env - 4000, x_env + 4000),
+           ylim=(y_env - 4000, y_env + 4000))
+
+    #background
+    polygon1 = polygon(x_env - 2000,y_env - 2000, 1000)
+    x_pol, y_pol = polygon1.exterior.xy
+    ax.plot(x_pol, y_pol)
 
     # ship visualization framework
     ship_scat_list = []
     ship_vec_list = []
+    ship_ellipse_list = []
+
     for j in range(1, len(data) + 1):
         x = data[f'Ship{j}'][0]
         y = data[f'Ship{j}'][1]
@@ -84,8 +80,10 @@ def main():
             c = 'k'
         ship_scat = ax.scatter(x, y, color=c, s=40, label=name)
         ship_vec, = ax.plot([], [], color=c)
+        ship_ellipse, = ax.plot([], [], color='r', alpha=0.4)
         ship_scat_list.append(ship_scat)
         ship_vec_list.append(ship_vec)
+        ship_ellipse_list.append(ship_ellipse)
 
     plt.legend(loc='upper right')
 
