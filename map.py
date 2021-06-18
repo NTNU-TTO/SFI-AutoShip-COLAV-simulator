@@ -2,13 +2,9 @@ from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.collections import PatchCollection
-from descartes import PolygonPatch
-import seacharts
-import shapely.ops as so
-import cartopy.crs as ccrs
-import geopandas as gpd
 from matplotlib.pyplot import figure
+import seacharts
+
 
 
 def polygon(x0, y0, size):
@@ -29,24 +25,33 @@ def random_point_polygon(poly, map_width, map_length):
     return x_r, y_r
 
 
+
 enc = seacharts.ENC()
 enc.close_display()
 
 
 
 def blues(bins):
+    #blue color palette
     return plt.get_cmap('Blues')(np.linspace(0.6, 0.9, bins))
 
 def greens(bins):
+    # green color palette
     return plt.get_cmap('Greens')(np.linspace(0.6, 0.5, bins))
-
 
 
 #figure(figsize=(9, 6), dpi=80)
 
-def background():
+def background(*show):
+    """
+    Creates a static background based on seacharts module
+    arg: show = Option for visualization
+    return: tuple of x-dimensions amd y-dimensions  of background
+    """
+
     layers = []
     colors = []
+    # For every layer put in list and assign color a
     if enc.land:
         land = enc.land
         layers.append(land)
@@ -66,19 +71,26 @@ def background():
             layers.append(enc.seabed[key])
         colors.append(blues(len(sea_k)))
 
+    # Flatten color list
     colors_new = []
     for sublist in colors:
         for color in sublist:
             colors_new.append(color)
 
+    # Plot the contour for every layer and assign color
     for c, layer in enumerate(layers):
         for i in range(len(layer.geometry)):
             poly = layer.geometry[i]
             x, y = poly.exterior.xy
-            plt.fill(x, y, c =colors_new[c], zorder=layer.z_order)
-    #print(plt.xlim())
-    #print(plt.ylim())
-    #plt.show()
+            plt.fill(x, y, c=colors_new[c], zorder=layer.z_order)
+    x_lim = plt.xlim()
+    y_lim = plt.ylim()
+
+    # need only dimension of map for initialization
+    if not show:
+        plt.close()
+    return x_lim, y_lim
+
 
 
 

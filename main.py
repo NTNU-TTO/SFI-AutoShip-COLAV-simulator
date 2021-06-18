@@ -18,8 +18,10 @@ def main():
     t = np.arange(t0, t_end + dt, dt)
 
     # dimensions of the map
-    width = 8000
-    length = 8000
+    x_lim, y_lim = background()
+    width = [x_lim[0]+900, x_lim[1]-900]
+    length = [y_lim[0]+600, y_lim[1]-600]
+
 
 
 
@@ -52,16 +54,11 @@ def main():
     ###############################################
 
     # template of the environment
-    x_env = data['Ship1'][0][0]
-    y_env = data['Ship1'][1][0]
     fig, ax = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
-    #ax.set(xlim=(x_env - 4000, x_env + 4000),
-    #       ylim=(y_env - 4000, y_env + 4000))
+    x_lim, y_lim = background('show')
+    ax.set(xlim=(x_lim[0]+900, x_lim[1]-900), ylim=(y_lim[0]+600, y_lim[1]-600))
 
-    #background
-    #ax.set(xlim=(35100.0, 53500.0), ylim=(6950250.0, 6962650.0))
-    ax.set(xlim=(35300.0, 53300.0), ylim=(6950450, 6962450.0))
-    background()
+
 
 
 

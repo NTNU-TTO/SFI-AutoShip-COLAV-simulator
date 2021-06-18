@@ -6,8 +6,8 @@ import pandas as pd
 
 def random_pose(map_width, map_length, os_max_speed):
     # random x and y values from map dimension data
-    x = random.randint(35299, 53300) #x = random.randint(-map_width / 2, map_width / 2)
-    y = random.randint(6950450, 6962450) #y = random.randint(-map_length / 2, map_length / 2)
+    x = random.randint(map_width[0], map_width[1])
+    y = random.randint(map_length[0], map_length[1])
     # random speed
     speed = round(random.uniform(1, os_max_speed), 1)
     # random heading angle in degrees
