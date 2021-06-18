@@ -2,17 +2,12 @@ import random
 import math
 from functions import Ship
 import pandas as pd
-from map import *
 
 
-def random_pose(map_width, map_length, os_max_speed, *constraint):
+def random_pose(map_width, map_length, os_max_speed):
     # random x and y values from map dimension data
-    if constraint:
-        square = polygon(constraint[0] - 2000, constraint[1] - 2000, 1000)
-        x, y = random_point_polygon(square, map_width, map_length)
-    else:
-        x = random.randint(-map_width / 2, map_width / 2)
-        y = random.randint(-map_length / 2, map_length / 2)
+    x = random.randint(35299, 53300) #x = random.randint(-map_width / 2, map_width / 2)
+    y = random.randint(6950450, 6962450) #y = random.randint(-map_length / 2, map_length / 2)
     # random speed
     speed = round(random.uniform(1, os_max_speed), 1)
     # random heading angle in degrees
@@ -131,7 +126,7 @@ def ship_generator(Ship, scenario_num, map_width, map_length, os_max_speed, ts_m
 
     ship_number = ship_number - 2
     for i in range(ship_number):
-        x, y, speed, heading, length = random_pose(map_width, map_length, ts_max_speed,  x1, y1)
+        x, y, speed, heading, length = random_pose(map_width, map_length, ts_max_speed)
         ship_i = Ship(x, y, speed, heading, length, mmsi=f'Ship{i+3}')
         ship_list.append(ship_i)
 

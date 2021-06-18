@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 from functions import *
 from scenario_generator import *
 from map import *
-import pandas as pd
+
 
 def main():
     ###############################################
@@ -21,6 +21,8 @@ def main():
     width = 8000
     length = 8000
 
+
+
     # number of waypoints
     wp_number = 7
 
@@ -36,7 +38,7 @@ def main():
     # scenario_num = 4 -> crossing give way
     # scenario_num = 5 -> crossing stand on
     ship_list = ship_generator(Ship, scenario_num=0, map_width=width, map_length=length, os_max_speed=30,
-                               ts_max_speed=30, ship_number=3)
+                               ts_max_speed=30, ship_number=5)
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 
@@ -52,19 +54,20 @@ def main():
     # template of the environment
     x_env = data['Ship1'][0][0]
     y_env = data['Ship1'][1][0]
-    fig, ax = plt.subplots(figsize=(9, 9), facecolor=(0.8, 0.8, 0.8))
-    ax.set(xlim=(x_env - 4000, x_env + 4000),
-           ylim=(y_env - 4000, y_env + 4000))
+    fig, ax = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
+    #ax.set(xlim=(x_env - 4000, x_env + 4000),
+    #       ylim=(y_env - 4000, y_env + 4000))
 
     #background
-    polygon1 = polygon(x_env - 2000,y_env - 2000, 1000)
-    x_pol, y_pol = polygon1.exterior.xy
-    ax.plot(x_pol, y_pol)
+    ax.set(xlim=(35100.0, 53500.0), ylim=(6950250.0, 6962650.0))
+    #ax.set(xlim=(35300.0, 53300.0), ylim=(6950450, 6962450.0))
+    background()
+
+
 
     # ship visualization framework
     ship_scat_list = []
     ship_vec_list = []
-    ship_ellipse_list = []
 
     for j in range(1, len(data) + 1):
         x = data[f'Ship{j}'][0]
@@ -80,10 +83,8 @@ def main():
             c = 'k'
         ship_scat = ax.scatter(x, y, color=c, s=40, label=name)
         ship_vec, = ax.plot([], [], color=c)
-        ship_ellipse, = ax.plot([], [], color='r', alpha=0.4)
         ship_scat_list.append(ship_scat)
         ship_vec_list.append(ship_vec)
-        ship_ellipse_list.append(ship_ellipse)
 
     plt.legend(loc='upper right')
 
