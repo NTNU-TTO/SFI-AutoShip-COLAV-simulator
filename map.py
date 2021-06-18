@@ -34,53 +34,48 @@ enc.close_display()
 
 
 
-def blues(bins=11):
+def blues(bins):
     return plt.get_cmap('Blues')(np.linspace(0.6, 0.9, bins))
 
-def greens(bins=9):
-    return plt.get_cmap('Greens')(np.linspace(0.3, 0.9, bins))
+def greens(bins):
+    return plt.get_cmap('Greens')(np.linspace(0.6, 0.5, bins))
 
-blue = blues(11)
-#print(blue[0])
-
-#print(blue[0])
-#np.append( blue,'mediumblue')
-#np.append( blue,'darkblue')
-#np.append( blue,'midnightblue')
 
 
 #figure(figsize=(9, 6), dpi=80)
 
 def background():
-    '''
     layers = []
     colors = []
     if enc.land:
         land = enc.land
         layers.append(land)
         colors.append(greens(1))
-    elif enc.shore:
+    if enc.shore:
         shore = enc.shore
         layers.append(shore)
         if enc.land:
             del colors[0]
-        else:
             colors.append(greens(2))
-        colors
-    '''
+        else:
+            colors.append(greens(1))
+    if enc.seabed:
+        sea = enc.seabed
+        sea_k = sea.keys()
+        for key in sea_k:
+            layers.append(enc.seabed[key])
+        colors.append(blues(len(sea_k)))
 
-    land = enc.land
-    shore = enc.shore
-    sea = enc.seabed.keys()
-    layers = [land, shore]
-    for key in sea:
-        layers.append(enc.seabed[key])
-    colors = ['g', 'wheat', 'lightblue', 'skyblue', 'deepskyblue', 'cornflowerblue', 'royalblue', 'blue', 'mediumblue', 'darkblue', 'midnightblue']
+    colors_new = []
+    for sublist in colors:
+        for color in sublist:
+            colors_new.append(color)
+
     for c, layer in enumerate(layers):
         for i in range(len(layer.geometry)):
             poly = layer.geometry[i]
             x, y = poly.exterior.xy
-            plt.fill(x, y, c =blue[c], zorder=layer.z_order)
+            plt.fill(x, y, c =colors_new[c], zorder=layer.z_order)
     #print(plt.xlim())
     #print(plt.ylim())
     #plt.show()
