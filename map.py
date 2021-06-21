@@ -1,46 +1,24 @@
-from shapely.geometry import Point, Polygon, LineString, GeometryCollection
+from shapely.geometry import Point
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import figure
 import seacharts
-
-
-
-def polygon(x0, y0, size):
-    polygon1 = Polygon([(x0 - size, y0 - size), (x0 + size, y0 - size), (x0 + size, y0 + size), (x0 - size, y0 + size)])
-    return polygon1
-
-
-def random_point_polygon(poly, map_width, map_length):
-    x_r = random.randint(-map_width / 2, map_width / 2)
-    y_r = random.randint(-map_length / 2, map_length / 2)
-    p = Point(x_r, y_r)
-    print('before')
-    while poly.within(p):
-        print('inside')
-        x_r = random.randint(-map_width / 2, map_width / 2)
-        y_r = random.randint(-map_length / 2, map_length / 2)
-        p = Point(x_r, y_r)
-    return x_r, y_r
-
+from geopandas import GeoSeries
 
 
 enc = seacharts.ENC()
 enc.close_display()
 
 
-
 def blues(bins):
-    #blue color palette
+    # blue color palette
     return plt.get_cmap('Blues')(np.linspace(0.6, 0.9, bins))
+
 
 def greens(bins):
     # green color palette
     return plt.get_cmap('Greens')(np.linspace(0.6, 0.5, bins))
 
-
-#figure(figsize=(9, 6), dpi=80)
 
 def background(*show):
     """
@@ -48,10 +26,9 @@ def background(*show):
     arg: show = Option for visualization
     return: tuple of x-dimensions amd y-dimensions  of background
     """
-
     layers = []
     colors = []
-    # For every layer put in list and assign color a
+    # For every layer put in list and assign a color
     if enc.land:
         land = enc.land
         layers.append(land)
@@ -76,7 +53,6 @@ def background(*show):
     for sublist in colors:
         for color in sublist:
             colors_new.append(color)
-
     # Plot the contour for every layer and assign color
     for c, layer in enumerate(layers):
         for i in range(len(layer.geometry)):
@@ -92,8 +68,47 @@ def background(*show):
     return x_lim, y_lim
 
 
+def draft_to_seabed(draft):
+    """
+    Randomly chooses a valid sea depth (seabed) depending on ship's draft
+    """
+    seabeds = [5, 10, 20, 50, 100, 200, 350, 500]
+    for seabed in seabeds:
+        if not enc.seabed[seabed].geometry:
+            seabeds.remove(seabed)
+    if 1 <= draft < 2:
+        index = random.randint(0, len(seabeds)-1)
+    elif 2 <= draft < 5:
+        index = random.randint(2, len(seabeds)-1)
+    else:
+        index = random.randint(3, len(seabeds)-1)
+    return seabeds[index]
 
 
-#background()
-
+def start_position(draft):
+    """
+    Randomly chooses a starting position for the ship depending on ship's draft
+    """
+    # choose a random valid polygon
+    seabed = draft_to_seabed(draft)
+    n_polygons = len(enc.seabed[seabed].mapping['coordinates'])-1
+    random_index = random.randint(0, n_polygons)
+    polygon = enc.seabed[seabed].geometry[random_index]
+    # make a rectangular box of points over polygon
+    exterior = polygon.exterior.xy
+    x_min, x_max = int(min(exterior[0])), int(max(exterior[0]))
+    y_min, y_max = int(min(exterior[1])), int(max(exterior[1]))
+    step_x, step_y = (x_max - x_min)/10, (y_max - y_min)/10
+    x, y = np.meshgrid(np.arange(x_min, x_max, step_x), np.arange(y_min, y_max, step_y))
+    x, y = x.flatten(), y.flatten()
+    points = GeoSeries(map(Point, zip(x, y)))
+    # find the points that lay within polygon
+    points_inside = []
+    for point in points:
+        if point.within(polygon):
+            points_inside.append(point)
+    # choose a randomly over the valid points
+    index = random.randint(0, len(points_inside)-1)
+    start_pos = points_inside[index]
+    return start_pos.x, start_pos.y
 

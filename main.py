@@ -61,7 +61,6 @@ def main():
 
 
 
-
     # ship visualization framework
     ship_scat_list = []
     ship_vec_list = []

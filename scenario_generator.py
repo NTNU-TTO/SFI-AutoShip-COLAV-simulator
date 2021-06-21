@@ -1,26 +1,27 @@
 import random
 import math
 from functions import Ship
+from map import start_position
 import pandas as pd
 
 
 def random_pose(map_width, map_length, os_max_speed):
-    # random x and y values from map dimension data
-    x = random.randint(map_width[0], map_width[1])
-    y = random.randint(map_length[0], map_length[1])
+    # random ship length
+    length = random.randint(10, 200)
+    # ship draft
+    draft = length/10
+    # start position for ship
+    x, y = start_position(draft)
     # random speed
     speed = round(random.uniform(1, os_max_speed), 1)
     # random heading angle in degrees
     heading = random.randint(0, 359)
-    # random ship length
-    length = random.randint(10, 200)
-
-    return x, y, speed, heading, length
+    return x, y, speed, heading, length, draft
 
 
 def head_on(map_width, map_length, os_max_speed, ts_max_speed):
     # random own ship
-    x1, y1, speed1, heading1, length1 = random_pose(map_width, map_length, os_max_speed)
+    x1, y1, speed1, heading1, length1, draft1 = random_pose(map_width, map_length, os_max_speed)
 
     # random target ship considering own ship pose
     x2 = x1 + random.randint(500, 1000) * math.sin(math.radians(heading1)) + random.randint(0, 200)
@@ -28,13 +29,14 @@ def head_on(map_width, map_length, os_max_speed, ts_max_speed):
     speed2 = round(random.uniform(1, ts_max_speed), 1)
     heading2 = heading1 + 180 + random.uniform(-14, 14)
     length2 = random.randint(10, 200)
+    draft2 = length2/10
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def overtaking(map_width, map_length, os_max_speed):
     # random own ship
-    x1, y1, speed1, heading1, length1 = random_pose(map_width, map_length, os_max_speed)
+    x1, y1, speed1, heading1, length1, draft1 = random_pose(map_width, map_length, os_max_speed)
 
     # random target ship considering own ship pose
     x2 = x1 + random.randint(500, 1000) * math.sin(math.radians(heading1)) + random.randint(0, 100)
@@ -42,13 +44,14 @@ def overtaking(map_width, map_length, os_max_speed):
     speed2 = round((speed1 - speed1 * random.uniform(0.5, 0.9)), 1)
     heading2 = heading1 + random.uniform(-13, 13)
     length2 = random.randint(10, 200)
+    draft2 = length2/10
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def overtaken(map_width, map_length, os_max_speed):
     # random own ship
-    x1, y1, speed1, heading1, length1 = random_pose(map_width, map_length, os_max_speed)
+    x1, y1, speed1, heading1, length1, draft1 = random_pose(map_width, map_length, os_max_speed)
 
     # random target ship considering own ship pose
     x2 = x1 - random.randint(500, 1000) * math.sin(math.radians(heading1)) + random.randint(0, 100)
@@ -56,13 +59,14 @@ def overtaken(map_width, map_length, os_max_speed):
     speed2 = round((speed1 + speed1 * random.uniform(0.5, 0.9)), 1)
     heading2 = heading1 + random.uniform(-13, 13)
     length2 = random.randint(10, 200)
+    draft2 = length2/2
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def crossing_give_way(map_width, map_length, os_max_speed, ts_max_speed):
     # random own ship
-    x1, y1, speed1, heading1, length1 = random_pose(map_width, map_length, os_max_speed)
+    x1, y1, speed1, heading1, length1, draft1 = random_pose(map_width, map_length, os_max_speed)
 
     # random target ship considering own ship pose
     n = random.uniform(0, 112.5)
@@ -71,13 +75,14 @@ def crossing_give_way(map_width, map_length, os_max_speed, ts_max_speed):
     speed2 = round(random.uniform(1, ts_max_speed), 1)
     heading2 = heading1 - 90
     length2 = random.randint(10, 200)
+    draft2 = length2/10
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def crossing_stand_on(map_width, map_length, os_max_speed, ts_max_speed):
     # random own ship
-    x1, y1, speed1, heading1, length1 = random_pose(map_width, map_length, os_max_speed)
+    x1, y1, speed1, heading1, length1, draft1 = random_pose(map_width, map_length, os_max_speed)
 
     # random target ship considering own ship pose
     n = random.uniform(-112.5, 0)
@@ -86,8 +91,9 @@ def crossing_stand_on(map_width, map_length, os_max_speed, ts_max_speed):
     speed2 = round(random.randint(1, ts_max_speed), 1)
     heading2 = heading1 + 90
     length2 = random.randint(10, 200)
+    draft2 = length2/10
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def random_scenario_generator(scenario_num, map_width, map_length, os_max_speed, ts_max_speed):
@@ -101,33 +107,33 @@ def random_scenario_generator(scenario_num, map_width, map_length, os_max_speed,
     '''
     if scenario_num == 0:
         n = random.randint(1, 5)
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = random_scenario_generator(n, map_width, map_length, os_max_speed, ts_max_speed)
+        x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2 = random_scenario_generator(n, map_width, map_length, os_max_speed, ts_max_speed)
     elif scenario_num == 1:
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = head_on(map_width, map_length, os_max_speed, ts_max_speed)
+        x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2 = head_on(map_width, map_length, os_max_speed, ts_max_speed)
     elif scenario_num == 2:
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = overtaking(map_width, map_length, os_max_speed)
+        x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2 = overtaking(map_width, map_length, os_max_speed)
     elif scenario_num == 3:
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = overtaken(map_width, map_length, os_max_speed)
+        x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2 = overtaken(map_width, map_length, os_max_speed)
     elif scenario_num == 4:
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = crossing_give_way(map_width, map_length, os_max_speed, ts_max_speed)
+        x1, y1, speed1, heading1, length1, draft1,  x2, y2, speed2, heading2, length2, draft2 = crossing_give_way(map_width, map_length, os_max_speed, ts_max_speed)
     elif scenario_num == 5:
-        x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = crossing_stand_on(map_width, map_length, os_max_speed, ts_max_speed)
+        x1, y1, speed1, heading1, length1, draft1,  x2, y2, speed2, heading2, length2, draft2 = crossing_stand_on(map_width, map_length, os_max_speed, ts_max_speed)
 
-    return x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2
+    return x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2
 
 
 def ship_generator(Ship, scenario_num, map_width, map_length, os_max_speed, ts_max_speed, ship_number):
     ship_list = []
-    x1, y1, speed1, heading1, length1, x2, y2, speed2, heading2, length2 = random_scenario_generator(scenario_num, map_width, map_length, os_max_speed, ts_max_speed)
-    ship1 = Ship(x1, y1, speed1, heading1, length1, mmsi='Ship1')
-    ship2 = Ship(x2, y2, speed2, heading2, length2, mmsi='Ship2')
+    x1, y1, speed1, heading1, length1, draft1, x2, y2, speed2, heading2, length2, draft2 = random_scenario_generator(scenario_num, map_width, map_length, os_max_speed, ts_max_speed)
+    ship1 = Ship(x1, y1, speed1, heading1, length1, draft1, mmsi='Ship1')
+    ship2 = Ship(x2, y2, speed2, heading2, length2, draft2, mmsi='Ship2')
     ship_list.append(ship1)
     ship_list.append(ship2)
 
     ship_number = ship_number - 2
     for i in range(ship_number):
-        x, y, speed, heading, length = random_pose(map_width, map_length, ts_max_speed)
-        ship_i = Ship(x, y, speed, heading, length, mmsi=f'Ship{i+3}')
+        x, y, speed, heading, length, draft = random_pose(map_width, map_length, ts_max_speed)
+        ship_i = Ship(x, y, speed, heading, length, draft, mmsi=f'Ship{i+3}')
         ship_list.append(ship_i)
 
     return ship_list

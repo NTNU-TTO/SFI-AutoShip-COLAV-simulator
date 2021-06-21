@@ -14,12 +14,13 @@ class Ship:
     x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
     noise: Used to create a random value for ship to be off the route.
     '''
-    def __init__(self, x, y, speed, heading, length, mmsi):
+    def __init__(self, x, y, speed, heading, length, draft, mmsi):
         self.x = x
         self.y = y
         self.v = speed
         self.c = math.radians(heading)  # In radians
         self.length = length
+        self.draft = draft
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
