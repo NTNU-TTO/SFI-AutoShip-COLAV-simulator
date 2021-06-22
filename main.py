@@ -5,7 +5,6 @@ from functions import *
 from scenario_generator import *
 from map import *
 
-
 def main():
     ###############################################
     # INITIALISATION
@@ -23,10 +22,8 @@ def main():
     length = [y_lim[0]+600, y_lim[1]-600]
 
 
-
-
     # number of waypoints
-    wp_number = 7
+    wp_number = 10
 
     ########################################
     # SCENARIOS
@@ -40,7 +37,7 @@ def main():
     # scenario_num = 4 -> crossing give way
     # scenario_num = 5 -> crossing stand on
     ship_list = ship_generator(Ship, scenario_num=0, map_width=width, map_length=length, os_max_speed=30,
-                               ts_max_speed=30, ship_number=5)
+                               ts_max_speed=30, ship_number=4)
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 

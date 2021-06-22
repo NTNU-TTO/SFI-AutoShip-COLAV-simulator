@@ -4,6 +4,8 @@ import numpy as np
 from matplotlib.patches import Ellipse, Circle
 import shapely
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
+from map import *
+
 
 class Ship:
     '''
@@ -17,7 +19,7 @@ class Ship:
     def __init__(self, x, y, speed, heading, length, draft, mmsi):
         self.x = x
         self.y = y
-        self.v = speed
+        self.v = speed * 0.51           # converting knots to meters per second
         self.c = math.radians(heading)  # In radians
         self.length = length
         self.draft = draft
@@ -25,7 +27,7 @@ class Ship:
         self.x_t = 0
         self.y_t = 0
 
-        noise = random.uniform(0, 100)
+        noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
@@ -45,6 +47,29 @@ class Ship:
         '''
         for each in range(wp_number):
             n = random.randint(200, 1000)
+            alpha = random.uniform(0, 0.2)
+            wp_x = self.wp[each][0] - n * math.sin(-self.c + alpha)
+            wp_y = self.wp[each][1] + n * math.cos(-self.c + alpha)
+            # check if the waypoint path is intersecting with the shore polygon
+            wp_line = LineString([(self.wp[each][0], self.wp[each][1]), (wp_x, wp_y)])
+            if wp_line.intersects(enc.shore.geometry) == True:
+                wp_x = self.wp[each][0]
+                wp_y = self.wp[each][1]
+            self.wp.append((wp_x, wp_y))
+
+        return self.wp
+
+    '''
+    def waypoints(self, wp_number):
+        
+        Creates random waypoints starting from the ship's position.
+        wp_number: Number of waypoints to create.
+        n: Random distance between waypoints.
+        alpha: Angle in radians to make waypoints in zigzag shape.
+               A bigger value makes the every odd waypoint away from the initial direction.
+        
+        for each in range(wp_number):
+            n = random.randint(200, 1000)
             alpha = random.uniform(0, 0.3)
             if each % 2 != 0:
                 self.wp.append((self.wp[each][0] - n * math.sin(-self.c + alpha),
@@ -53,10 +78,16 @@ class Ship:
                 self.wp.append((self.wp[each][0] - n * math.sin(-self.c),
                                 self.wp[each][1] + n * math.cos(-self.c)))
         return self.wp
+    '''
 
     def move(self, dt):
         self.x -= self.v * math.sin(-self.c) * dt
         self.y += self.v * math.cos(-self.c) * dt
+        # check if the ship in the future is inside the shore polygons. If so, stop the ship.
+        self.future_pos(10)
+        ship_pos = Point(self.x_t, self.y_t)
+        if enc.shore.geometry.contains(ship_pos) == True:
+            self.v = 0
 
     def follow_waypoints(self, dt, waypoints, each):
         if waypoints[each][0] - 50 < self.x < waypoints[each][0] + 50 and \
