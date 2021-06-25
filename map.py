@@ -3,15 +3,13 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import seacharts
-from geopandas import GeoSeries
+from read_config import *
 
-# Defining a local region of the map.
-size = 7000, 7000              # w, h (east, north) distance in meters
-center = 44300, 6956450         # easting/northing (UTM zone 33N)
-files = ['More_og_Romsdal.gdb']  # Norwegian county database name
+size, center, files, new_data, time_start, time_step,\
+time_end, waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num = read_config()
 
 # Creating shapefiles from the defined region
-enc = seacharts.ENC(size=size, center=center, files=files, new_data=False)
+enc = seacharts.ENC(size=size, center=center, files=files, new_data=new_data)
 enc.close_display()
 
 
@@ -54,7 +52,6 @@ def background(*show):
                 sea_k.remove(key)
             layers.append(enc.seabed[key])
         colors.append(blues(len(sea_k)))
-
     # Flatten color list
     colors_new = []
     for sublist in colors:
@@ -64,9 +61,12 @@ def background(*show):
     for c, layer in enumerate(layers):
         for i in range(len(layer.mapping['coordinates'])):
             pol = list(layer.mapping['coordinates'][i][0])
-            poly = Polygon(pol)
-            x, y = poly.exterior.xy
-            plt.fill(x, y, c=colors_new[c], zorder=layer.z_order)
+            try:
+                poly = Polygon(pol)
+                x, y = poly.exterior.xy
+                plt.fill(x, y, c=colors_new[c], zorder=layer.z_order)
+            except:
+                print('Error plotting polygon',i, 'in', layer)
     x_lim = plt.xlim()
     y_lim = plt.ylim()
 
@@ -103,12 +103,12 @@ def start_position(draft):
     seabed_id = draft_to_seabed(draft)
     safe_sea = enc.seabed[seabed_id]
     # Creating random x and y positions of the ship inside the safe sea area.
-    rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) -900)
-    rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) -600)
+    rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) - 900)
+    rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) - 600)
     random_point = Point(rand_x, rand_y)
     while not safe_sea.geometry.contains(random_point):
-        rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) -900)
-        rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) -600)
+        rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) - 900)
+        rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) - 600)
         random_point = Point(rand_x, rand_y)
     return rand_x, rand_y
 
