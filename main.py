@@ -1,9 +1,8 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from functions import *
 from scenario_generator import *
 from map import *
+
+
 
 def main():
     ###############################################
@@ -11,37 +10,18 @@ def main():
     ###############################################
 
     # time
-    t0 = 0
-    t_end = 100
-    dt = 1
-    t = np.arange(t0, t_end + dt, dt)
-
-    # dimensions of the map
-    x_lim, y_lim = background()
-    width = [x_lim[0]+900, x_lim[1]-900]
-    length = [y_lim[0]+600, y_lim[1]-600]
-
+    t = np.arange(time_start, time_end + time_step, time_step)
 
     # number of waypoints
-    wp_number = 10
+    wp_number = waypoint_num
 
-    ########################################
-    # SCENARIOS
-    ########################################
-
-    # creating random scenarios
-    # scenario_num = 0 -> random selection
-    # scenario_num = 1 -> head on
-    # scenario_num = 2 -> overtaking
-    # scenario_num = 3 -> overtaken
-    # scenario_num = 4 -> crossing give way
-    # scenario_num = 5 -> crossing stand on
-    ship_list = ship_generator(Ship, scenario_num=0, map_width=width, map_length=length, os_max_speed=30,
-                               ts_max_speed=30, ship_number=4)
+    # scenarios
+    ship_list = ship_generator(Ship, scenario_num=scenario_num,
+                               os_max_speed=os_max_speed, ts_max_speed=ts_max_speed, ship_number=ship_num)
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 
-    data, ais_data = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=dt)
+    data, ais_data = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=time_step)
 
     # exporting ais_data.csv
     ais_data.to_csv('ais_data.csv')
@@ -54,8 +34,6 @@ def main():
     fig, ax = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
     x_lim, y_lim = background('show')
     ax.set(xlim=(x_lim[0]+900, x_lim[1]-900), ylim=(y_lim[0]+600, y_lim[1]-600))
-
-
 
 
     # ship visualization framework
