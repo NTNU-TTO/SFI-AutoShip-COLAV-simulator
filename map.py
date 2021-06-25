@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seacharts
 from read_config import *
 
-size, center, files, new_data, time_start, time_step,\
+files, center, size, new_data, time_start, time_step,\
 time_end, waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num = read_config()
 
 # Creating shapefiles from the defined region
@@ -111,6 +111,5 @@ def start_position(draft):
         rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) - 600)
         random_point = Point(rand_x, rand_y)
     return rand_x, rand_y
-
 
 

@@ -61,7 +61,7 @@ def confirm_input(user, key, check, defaults, i_0, i_1):
             if key == 'scenario_num' and (not 0 <= user[key] <= 5):
                 print(key, "must be set to 0, 1, 2, 3, 4 or 5.")
                 raise ValueError(f"must be set to 0, 1, 2, 3, 4 or 5.")
-            if key == 'files':
+            if key == 'file':
                 user[key] = [user[key]]
                 validate(key, user[key], list, str)
                 verify_directory_exists(user[key][0])
@@ -83,7 +83,7 @@ def confirm_input(user, key, check, defaults, i_0, i_1):
                 print('Using default setting for', key, 'with value ', user[key])
         else:
             user[key] = check(default[i_0])
-            if key == 'files':
+            if key == 'file':
                 user[key] = check(default[i_0])
                 user[key] = [user[key]]
                 user['new_data'] = [eval('True')]
@@ -103,7 +103,7 @@ def read_config():
     confirm_input(user, key, int, defaults, i_0=0, i_1=1)
     validate(key, user[key], tuple, int, 2)
 
-    key = 'files'
+    key = 'file'
     confirm_input(user, key, str, defaults, i_0=0, i_1=0)
     validate(key, user[key], list, str)
     verify_directory_exists(user[key][0])
