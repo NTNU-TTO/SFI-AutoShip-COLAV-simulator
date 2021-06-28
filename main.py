@@ -1,9 +1,10 @@
 import matplotlib.animation as animation
 from scenario_generator import *
 from map import *
+from yaspin import yaspin
 
 
-
+@yaspin(text="Running...")
 def main():
     ###############################################
     # INITIALISATION
@@ -88,3 +89,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
