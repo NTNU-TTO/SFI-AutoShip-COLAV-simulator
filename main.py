@@ -30,60 +30,50 @@ def main():
     ###############################################
     # ANIMATION PART
     ###############################################
-
-    # template of the environment
-    fig, ax = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
+    fig1, ax1 = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
     x_lim, y_lim = background('show')
-    ax.set(xlim=(x_lim[0]+900, x_lim[1]-900), ylim=(y_lim[0]+600, y_lim[1]-600))
 
-
-    # ship visualization framework
-    ship_scat_list = []
-    ship_vec_list = []
-
-    for j in range(1, len(data) + 1):
-        x = data[f'Ship{j}'][0]
-        y = data[f'Ship{j}'][1]
-        if j == 1:
-            name = 'Own ship'
+    # make the position(circle) and speed(line) visualizing
+    circles = []
+    lines = []
+    for i in range(len(data)):
+        if i == 0:
             c = 'b'
-        elif j == 2:
-            name = 'Target ship'
+            circles.append(plt.plot([], [], c + 'o', label='Own ship')[0])
+            lines.append(plt.plot([], [], c + '-')[0])
+        elif i == 1:
             c = 'r'
+            circles.append(plt.plot([], [], c + 'o', label='Target ship')[0])
+            lines.append(plt.plot([], [], c + '-')[0])
         else:
-            name = f'Ship {j}'
             c = 'k'
-        ship_scat = ax.scatter(x, y, color=c, s=40, label=name)
-        ship_vec, = ax.plot([], [], color=c)
-        ship_scat_list.append(ship_scat)
-        ship_vec_list.append(ship_vec)
+            circles.append(plt.plot([], [], 'ko')[0])
+            lines.append(plt.plot([], [], 'k-')[0])
+        if show_waypoints:
+            waypoints = data[f'Ship{i+1}'][4]
+            for w in range(wp_number):
+                ax1.scatter(waypoints[w][0], waypoints[w][1], color=c, s=20, alpha=0.4)
+                ax1.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c, alpha=0.4)
+
+
+    # animation set up
+    artists = circles + lines
+
+    def init():
+        ax1.set_xlim(x_lim[0] + 900, x_lim[1] - 900)
+        ax1.set_ylim(y_lim[0] + 600, y_lim[1] - 600)
+        return artists
+
+    def update(i):
+        for j in range(len(data)):
+            circles[j].set_xdata(data[f'Ship{j+1}'][0][i])
+            circles[j].set_ydata(data[f'Ship{j+1}'][1][i])
+            lines[j].set_data([data[f'Ship{j+1}'][0][i], data[f'Ship{j+1}'][2][i]], [data[f'Ship{j+1}'][1][i], data[f'Ship{j+1}'][3][i]])
+        artists = circles + lines
+        return artists
 
     plt.legend(loc='upper right')
-
-    # visualizing waypoints
-    for j in range(1, len(data) + 1):
-        if j == 1:
-            c = 'b'
-        elif j == 2:
-            c = 'r'
-        else:
-            c = 'k'
-        waypoints = data[f'Ship{j}'][4]
-        for w in range(0, wp_number):
-            ax.scatter(waypoints[w][0], waypoints[w][1], color=c, s=20, alpha=0.4)
-            ax.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c,
-                    alpha=0.3)
-
-    # animation function
-    def animate(i):
-        for ix in range(1, len(data) + 1):
-            ship_scat_list[ix - 1].set_offsets(np.c_[data[f'Ship{ix}'][0][i], data[f'Ship{ix}'][1][i]])
-            ship_vec_list[ix - 1].set_data([data[f'Ship{ix}'][0][i], data[f'Ship{ix}'][2][i]], [data[f'Ship{ix}'][1][i],
-                                                                                                data[f'Ship{ix}'][3][
-                                                                                                    i]])
-
-    # running the animation
-    anim = animation.FuncAnimation(fig, animate, interval=100, frames=len(t) - 1)
+    ani = animation.FuncAnimation(fig1, update,  frames=len(t) - 1, init_func=init, blit=True)
     plt.show()
 
 
