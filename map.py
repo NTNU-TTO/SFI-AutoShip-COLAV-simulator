@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import seacharts
 from read_config import *
 
-files, center, size, new_data, time_start, time_step,\
-time_end, waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num = read_config()
+files, center, size, new_data, time_start, time_step, \
+time_end, waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num, show_waypoints = read_config()
 
 # Creating shapefiles from the defined region
 enc = seacharts.ENC(size=size, center=center, files=files, new_data=new_data)
@@ -66,7 +66,7 @@ def background(*show):
                 x, y = poly.exterior.xy
                 plt.fill(x, y, c=colors_new[c], zorder=layer.z_order)
             except:
-                print('Error plotting polygon',i, 'in', layer)
+                print('Error plotting polygon', i, 'in', layer)
     x_lim = plt.xlim()
     y_lim = plt.ylim()
 
@@ -74,6 +74,7 @@ def background(*show):
     if not show:
         plt.close()
     return x_lim, y_lim
+
 
 def draft_to_seabed(draft):
     """
@@ -88,12 +89,13 @@ def draft_to_seabed(draft):
         if len(sea[i].mapping['coordinates']) == 1:
             seabed_val.remove(i)
     if 1 <= draft < 2:
-        index = random.randint(0, len(seabed_val)-1)
+        index = random.randint(0, len(seabed_val) - 1)
     elif 2 <= draft < 5:
-        index = random.randint(2, len(seabed_val)-1)
+        index = random.randint(2, len(seabed_val) - 1)
     else:
-        index = random.randint(3, len(seabed_val)-1)
+        index = random.randint(3, len(seabed_val) - 1)
     return seabed_val[index]
+
 
 def start_position(draft):
     """
@@ -103,13 +105,11 @@ def start_position(draft):
     seabed_id = draft_to_seabed(draft)
     safe_sea = enc.seabed[seabed_id]
     # Creating random x and y positions of the ship inside the safe sea area.
-    rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) - 900)
-    rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) - 600)
+    rand_x = random.randint(center[0] - int(size[0] / 2) + 900, center[0] + int(size[0] / 2) - 900)
+    rand_y = random.randint(center[1] - int(size[1] / 2) + 600, center[1] + int(size[1] / 2) - 600)
     random_point = Point(rand_x, rand_y)
     while not safe_sea.geometry.contains(random_point):
-        rand_x = random.randint(center[0] - int(size[0]/2) + 900, center[0] + int(size[0]/2) - 900)
-        rand_y = random.randint(center[1] - int(size[1]/2) + 600, center[1] + int(size[1]/2) - 600)
+        rand_x = random.randint(center[0] - int(size[0] / 2) + 900, center[0] + int(size[0] / 2) - 900)
+        rand_y = random.randint(center[1] - int(size[1] / 2) + 600, center[1] + int(size[1] / 2) - 600)
         random_point = Point(rand_x, rand_y)
     return rand_x, rand_y
-
-

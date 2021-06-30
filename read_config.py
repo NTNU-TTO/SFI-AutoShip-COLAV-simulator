@@ -61,6 +61,9 @@ def confirm_input(user, key, check, defaults, i_0, i_1):
             if key == 'scenario_num' and (not 0 <= user[key] <= 5):
                 print(key, "must be set to 0, 1, 2, 3, 4 or 5.")
                 raise ValueError(f"must be set to 0, 1, 2, 3, 4 or 5.")
+            if key == 'show_waypoints' and (not 0 <= user[key] <= 1):
+                print(key, "must be set to 0 or 1.")
+                raise ValueError(f"must be set to 0 or 1.")
             if key == 'file':
                 user[key] = [user[key]]
                 validate(key, user[key], list, str)
@@ -143,6 +146,11 @@ def read_config():
     key = 'ship_num'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
+
+    key = 'show_waypoints'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
 
     settings = tuple(user.values())
     print('')
