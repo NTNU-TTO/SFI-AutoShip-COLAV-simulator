@@ -52,7 +52,7 @@ def main():
         if show_waypoints:
             waypoints = data[f'Ship{i+1}'][4]
             for w in range(wp_number):
-                ax1.scatter(waypoints[w][0], waypoints[w][1], color=c, s=20, alpha=0.4)
+                ax1.scatter(waypoints[w][0], waypoints[w][1], color=c, s=15, alpha=0.3)
                 ax1.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c, alpha=0.4)
 
 
@@ -72,7 +72,9 @@ def main():
         artists = circles + lines
         return artists
 
+    # display ship names
     plt.legend(loc='upper right')
+
     ani = animation.FuncAnimation(fig1, update,  frames=len(t) - 1, init_func=init, blit=True)
     plt.show()
 

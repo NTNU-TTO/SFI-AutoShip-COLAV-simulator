@@ -113,3 +113,18 @@ def start_position(draft):
         rand_y = random.randint(center[1] - int(size[1] / 2) + 600, center[1] + int(size[1] / 2) - 600)
         random_point = Point(rand_x, rand_y)
     return rand_x, rand_y
+
+
+def min_distance_to_land(x, y):
+    position = Point(x, y)
+    min_distance = 1000
+    land = enc.land.mapping['coordinates']
+    for i in range(len(land)):
+        poly = list(land[i][0])
+        polygon = Polygon(poly)
+        distance = position.distance(polygon)
+        if distance < min_distance:
+            min_distance = distance
+    return int(min_distance)
+
+
