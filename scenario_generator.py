@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 from functions import Ship
 from map import start_position, min_distance_to_land
 import pandas as pd
@@ -152,6 +153,7 @@ def waypoint_generator(ships, waypoints_number):
     return waypoint_list
 
 
+"""
 def ship_data(ships, waypoint_list, time, timestep):
     '''
     :param ships: List of ships which is created from ship_generator().
@@ -194,7 +196,55 @@ def ship_data(ships, waypoint_list, time, timestep):
             ais_data = ais_data.append(row, ignore_index=True)
 
     return data, ais_data
+"""
 
+
+def ship_data(ships, waypoint_list, time, timestep):
+    '''
+    :param ships: List of ships which is created from ship_generator().
+    :param waypoint_list: List of waypoints which is created from waypoint_generator().
+    :param time: Array of time of the simulation.
+    :param timestep: Defined time step (dt)
+    :return: Returns data for visualization and ais_data for evaluation library (EvalTool()).
+    '''
+    ais_data = pd.DataFrame(columns=['mmsi', 'lon', 'lat', 'date_time_utc', 'sog', 'cog',
+                                     'true_heading', 'nav_status', 'message_nr', 'source'])
+
+    data = {}
+    for i in range(1, len(ships)+1):
+        x_i = np.zeros(len(time))
+        y_i = np.zeros(len(time))
+        x_i_t = np.zeros(len(time))
+        y_i_t = np.zeros(len(time))
+        w = np.zeros(len(time))
+        data[f'Ship{i}'] = [x_i, y_i, x_i_t, y_i_t, w]
+        try: data[f'Ship{i}'][4] = waypoint_list[i-1]
+        except: print(f'Ship{i} has no waypoints')
+
+    for i in range(len(time)):
+        for ix, ship in enumerate(ships):
+            # Creates ships movement data
+            ship.move(timestep)
+            data[f'Ship{ix+1}'][0][i] = int(ship.x)
+            data[f'Ship{ix+1}'][1][i] = int(ship.y)
+
+            # Creates ships future positions for speed vector visualization
+            ship.future_pos(10)
+            data[f'Ship{ix + 1}'][2][i] = int(ship.x_t)
+            data[f'Ship{ix + 1}'][3][i] = int(ship.y_t)
+
+            # Ships follow waypoints
+            if data[f'Ship{ix + 1}'][4]:
+                for each in range(1, len(data[f'Ship{ix + 1}'][4]) - 1):
+                    ship.follow_waypoints(timestep, data[f'Ship{ix + 1}'][4], each)
+
+            # writing instantaneous ship data to the ais_data dataframe.
+            row = {'mmsi': ship.mmsi, 'lon': ship.x, 'lat': ship.y, 'date_time_utc': i,
+                   'sog': ship.v, 'cog': int(math.degrees(ship.c)), 'true_heading': int(math.degrees(ship.c)),
+                   'nav_status': None, 'message_nr': ship.message_nr, 'source': ''}
+            ais_data = ais_data.append(row, ignore_index=True)
+
+    return data, ais_data
 
 
 

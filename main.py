@@ -30,7 +30,7 @@ def main():
     ###############################################
     # ANIMATION PART
     ###############################################
-    fig1, ax1 = plt.subplots(figsize=(9, 6), facecolor=(0.8, 0.8, 0.8))
+    fig1, ax1 = plt.subplots(figsize=(12, 10), facecolor=(0.8, 0.8, 0.8))
     x_lim, y_lim = background('show')
 
     # make the position(circle) and speed(line) visualizing

@@ -59,27 +59,6 @@ class Ship:
 
         return self.wp
 
-    '''
-    def waypoints(self, wp_number):
-        
-        Creates random waypoints starting from the ship's position.
-        wp_number: Number of waypoints to create.
-        n: Random distance between waypoints.
-        alpha: Angle in radians to make waypoints in zigzag shape.
-               A bigger value makes the every odd waypoint away from the initial direction.
-        
-        for each in range(wp_number):
-            n = random.randint(200, 1000)
-            alpha = random.uniform(0, 0.3)
-            if each % 2 != 0:
-                self.wp.append((self.wp[each][0] - n * math.sin(-self.c + alpha),
-                                self.wp[each][1] + n * math.cos(-self.c + alpha)))
-            else:
-                self.wp.append((self.wp[each][0] - n * math.sin(-self.c),
-                                self.wp[each][1] + n * math.cos(-self.c)))
-        return self.wp
-    '''
-
     def move(self, dt):
         self.x -= self.v * math.sin(-self.c) * dt
         self.y += self.v * math.cos(-self.c) * dt
@@ -88,22 +67,24 @@ class Ship:
         ship_pos = Point(self.x_t, self.y_t)
         if enc.shore.geometry.contains(ship_pos) == True:
             self.v = 0
+        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
+        elif self.wp[-1][0] - 50 < self.x < self.wp[-1][0] + 50 and self.wp[-1][1] - 50 < self.y < self.wp[-1][1] + 50:
+            self.v = 0
 
     def follow_waypoints(self, dt, waypoints, each):
-        if waypoints[each][0] - 50 < self.x < waypoints[each][0] + 50 and \
-                waypoints[each][1] - 50 < self.y < waypoints[each][1] + 50:
-            los_angle = math.degrees(math.atan2((waypoints[each + 1][0] - self.x),
+        #if waypoints[each][0] - 100 < self.x < waypoints[each][0] + 100 and waypoints[each][1] - 100 < self.y < waypoints[each][1] + 100:
+        los_angle = math.degrees(math.atan2((waypoints[each + 1][0] - self.x),
                                                 (waypoints[each + 1][1] - self.y)))
-            if los_angle < 0:
-                los_angle = 360 + los_angle
-            self.c = math.radians(los_angle)
+        if los_angle < 0:
+            los_angle = 360 + los_angle
+        self.c = math.radians(los_angle)
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
         self.x_t = self.x - self.v * math.sin(-self.c) * time
         self.y_t = self.y + self.v * math.cos(-self.c) * time
 
-
+'''
 def distance(ship1, ship2):
     # calculates euclidean distance between the ships (pixels)
     euc_dist = int(math.sqrt((ship1.x - ship2.x) ** 2 + (ship1.y - ship2.y) ** 2))
@@ -167,3 +148,4 @@ def iter_colreg_rules(own_ship, ship_list, colreg_rules):
             colreg_rules.append({each.name: 'Crossing, Stand on!'})
         else:
             colreg_rules.append({each.name: '-'})
+'''
