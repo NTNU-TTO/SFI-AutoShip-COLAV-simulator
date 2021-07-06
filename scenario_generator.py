@@ -234,9 +234,11 @@ def ship_data(ships, waypoint_list, time, timestep):
             data[f'Ship{ix + 1}'][3][i] = int(ship.y_t)
 
             # Ships follow waypoints
-            if data[f'Ship{ix + 1}'][4]:
+            """if data[f'Ship{ix + 1}'][4]:
                 for each in range(1, len(data[f'Ship{ix + 1}'][4]) - 1):
-                    ship.follow_waypoints(timestep, data[f'Ship{ix + 1}'][4], each)
+                    ship.follow_waypoints(timestep, data[f'Ship{ix + 1}'][4], each)"""
+            if data[f'Ship{ix + 1}'][4]:
+                ship.follow_waypoints(timestep)
 
             # writing instantaneous ship data to the ais_data dataframe.
             row = {'mmsi': ship.mmsi, 'lon': ship.x, 'lat': ship.y, 'date_time_utc': i,

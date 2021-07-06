@@ -26,9 +26,11 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
+        self.a = 0
 
         noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
+        self.idx_next_wp = 1
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -68,13 +70,37 @@ class Ship:
         if enc.shore.geometry.contains(ship_pos) == True:
             self.v = 0
         # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
-        elif self.wp[-1][0] - 50 < self.x < self.wp[-1][0] + 50 and self.wp[-1][1] - 50 < self.y < self.wp[-1][1] + 50:
+        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
             self.v = 0
 
-    def follow_waypoints(self, dt, waypoints, each):
+    def kinematic_update_step(self, dt, v_d):
+        """
+            Initial kinematics implementation with constraints
+        """
+        if (self.v - v_d):
+            self.a = np.sign(self.v - v_d)*os_max_acc
+        else:
+            self.a = 0
+        self.v += self.a*dt
+        self.v = np.sign(self.v)*min(abs(self.v), os_max_speed)
+
+    """def follow_waypoints(self, dt, waypoints, each):
         #if waypoints[each][0] - 100 < self.x < waypoints[each][0] + 100 and waypoints[each][1] - 100 < self.y < waypoints[each][1] + 100:
         los_angle = math.degrees(math.atan2((waypoints[each + 1][0] - self.x),
                                                 (waypoints[each + 1][1] - self.y)))
+        if los_angle < 0:
+            los_angle = 360 + los_angle
+        if los_angle != np.rad2deg(self.c):
+            print("los: ", los_angle, " and c: ", np.rad2deg(self.c))
+        self.c = math.radians(los_angle)"""
+
+    def follow_waypoints(self, dt):
+        #check if we have reached the next waypoint (within 50m range)
+        if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
+            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
+        
+        los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
+                                                    (self.wp[self.idx_next_wp][1] - self.y)))
         if los_angle < 0:
             los_angle = 360 + los_angle
         self.c = math.radians(los_angle)
