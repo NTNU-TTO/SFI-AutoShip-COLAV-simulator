@@ -234,9 +234,6 @@ def ship_data(ships, waypoint_list, time, timestep):
             data[f'Ship{ix + 1}'][3][i] = int(ship.y_t)
 
             # Ships follow waypoints
-            """if data[f'Ship{ix + 1}'][4]:
-                for each in range(1, len(data[f'Ship{ix + 1}'][4]) - 1):
-                    ship.follow_waypoints(timestep, data[f'Ship{ix + 1}'][4], each)"""
             if data[f'Ship{ix + 1}'][4]:
                 ship.follow_waypoints(timestep)
 
@@ -247,6 +244,7 @@ def ship_data(ships, waypoint_list, time, timestep):
             ais_data = ais_data.append(row, ignore_index=True)
 
     return data, ais_data
+
 
 
 

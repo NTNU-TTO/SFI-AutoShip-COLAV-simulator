@@ -26,7 +26,10 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
-        self.a = 0
+
+        self.a_max = os_max_acc
+        self.c_rate_max = os_max_turn_rate
+        self.v_max = os_max_speed
 
         noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
@@ -50,6 +53,8 @@ class Ship:
         for each in range(wp_number):
             n = random.randint(200, 1000)
             alpha = random.uniform(0, 0.2)
+            if not each:
+                alpha = 0
             wp_x = self.wp[each][0] - n * math.sin(-self.c + alpha)
             wp_y = self.wp[each][1] + n * math.cos(-self.c + alpha)
             # check if the waypoint path is intersecting with the shore polygon
@@ -73,26 +78,20 @@ class Ship:
         elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
             self.v = 0
 
-    def kinematic_update_step(self, dt, v_d):
-        """
-            Initial kinematics implementation with constraints
-        """
-        if (self.v - v_d):
-            self.a = np.sign(self.v - v_d)*os_max_acc
-        else:
-            self.a = 0
-        self.v += self.a*dt
-        self.v = np.sign(self.v)*min(abs(self.v), os_max_speed)
+        if self.v:
+            """
+            !!TEMP v_d = self.v!!, to be updated when speed change is required
+            """
+            self.update_speed(dt, v_d=self.v)
 
-    """def follow_waypoints(self, dt, waypoints, each):
-        #if waypoints[each][0] - 100 < self.x < waypoints[each][0] + 100 and waypoints[each][1] - 100 < self.y < waypoints[each][1] + 100:
-        los_angle = math.degrees(math.atan2((waypoints[each + 1][0] - self.x),
-                                                (waypoints[each + 1][1] - self.y)))
-        if los_angle < 0:
-            los_angle = 360 + los_angle
-        if los_angle != np.rad2deg(self.c):
-            print("los: ", los_angle, " and c: ", np.rad2deg(self.c))
-        self.c = math.radians(los_angle)"""
+    def update_speed(self, dt, v_d):
+        """
+            Update speed based on simple kinematic model with constraints
+        """
+        a = np.sign(v_d - self.v)*min(0.1*abs(v_d - self.v), self.a_max)
+        self.v += a*dt
+        self.v = np.sign(self.v)*min(abs(self.v), self.v_max)
+
 
     def follow_waypoints(self, dt):
         #check if we have reached the next waypoint (within 50m range)
@@ -103,7 +102,10 @@ class Ship:
                                                     (self.wp[self.idx_next_wp][1] - self.y)))
         if los_angle < 0:
             los_angle = 360 + los_angle
-        self.c = math.radians(los_angle)
+        #self.c = math.radians(los_angle)
+        delta_c = math.atan2(np.sin(math.radians(los_angle)-self.c), np.cos(math.radians(los_angle)-self.c))
+        self.c += np.sign(delta_c)*min(0.1*abs(delta_c), self.c_rate_max)*dt
+
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
