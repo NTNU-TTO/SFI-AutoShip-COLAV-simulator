@@ -116,7 +116,8 @@ class Estimator:
 
     Camera?
 """
-
+"""
+#test code
 ais = AIS(1, 2, 0.01, 0.1*np.eye(4))
 radar = Radar(1, 2, 0.01, 0.1*np.eye(4))
 x0 = np.array([50,50,0.1,5])
@@ -129,3 +130,4 @@ t = 2
 x_est = est.step(x_true, x, t, dt)
 print("x_true: ", x_true)
 print("x_est: ", x_est)
+"""
