@@ -75,10 +75,14 @@ class Ship:
         self.future_pos(10)
         ship_pos = Point(self.x_t, self.y_t)
         if enc.shore.geometry.contains(ship_pos) == True:
-            self.u = 0
+            self.u = self.u - 0.5 * dt
+            if self.u <= 0:
+                self.u = 0
         # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
         elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
-            self.u = 0
+            self.u = self.u - 0.5 * dt
+            if self.u <= 0:
+                self.u = 0
 
         if self.u:
             """
@@ -108,11 +112,11 @@ class Ship:
 
         # Ships turn radius is simulated according to its size:
         if self.length >= 100:
-            self.psi += np.sign(delta_psi) * min(0.05 * abs(delta_psi), self.r_rate_max) * dt
-        elif 25 <= self.length < 100:
             self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
-        elif self.length < 25:
+        elif 25 <= self.length < 100:
             self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
+        elif self.length < 25:
+            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
