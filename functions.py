@@ -94,9 +94,8 @@ class Ship:
         self.u += a*dt
         self.u = np.sign(self.u)*min(abs(self.u), self.u_max)
 
-
     def follow_waypoints(self, dt):
-        #check if we have reached the next waypoint (within 50m range)
+        # check if the ship has reached the next waypoint (within 50m range)
         if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
@@ -104,10 +103,16 @@ class Ship:
                                                     (self.wp[self.idx_next_wp][1] - self.y)))
         if los_angle < 0:
             los_angle = 360 + los_angle
-        #self.psi = math.radians(los_angle)
-        delta_psi = math.atan2(np.sin(math.radians(los_angle)-self.psi), np.cos(math.radians(los_angle)-self.psi))
-        self.psi += np.sign(delta_psi)*min(0.1*abs(delta_psi), self.r_rate_max)*dt
 
+        delta_psi = math.atan2(np.sin(math.radians(los_angle)-self.psi), np.cos(math.radians(los_angle)-self.psi))
+
+        # Ships turn radius is simulated according to its size:
+        if self.length >= 100:
+            self.psi += np.sign(delta_psi) * min(0.05 * abs(delta_psi), self.r_rate_max) * dt
+        elif 25 <= self.length < 100:
+            self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
+        elif self.length < 25:
+            self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
