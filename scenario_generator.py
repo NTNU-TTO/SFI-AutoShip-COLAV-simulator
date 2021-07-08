@@ -239,7 +239,7 @@ def ship_data(ships, waypoint_list, time, timestep):
 
             # writing instantaneous ship data to the ais_data dataframe.
             row = {'mmsi': ship.mmsi, 'lon': ship.x, 'lat': ship.y, 'date_time_utc': i,
-                   'sog': ship.v, 'cog': int(math.degrees(ship.c)), 'true_heading': int(math.degrees(ship.c)),
+                   'sog': ship.u, 'cog': int(math.degrees(ship.psi)), 'true_heading': int(math.degrees(ship.psi)),
                    'nav_status': None, 'message_nr': ship.message_nr, 'source': ''}
             ais_data = ais_data.append(row, ignore_index=True)
 
