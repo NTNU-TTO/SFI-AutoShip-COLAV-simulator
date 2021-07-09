@@ -22,7 +22,7 @@ def main():
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 
-    data, ais_data = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=time_step)
+    data, ais_data, colav_input = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=time_step)
 
     # exporting ais_data.csv
     ais_data.to_csv('ais_data.csv')
@@ -54,7 +54,6 @@ def main():
             for w in range(wp_number):
                 ax1.scatter(waypoints[w][0], waypoints[w][1], color=c, s=15, alpha=0.3)
                 ax1.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c, alpha=0.4)
-
 
     # animation set up
     artists = circles + lines

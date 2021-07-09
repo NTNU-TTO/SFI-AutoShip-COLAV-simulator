@@ -29,6 +29,7 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
+        self.los_angle = 0
 
         self.a_max = os_max_acc
         self.r_rate_max = os_max_turn_rate
@@ -38,8 +39,8 @@ class Ship:
         self.wp = [(self.x + noise, self.y + noise)]
         self.idx_next_wp = 1
 
-        self.estimator = Estimator(sensors) # estimates the state ([x, y, Vx, Vy]) of target ship(s) 
-        self.target_ship_state_est = None # list of current target ship(s) state estimate
+        self.estimator = Estimator(sensors)     # estimates the state ([x, y, Vx, Vy]) of target ship(s)
+        self.target_ship_state_est = None       # list of current target ship(s) state estimate
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -107,12 +108,12 @@ class Ship:
         if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
-        los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
+        self.los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
                                                     (self.wp[self.idx_next_wp][1] - self.y)))
-        if los_angle < 0:
-            los_angle = 360 + los_angle
+        if self.los_angle < 0:
+            self.los_angle = 360 + self.los_angle
 
-        delta_psi = math.atan2(np.sin(math.radians(los_angle)-self.psi), np.cos(math.radians(los_angle)-self.psi))
+        delta_psi = math.atan2(np.sin(math.radians(self.los_angle)-self.psi), np.cos(math.radians(self.los_angle)-self.psi))
 
         # Ships turn radius is simulated according to its size:
         if self.length >= 100:

@@ -2,8 +2,9 @@ import random
 import math
 import numpy as np
 from functions import Ship
-from map import start_position, min_distance_to_land
+from map import start_position, min_distance_to_land, enc
 import pandas as pd
+np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
 
 def random_pose(os_max_speed):
@@ -153,59 +154,45 @@ def waypoint_generator(ships, waypoints_number):
     return waypoint_list
 
 
-"""
-def ship_data(ships, waypoint_list, time, timestep):
-    '''
-    :param ships: List of ships which is created from ship_generator().
-    :param waypoint_list: List of waypoints which is created from waypoint_generator().
-    :param time: Array of time of the simulation.
-    :param timestep: Defined time step (dt)
-    :return: Returns data for visualization and ais_data for evaluation library (EvalTool()).
-    '''
-    ais_data = pd.DataFrame(columns=['mmsi', 'lon', 'lat', 'date_time_utc', 'sog', 'cog',
-                                     'true_heading', 'nav_status', 'message_nr', 'source'])
+def create_colav_input(ships, time):
+    """
+        Creates input data to use with PSB-MPC colav algorithm
+    """
+    colav_input = {}
 
-    data = {}
-    for i in range(1, len(ships)+1):
-        x_i, y_i, x_i_t, y_i_t, w = [], [], [], [], []
-        data[f'Ship{i}'] = [x_i, y_i, x_i_t, y_i_t, w]
-        try: data[f'Ship{i}'][4] = waypoint_list[i-1]
-        except: print(f'Ship{i} has no waypoints')
+    # time information
+    colav_input['time'] = time
 
-    for i in range(len(time)):
-        for ix, ship in enumerate(ships):
-            # Creates ships movement data
-            ship.move(timestep)
-            data[f'Ship{ix+1}'][0].append(int(ship.x))
-            data[f'Ship{ix+1}'][1].append(int(ship.y))
+    # own ship states [x, y, psi, u, v, r]
+    colav_input['os_states'] = np.array([round(ships[0].x, 2), round(ships[0].y, 2), int(ships[0].psi),
+                                         round(ships[0].u, 2), round(ships[0].v, 2), round(ships[0].r, 0)])
 
-            # Creates ships future positions for speed vector visualization
-            ship.future_pos(10)
-            data[f'Ship{ix + 1}'][2].append(int(ship.x_t))
-            data[f'Ship{ix + 1}'][3].append(int(ship.y_t))
+    # own ship's reference surge and course to the next waypoint
+    colav_input['ref_surge'] = round(ships[0].u, 2)
+    colav_input['ref_course'] = int(ships[0].los_angle)
 
-            # Ships follow waypoints
-            if data[f'Ship{ix + 1}'][4]:
-                for each in range(1, len(data[f'Ship{ix + 1}'][4]) - 1):
-                    ship.follow_waypoints(timestep, data[f'Ship{ix + 1}'][4], each)
+    # remaining waypoint coordinates
+    colav_input['remaining_wp'] = ships[0].wp[ships[0].idx_next_wp:]
 
-            # writing instantaneous ship data to the ais_data dataframe.
-            row = {'mmsi': ship.mmsi, 'lon': ship.x, 'lat': ship.y, 'date_time_utc': i,
-                   'sog': ship.v, 'cog': int(math.degrees(ship.c)), 'true_heading': int(math.degrees(ship.c)),
-                   'nav_status': None, 'message_nr': ship.message_nr, 'source': ''}
-            ais_data = ais_data.append(row, ignore_index=True)
+    # polygons coordinates
+    #colav_input['polygons'] = enc.shore.mapping['coordinates']
 
-    return data, ais_data
-"""
+    # target ships states [x, y, psi, u, v, A, B, C, D, ship_id].
+    # Real states are used here. After sensors.py is finished, fused estimated data of target ships should be used.
+    for ix, ship in enumerate(ships[1:]):
+        colav_input[f'ts{ix}'] = np.array([round(ship.x, 2), round(ship.y, 2), int(ship.psi),
+                                           round(ship.u, 2), round(ship.v, 2), ship.length/2,
+                                           ship.length/2, ship.length/4, ship.length/4, ship.mmsi])
+    return colav_input
 
 
 def ship_data(ships, waypoint_list, time, timestep):
     '''
-    :param ships: List of ships which is created from ship_generator().
-    :param waypoint_list: List of waypoints which is created from waypoint_generator().
-    :param time: Array of time of the simulation.
-    :param timestep: Defined time step (dt)
-    :return: Returns data for visualization and ais_data for evaluation library (EvalTool()).
+        :param ships: List of ships which is created from ship_generator().
+        :param waypoint_list: List of waypoints which is created from waypoint_generator().
+        :param time: Array of time of the simulation.
+        :param timestep: Defined time step (dt)
+        :return: Returns data for visualization and ais_data for evaluation library (EvalTool()).
     '''
     ais_data = pd.DataFrame(columns=['mmsi', 'lon', 'lat', 'date_time_utc', 'sog', 'cog',
                                      'true_heading', 'nav_status', 'message_nr', 'source'])
@@ -243,7 +230,13 @@ def ship_data(ships, waypoint_list, time, timestep):
                    'nav_status': None, 'message_nr': ship.message_nr, 'source': ''}
             ais_data = ais_data.append(row, ignore_index=True)
 
-    return data, ais_data
+        # create_colav_input data every 10th second. This data will be used with PSB-MPC algorithm
+        if i % 10 == 0:
+            colav_input = create_colav_input(ships, i)
+            # print(colav_input)    # Uncomment to see colav_input data
+            # Here Trym's calculate_optimal_offsets function will be called with the colav_input.
+
+    return data, ais_data, colav_input
 
 
 
