@@ -49,11 +49,12 @@ class Estimator:
     """
         Estimates the states of the other ships
         No Kalman Filter used
+        x: [x, y, psi, u], to be changed to [x, y, Vx, Vy]
     """
 
-    def __init__(self, ais: AIS, radar: Radar):
-        self.AIS = ais
-        self.radar = radar
+    def __init__(self, sensor_list):
+        #Takes in list of sensor objects, ex: sensor_list = [ais: AIS, radar: Radar]
+        self.sensors = sensor_list
 
     def pred_step(self, x: np.ndarray, dt: float):
         """
@@ -80,16 +81,14 @@ class Estimator:
             Estimates the state of another ship for the next timestep
             x_true: true state
             x_est: last timestep estimate of state
+
+            x_true could possibly be replaced with z, removing the simulation of measurements from the estimator
         """
         x_prd = self.pred_step(x_est, dt)
         x_upd = x_prd
-        z_ais = self.AIS.simulate_measurement(x_true, t)
-        if z_ais is not None:
-            x_prd = self.upd_step(x_upd, z_ais)
-        z_radar = self.radar.simulate_measurement(x_true, t)
-        if z_radar is not None:
-            x_prd = self.upd_step(x_upd, z_radar)
-        
+        for sensor in self.sensors:
+            z = sensor.simulate_measurement(x_true, t)
+            x_upd = self.upd_step(x_upd, z)
         return x_upd
 
 

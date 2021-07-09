@@ -5,6 +5,7 @@ from matplotlib.patches import Ellipse, Circle
 import shapely
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 from map import *
+from sensors import *
 
 
 class Ship:
@@ -16,7 +17,7 @@ class Ship:
     x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
     noise: Used to create a random value for ship to be off the route.
     '''
-    def __init__(self, x, y, speed, heading, length, draft, mmsi):
+    def __init__(self, x, y, speed, heading, length, draft, mmsi, sensors=None):
         self.x = x
         self.y = y
         self.psi = math.radians(heading)    # In radians
@@ -36,6 +37,9 @@ class Ship:
         noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
         self.idx_next_wp = 1
+
+        self.estimator = Estimator(sensors) # estimates the state ([x, y, Vx, Vy]) of target ship(s) 
+        self.target_ship_state_est = None # list of current target ship(s) state estimate
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
