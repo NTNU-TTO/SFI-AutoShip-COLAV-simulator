@@ -7,6 +7,8 @@ from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 from map import *
 from sensors import *
 
+from read_config import read_control_config
+delta, R_a = read_control_config()
 
 class Ship:
     '''
@@ -18,6 +20,7 @@ class Ship:
     noise: Used to create a random value for ship to be off the route.
     '''
     def __init__(self, x, y, speed, heading, length, draft, mmsi, sensors=None):
+        # True states and ship parameters
         self.x = x
         self.y = y
         self.psi = math.radians(heading)    # In radians
@@ -29,18 +32,25 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
-        self.los_angle = 0
 
+        # LOS guidance parameters
+        self.los_angle = 0
+        self.delta = delta                  # lookahead distance
+        self.R_a = R_a                      # radius of acceptance
+
+        # Kinematic model parameters
         self.a_max = os_max_acc
         self.r_rate_max = os_max_turn_rate
         self.u_max = os_max_speed
 
+        # Waypoint parameters
         noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
         self.idx_next_wp = 1
+
+        # Other ship state estimation vaiables
         if sensors is None:
             sensors = [Radar(4,0,0,0.01*np.eye(4)), AIS(6,0,0.01,0.01*np.eye(4))] # to test code before sensor params defined
-
         self.estimator = Estimator(sensors)     # estimates the state ([x, y, SOG, COG]) of target ship(s)
         self.target_ship_state_est = []       # list of current target ship(s) state estimate
         for i in range(ship_num-1):
@@ -67,8 +77,8 @@ class Ship:
                A bigger value makes the every odd waypoint away from the initial direction.
         '''
         for each in range(wp_number):
-            n = random.randint(200, 1000)
-            alpha = random.uniform(0, 0.7)
+            n = random.randint(200, 2000)
+            alpha = random.uniform(0, 1.2)
             if not each:
                 alpha = 0
             wp_x = self.wp[each][0] - n * math.sin(-self.psi + alpha)
@@ -113,14 +123,26 @@ class Ship:
         self.u = np.sign(self.u)*min(abs(self.u), self.u_max)
 
     def update_los_angle(self):
-        self.los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
+        # path-tangential angle
+        temp1 = self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0]
+        temp2 = self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1]
+        pi_p = math.atan2(self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0],
+            self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1])
+        # cross-track error
+        e = np.cos(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  - np.sin(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
+        c_d = math.fmod(pi_p + math.atan(-e/self.delta) + 2 * math.pi, 2 * math.pi)
+
+        """self.los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
                                                     (self.wp[self.idx_next_wp][1] - self.y)))
         if self.los_angle < 0:
-            self.los_angle = 360 + self.los_angle
+            self.los_angle = 360 + self.los_angle"""
+        self.los_angle = math.degrees(c_d)
+        #print("Old: ", self.los_angle)
+        #print("New: ", math.degrees(c_d))
 
-    def follow_waypoints(self, dt):
-        # check if the ship has reached the next waypoint (within 50m range)
-        if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
+    def follow_waypoints(self, dt): #atan2(y,x) = atan(y/x)
+        # check if the ship has reached the next waypoint (within radius of acceptance)
+        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
