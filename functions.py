@@ -77,8 +77,8 @@ class Ship:
                A bigger value makes the every odd waypoint away from the initial direction.
         '''
         for each in range(wp_number):
-            n = random.randint(200, 2000)
-            alpha = random.uniform(0, 1.2)
+            n = random.randint(200, 1000)
+            alpha = random.uniform(0, 0.7)
             if not each:
                 alpha = 0
             wp_x = self.wp[each][0] - n * math.sin(-self.psi + alpha)
@@ -123,9 +123,10 @@ class Ship:
         self.u = np.sign(self.u)*min(abs(self.u), self.u_max)
 
     def update_los_angle(self):
+        """
+        set the desired course based on Proportional LOS guidance law
+        """
         # path-tangential angle
-        temp1 = self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0]
-        temp2 = self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1]
         pi_p = math.atan2(self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0],
             self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1])
         # cross-track error
