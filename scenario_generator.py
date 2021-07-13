@@ -3,6 +3,7 @@ import math
 import numpy as np
 from functions import Ship
 from map import start_position, min_distance_to_land, enc
+from sensors import *
 import pandas as pd
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
@@ -177,11 +178,10 @@ def create_colav_input(ships, time):
     # polygons coordinates
     #colav_input['polygons'] = enc.shore.mapping['coordinates']
 
-    # target ships states [x, y, psi, u, v, A, B, C, D, ship_id].
-    # Real states are used here. After sensors.py is finished, fused estimated data of target ships should be used.
+    # target ships states [x, y, psi, u, v, A, B, C, D, ship_id]. [x, y, V_x, V_y, A, B, C, D, ID]
+    other_ship_state_estimates = ships[0].get_converted_target_x_est()
     for ix, ship in enumerate(ships[1:]):
-        colav_input[f'ts{ix}'] = np.array([round(ship.x, 2), round(ship.y, 2), int(ship.psi),
-                                           round(ship.u, 2), round(ship.v, 2), ship.length/2,
+        colav_input[f'ts{ix}'] = np.append(other_ship_state_estimates[ix], [ship.length/2,
                                            ship.length/2, ship.length/4, ship.length/4, ship.mmsi])
     return colav_input
 
@@ -208,7 +208,7 @@ def ship_data(ships, waypoint_list, time, timestep):
         try: data[f'Ship{i}'][4] = waypoint_list[i-1]
         except: print(f'Ship{i} has no waypoints')
 
-    for i in range(len(time)):
+    for i, t in enumerate(time):
         for ix, ship in enumerate(ships):
             # Creates ships movement data
             ship.move(timestep)
@@ -230,11 +230,17 @@ def ship_data(ships, waypoint_list, time, timestep):
                    'nav_status': None, 'message_nr': ship.message_nr, 'source': ''}
             ais_data = ais_data.append(row, ignore_index=True)
 
+        for ix, ship in enumerate(ships): # loop to update situational awareness
+            x_true_list = [s.get_pose_and_speed() for j, s in enumerate(ships) if j != ix]
+            ship.update_target_x_est(x_true_list, t, timestep)
+
         # create_colav_input data every 10th second. This data will be used with PSB-MPC algorithm
-        if i % 10 == 0:
+        if t % 10 == 0:
             colav_input = create_colav_input(ships, i)
             # print(colav_input)    # Uncomment to see colav_input data
             # Here Trym's calculate_optimal_offsets function will be called with the colav_input.
+    print("Ship 2 state: ", ships[1].get_pose_and_speed())
+    print("Ship 1 state_est of Ship 2: ", ships[0].target_ship_state_est[0])
 
     return data, ais_data, colav_input
 

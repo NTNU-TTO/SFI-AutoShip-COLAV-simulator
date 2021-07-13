@@ -38,9 +38,13 @@ class Ship:
         noise = random.uniform(0, 10)
         self.wp = [(self.x + noise, self.y + noise)]
         self.idx_next_wp = 1
+        if sensors is None:
+            sensors = [Radar(4,0,0,0.01*np.eye(4)), AIS(6,0,0.01,0.01*np.eye(4))] # to test code before sensor params defined
 
-        self.estimator = Estimator(sensors)     # estimates the state ([x, y, Vx, Vy]) of target ship(s)
-        self.target_ship_state_est = None       # list of current target ship(s) state estimate
+        self.estimator = Estimator(sensors)     # estimates the state ([x, y, SOG, COG]) of target ship(s)
+        self.target_ship_state_est = []       # list of current target ship(s) state estimate
+        for i in range(ship_num-1):
+            self.target_ship_state_est.append(np.zeros(4))
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -48,6 +52,11 @@ class Ship:
             self.message_nr = 18
         else:
             self.message_nr = random.randint(1, 3)
+
+    def get_full_state(self):
+        return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
+    def get_pose_and_speed(self):
+        return np.array([self.x, self.y, self.u, self.psi])
 
     def waypoints(self, wp_number):
         '''
@@ -103,16 +112,18 @@ class Ship:
         self.u += a*dt
         self.u = np.sign(self.u)*min(abs(self.u), self.u_max)
 
-    def follow_waypoints(self, dt):
-        # check if the ship has reached the next waypoint (within 50m range)
-        if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
-            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
-        
+    def update_los_angle(self):
         self.los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
                                                     (self.wp[self.idx_next_wp][1] - self.y)))
         if self.los_angle < 0:
             self.los_angle = 360 + self.los_angle
 
+    def follow_waypoints(self, dt):
+        # check if the ship has reached the next waypoint (within 50m range)
+        if np.sqrt((self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2) <= 50:
+            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
+        
+        self.update_los_angle()
         delta_psi = math.atan2(np.sin(math.radians(self.los_angle)-self.psi), np.cos(math.radians(self.los_angle)-self.psi))
 
         # Ships turn radius is simulated according to its size:
@@ -127,3 +138,33 @@ class Ship:
         # Future position in defined time will be used to visualize ship's heading
         self.x_t = self.x - self.u * math.sin(-self.psi) * time
         self.y_t = self.y + self.u * math.cos(-self.psi) * time
+
+    def update_target_x_est(self, x_true_list, t, dt):
+        """
+            Updates the state estimates of the other ships.
+            x_true_list: list of true states of target ships,
+            the order of the ships must match in x_true_list and self.target_ship_state_est 
+        """
+        for i, x_est in enumerate(self.target_ship_state_est):
+            if t == 0:
+                self.target_ship_state_est[i] = x_true_list[i] #initial state estimates set to true value
+            else:
+                self.target_ship_state_est[i] = self.estimator.step(x_true_list[i], x_est, t, dt)
+
+    def get_converted_target_x_est(self):
+        """
+            Returns list of target ship estimates in the form [x, y, Vx, Vy]
+        """
+        x_est_list = []
+        for i in range(len(self.target_ship_state_est)):
+            x_est = np.zeros(4)
+            x_est[0:2] = self.target_ship_state_est[i][0:2]
+            x_est[2] = self.target_ship_state_est[i][2]*np.sin(self.target_ship_state_est[i][3])
+            x_est[3] = self.target_ship_state_est[i][2]*np.cos(self.target_ship_state_est[i][3])
+            x_est_list.append(x_est)
+        return x_est_list
+
+
+    
+
+    

@@ -6,7 +6,7 @@ import numpy as np
 def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
     """
         Input:
-            x_true: [x_true, y_true, psi_true, u_true].T
+            x_true: [x_true, y_true, SOG_true, COG_true].T
             cov: WGN covariance matrix
     """
     return x_true + np.random.multivariate_normal(mean=x_true*0, cov=cov)
@@ -15,7 +15,7 @@ def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
 class Radar:
     """
     output:
-        [x_meas, y_meas, psi_meas, u_meas].T
+        [x_meas, y_meas, SOG_meas, COG_meas].T
     """
     def __init__(self, meas_rate: float, accuracy: float, noise_prob: float, cov: np.ndarray):
         self.meas_rate = meas_rate
@@ -26,7 +26,7 @@ class Radar:
     def simulate_measurement(self, x_true: np.ndarray, t: int):
         # returns None if t between measurements
         if t % self.meas_rate:
-            return None # No AIS data recieved
+            return None
         else:
             return simulate_measurement(x_true, self.cov)
         
@@ -49,7 +49,7 @@ class Estimator:
     """
         Estimates the states of the other ships
         No Kalman Filter used
-        x: [x, y, psi, u], to be changed to [x, y, Vx, Vy]
+        x: [x, y, SOG, COG]
     """
 
     def __init__(self, sensor_list):
@@ -70,9 +70,8 @@ class Estimator:
             Simple mean of pred and measurement(s), given no Kalman Filter implementation
         """
         x_upd = x*0
-        x_upd[0:2] = (x[0:2] + z[0:2])*0.5
-        x_upd[2] = math.atan2((np.sin(x[2])+np.sin(z[2]))*0.5, (np.cos(x[2])+np.cos(z[2]))*0.5)
-        x_upd[3] = (x[3] + z[3])*0.5
+        x_upd[0:3] = (x[0:3] + z[0:3])*0.5
+        x_upd[3] = math.fmod(math.atan2(np.sin(x[3])+np.sin(z[3]), np.cos(x[3])+np.cos(z[3])) + 2 * math.pi, 2 * math.pi)
         return x_upd
 
 
@@ -88,7 +87,9 @@ class Estimator:
         x_upd = x_prd
         for sensor in self.sensors:
             z = sensor.simulate_measurement(x_true, t)
-            x_upd = self.upd_step(x_upd, z)
+
+            if z is not None:
+                x_upd = self.upd_step(x_upd, z)
         return x_upd
 
 
@@ -114,19 +115,4 @@ class Estimator:
         Class B	Sailing faster than 2 knots	 Every 30 Seconds
 
     Camera?
-"""
-"""
-#test code
-ais = AIS(1, 2, 0.01, 0.1*np.eye(4))
-radar = Radar(1, 2, 0.01, 0.1*np.eye(4))
-x0 = np.array([50,50,0.1,5])
-dt = 1
-
-est = Estimator(ais, radar)
-x_true = est.pred_step(x0, dt)
-x = simulate_measurement(x0, np.diag([5,5,0.01,2]))
-t = 2
-x_est = est.step(x_true, x, t, dt)
-print("x_true: ", x_true)
-print("x_est: ", x_est)
 """
