@@ -6,6 +6,7 @@ import shapely
 from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 from map import *
 from sensors import *
+from utils import *
 
 from read_config import read_control_config
 delta, R_a = read_control_config()
@@ -19,7 +20,7 @@ class Ship:
     x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
     noise: Used to create a random value for ship to be off the route.
     '''
-    def __init__(self, x, y, speed, heading, length, draft, mmsi, sensors=None):
+    def __init__(self, x, y, speed, heading, length, draft, mmsi, sensors=None, ship_model_name='random'):
         # True states and ship parameters
         self.x = x
         self.y = y
@@ -32,16 +33,15 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
+        self.U_d = self.u
 
         # LOS guidance parameters
         self.los_angle = 0
         self.delta = delta                  # lookahead distance
         self.R_a = R_a                      # radius of acceptance
 
-        # Kinematic model parameters
-        self.a_max = os_max_acc
-        self.r_rate_max = os_max_turn_rate
-        self.u_max = os_max_speed
+        # Ship model
+        self.ship_model = create_ship_model(ship_model_name)
 
         # Waypoint parameters
         noise = random.uniform(0, 10)
@@ -93,8 +93,8 @@ class Ship:
         return self.wp
 
     def move(self, dt):
-        self.x -= self.u * math.sin(-self.psi) * dt
-        self.y += self.u * math.cos(-self.psi) * dt
+        self.x += self.u * math.sin(self.psi) * dt
+        self.y += self.u * math.cos(self.psi) * dt
         # check if the ship in the future is inside the shore polygons. If so, stop the ship.
         self.future_pos(10)
         ship_pos = Point(self.x_t, self.y_t)
@@ -108,23 +108,20 @@ class Ship:
             if self.u <= 0:
                 self.u = 0
 
-        if self.u:
-            """
-            !!TEMP v_d = self.v!!, to be updated when speed change is required
-            """
-            self.update_speed(dt, u_d=self.u)
 
-    def update_speed(self, dt, u_d):
+        #self.update_speed(dt, u_d=self.u)
+
+    def update_speed(self, dt):
         """
             Update speed based on simple kinematic model with constraints
         """
-        a = np.sign(u_d - self.u)*min(0.1*abs(u_d - self.u), self.a_max)
+        a = np.sign(self.U_d - self.u)*min(0.1*abs(self.U_d - self.u), self.ship_model.a_max)
         self.u += a*dt
-        self.u = np.sign(self.u)*min(abs(self.u), self.u_max)
+        self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
 
     def update_los_angle(self):
         """
-        set the desired course based on Proportional LOS guidance law
+            Set the desired course based on Proportional LOS guidance law
         """
         # path-tangential angle
         pi_p = math.atan2(self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0],
@@ -133,29 +130,26 @@ class Ship:
         e = np.cos(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  - np.sin(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
         c_d = math.fmod(pi_p + math.atan(-e/self.delta) + 2 * math.pi, 2 * math.pi)
 
-        """self.los_angle = math.degrees(math.atan2((self.wp[self.idx_next_wp][0] - self.x),
-                                                    (self.wp[self.idx_next_wp][1] - self.y)))
-        if self.los_angle < 0:
-            self.los_angle = 360 + self.los_angle"""
         self.los_angle = math.degrees(c_d)
         #print("Old: ", self.los_angle)
         #print("New: ", math.degrees(c_d))
 
-    def follow_waypoints(self, dt): #atan2(y,x) = atan(y/x)
+    def follow_waypoints(self, dt):
         # check if the ship has reached the next waypoint (within radius of acceptance)
         if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
         delta_psi = math.atan2(np.sin(math.radians(self.los_angle)-self.psi), np.cos(math.radians(self.los_angle)-self.psi))
-
+        
         # Ships turn radius is simulated according to its size:
-        if self.length >= 100:
+        """if self.length >= 100:
             self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
         elif 25 <= self.length < 100:
             self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
         elif self.length < 25:
-            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt
+            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt"""
+        self.psi += np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
