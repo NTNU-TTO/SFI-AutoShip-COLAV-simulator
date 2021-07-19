@@ -26,7 +26,7 @@ class Ship:
         # True states and ship parameters
         self.x = x
         self.y = y
-        self.psi = math.radians(heading)    # In radians
+        self.psi = wrap_to_pi(math.radians(heading))    # In radians
         self.u = speed * 0.51               # longitudinal velocity. Converting knots to meters per second
         self.v = 0                          # lateral velocity
         self.r = 0                          # angular velocity
@@ -110,6 +110,38 @@ class Ship:
 
 
         #self.update_speed(dt, u_d=self.u)
+
+    def update_pose(self, dt):
+        """
+            Updates the pose and turn rate based on a constrained kinematic model
+            Heading == Course assumed
+        """
+        self.x += self.u * math.cos(self.psi) * dt
+        self.y += self.u * math.sin(self.psi) * dt
+        self.psi += self.r * dt
+        self.psi = wrap_to_pi(self.psi)
+
+        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
+        self.u += a*dt
+        self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
+
+        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
+
+    def update_reference(self):
+        # check if the ship has reached the next waypoint (within radius of acceptance)
+        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
+            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
+        
+        self.update_los_angle()
+        ship_pos = Point(self.y_t, self.x_t)
+        if enc.shore.geometry.contains(ship_pos) == True:
+            self.U_d = 0
+        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
+        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
+            self.U_d = 0
+
+
 
     def update_speed(self, dt):
         """
