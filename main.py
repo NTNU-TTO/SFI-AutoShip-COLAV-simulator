@@ -17,8 +17,8 @@ def main():
     wp_number = waypoint_num
 
     # scenarios
-    ship_list = ship_generator(Ship, scenario_num=scenario_num,
-                               os_max_speed=os_max_speed, ts_max_speed=ts_max_speed, ship_number=ship_num)
+    ship_list = ship_generator(Ship, scenario_num=scenario_num, os_max_speed=os_max_speed,
+                               ts_max_speed=ts_max_speed, ship_number=ship_num, ship_model_name=ship_model_name)
 
     waypoint_list = waypoint_generator(ships=ship_list, waypoints_number=wp_number)
 

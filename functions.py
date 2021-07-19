@@ -20,7 +20,9 @@ class Ship:
     x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
     noise: Used to create a random value for ship to be off the route.
     '''
-    def __init__(self, x, y, speed, heading, length, draft, mmsi, sensors=None, ship_model_name='random'):
+    def __init__(self, x, y, speed, heading, ship_model_name, mmsi, sensors=None):
+        # Choosing specific ship model
+        self.ship_model = create_ship_model(ship_model_name)
         # True states and ship parameters
         self.x = x
         self.y = y
@@ -28,8 +30,8 @@ class Ship:
         self.u = speed * 0.51               # longitudinal velocity. Converting knots to meters per second
         self.v = 0                          # lateral velocity
         self.r = 0                          # angular velocity
-        self.length = length
-        self.draft = draft
+        self.length = self.ship_model.length
+        self.draft = self.ship_model.draft
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
@@ -39,9 +41,6 @@ class Ship:
         self.los_angle = 0
         self.delta = delta                  # lookahead distance
         self.R_a = R_a                      # radius of acceptance
-
-        # Ship model
-        self.ship_model = create_ship_model(ship_model_name)
 
         # Waypoint parameters
         noise = random.uniform(0, 10)
@@ -58,13 +57,14 @@ class Ship:
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
-        if self.length <= 45:
+        if self.ship_model.length <= 45:
             self.message_nr = 18
         else:
             self.message_nr = random.randint(1, 3)
 
     def get_full_state(self):
         return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
+    
     def get_pose_and_speed(self):
         return np.array([self.x, self.y, self.u, self.psi])
 

@@ -8,7 +8,8 @@ class Random_ship_model:
     """
     def __init__(self):
         self.length = random.randint(10, 200)
-        #self.l_r = random.randint(0, 10)
+        self.draft = self.length / 10
+
         self.A = self.length/2
         self.B = self.length/2
         self.C = self.length/4

@@ -136,11 +136,15 @@ def read_config():
     confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
     validate(key, user[key], int)
 
-    key = 'own_ship_max_speed'
+    key = 'ship_model_name'
+    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
+    validate(key, user[key], str)
+
+    key = 'os_max_speed'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
 
-    key = 'target_ship_max_speed'
+    key = 'ts_max_speed'
     confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
     validate(key, user[key], int)
 

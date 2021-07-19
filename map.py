@@ -6,7 +6,7 @@ import seacharts
 from read_config import *
 
 files, center, size, new_data, time_start, time_step, \
-time_end, waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num, show_waypoints, \
+time_end, waypoint_num, scenario_num, ship_model_name, os_max_speed, ts_max_speed, ship_num, show_waypoints,\
 os_max_acc, os_max_turn_rate = read_config()
 
 # Creating shapefiles from the defined region
