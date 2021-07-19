@@ -1,6 +1,7 @@
 import math
 import random
 import numpy as np
+from utils import wrap_to_pi
 
 
 def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
@@ -9,9 +10,9 @@ def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
             x_true: [x_true, y_true, SOG_true, COG_true].T
             cov: WGN covariance matrix
     """
-    return x_true + np.random.multivariate_normal(mean=x_true*0, cov=cov)
-
-
+    z = x_true + np.random.multivariate_normal(mean=x_true*0, cov=cov)
+    z[3] = wrap_to_pi(z[3])
+    
 class Radar:
     """
     output:
@@ -71,9 +72,9 @@ class Estimator:
         """
         x_upd = x*0
         x_upd[0:3] = (x[0:3] + z[0:3])*0.5
-        x_upd[3] = math.fmod(math.atan2(np.sin(x[3])+np.sin(z[3]), np.cos(x[3])+np.cos(z[3])) + 2 * math.pi, 2 * math.pi)
+        x_upd[3] = math.atan2(np.sin(x[3])+np.sin(z[3]), np.cos(x[3])+np.cos(z[3])) #angle mean
+        x_upd[3] = wrap_to_pi(x_upd[3])
         return x_upd
-
 
     def step(self, x_true: np.ndarray, x_est: np.ndarray, t: int, dt: int):
         """
@@ -87,7 +88,6 @@ class Estimator:
         x_upd = x_prd
         for sensor in self.sensors:
             z = sensor.simulate_measurement(x_true, t)
-
             if z is not None:
                 x_upd = self.upd_step(x_upd, z)
         return x_upd

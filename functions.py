@@ -115,7 +115,7 @@ class Ship:
         """
             Update speed based on simple kinematic model with constraints
         """
-        a = np.sign(self.U_d - self.u)*min(0.1*abs(self.U_d - self.u), self.ship_model.a_max)
+        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
         self.u += a*dt
         self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
 
@@ -128,11 +128,10 @@ class Ship:
             self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0])
         # cross-track error
         e = -np.sin(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  + np.cos(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
-        c_d = math.fmod(pi_p + math.atan(-e/self.delta) + 2 * math.pi, 2 * math.pi)
+        c_d = pi_p + math.atan(-e/self.delta)
+        c_d = wrap_to_pi(c_d)
 
-        self.los_angle = math.degrees(c_d)
-        #print("Old: ", self.los_angle)
-        #print("New: ", math.degrees(c_d))
+        self.los_angle = c_d
 
     def follow_waypoints(self, dt):
         # check if the ship has reached the next waypoint (within radius of acceptance)
@@ -140,8 +139,8 @@ class Ship:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
-        delta_psi = math.atan2(np.sin(math.radians(self.los_angle)-self.psi), np.cos(math.radians(self.los_angle)-self.psi))
-        
+        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
         # Ships turn radius is simulated according to its size:
         """if self.length >= 100:
             self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
@@ -149,7 +148,8 @@ class Ship:
             self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
         elif self.length < 25:
             self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt"""
-        self.psi += np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
+        self.psi += self.r * dt
+        self.psi = wrap_to_pi(self.psi)
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
@@ -176,8 +176,8 @@ class Ship:
         for i in range(len(self.target_ship_state_est)):
             x_est = np.zeros(4)
             x_est[0:2] = self.target_ship_state_est[i][0:2]
-            x_est[2] = self.target_ship_state_est[i][2]*np.sin(self.target_ship_state_est[i][3])
-            x_est[3] = self.target_ship_state_est[i][2]*np.cos(self.target_ship_state_est[i][3])
+            x_est[2] = self.target_ship_state_est[i][2]*np.cos(self.target_ship_state_est[i][3])
+            x_est[3] = self.target_ship_state_est[i][2]*np.sin(self.target_ship_state_est[i][3])
             x_est_list.append(x_est)
         return x_est_list
 
