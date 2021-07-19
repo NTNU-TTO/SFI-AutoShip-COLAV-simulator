@@ -81,10 +81,10 @@ class Ship:
             alpha = random.uniform(0, 0.7)
             if not each:
                 alpha = 0
-            wp_x = self.wp[each][0] - n * math.sin(-self.psi + alpha)
-            wp_y = self.wp[each][1] + n * math.cos(-self.psi + alpha)
+            wp_x = self.wp[each][0] + n * math.cos(self.psi + alpha)
+            wp_y = self.wp[each][1] + n * math.sin(self.psi + alpha)
             # check if the waypoint path is intersecting with the shore polygon
-            wp_line = LineString([(self.wp[each][0], self.wp[each][1]), (wp_x, wp_y)])
+            wp_line = LineString([(self.wp[each][1], self.wp[each][0]), (wp_y, wp_x)])
             if wp_line.intersects(enc.shore.geometry) == True:
                 wp_x = self.wp[each][0]
                 wp_y = self.wp[each][1]
@@ -93,11 +93,11 @@ class Ship:
         return self.wp
 
     def move(self, dt):
-        self.x += self.u * math.sin(self.psi) * dt
-        self.y += self.u * math.cos(self.psi) * dt
+        self.x += self.u * math.cos(self.psi) * dt
+        self.y += self.u * math.sin(self.psi) * dt
         # check if the ship in the future is inside the shore polygons. If so, stop the ship.
         self.future_pos(10)
-        ship_pos = Point(self.x_t, self.y_t)
+        ship_pos = Point(self.y_t, self.x_t)
         if enc.shore.geometry.contains(ship_pos) == True:
             self.u = self.u - 0.5 * dt
             if self.u <= 0:
@@ -124,10 +124,10 @@ class Ship:
             Set the desired course based on Proportional LOS guidance law
         """
         # path-tangential angle
-        pi_p = math.atan2(self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0],
-            self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1])
+        pi_p = math.atan2(self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1],
+            self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0])
         # cross-track error
-        e = np.cos(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  - np.sin(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
+        e = -np.sin(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  + np.cos(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
         c_d = math.fmod(pi_p + math.atan(-e/self.delta) + 2 * math.pi, 2 * math.pi)
 
         self.los_angle = math.degrees(c_d)
@@ -153,8 +153,8 @@ class Ship:
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
-        self.x_t = self.x - self.u * math.sin(-self.psi) * time
-        self.y_t = self.y + self.u * math.cos(-self.psi) * time
+        self.x_t = self.x + self.u * math.cos(self.psi) * time
+        self.y_t = self.y + self.u * math.sin(self.psi) * time
 
     def update_target_x_est(self, x_true_list, t, dt):
         """

@@ -61,8 +61,8 @@ class Estimator:
             Simple straight line, constant speed prediction
             x: [x, y, psi, u].T
         """
-        x[0] -= x[3] * math.sin(-x[2]) * dt
-        x[1] += x[3] * math.cos(-x[2]) * dt
+        x[0] += x[3] * math.cos(x[2]) * dt
+        x[1] += x[3] * math.sin(x[2]) * dt
         return x
 
     def upd_step(self, x: np.ndarray, z: np.ndarray):

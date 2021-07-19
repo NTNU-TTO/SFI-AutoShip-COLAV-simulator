@@ -28,8 +28,8 @@ def head_on(os_max_speed, ts_max_speed):
 
     # random target ship considering own ship pose
     distance_land = min_distance_to_land(x1, y1)
-    x2 = x1 + distance_land * math.sin(math.radians(heading1))
-    y2 = y1 + distance_land * math.cos(math.radians(heading1))
+    x2 = x1 + distance_land * math.cos(math.radians(heading1))
+    y2 = y1 + distance_land * math.sin(math.radians(heading1))
     speed2 = round(random.uniform(1, ts_max_speed), 1)
     heading2 = heading1 + 180 + random.uniform(-14, 14)
     length2 = random.randint(10, 200)
@@ -44,8 +44,8 @@ def overtaking(os_max_speed):
 
     # random target ship considering own ship pose
     distance_land = min_distance_to_land(x1, y1)
-    x2 = x1 + distance_land * math.sin(math.radians(heading1))
-    y2 = y1 + distance_land * math.cos(math.radians(heading1))
+    x2 = x1 + distance_land * math.cos(math.radians(heading1))
+    y2 = y1 + distance_land * math.sin(math.radians(heading1))
     speed2 = round((speed1 - speed1 * random.uniform(0.5, 0.9)), 1)
     heading2 = heading1 + random.uniform(-13, 13)
     length2 = random.randint(10, 200)
@@ -60,8 +60,8 @@ def overtaken(os_max_speed):
 
     # random target ship considering own ship pose
     distance_land = min_distance_to_land(x1, y1)
-    x2 = x1 - distance_land * math.sin(math.radians(heading1))
-    y2 = y1 - distance_land * math.cos(math.radians(heading1))
+    x2 = x1 - distance_land * math.cos(math.radians(heading1))
+    y2 = y1 - distance_land * math.sin(math.radians(heading1))
     speed2 = round((speed1 + speed1 * random.uniform(0.5, 0.9)), 1)
     heading2 = heading1 + random.uniform(-13, 13)
     length2 = random.randint(10, 200)
@@ -77,8 +77,8 @@ def crossing_give_way(os_max_speed, ts_max_speed):
     # random target ship considering own ship pose
     n = random.uniform(0, 112.5)
     distance_land = min_distance_to_land(x1, y1)
-    x2 = x1 + distance_land * math.sin(math.radians(heading1 + n))
-    y2 = y1 + distance_land * math.cos(math.radians(heading1 + n))
+    x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
+    y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
     speed2 = round(random.uniform(1, ts_max_speed), 1)
     heading2 = heading1 - 90
     length2 = random.randint(10, 200)
@@ -94,8 +94,8 @@ def crossing_stand_on(os_max_speed, ts_max_speed):
     # random target ship considering own ship pose
     n = random.uniform(-112.5, 0)
     distance_land = min_distance_to_land(x1, y1)
-    x2 = x1 + distance_land * math.sin(math.radians(heading1 + n))
-    y2 = y1 + distance_land * math.cos(math.radians(heading1 + n))
+    x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
+    y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
     speed2 = round(random.randint(1, ts_max_speed), 1)
     heading2 = heading1 + 90
     length2 = random.randint(10, 200)

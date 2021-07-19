@@ -25,8 +25,8 @@ def visualize(data, wp_number, t):
         if show_waypoints:
             waypoints = data[f'Ship{i+1}'][4]
             for w in range(wp_number):
-                ax1.scatter(waypoints[w][0], waypoints[w][1], color=c, s=15, alpha=0.3)
-                ax1.plot([waypoints[w][0], waypoints[w + 1][0]], [waypoints[w][1], waypoints[w + 1][1]], "--"+c, alpha=0.4)
+                ax1.scatter(waypoints[w][1], waypoints[w][0], color=c, s=15, alpha=0.3)
+                ax1.plot([waypoints[w][1], waypoints[w + 1][1]], [waypoints[w][0], waypoints[w + 1][0]], "--"+c, alpha=0.4)
 
     # animation set up
     artists = circles + lines
@@ -38,9 +38,9 @@ def visualize(data, wp_number, t):
 
     def update(i):
         for j in range(len(data)):
-            circles[j].set_xdata(data[f'Ship{j+1}'][0][i])
-            circles[j].set_ydata(data[f'Ship{j+1}'][1][i])
-            lines[j].set_data([data[f'Ship{j+1}'][0][i], data[f'Ship{j+1}'][2][i]], [data[f'Ship{j+1}'][1][i], data[f'Ship{j+1}'][3][i]])
+            circles[j].set_xdata(data[f'Ship{j+1}'][1][i])
+            circles[j].set_ydata(data[f'Ship{j+1}'][0][i])
+            lines[j].set_data([data[f'Ship{j+1}'][1][i], data[f'Ship{j+1}'][3][i]], [data[f'Ship{j+1}'][0][i], data[f'Ship{j+1}'][2][i]])
         artists = circles + lines
         return artists
 

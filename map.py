@@ -113,7 +113,7 @@ def start_position(draft):
         rand_x = random.randint(center[0] - int(size[0] / 2) + 900, center[0] + int(size[0] / 2) - 900)
         rand_y = random.randint(center[1] - int(size[1] / 2) + 600, center[1] + int(size[1] / 2) - 600)
         random_point = Point(rand_x, rand_y)
-    return rand_x, rand_y
+    return rand_y, rand_x
 
 
 def min_distance_to_land(x, y):
