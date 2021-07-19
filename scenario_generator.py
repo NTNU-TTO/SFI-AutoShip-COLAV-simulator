@@ -27,7 +27,8 @@ def head_on(os_max_speed, ts_max_speed, ship_model_name):
     x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
 
     # random target ship considering own ship pose
-    distance_land = min_distance_to_land(x1, y1)
+    distance_land = min_distance_to_land(y1, x1)
+    print(distance_land)
     x2 = x1 + distance_land * math.cos(math.radians(heading1))
     y2 = y1 + distance_land * math.sin(math.radians(heading1))
     speed2 = round(random.uniform(1, ts_max_speed), 1)
@@ -41,7 +42,7 @@ def overtaking(os_max_speed, ship_model_name):
     x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
 
     # random target ship considering own ship pose
-    distance_land = min_distance_to_land(x1, y1)
+    distance_land = min_distance_to_land(y1, x1)
     x2 = x1 + distance_land * math.cos(math.radians(heading1))
     y2 = y1 + distance_land * math.sin(math.radians(heading1))
     speed2 = round((speed1 - speed1 * random.uniform(0.5, 0.9)), 1)
@@ -55,7 +56,7 @@ def overtaken(os_max_speed, ship_model_name):
     x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
 
     # random target ship considering own ship pose
-    distance_land = min_distance_to_land(x1, y1)
+    distance_land = min_distance_to_land(y1, x1)
     x2 = x1 - distance_land * math.cos(math.radians(heading1))
     y2 = y1 - distance_land * math.sin(math.radians(heading1))
     speed2 = round((speed1 + speed1 * random.uniform(0.5, 0.9)), 1)
@@ -70,7 +71,7 @@ def crossing_give_way(os_max_speed, ts_max_speed, ship_model_name):
 
     # random target ship considering own ship pose
     n = random.uniform(0, 112.5)
-    distance_land = min_distance_to_land(x1, y1)
+    distance_land = min_distance_to_land(y1, x1)
     x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
     y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
     speed2 = round(random.uniform(1, ts_max_speed), 1)
@@ -85,7 +86,7 @@ def crossing_stand_on(os_max_speed, ts_max_speed, ship_model_name):
 
     # random target ship considering own ship pose
     n = random.uniform(-112.5, 0)
-    distance_land = min_distance_to_land(x1, y1)
+    distance_land = min_distance_to_land(y1, x1)
     x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
     y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
     speed2 = round(random.randint(1, ts_max_speed), 1)
@@ -160,7 +161,7 @@ def create_colav_input(ships, time):
 
     # own ship's reference surge and course to the next waypoint
     colav_input['ref_surge'] = round(ships[0].u, 2)
-    colav_input['ref_course'] = int(ships[0].los_angle)
+    colav_input['ref_course'] = int(ships[0].los_angle) # in radians
 
     # remaining waypoint coordinates
     colav_input['remaining_wp'] = ships[0].wp[ships[0].idx_next_wp:]
