@@ -92,7 +92,26 @@ class Ship:
 
         return self.wp
 
-    def update_pose(self, dt):
+    ###############################################
+    # DYNAMICS
+    ###############################################
+    def update_states(self, dt):
+        """
+            Updates the states based on either a kinmatic model or dynamic model
+        """
+        if self.ship_model.use_kinematic_model:
+            # updates the state
+            self.kinematic_state_update(dt)
+        else:
+            self.eulersMethod(dt)
+        
+        # future position of the ship (used for visualization, checking for reaching the last waypoint and anti grounding)
+        self.future_pos(10)
+
+        # check for waypoints, grounding and update the los_angle
+        self.update_reference()
+    
+    def kinematic_state_update(self, dt):
         """
             Updates the pose and turn rate based on a constrained kinematic model
             Heading == Course assumed
@@ -108,12 +127,81 @@ class Ship:
 
         delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
         self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
+    
+    def future_pos(self, time):
+        # Future position in defined time will be used to visualize ship's heading
+        self.x_t = self.x + self.u * math.cos(self.psi) * time
+        self.y_t = self.y + self.u * math.sin(self.psi) * time
 
-        # future position of the ship (used for visualization, checking for reaching the last waypoint and anti grounding)
-        self.future_pos(10)
+    def eulersMethod(self, dt):
+        """
+        Dynamic ship model using ship parameters.
+        :return: Returns ship states for each time step
+        """
+        # First of all update reference to find reference course and speed
+        #self.update_reference()
 
-        # check for waypoints, grounding and update the los_angle
-        self.update_reference()
+        # rotation matrix elements
+        r11, r12, r21, r22 = 0.0, 0.0, 0.0, 0.0
+
+        self.psi = normalize_angle(self.psi)
+        #psi_d = normalize_angle_diff(self.los_angle, self.psi)
+
+        r11 = math.cos(self.psi)
+        r12 = -math.sin(self.psi)
+        r21 = math.sin(self.psi)
+        r22 = math.cos(self.psi)
+
+        self.ship_model.Cvv[0] = (-self.ship_model.M * self.v + self.ship_model.Y_vdot * self.v + self.ship_model.Y_rdot * self.r) * self.r
+        self.ship_model.Cvv[1] = (self.ship_model.M * self.u - self.ship_model.X_udot * self.u) * self.r
+        self.ship_model.Cvv[2] = ((self.ship_model.M * self.v - self.ship_model.Y_vdot * self.v - self.ship_model.Y_rdot * self.r) * self.u +
+                                  (-self.ship_model.M * self.u + self.ship_model.X_udot * self.u) * self.v)
+
+        self.ship_model.Dvv[0] = -(self.ship_model.X_u + self.ship_model.X_uu * math.fabs(self.u) + self.ship_model.X_uuu * self.u * self.u) * self.u
+        self.ship_model.Dvv[1] = -((self.ship_model.Y_v * self.v + self.ship_model.Y_r * self.r) +
+                               (self.ship_model.Y_vv * math.fabs(self.v) * self.v + self.ship_model.Y_vvv * self.v * self.v))
+        self.ship_model.Dvv[2] = -((self.ship_model.N_v * self.v + self.ship_model.N_r * self.r) +
+                               (self.ship_model.N_rr * math.fabs(self.r) * self.r + self.ship_model.N_rrr * self.r * self.r * self.r))
+
+        self.updateCtrlInput() # updates tau
+
+        self.x = self.x + dt * (r11 * self.u + r12 * self.v)
+        self.y = self.y + dt * (r21 * self.u + r22 * self.v)
+        self.psi = self.psi + dt * self.r
+        self.psi = normalize_angle(self.psi)
+
+        mu_dot = self.ship_model.Minv @ (self.ship_model.tau - self.ship_model.Cvv - self.ship_model.Dvv)
+        mu_dot = mu_dot.flatten()
+
+        self.u = self.u + dt * mu_dot[0]
+        self.v = self.v + dt * mu_dot[1]
+        self.r = self.r + dt * mu_dot[2]
+
+    def updateCtrlInput(self):
+        Fx = self.ship_model.Cvv[0] + self.ship_model.Dvv[0] + self.ship_model.Kp_u * self.ship_model.M * (self.U_d - self.u)
+        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        Fy = ((self.ship_model.Kp_psi * self.ship_model.I_z) * (delta_psi - self.ship_model.Kd_psi * self.r)) / self.ship_model.rudder_dist
+
+        # saturating controllers
+        if Fx < self.ship_model.Fx_min:
+            Fx = self.ship_model.Fx_min
+        elif Fx > self.ship_model.Fx_max:
+            Fx = self.ship_model.Fx_max
+
+        if Fy < self.ship_model.Fy_min:
+            Fy = self.ship_model.Fy_min
+        elif Fy > self.ship_model.Fy_max:
+            Fy = self.ship_model.Fy_max
+
+        self.ship_model.tau[0] = Fx
+        self.ship_model.tau[1] = Fy
+        self.ship_model.tau[2] = self.ship_model.rudder_dist * Fy
+
+    
+    
+    ###############################################
+    # GUIDANCE/CONTROL
+    ###############################################
 
     def update_reference(self):
         # check if the ship has reached the next waypoint (within radius of acceptance)
@@ -144,10 +232,10 @@ class Ship:
 
         self.los_angle = c_d
 
-    def future_pos(self, time):
-        # Future position in defined time will be used to visualize ship's heading
-        self.x_t = self.x + self.u * math.cos(self.psi) * time
-        self.y_t = self.y + self.u * math.sin(self.psi) * time
+
+    ###############################################
+    # SITUATIONAL AWARENESS
+    ###############################################
 
     def update_target_x_est(self, x_true_list, t, dt):
         """
@@ -175,53 +263,5 @@ class Ship:
         return x_est_list
 
 
-"""
-    def move(self, dt):
-        self.x += self.u * math.cos(self.psi) * dt
-        self.y += self.u * math.sin(self.psi) * dt
-        # check if the ship in the future is inside the shore polygons. If so, stop the ship.
-        self.future_pos(10)
-        ship_pos = Point(self.y_t, self.x_t)
-        if enc.shore.geometry.contains(ship_pos) == True:
-            self.u = self.u - 0.5 * dt
-            if self.u <= 0:
-                self.u = 0
-        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
-        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
-            self.u = self.u - 0.5 * dt
-            if self.u <= 0:
-                self.u = 0
-        #self.update_speed(dt, u_d=self.u)
-"""
-
-"""
-    def update_speed(self, dt):
-        # Update speed based on simple kinematic model with constraints
-        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
-        self.u += a*dt
-        self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
-"""
-
-"""
-    def follow_waypoints(self, dt):
-        # check if the ship has reached the next waypoint (within radius of acceptance)
-        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
-            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
-
-        self.update_los_angle()
-        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
-        self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
-        # Ships turn radius is simulated according to its size:
-        '''if self.length >= 100:
-            self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
-        elif 25 <= self.length < 100:
-            self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
-        elif self.length < 25:
-            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt'''
-        self.psi += self.r * dt
-        self.psi = wrap_to_pi(self.psi)
-"""
-
     
-
     

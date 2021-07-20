@@ -5,8 +5,11 @@ import numpy as np
 class Random_ship_model:
     """
         Creates a ship with random parameters
+        Note: can obviously only use a kinematic model
     """
     def __init__(self):
+        self.use_kinematic_model = True
+        
         self.length = random.randint(10, 200)
         self.draft = self.length / 10
 

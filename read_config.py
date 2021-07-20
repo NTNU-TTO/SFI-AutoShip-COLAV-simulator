@@ -156,15 +156,6 @@ def read_config():
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
 
-    key = 'own_ship_max_acc'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'own_ship_max_turn_rate'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-
     settings = tuple(user.values())
     print('')
     return settings

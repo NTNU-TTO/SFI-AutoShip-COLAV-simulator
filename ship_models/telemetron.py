@@ -11,6 +11,8 @@ import numpy as np
 
 class Telemetron:
     def __init__(self):
+        self.use_kinematic_model = False
+
         # ship parameters:
         self.rudder_dist = 4.0  # m
         self.A = 5  # m
@@ -26,8 +28,8 @@ class Telemetron:
         self.I_z = 19703.0  # moment of inertia on z axis kg/m2
 
         # Motion limits
-        self.r_max = np.deg2rad(0.34)  # [rad/s] default max yaw rate
-        self.U_max = 20  # random value in knots
+        self.r_max = np.deg2rad(4)  # 0.34 [rad/s] default max yaw rate
+        self.U_max = 18 / 0.51  # in knots, based on paper where telematron was used
         self.a_max = 1  # random value
 
         # coriolis and centripetal matrix
