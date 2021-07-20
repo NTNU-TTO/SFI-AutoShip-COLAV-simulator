@@ -64,7 +64,7 @@ class Ship:
 
     def get_full_state(self):
         return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
-    
+
     def get_pose_and_speed(self):
         return np.array([self.x, self.y, self.u, self.psi])
 
@@ -92,25 +92,6 @@ class Ship:
 
         return self.wp
 
-    def move(self, dt):
-        self.x += self.u * math.cos(self.psi) * dt
-        self.y += self.u * math.sin(self.psi) * dt
-        # check if the ship in the future is inside the shore polygons. If so, stop the ship.
-        self.future_pos(10)
-        ship_pos = Point(self.y_t, self.x_t)
-        if enc.shore.geometry.contains(ship_pos) == True:
-            self.u = self.u - 0.5 * dt
-            if self.u <= 0:
-                self.u = 0
-        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
-        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
-            self.u = self.u - 0.5 * dt
-            if self.u <= 0:
-                self.u = 0
-
-
-        #self.update_speed(dt, u_d=self.u)
-
     def update_pose(self, dt):
         """
             Updates the pose and turn rate based on a constrained kinematic model
@@ -128,28 +109,26 @@ class Ship:
         delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
         self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
 
+        # future position of the ship (used for visualization, checking for reaching the last waypoint and anti grounding)
+        self.future_pos(10)
+
+        # check for waypoints, grounding and update the los_angle
+        self.update_reference()
+
     def update_reference(self):
         # check if the ship has reached the next waypoint (within radius of acceptance)
         if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
+
+        # Stop the ship if the future position is in the shore
         ship_pos = Point(self.y_t, self.x_t)
         if enc.shore.geometry.contains(ship_pos) == True:
             self.U_d = 0
         # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
         elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
             self.U_d = 0
-
-
-
-    def update_speed(self, dt):
-        """
-            Update speed based on simple kinematic model with constraints
-        """
-        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
-        self.u += a*dt
-        self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
 
     def update_los_angle(self):
         """
@@ -164,24 +143,6 @@ class Ship:
         c_d = wrap_to_pi(c_d)
 
         self.los_angle = c_d
-
-    def follow_waypoints(self, dt):
-        # check if the ship has reached the next waypoint (within radius of acceptance)
-        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
-            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
-        
-        self.update_los_angle()
-        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
-        self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
-        # Ships turn radius is simulated according to its size:
-        """if self.length >= 100:
-            self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
-        elif 25 <= self.length < 100:
-            self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
-        elif self.length < 25:
-            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt"""
-        self.psi += self.r * dt
-        self.psi = wrap_to_pi(self.psi)
 
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
@@ -213,6 +174,53 @@ class Ship:
             x_est_list.append(x_est)
         return x_est_list
 
+
+"""
+    def move(self, dt):
+        self.x += self.u * math.cos(self.psi) * dt
+        self.y += self.u * math.sin(self.psi) * dt
+        # check if the ship in the future is inside the shore polygons. If so, stop the ship.
+        self.future_pos(10)
+        ship_pos = Point(self.y_t, self.x_t)
+        if enc.shore.geometry.contains(ship_pos) == True:
+            self.u = self.u - 0.5 * dt
+            if self.u <= 0:
+                self.u = 0
+        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
+        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
+            self.u = self.u - 0.5 * dt
+            if self.u <= 0:
+                self.u = 0
+        #self.update_speed(dt, u_d=self.u)
+"""
+
+"""
+    def update_speed(self, dt):
+        # Update speed based on simple kinematic model with constraints
+        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
+        self.u += a*dt
+        self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
+"""
+
+"""
+    def follow_waypoints(self, dt):
+        # check if the ship has reached the next waypoint (within radius of acceptance)
+        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
+            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
+
+        self.update_los_angle()
+        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
+        # Ships turn radius is simulated according to its size:
+        '''if self.length >= 100:
+            self.psi += np.sign(delta_psi) * min(0.08 * abs(delta_psi), self.r_rate_max) * dt
+        elif 25 <= self.length < 100:
+            self.psi += np.sign(delta_psi) * min(0.1 * abs(delta_psi), self.r_rate_max) * dt
+        elif self.length < 25:
+            self.psi += np.sign(delta_psi) * min(0.2 * abs(delta_psi), self.r_rate_max) * dt'''
+        self.psi += self.r * dt
+        self.psi = wrap_to_pi(self.psi)
+"""
 
     
 

@@ -259,18 +259,13 @@ def ship_data(ships, waypoint_list, time, timestep):
     for i, t in enumerate(time):
         for ix, ship in enumerate(ships):
             # Creates ships movement data
-            ship.move(timestep)
+            ship.update_pose(timestep)
             data[f'Ship{ix+1}'][0][i] = int(ship.x)
             data[f'Ship{ix+1}'][1][i] = int(ship.y)
 
             # Creates ships future positions for speed vector visualization
-            ship.future_pos(10)
             data[f'Ship{ix + 1}'][2][i] = int(ship.x_t)
             data[f'Ship{ix + 1}'][3][i] = int(ship.y_t)
-
-            # Ships follow waypoints
-            if data[f'Ship{ix + 1}'][4]:
-                ship.follow_waypoints(timestep)
 
             # writing instantaneous ship data to the ais_data dataframe.
             row = {'mmsi': ship.mmsi, 'lon': ship.x, 'lat': ship.y, 'date_time_utc': i,
