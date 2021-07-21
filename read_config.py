@@ -121,8 +121,8 @@ def read_config():
     validate(key, user[key], int)
 
     key = 'time_step'
-    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
-    validate(key, user[key], int)
+    confirm_input(user, key, float, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], float)
 
     key = 'time_end'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)

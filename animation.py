@@ -47,5 +47,10 @@ def visualize(data, wp_number, t):
     # display ship names
     plt.legend(loc='upper right')
 
-    ani = animation.FuncAnimation(fig1, update,  frames=len(t) - 1, init_func=init, blit=True)
+    #ani = animation.FuncAnimation(fig1, update,  frames=len(t) - 1, init_func=init, blit=True, interval)
+    anim = animation.FuncAnimation(fig1, update, 
+                            init_func=init, 
+                            frames=len(t) - 1,
+                            interval = 200*t[1], 
+                            blit = True) 
     plt.show()
