@@ -65,7 +65,7 @@ class Ship:
     def get_full_state(self):
         return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
 
-    def get_pose_and_speed(self):
+    def get_pose(self):
         return np.array([self.x, self.y, self.u, self.psi])
 
     def waypoints(self, wp_number):
