@@ -2,6 +2,7 @@ import random
 import math
 import numpy as np
 import pandas as pd
+import json
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 from functions import Ship
 from map import start_position, min_distance_to_land, enc
@@ -120,14 +121,13 @@ def random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_mod
     return x1, y1, speed1, heading1, x2, y2, speed2, heading2
 
 
-def ship_generator(Ship, scenario_num, os_max_speed, ts_max_speed, ship_number, ship_model_name):
+def ship_generator(scenario_num, os_max_speed, ts_max_speed, ship_number, ship_model_name):
     ship_list = []
     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_model_name)
     ship1 = Ship(x1, y1, speed1, heading1, ship_model_name, mmsi='Ship1')
     ship2 = Ship(x2, y2, speed2, heading2, ship_model_name='random', mmsi='Ship2')
     ship_list.append(ship1)
     ship_list.append(ship2)
-
     ship_number = ship_number - 2
     for i in range(ship_number):
         x, y, speed, heading = random_pose(ts_max_speed, ship_model_name='random')
@@ -230,15 +230,48 @@ def ship_data(ships, waypoint_list, time, timestep):
     return data, ais_data, colav_input
 
 
+def save_scenario_definition(ship_list, waypoint_list, savefile):
+    """
+        Saves the the scenario init to a json file as a dict at scenarios/savefile
+        dict keys:
+            ship_model_names[i]: ship model name for ship i
+            waypoints[i]: waypoints for ship i
+            poses[i]: pose [x,y,u,psi] for ship i 
+    """
+    ship_model_names = []
+    poses = []
+    for i, ship in enumerate(ship_list):
+        ship_model_names.append(ship.ship_model_name)
+        pose = ship.get_pose().tolist()
+        pose[2] /= 0.51 #from m/s back to knots
+        pose[3] = int(np.rad2deg(pose[3])) #back to degrees
+        poses.append(pose)
+    data = {
+        "ship_model_names": ship_model_names,
+        "waypoints": waypoint_list,
+        "poses": poses,
+        }
+    json.dump( data, open(f'scenarios/{savefile}', 'w'), indent=2)
 
-
-
-
-
-
-
-
-
+def load_scenario_definition(loadfile):
+    """
+        Loads the scenario init from a json file as a dict
+        dict keys:
+            ship_model_names[i]: ship model name for ship i
+            waypoints[i]: waypoints for ship i
+            poses[i]: pose [x,y,u,psi] for ship i 
+    """
+    data = json.load( open(f'scenarios/{loadfile}') )
+    waypoint_list = [] #data['waypoints']
+    ship_list = []
+    for i in range(len(data["poses"])):
+        wp = [tuple(row) for row in data["waypoints"][i]]
+        x, y ,speed, heading = data["poses"][i]
+        ship = Ship(x, y, speed, heading, ship_model_name=data["ship_model_names"][i], mmsi=f'Ship{i+1}')
+        ship.set_waypoints(wp)
+        waypoint_list.append(wp)
+        ship_list.append(ship)
+    return ship_list, waypoint_list
 
 
 

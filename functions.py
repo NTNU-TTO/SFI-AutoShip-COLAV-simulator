@@ -22,6 +22,7 @@ class Ship:
     '''
     def __init__(self, x, y, speed, heading, ship_model_name, mmsi, sensors=None):
         # Choosing specific ship model
+        self.ship_model_name = ship_model_name
         self.ship_model = create_ship_model(ship_model_name)
         # True states and ship parameters
         self.x = x
@@ -91,6 +92,9 @@ class Ship:
             self.wp.append((wp_x, wp_y))
 
         return self.wp
+        
+    def set_waypoints(self, waypoints):
+        self.wp = waypoints
 
     ###############################################
     # DYNAMICS
