@@ -8,6 +8,7 @@ from functions import Ship
 from map import start_position, min_distance_to_land, enc
 from sensors import *
 from utils import create_ship_model
+from read_config import read_ship_config
 
 
 def random_pose(os_max_speed, ship_model_name):
@@ -272,6 +273,31 @@ def load_scenario_definition(loadfile):
         waypoint_list.append(wp)
         ship_list.append(ship)
     return ship_list, waypoint_list
+
+def get_ship_parameters(num_ships):
+    ship_model_list = []
+    sensors_list = []
+    LOS_params_list = []
+    for i in range(num_ships):
+        sensors = []
+        ### Config parameters for ship i ###
+        ship_model, radar_active, radar_meas_rate, radar_sigma_z, \
+        ais_active, ais_meas_rate, ais_sigma_z, ais_loss_prob, \
+        delta, R_a = read_ship_config(f'SHIP{i+1}')
+        
+        if radar_active:
+            radar = Radar(meas_rate=radar_meas_rate, sigma_z=radar_sigma_z)
+            sensors.append(radar)
+        if ais_active:
+            ais = AIS(meas_rate=ais_meas_rate, sigma_z=ais_sigma_z, loss_prob=ais_loss_prob)
+            sensors.append(ais)
+        LOS_params = [delta, R_a]
+
+        ship_model_list.append(ship_model)
+        sensors_list.append(sensors)
+        LOS_params_list.append(LOS_params)
+
+    return ship_model_list, sensors_list, LOS_params_list
 
 
 

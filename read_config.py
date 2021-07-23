@@ -5,6 +5,7 @@ cwd = pathlib.Path.cwd()
 path = cwd / 'config_simulator.ini'
 path_shp = cwd / 'data' / 'external'
 path_ctrl = cwd / 'config_control.ini'
+path_ships = cwd / 'config_ships.ini'
 
 
 def read_settings(category='DEFAULT', path=path):
@@ -179,6 +180,64 @@ def read_control_config():
     key = 'radius_of_acceptance'
     confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
     validate(key, user[key], int)
+
+
+    settings = tuple(user.values())
+    print('')
+    return settings
+
+def read_ship_config(section_name):
+    # section_name: f'SHIP{i}' or 'DEFAULT'
+    config = configparser.ConfigParser()
+    config.read(path_ships, encoding='utf8')
+    defaults = read_settings(category='DEFAULT', path=path_ships)
+    if config.has_section(section_name):
+        user = read_settings(category=section_name, path=path_ships)
+    else:
+        user = defaults.copy()
+
+    key = 'ship_model'
+    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
+    validate(key, user[key], str)
+
+    ### Radar parameters ###
+    key = 'radar_active'
+    confirm_input(user, key, bool, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
+    key = 'radar_meas_rate'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radar_sigma_z'
+    confirm_input(user, key, float, defaults, i_0=0, i_1=0)
+    validate(key, user[key], float)
+
+    ### AIS parameters ###
+    key = 'ais_active'
+    confirm_input(user, key, bool, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
+    key = 'ais_meas_rate'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'ais_sigma_z'
+    confirm_input(user, key, float, defaults, i_0=0, i_1=0)
+    validate(key, user[key], float)
+
+    key = 'ais_loss_prob'
+    confirm_input(user, key, float, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], float)
+
+    ### LOS guidance parameters ###
+    key = 'lookahead_distance'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_of_acceptance'
+    confirm_input(user, key, float, defaults, i_0=0, i_1=0)
+    validate(key, user[key], float)
 
 
     settings = tuple(user.values())
