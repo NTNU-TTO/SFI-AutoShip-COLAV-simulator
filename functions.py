@@ -8,9 +8,6 @@ from map import *
 from sensors import *
 from utils import *
 
-from read_config import read_control_config
-delta, R_a = read_control_config()
-
 class Ship:
     '''
     x, y : Initial x and y values of the ship.
@@ -20,39 +17,38 @@ class Ship:
     x_t, y_t: x and y position in t future. They are used for course and speed visualization vector.
     noise: Used to create a random value for ship to be off the route.
     '''
-    def __init__(self, x, y, speed, heading, ship_model_name, mmsi, sensors=None):
+    def __init__(self, pose, waypoints, speed_plan, ship_model_name, mmsi, sensors, LOS_params):
         # Choosing specific ship model
         self.ship_model_name = ship_model_name
         self.ship_model = create_ship_model(ship_model_name)
         # True states and ship parameters
-        self.x = x
-        self.y = y
-        self.psi = wrap_to_pi(math.radians(heading))    # In radians
-        self.u = speed * 0.51               # longitudinal velocity. Converting knots to meters per second
-        self.v = 0                          # lateral velocity
-        self.r = 0                          # angular velocity
+        self.x = pose[0]
+        self.y = pose[1]
+        self.psi = wrap_to_pi(math.radians(pose[3]))    # In radians
+        self.u = pose[2] * 0.51                         # longitudinal velocity. Converting knots to meters per second
+        self.v = 0                                      # lateral velocity
+        self.r = 0                                      # angular velocity
         self.length = self.ship_model.length
         self.draft = self.ship_model.draft
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
-        self.U_d = self.u
+        self.U_d = speed_plan[0]
 
         # LOS guidance parameters
         self.los_angle = 0
-        self.delta = delta                  # lookahead distance
-        self.R_a = R_a                      # radius of acceptance
+        self.delta = LOS_params[0]                      # lookahead distance
+        self.R_a = LOS_params[1]                        # radius of acceptance
 
-        # Waypoint parameters
-        noise = random.uniform(0, 10)
-        self.wp = [(self.x + noise, self.y + noise)]
+        # Waypoint and speed plan parameters
+        self.wp = waypoints
+        self.speed_plan = speed_plan
         self.idx_next_wp = 1
 
         # Other ship state estimation vaiables
-        if sensors is None:
-            sensors = [Radar(4,0,0,0.01*np.eye(4)), AIS(6,0,0.01,0.01*np.eye(4))] # to test code before sensor params defined
-        self.estimator = Estimator(sensors)     # estimates the state ([x, y, SOG, COG]) of target ship(s)
-        self.target_ship_state_est = []       # list of current target ship(s) state estimate
+        self.sensors = sensors
+        self.estimator = Estimator(sensors)             # estimates the state ([x, y, SOG, COG]/[x, y, Vx, Vy]) of target ship(s)
+        self.target_ship_state_est = []                 # list of current target ship(s) state estimate
         for i in range(ship_num-1):
             self.target_ship_state_est.append(np.zeros(4))
 
@@ -68,30 +64,6 @@ class Ship:
 
     def get_pose(self):
         return np.array([self.x, self.y, self.u, self.psi])
-
-    def waypoints(self, wp_number):
-        '''
-        Creates random waypoints starting from the ship's position.
-        wp_number: Number of waypoints to create.
-        n: Random distance between waypoints.
-        alpha: Angle in radians to make waypoints in zigzag shape.
-               A bigger value makes the every odd waypoint away from the initial direction.
-        '''
-        for each in range(wp_number):
-            n = random.randint(200, 1000)
-            alpha = random.uniform(0, 0.7)
-            if not each:
-                alpha = 0
-            wp_x = self.wp[each][0] + n * math.cos(self.psi + alpha)
-            wp_y = self.wp[each][1] + n * math.sin(self.psi + alpha)
-            # check if the waypoint path is intersecting with the shore polygon
-            wp_line = LineString([(self.wp[each][1], self.wp[each][0]), (wp_y, wp_x)])
-            if wp_line.intersects(enc.shore.geometry) == True:
-                wp_x = self.wp[each][0]
-                wp_y = self.wp[each][1]
-            self.wp.append((wp_x, wp_y))
-
-        return self.wp
         
     def set_waypoints(self, waypoints):
         self.wp = waypoints
@@ -213,13 +185,14 @@ class Ship:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
+        self.U_d = self.speed_plan[self.idx_next_wp]
 
         # Stop the ship if the future position is in the shore
         ship_pos = Point(self.y_t, self.x_t)
         if enc.shore.geometry.contains(ship_pos) == True:
             self.U_d = 0
-        # check if the ship's position is 50 meters range of the last waypoint. If so, stop the ship.
-        elif np.sqrt((self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2) <= 50:
+        # check if the ship has reached the last waypoint. If so, stop the ship.
+        elif (self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2 <= self.R_a**2:
             self.U_d = 0
 
     def update_los_angle(self):

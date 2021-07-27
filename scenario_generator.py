@@ -1,6 +1,7 @@
 import random
 import math
 import numpy as np
+from numpy.lib.function_base import append
 import pandas as pd
 import json
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
@@ -9,7 +10,7 @@ from map import start_position, min_distance_to_land, enc
 from sensors import *
 from utils import create_ship_model
 from read_config import read_ship_config
-
+from shapely.geometry import Point, Polygon, LineString, GeometryCollection
 
 def random_pose(os_max_speed, ship_model_name):
     own_ship_model = create_ship_model(ship_model_name)
@@ -23,6 +24,45 @@ def random_pose(os_max_speed, ship_model_name):
     heading = random.randint(0, 359)
     return x, y, speed, heading
 
+def create_random_waypoints(x, y, psi, wp_number):
+    '''
+    Creates random waypoints starting from the ship's position.
+    wp_number: Number of waypoints to create.
+    n: Random distance between waypoints.
+    alpha: Angle in radians to make waypoints in zigzag shape.
+            A bigger value makes the every odd waypoint away from the initial direction.
+    '''
+    wp = []
+    wp.append((x, y)) # First waypoint init pos 
+    for each in range(wp_number):
+        n = random.randint(200, 1000)
+        alpha = random.uniform(0, 0.7)
+        if not each:
+            alpha = 0
+        wp_x = wp[each][0] + n * math.cos(math.radians(psi) + alpha)
+        wp_y = wp[each][1] + n * math.sin(math.radians(psi) + alpha)
+        # check if the waypoint path is intersecting with the shore polygon
+        wp_line = LineString([(wp[each][1], wp[each][0]), (wp_y, wp_x)])
+        if wp_line.intersects(enc.shore.geometry) == True:
+            wp_x = wp[each][0]
+            wp_y = wp[each][1]
+        wp.append((wp_x, wp_y))
+    return wp
+
+def create_random_speed_plan(speed, wp_number):
+    '''
+    Creates random waypoints starting from the ship's position.
+    wp_number: Number of waypoints to create.
+    n: Random distance between waypoints.
+    alpha: Angle in radians to make waypoints in zigzag shape.
+            A bigger value makes the every odd waypoint away from the initial direction.
+    '''
+    speed_plan = []
+    speed_plan.append(speed) # First speed init speed
+    for each in range(wp_number):
+        U = speed + random.uniform(-1, 1)
+        speed_plan.append(U)
+    return speed_plan
 
 def head_on(os_max_speed, ts_max_speed, ship_model_name):
     # random own ship
@@ -122,7 +162,7 @@ def random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_mod
     return x1, y1, speed1, heading1, x2, y2, speed2, heading2
 
 
-def ship_generator(scenario_num, os_max_speed, ts_max_speed, ship_number, ship_model_name):
+""""def ship_generator(scenario_num, os_max_speed, ts_max_speed, ship_number, ship_model_name):
     ship_list = []
     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_model_name)
     ship1 = Ship(x1, y1, speed1, heading1, ship_model_name, mmsi='Ship1')
@@ -143,7 +183,7 @@ def waypoint_generator(ships, waypoints_number):
     for i in range(len(ships)):
         waypoints = ships[i].waypoints(waypoints_number)
         waypoint_list.append(waypoints)
-    return waypoint_list
+    return waypoint_list"""
 
 
 def create_colav_input(ships, time):
@@ -175,6 +215,7 @@ def create_colav_input(ships, time):
         colav_input[f'ts{ix}'] = np.append(other_ship_state_estimates[ix], [ship.length/2,
                                            ship.length/2, ship.length/4, ship.length/4, ship.mmsi])
     return colav_input
+
 
 def ship_data(ships, waypoint_list, time, timestep):
     '''
@@ -231,26 +272,24 @@ def ship_data(ships, waypoint_list, time, timestep):
     return data, ais_data, colav_input
 
 
-def save_scenario_definition(ship_list, waypoint_list, savefile):
+def save_scenario_definition(pose_list, waypoint_list, speed_plan_list, savefile):
     """
         Saves the the scenario init to a json file as a dict at scenarios/savefile
         dict keys:
-            ship_model_names[i]: ship model name for ship i
-            waypoints[i]: waypoints for ship i
             poses[i]: pose [x,y,u,psi] for ship i 
+            waypoints[i]: waypoints for ship i
+            waypoints[i]: speed_plan for ship i
     """
-    ship_model_names = []
     poses = []
-    for i, ship in enumerate(ship_list):
-        ship_model_names.append(ship.ship_model_name)
-        pose = ship.get_pose().tolist()
-        pose[2] /= 0.51 #from m/s back to knots
-        pose[3] = int(np.rad2deg(pose[3])) #back to degrees
-        poses.append(pose)
+    for i, pose in enumerate(pose_list):
+        p = pose.copy()
+        p[2] /= 0.51 #from m/s back to knots
+        p[3] = int(np.rad2deg(pose[3])) #back to degrees
+        poses.append(p)
     data = {
-        "ship_model_names": ship_model_names,
-        "waypoints": waypoint_list,
         "poses": poses,
+        "waypoints": waypoint_list,
+        "speed_plans": speed_plan_list  
         }
     json.dump( data, open(f'scenarios/{savefile}', 'w'), indent=2)
 
@@ -258,29 +297,33 @@ def load_scenario_definition(loadfile):
     """
         Loads the scenario init from a json file as a dict
         dict keys:
-            ship_model_names[i]: ship model name for ship i
+            poses[i]: pose [x,y,u,psi] for ship i
             waypoints[i]: waypoints for ship i
-            poses[i]: pose [x,y,u,psi] for ship i 
+            speed_plans[i]: speed_plan for ship i        
     """
     data = json.load( open(f'scenarios/{loadfile}') )
+    pose_list = data['poses']
     waypoint_list = [] #data['waypoints']
-    ship_list = []
-    for i in range(len(data["poses"])):
+    speed_plan_list = data['speed_plans']
+    
+    for i in range(len(data["waypoints"])):
         wp = [tuple(row) for row in data["waypoints"][i]]
-        x, y ,speed, heading = data["poses"][i]
-        ship = Ship(x, y, speed, heading, ship_model_name=data["ship_model_names"][i], mmsi=f'Ship{i+1}')
-        ship.set_waypoints(wp)
         waypoint_list.append(wp)
-        ship_list.append(ship)
-    return ship_list, waypoint_list
+    return pose_list, waypoint_list, speed_plan_list
+
 
 def get_ship_parameters(num_ships):
+    """
+        Reads the config for each ship,
+        and initializes and coverts to right format
+        If ship i doesn't have config, then default params are set
+    """
     ship_model_list = []
     sensors_list = []
     LOS_params_list = []
     for i in range(num_ships):
         sensors = []
-        ### Config parameters for ship i ###
+        # Config parameters for ship i
         ship_model, radar_active, radar_meas_rate, radar_sigma_z, \
         ais_active, ais_meas_rate, ais_sigma_z, ais_loss_prob, \
         delta, R_a = read_ship_config(f'SHIP{i+1}')
@@ -299,8 +342,50 @@ def get_ship_parameters(num_ships):
 
     return ship_model_list, sensors_list, LOS_params_list
 
+def init_scenario(new_scenario, scenario_file, num_ships, scenario_num=0, os_max_speed=20, ts_max_speed=20, wp_number=5):
+    """
+        Returns initialized and configured ships, and their route plans
+        new_scenario=False: creates a new scenario based on scenario_num and saves
+            the poses and plans to scenario_file
+        new_scenario=True: Loads poses and plans from scenario_file
 
+    """
+    # Get config parameters for each ship
+    ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships)
+    
+    if not new_scenario:
+        pose_list, waypoint_list, speed_plan_list = load_scenario_definition(scenario_file)
+    else:
+        pose_list, waypoint_list, speed_plan_list = create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, wp_number)
+        save_scenario_definition(pose_list, waypoint_list, speed_plan_list, scenario_file)
+    
+    ship_list = []
+    for i in range(num_ships):
+        ship = Ship(pose=pose_list[i],
+                    waypoints=waypoint_list[i],
+                    speed_plan=speed_plan_list[i],
+                    ship_model_name=ship_model_name_list[i],
+                    mmsi=f'Ship{i+1}',
+                    sensors=sensors_list[i],
+                    LOS_params = LOS_params_list[i]
+                    )
+        ship_list.append(ship)
+    return ship_list, waypoint_list, speed_plan_list
 
-
-
-
+def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, wp_number):
+    # Create the initial poses
+    x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_model_name_list[0])
+    pose_list = [[x1, y1, speed1, heading1], [x2, y2, speed2, heading2]]
+    for i in range(2, num_ships):
+        x, y, speed, heading = random_pose(ts_max_speed, ship_model_name=ship_model_name_list[i])
+        pose_list.append([x, y, speed, heading])
+    
+    # Create plan (waypoints, speed_plan) for all ships
+    waypoint_list = []
+    speed_plan_list = []
+    for i in range(num_ships):
+        wp = create_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], wp_number)
+        speed_plan = create_random_speed_plan(pose_list[i][2]*0.51, wp_number)
+        waypoint_list.append(wp)
+        speed_plan_list.append(speed_plan)
+    return pose_list, waypoint_list, speed_plan_list

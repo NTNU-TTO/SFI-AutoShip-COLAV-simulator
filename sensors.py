@@ -10,7 +10,7 @@ def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
             x_true: [x_true, y_true, SOG_true, COG_true].T
             cov: WGN covariance matrix
     """
-    z = x_true + np.random.multivariate_normal(mean=x_true*0, cov=cov)
+    z = np.random.multivariate_normal(mean=x_true, cov=cov)
     z[3] = wrap_to_pi(z[3])
     
 class Radar:
@@ -18,34 +18,59 @@ class Radar:
     output:
         [x_meas, y_meas, SOG_meas, COG_meas].T
     """
-    def __init__(self, meas_rate: float, accuracy: float, noise_prob: float, cov: np.ndarray):
+    def __init__(self, meas_rate: float, sigma_z: float):
         self.meas_rate = meas_rate
-        self.accuracy = accuracy
-        self.noise_prob = noise_prob
-        self.cov = cov
+        self.sigma_z = sigma_z
+        self._R = self.sigma_z**2 * np.diag([10, 10, 1, np.deg2rad(0.1)])
+        self._H = np.eye(4)
 
-    def simulate_measurement(self, x_true: np.ndarray, t: int):
-        # returns None if t between measurements
+    def R(self, x: np.ndarray):
+        return self._R
+
+    def H(self):
+        return self._H
+
+    def h(self, x: np.ndarray):
+        return self._H @ x
+
+    def simulate_measurement(self, x_true: np.ndarray, t: float):
         if t % self.meas_rate:
             return None
         else:
-            return simulate_measurement(x_true, self.cov)
+            return simulate_measurement(x_true, self._R)
         
 class AIS:
 
-    def __init__(self, meas_rate: float, accuracy: float, loss_prob: float, cov: np.ndarray):
+    def __init__(self, meas_rate: float, sigma_z: float, loss_prob: float):
         self.meas_rate = meas_rate
-        self.accuracy = accuracy
+        self.sigma_z = sigma_z
         self.loss_prob = loss_prob
-        self.cov = cov
+        self._R = self.sigma_z**2 * np.diag([10, 10, 1, np.deg2rad(0.1)])
+        self._H = np.eye(4)
+    """
+    # R_realistic values from paper considering quantization effects
+    # https://link.springer.com/chapter/10.1007/978-3-319-55372-6_13#Sec14
+    def R_realistic(self, x: np.ndarray):
+        R_GNSS = np.diag([0.5, 0.5, 0.1, 0.1])**2
+        R_v = np.diag([x[2]**2, x[3]**2, 0, 0])
+        self._R = R_GNSS + (1/12)*R_v
+    """
+    def R(self, x: np.ndarray):
+        return self._R
 
-    def simulate_measurement(self, x_true: np.ndarray, t: int):
-        # returns None if no meas recieved/ t between measurements
-        if self.loss_prob > random.uniform(0,1) or t % self.meas_rate:
+    def H(self):
+        return self._H
+
+    def h(self, x: np.ndarray):
+        z = self._H @ x
+        return z
+
+    def simulate_measurement(self, x_true: np.ndarray, t: float):
+        if t % self.meas_rate or random.uniform(0,1) < self.loss_prob:
             return None
         else:
-            return simulate_measurement(x_true, self.cov)
-
+            return simulate_measurement(x_true, self._R)
+        
 class Estimator:
     """
         Estimates the states of the other ships

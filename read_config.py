@@ -4,7 +4,6 @@ import pathlib
 cwd = pathlib.Path.cwd()
 path = cwd / 'config_simulator.ini'
 path_shp = cwd / 'data' / 'external'
-path_ctrl = cwd / 'config_control.ini'
 path_ships = cwd / 'config_ships.ini'
 
 
@@ -137,10 +136,6 @@ def read_config():
     confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
     validate(key, user[key], int)
 
-    key = 'ship_model_name'
-    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
-    validate(key, user[key], str)
-
     key = 'os_max_speed'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
@@ -169,22 +164,6 @@ def read_config():
     print('')
     return settings
 
-def read_control_config():
-    user = read_settings(category='USER', path=path_ctrl)
-    defaults = read_settings(category='DEFAULT', path=path_ctrl)
-
-    key = 'lookahead_distance'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'radius_of_acceptance'
-    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-
-    settings = tuple(user.values())
-    print('')
-    return settings
 
 def read_ship_config(section_name):
     # section_name: f'SHIP{i}' or 'DEFAULT'
