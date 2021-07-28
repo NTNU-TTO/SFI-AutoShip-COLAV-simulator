@@ -5,7 +5,7 @@ from numpy.lib.function_base import append
 import pandas as pd
 import json
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
-from functions import Ship
+from ship import Ship
 from map import start_position, min_distance_to_land, enc
 from sensors import *
 from utils import create_ship_model
