@@ -128,6 +128,18 @@ def read_config():
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
 
+    key = 'run_all_scenarios'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
+    key = 'new_scenario'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
+    key = 'scenario_file'
+    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
+    validate(key, user[key], str)
+
     key = 'waypoint_num'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
@@ -148,17 +160,13 @@ def read_config():
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
     validate(key, user[key], int)
 
-    key = 'show_waypoints'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'new_scenario'
+    key = 'visulaize_scenario'
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
-    key = 'scenario_file'
-    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
-    validate(key, user[key], str)
+    key = 'show_waypoints'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
 
     settings = tuple(user.values())
     print('')
