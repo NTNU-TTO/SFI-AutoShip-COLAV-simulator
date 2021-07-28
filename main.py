@@ -1,4 +1,4 @@
-from scenario_generator import *
+from scenario_simulator import *
 from animation import visualize
 from map import *
 from yaspin import yaspin
@@ -55,7 +55,7 @@ def main():
         # ANIMATION PART
         ###############################################
         if visulaize_scenario:
-            visualize(data, waypoint_num, t)
+            visualize(data, t, show_waypoints=show_waypoints)
 
 
 if __name__ == '__main__':

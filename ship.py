@@ -48,9 +48,7 @@ class Ship:
         # Other ship state estimation vaiables
         self.sensors = sensors
         self.estimator = Estimator(sensors)             # estimates the state ([x, y, SOG, COG]/[x, y, Vx, Vy]) of target ship(s)
-        self.target_ship_state_est = []                 # list of current target ship(s) state estimate
-        for i in range(ship_num-1):
-            self.target_ship_state_est.append(np.zeros(4))
+        self.target_ship_state_est = None               # list of current target ship(s) state estimate
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -220,11 +218,11 @@ class Ship:
             x_true_list: list of true states of target ships,
             the order of the ships must match in x_true_list and self.target_ship_state_est 
         """
+        if t == 0:
+            self.target_ship_state_est = x_true_list #initial state estimates set to true value
+            return
         for i, x_est in enumerate(self.target_ship_state_est):
-            if t == 0:
-                self.target_ship_state_est[i] = x_true_list[i] #initial state estimates set to true value
-            else:
-                self.target_ship_state_est[i] = self.estimator.step(x_true_list[i], x_est, t, dt)
+            self.target_ship_state_est[i] = self.estimator.step(x_true_list[i], x_est, t, dt)
 
     def get_converted_target_x_est(self):
         """

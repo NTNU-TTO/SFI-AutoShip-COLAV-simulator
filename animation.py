@@ -2,7 +2,7 @@ import matplotlib.animation as animation
 from map import *
 
 
-def visualize(data, wp_number, t):
+def visualize(data, t, show_waypoints):
     fig1, ax1 = plt.subplots(figsize=(12, 10), facecolor=(0.8, 0.8, 0.8))
     x_lim, y_lim = background('show')
 
@@ -24,7 +24,7 @@ def visualize(data, wp_number, t):
             lines.append(plt.plot([], [], 'k-')[0])
         if show_waypoints:
             waypoints = data[f'Ship{i+1}'][4]
-            for w in range(wp_number):
+            for w in range(len(waypoints)-1):
                 ax1.scatter(waypoints[w][1], waypoints[w][0], color=c, s=15, alpha=0.3)
                 ax1.plot([waypoints[w][1], waypoints[w + 1][1]], [waypoints[w][0], waypoints[w + 1][0]], "--"+c, alpha=0.4)
 
