@@ -8,7 +8,7 @@ from read_config import *
 files, center, size, new_data, time_start, time_step, time_end, \
 run_all_scenarios, new_scenario, scenario_file, \
 waypoint_num, scenario_num, os_max_speed, ts_max_speed, ship_num, \
-visulaize_scenario, show_waypoints = read_config()
+visulaize_scenario, show_waypoints, evaluate_results = read_config()
 
 # Creating shapefiles from the defined region
 enc = seacharts.ENC(size=size, center=center, files=files, new_data=new_data)

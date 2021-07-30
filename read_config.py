@@ -168,6 +168,10 @@ def read_config():
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
+    key = 'evaluate_results'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
     settings = tuple(user.values())
     print('')
     return settings
