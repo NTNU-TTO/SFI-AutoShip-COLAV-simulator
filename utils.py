@@ -1,7 +1,9 @@
-from numpy import pi
-from ship_models import telemetron, random_ship_model
 import math
 import numpy as np
+from datetime import datetime, timedelta
+import pytz
+from ship_models import telemetron, random_ship_model
+
 
 def create_ship_model(ship_model_name='random'):
     if ship_model_name == 'telemetron':
@@ -41,3 +43,30 @@ def normalize_angle_diff(angle, angle_ref):
 		new_angle -= 2*math.pi
 	return new_angle
 
+def seconds_to_date_time_utc(time: int):
+	"""
+		Converts seconds to date time UTC format
+		Time=0 -> 2021-01-01 00:00:00+00:00
+		Note: time must be int, float will produce error
+	"""
+	hms_time = str(timedelta(seconds=time))
+	local = pytz.timezone("Europe/London") #London to get UTC+0
+	naive = datetime.strptime(f"2021-1-1 {hms_time}", "%Y-%m-%d %H:%M:%S")
+	local_dt = local.localize(naive, is_dst=None)
+	utc_dt = local_dt.astimezone(pytz.utc)
+	utc_dt.strftime("%Y-%m-%d %H:%M:%S")
+	return utc_dt
+
+""""def lat_long_dist_to_metres(lon1, lat1, lon2, lat2):
+    if lon1 < 0 or lat1 < 0 or lon2 < 0 or lat2 < 0:
+        return 999999
+    r = 6362.132
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * \
+        np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(a ** 0.5, (1 - a) ** 0.5)
+    d = r * c * 1000
+    return round(d, 1)"""
