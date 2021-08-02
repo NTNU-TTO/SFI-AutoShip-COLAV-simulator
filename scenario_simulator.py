@@ -8,7 +8,6 @@ from ship import Ship
 from sensors import *
 from read_config import read_ship_config
 from scenario_generator import create_scenario
-from utils import seconds_to_date_time_utc
 
 
 def ship_data(ships, waypoint_list, time, timestep):
@@ -47,10 +46,8 @@ def ship_data(ships, waypoint_list, time, timestep):
             data[f'Ship{ix + 1}'][3][i] = int(ship.y_t)
 
             # writing instantaneous ship data to the ais_data dataframe.
-            if not i % 5: # Error when ais_dt < 5
-                row = {'mmsi': ship.mmsi, 'lon': ship.x*10**(-5), 'lat': ship.y*10**(-5), 'date_time_utc': seconds_to_date_time_utc(i),
-                    'sog': ship.u, 'cog': int(math.degrees(ship.psi)), 'true_heading': int(math.degrees(ship.psi)),
-                    'nav_status': 0, 'message_nr': ship.message_nr, 'source': ''}
+            if not t % 5: # Error when ais_dt < 5
+                row = ship.get_ais_data(t)
                 ais_data = ais_data.append(row, ignore_index=True)
 
         for ix, ship in enumerate(ships): # loop to update situational awareness

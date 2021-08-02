@@ -43,6 +43,14 @@ def normalize_angle_diff(angle, angle_ref):
 		new_angle -= 2*math.pi
 	return new_angle
 
+def knots2mps(knots):
+	mps = knots * 1.852 / 3.6
+	return mps
+
+def mps2knots(mps):
+	knots = mps * 3.6 / 1.852
+	return knots
+
 def seconds_to_date_time_utc(time: int):
 	"""
 		Converts seconds to date time UTC format

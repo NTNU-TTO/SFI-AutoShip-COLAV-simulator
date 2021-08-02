@@ -25,7 +25,7 @@ class Ship:
         self.x = pose[0]
         self.y = pose[1]
         self.psi = wrap_to_pi(math.radians(pose[3]))    # In radians
-        self.u = pose[2] * 0.51                         # longitudinal velocity. Converting knots to meters per second
+        self.u = knots2mps(pose[2])                     # longitudinal velocity. Converting knots to meters per second
         self.v = 0                                      # lateral velocity
         self.r = 0                                      # angular velocity
         self.length = self.ship_model.length
@@ -33,7 +33,6 @@ class Ship:
         self.mmsi = mmsi
         self.x_t = 0
         self.y_t = 0
-        self.U_d = speed_plan[0]
 
         # LOS guidance parameters
         self.los_angle = 0
@@ -42,7 +41,8 @@ class Ship:
 
         # Waypoint and speed plan parameters
         self.wp = waypoints
-        self.speed_plan = speed_plan
+        self.speed_plan = speed_plan                    # In knots
+        self.U_d = knots2mps(speed_plan[0])             # In m/s
         self.idx_next_wp = 1
 
         # Other ship state estimation vaiables
@@ -62,6 +62,12 @@ class Ship:
 
     def get_pose(self):
         return np.array([self.x, self.y, self.u, self.psi])
+
+    def get_ais_data(self, t):
+        row = {'mmsi': self.mmsi, 'lon': self.y*10**(-5), 'lat': self.x*10**(-5), 'date_time_utc': seconds_to_date_time_utc(t),
+                    'sog': mps2knots(self.u), 'cog': int(math.degrees(self.psi)), 'true_heading': int(math.degrees(self.psi)),
+                    'nav_status': 0, 'message_nr': self.message_nr, 'source': ''}
+        return row
         
     def set_waypoints(self, waypoints):
         self.wp = waypoints
@@ -183,7 +189,7 @@ class Ship:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
         self.update_los_angle()
-        self.U_d = self.speed_plan[self.idx_next_wp]
+        self.U_d = knots2mps(self.speed_plan[self.idx_next_wp])
 
         # Stop the ship if the future position is in the shore
         ship_pos = Point(self.y_t, self.x_t)
