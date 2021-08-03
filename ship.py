@@ -1,10 +1,8 @@
 import math
 import random
 import numpy as np
-from matplotlib.patches import Ellipse, Circle
-import shapely
-from shapely.geometry import Point, Polygon, LineString, GeometryCollection
-from map import *
+
+from map import path_crosses_land
 from sensors import *
 from utils import *
 
@@ -192,8 +190,7 @@ class Ship:
         self.U_d = knots2mps(self.speed_plan[self.idx_next_wp])
 
         # Stop the ship if the future position is in the shore
-        ship_pos = Point(self.y_t, self.x_t)
-        if enc.shore.geometry.contains(ship_pos) == True:
+        if path_crosses_land((self.y_t, self.x_t), (self.y, self.x)):
             self.U_d = 0
         # check if the ship has reached the last waypoint. If so, stop the ship.
         elif (self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2 <= self.R_a**2:

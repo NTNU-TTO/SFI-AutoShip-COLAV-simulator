@@ -1,4 +1,4 @@
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, Polygon, LineString
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -117,7 +117,7 @@ def start_position(draft):
     return rand_y, rand_x
 
 
-def min_distance_to_land(x, y):
+def min_distance_to_land(x: int, y: int):
     position = Point(x, y)
     min_distance = 1000
     land = enc.land.mapping['coordinates']
@@ -129,4 +129,10 @@ def min_distance_to_land(x, y):
             min_distance = distance
     return int(min_distance)
 
-
+def path_crosses_land(next_wp: tuple[int, int], prev_wp: tuple[int, int]):
+    """
+        Returns True if there is land somewhere on the path to the next waypoint
+        Note: x-cordinate=East, y-cordinate=North
+    """
+    wp_line = LineString([next_wp, prev_wp])
+    return wp_line.intersects(enc.shore.geometry)

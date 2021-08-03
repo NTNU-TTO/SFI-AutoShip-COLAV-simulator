@@ -2,16 +2,14 @@ import random
 import math
 import numpy as np
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
-from shapely.geometry import LineString
 
-from map import start_position, min_distance_to_land, enc
-from sensors import *
+from map import start_position, min_distance_to_land, path_crosses_land
 from utils import create_ship_model
 
 
 def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, wp_number):
     """
-        Main scenario_generator function 
+        Creates a COLREG scenario (based on scenario_num), with a random plans for all ships
     """
     # Create the initial poses
     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_model_name_list[0])
@@ -25,7 +23,7 @@ def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed,
     speed_plan_list = []
     for i in range(num_ships):
         wp = create_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], wp_number)
-        speed_plan = create_random_speed_plan(pose_list[i][2]*0.51, wp_number)
+        speed_plan = create_random_speed_plan(pose_list[i][2], wp_number)
         waypoint_list.append(wp)
         speed_plan_list.append(speed_plan)
     return pose_list, waypoint_list, speed_plan_list
@@ -60,8 +58,7 @@ def create_random_waypoints(x, y, psi, wp_number):
         wp_x = wp[each][0] + n * math.cos(math.radians(psi) + alpha)
         wp_y = wp[each][1] + n * math.sin(math.radians(psi) + alpha)
         # check if the waypoint path is intersecting with the shore polygon
-        wp_line = LineString([(wp[each][1], wp[each][0]), (wp_y, wp_x)])
-        if wp_line.intersects(enc.shore.geometry) == True:
+        if path_crosses_land((wp[each][1], wp[each][0]), (wp_y, wp_x)):
             wp_x = wp[each][0]
             wp_y = wp[each][1]
         wp.append((wp_x, wp_y))

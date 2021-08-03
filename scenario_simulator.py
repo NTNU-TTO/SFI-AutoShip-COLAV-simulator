@@ -13,7 +13,7 @@ from scenario_generator import create_scenario
 def ship_data(ships, waypoint_list, time, timestep):
     '''
         :param ships: List of initialized and configured ships.
-            Includes pose, waypoints
+            Includes initial pose, waypoints, speed plan
         :param waypoint_list: List of waypoints which is created from waypoint_generator().
         :param time: Array of time of the simulation.
         :param timestep: Defined time step (dt)
@@ -23,6 +23,7 @@ def ship_data(ships, waypoint_list, time, timestep):
                                      'true_heading', 'nav_status', 'message_nr', 'source'])
 
     data = {}
+    sim_data = {}
     for i in range(1, len(ships)+1):
         x_i = np.zeros(len(time))
         y_i = np.zeros(len(time))
@@ -32,6 +33,7 @@ def ship_data(ships, waypoint_list, time, timestep):
         data[f'Ship{i}'] = [x_i, y_i, x_i_t, y_i_t, w]
         try: data[f'Ship{i}'][4] = waypoint_list[i-1]
         except: print(f'Ship{i} has no waypoints')
+
 
     for i, t in enumerate(time):
         for ix, ship in enumerate(ships):
@@ -99,9 +101,9 @@ def save_scenario_definition(pose_list, waypoint_list, speed_plan_list, savefile
     """
         Saves the the scenario init to a json file as a dict at scenarios/savefile
         dict keys:
-            poses[i]: pose [x,y,u,psi] for ship i 
-            waypoints[i]: waypoints for ship i
-            waypoints[i]: speed_plan for ship i
+            pose_list[i]: pose [x,y,u,psi] for ship i 
+            waypoint_list[i]: waypoints for ship i
+            speed_plan_list[i]: speed_plan for ship i
     """
     
     data = {
@@ -183,7 +185,7 @@ def init_scenario(new_scenario, scenario_file, num_ships, scenario_num=0, os_max
                     waypoints=waypoint_list[i],
                     speed_plan=speed_plan_list[i],
                     ship_model_name=ship_model_name_list[i],
-                    mmsi=f'Ship{i+1}',
+                    mmsi= i+1, #f'Ship{i+1}',
                     sensors=sensors_list[i],
                     LOS_params = LOS_params_list[i]
                     )
