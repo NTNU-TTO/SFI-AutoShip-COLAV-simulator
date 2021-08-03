@@ -5,6 +5,7 @@ cwd = pathlib.Path.cwd()
 path = cwd / 'config_simulator.ini'
 path_shp = cwd / 'data' / 'external'
 path_ships = cwd / 'config_ships.ini'
+path_scen_gen = cwd / 'config_scenario_generator.ini'
 
 
 def read_settings(category='DEFAULT', path=path):
@@ -132,33 +133,13 @@ def read_config():
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
-    key = 'new_scenario'
-    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
-    validate(key, user[key], bool)
-
     key = 'scenario_file'
     confirm_input(user, key, str, defaults, i_0=0, i_1=0)
     validate(key, user[key], str)
 
-    key = 'waypoint_num'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'scenario_num'
-    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'os_max_speed'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'ts_max_speed'
-    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
-    validate(key, user[key], int)
-
-    key = 'ship_num'
-    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
-    validate(key, user[key], int)
+    key = 'new_scenario'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
 
     key = 'visulaize_scenario'
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
@@ -230,6 +211,34 @@ def read_ship_config(section_name):
     confirm_input(user, key, float, defaults, i_0=0, i_1=0)
     validate(key, user[key], float)
 
+
+    settings = tuple(user.values())
+    print('')
+    return settings
+
+def read_scenario_gen_config():
+    user = read_settings(category='USER', path = path_scen_gen)
+    defaults = read_settings(category='DEFAULT', path = path_scen_gen)
+
+    key = 'num_waypoints'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'scenario_num'
+    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'os_max_speed'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'ts_max_speed'
+    confirm_input(user, key, int, defaults,  i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'num_ships'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
 
     settings = tuple(user.values())
     print('')

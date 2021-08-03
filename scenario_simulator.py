@@ -6,11 +6,11 @@ np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
 from ship import Ship
 from sensors import *
-from read_config import read_ship_config
+from read_config import read_ship_config, read_scenario_gen_config
 from scenario_generator import create_scenario
 
 
-def ship_data(ships, waypoint_list, time, timestep):
+def ship_data(ships, time, timestep):
     '''
         :param ships: List of initialized and configured ships.
             Includes initial pose, waypoints, speed plan
@@ -23,7 +23,6 @@ def ship_data(ships, waypoint_list, time, timestep):
                                      'true_heading', 'nav_status', 'message_nr', 'source'])
 
     data = {}
-    sim_data = {}
     for i in range(1, len(ships)+1):
         x_i = np.zeros(len(time))
         y_i = np.zeros(len(time))
@@ -31,7 +30,7 @@ def ship_data(ships, waypoint_list, time, timestep):
         y_i_t = np.zeros(len(time))
         w = np.zeros(len(time))
         data[f'Ship{i}'] = [x_i, y_i, x_i_t, y_i_t, w]
-        try: data[f'Ship{i}'][4] = waypoint_list[i-1]
+        try: data[f'Ship{i}'][4] = ships[i-1].wp
         except: print(f'Ship{i} has no waypoints')
 
 
@@ -162,7 +161,7 @@ def get_ship_parameters(num_ships):
 
     return ship_model_list, sensors_list, LOS_params_list
 
-def init_scenario(new_scenario, scenario_file, num_ships, scenario_num=0, os_max_speed=20, ts_max_speed=20, wp_number=5):
+def init_scenario(new_scenario, scenario_file):
     """
         Returns initialized and configured ships, and their route plans
         new_scenario=False: creates a new scenario based on scenario_num and saves
@@ -170,13 +169,19 @@ def init_scenario(new_scenario, scenario_file, num_ships, scenario_num=0, os_max
         new_scenario=True: Loads poses and plans from scenario_file
 
     """
-    # Get config parameters for each ship
-    ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships)
     
     if not new_scenario:
+        # Load scenario definition from file
         pose_list, waypoint_list, speed_plan_list = load_scenario_definition(scenario_file)
+        # Get config parameters for each ship
+        ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=len(pose_list))
     else:
-        pose_list, waypoint_list, speed_plan_list = create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, wp_number)
+        # Load scenario generation parameters
+        num_waypoints, scenario_num, os_max_speed, ts_max_speed, num_ships = read_scenario_gen_config()
+        # Get config parameters for each ship
+        ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=num_ships)
+        # Create and save scenario definition
+        pose_list, waypoint_list, speed_plan_list = create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, num_waypoints)
         save_scenario_definition(pose_list, waypoint_list, speed_plan_list, scenario_file)
     
     ship_list = []
@@ -191,6 +196,3 @@ def init_scenario(new_scenario, scenario_file, num_ships, scenario_num=0, os_max
                     )
         ship_list.append(ship)
     return ship_list, waypoint_list, speed_plan_list
-
-
-

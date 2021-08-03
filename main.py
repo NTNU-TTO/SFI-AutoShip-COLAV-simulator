@@ -19,52 +19,46 @@ def main():
     # time
     t = np.arange(time_start, time_end + time_step, time_step)
 
+    data_list, ais_data_list = [], []
+    verifier_list = []
     if run_all_scenarios:
         ### Run all scenarios defined in the scenarios folder ###
-        data_list, ais_data_list = [], [] 
         scenario_file_names = next(walk('scenarios'), (None, None, []))[2]
-        for i in range(len(scenario_file_names)):
-            scenario_file_name = scenario_file_names[i]
-            # Initiates the scenario and configures the ships
-            ship_list, waypoint_list, speed_plan_list = init_scenario(new_scenario=False,
-                                                                    scenario_file=scenario_file_name,
-                                                                    num_ships=ship_num, #don't care parameter
-                                                                    scenario_num=scenario_num, #don't care parameter
-                                                                    os_max_speed=os_max_speed, #don't care parameter
-                                                                    ts_max_speed=ts_max_speed, #don't care parameter
-                                                                    wp_number=waypoint_num
-                                                                    )
-            data, ais_data, colav_input = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=time_step)
-            data_list.append(data)
-            ais_data_list.append(ais_data_list)
     else:
         ### Single scenario run ###
+        scenario_file_names = [scenario_file]
+
+    ###############################################
+    # SIMULATION AND EVALUATION
+    ###############################################
+    for scenario_file_name in scenario_file_names:
         # Initiates the scenario and configures the ships
         ship_list, waypoint_list, speed_plan_list = init_scenario(new_scenario=new_scenario,
-                                                                scenario_file=scenario_file,
-                                                                num_ships=ship_num,
-                                                                scenario_num=scenario_num,
-                                                                os_max_speed=os_max_speed,
-                                                                ts_max_speed=ts_max_speed,
-                                                                wp_number=waypoint_num
+                                                                scenario_file=scenario_file_name
                                                                 )
 
-        data, ais_data, colav_input = ship_data(ships=ship_list, waypoint_list=waypoint_list, time=t, timestep=time_step)
-
+        data, ais_data, colav_input = ship_data(ships=ship_list, time=t, timestep=time_step)
+        data_list.append(data)
         # exporting ais_data.csv
-        ais_data.to_csv('ais_data.csv', sep=';')
-
-        ###############################################
-        # ANIMATION PART
-        ###############################################
-        if visulaize_scenario:
+        ais_data_filename = f'ais_data_{scenario_file_name[:-5]}.csv'
+        ais_data.to_csv(ais_data_filename, sep=';')
+        if evaluate_results:
+            verifier = EvalTool(ais_data_filename)
+            verifier.evaluate_vessel_behavior()
+            verifier_list.append(verifier)
+    
+    ###############################################
+    # ANIMATION PART
+    ###############################################
+    if visulaize_scenario:
+        for data in data_list:
             visualize(data, t, show_waypoints=show_waypoints)
     if evaluate_results:
-        verifier = EvalTool('ais_data.csv')
-        verifier.evaluate_vessel_behavior()
-        verifier.print_scores(verifier.vessels[0])
-        verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=True, legend=True,
-                            savefig=True, filename="figure.png", ax=None)
+        for verifier in verifier_list:
+            for vessel in verifier.vessels:
+                verifier.print_scores(vessel)
+            verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False, legend=True,
+                                savefig=True, filename="figure.png", ax=None)
 
 if __name__ == '__main__':
     main()
