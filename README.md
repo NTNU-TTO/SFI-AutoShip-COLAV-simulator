@@ -30,7 +30,13 @@ Main functions: </p>
 -  run_scenario_simulation(ships, time, timestep): simulates one scenario and returns visulation data (for scenario animation) and ais_data (for scenario COLREG evaluation)
 
 ### Scenario Manager (main)
-<p> Scenario manager sets up and runs scenario(s), and evaluates and visulaizes results  <br>
+<p> Scenario manager sets up and runs scenario(s), and evaluates and visualizes results  <br>
+  
+## External modules used
+<p> SeaCharts: used as map. https://github.com/simbli/seacharts </p>
+<p> PSBMPC: used for COLAV. https://github.com/trymte/thecolavrepo </p>
+<p> autoVerification: used for evaluation. https://github.com/ingerbha/UTC </p>
+
 
 ## Git Workflow
 
