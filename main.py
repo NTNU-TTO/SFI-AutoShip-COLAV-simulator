@@ -37,7 +37,7 @@ def main():
                                                                 scenario_file=scenario_file_name
                                                                 )
 
-        data, ais_data, colav_input = ship_data(ships=ship_list, time=t, timestep=time_step)
+        data, ais_data, colav_input = run_scenario_simulation(ships=ship_list, time=t, timestep=time_step)
         data_list.append(data)
         # exporting ais_data.csv
         ais_data_filename = f'ais_data_{scenario_file_name[:-5]}.csv'

@@ -10,7 +10,7 @@ from read_config import read_ship_config, read_scenario_gen_config
 from scenario_generator import create_scenario
 
 
-def ship_data(ships, time, timestep):
+def run_scenario_simulation(ships, time, timestep):
     '''
         :param ships: List of initialized and configured ships.
             Includes initial pose, waypoints, speed plan
@@ -53,7 +53,7 @@ def ship_data(ships, time, timestep):
 
         for ix, ship in enumerate(ships): # loop to update situational awareness
             x_true_list = [s.get_pose() for j, s in enumerate(ships) if j != ix]
-            ship.update_target_x_est(x_true_list, t, timestep)
+            ship.update_target_pose_est(x_true_list, t, timestep)
 
         # create_colav_input data every 10th second. This data will be used with PSB-MPC algorithm
         if t % 10 == 0:
@@ -79,8 +79,8 @@ def create_colav_input(ships, time):
                                          round(ships[0].u, 2), round(ships[0].v, 2), round(ships[0].r, 0)])
 
     # own ship's reference surge and course to the next waypoint
-    colav_input['ref_surge'] = round(ships[0].u, 2)
-    colav_input['ref_course'] = int(ships[0].los_angle) # in radians
+    colav_input['ref_surge'] = round(ships[0].u_d, 2)
+    colav_input['ref_course'] = int(ships[0].chi_d) # in radians
 
     # remaining waypoint coordinates
     colav_input['remaining_wp'] = ships[0].wp[ships[0].idx_next_wp:]

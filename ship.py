@@ -33,14 +33,14 @@ class Ship:
         self.y_t = 0
 
         # LOS guidance parameters
-        self.los_angle = 0
+        self.chi_d = 0                                  # desired course
         self.delta = LOS_params[0]                      # lookahead distance
         self.R_a = LOS_params[1]                        # radius of acceptance
 
         # Waypoint and speed plan parameters
         self.wp = waypoints
         self.speed_plan = speed_plan                    # In knots
-        self.U_d = knots2mps(speed_plan[0])             # In m/s
+        self.u_d = knots2mps(speed_plan[0])             # In m/s
         self.idx_next_wp = 1
 
         # Other ship state estimation vaiables
@@ -86,7 +86,7 @@ class Ship:
         # future position of the ship (used for visualization, checking for reaching the last waypoint and anti grounding)
         self.future_pos(10)
 
-        # check for waypoints, grounding and update the los_angle
+        # check for waypoints, grounding and update the desired course and surge
         self.update_reference()
     
     def kinematic_state_update(self, dt):
@@ -99,11 +99,11 @@ class Ship:
         self.psi += self.r * dt
         self.psi = wrap_to_pi(self.psi)
 
-        a = np.sign(self.U_d - self.u)*min(abs(self.U_d - self.u), self.ship_model.a_max)
+        a = np.sign(self.u_d - self.u)*min(abs(self.u_d - self.u), self.ship_model.a_max)
         self.u += a*dt
         self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
 
-        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        delta_psi = math.atan2(np.sin(self.chi_d - self.psi), np.cos(self.chi_d - self.psi))
         self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
     
     def future_pos(self, time):
@@ -156,8 +156,8 @@ class Ship:
         self.r = self.r + dt * mu_dot[2]
 
     def updateCtrlInput(self):
-        Fx = self.ship_model.Cvv[0] + self.ship_model.Dvv[0] + self.ship_model.Kp_u * self.ship_model.M * (self.U_d - self.u)
-        delta_psi = math.atan2(np.sin(self.los_angle - self.psi), np.cos(self.los_angle - self.psi))
+        Fx = self.ship_model.Cvv[0] + self.ship_model.Dvv[0] + self.ship_model.Kp_u * self.ship_model.M * (self.u_d - self.u)
+        delta_psi = math.atan2(np.sin(self.chi_d - self.psi), np.cos(self.chi_d - self.psi))
         Fy = ((self.ship_model.Kp_psi * self.ship_model.I_z) * (delta_psi - self.ship_model.Kd_psi * self.r)) / self.ship_model.rudder_dist
 
         # saturating controllers
@@ -182,21 +182,24 @@ class Ship:
     ###############################################
 
     def update_reference(self):
+        """
+            Updates desired surge and course, aswell as next waypoint
+        """
         # check if the ship has reached the next waypoint (within radius of acceptance)
         if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
             self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
         
-        self.update_los_angle()
-        self.U_d = knots2mps(self.speed_plan[self.idx_next_wp])
+        self.update_desired_course()
+        self.u_d = knots2mps(self.speed_plan[self.idx_next_wp])
 
         # Stop the ship if the future position is in the shore
         if path_crosses_land((self.y_t, self.x_t), (self.y, self.x)):
-            self.U_d = 0
+            self.u_d = 0
         # check if the ship has reached the last waypoint. If so, stop the ship.
         elif (self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2 <= self.R_a**2:
-            self.U_d = 0
+            self.u_d = 0
 
-    def update_los_angle(self):
+    def update_desired_course(self):
         """
             Set the desired course based on Proportional LOS guidance law
         """
@@ -205,27 +208,26 @@ class Ship:
             self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0])
         # cross-track error
         e = -np.sin(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  + np.cos(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
-        c_d = pi_p + math.atan(-e/self.delta)
-        c_d = wrap_to_pi(c_d)
+        chi_d = pi_p + math.atan(-e/self.delta)
 
-        self.los_angle = c_d
+        self.chi_d = wrap_to_pi(chi_d)
 
 
     ###############################################
     # SITUATIONAL AWARENESS
     ###############################################
 
-    def update_target_x_est(self, x_true_list, t, dt):
+    def update_target_pose_est(self, pose_list, t, dt):
         """
             Updates the state estimates of the other ships.
-            x_true_list: list of true states of target ships,
+            pose_list: list of true poses of target ships,
             the order of the ships must match in x_true_list and self.target_ship_state_est 
         """
         if t == 0:
-            self.target_ship_state_est = x_true_list #initial state estimates set to true value
+            self.target_ship_state_est = pose_list #initial state estimates set to true value
             return
         for i, x_est in enumerate(self.target_ship_state_est):
-            self.target_ship_state_est[i] = self.estimator.step(x_true_list[i], x_est, t, dt)
+            self.target_ship_state_est[i] = self.estimator.step(pose_list[i], x_est, t, dt)
 
     def get_converted_target_x_est(self):
         """
