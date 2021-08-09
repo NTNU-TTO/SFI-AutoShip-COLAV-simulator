@@ -19,8 +19,10 @@ def main():
     # time
     t = np.arange(time_start, time_end + time_step, time_step)
 
-    data_list, ais_data_list = [], []
+    animation_data_list, ais_data_list = [], []
     verifier_list = []
+    scenario_names = []
+
     if run_all_scenarios:
         ### Run all scenarios defined in the scenarios folder ###
         scenario_file_names = next(walk('scenarios'), (None, None, []))[2]
@@ -32,15 +34,17 @@ def main():
     # SIMULATION AND EVALUATION
     ###############################################
     for scenario_file_name in scenario_file_names:
+        scenario_name = scenario_file_name[:-5] # scenario name without file format
+        scenario_names.append(scenario_name)
         # Initiates the scenario and configures the ships
         ship_list, waypoint_list, speed_plan_list = init_scenario(new_scenario=new_scenario,
                                                                 scenario_file=scenario_file_name
                                                                 )
 
-        data, ais_data, colav_input = run_scenario_simulation(ships=ship_list, time=t, timestep=time_step)
-        data_list.append(data)
+        animation_data, ais_data, colav_input = run_scenario_simulation(ships=ship_list, time=t, timestep=time_step)
+        animation_data_list.append(animation_data)
         # exporting ais_data.csv
-        ais_data_filename = f'ais_data_{scenario_file_name[:-5]}.csv'
+        ais_data_filename = f'ais_data_{scenario_name}.csv'
         ais_data.to_csv(ais_data_filename, sep=';')
         if evaluate_results:
             verifier = EvalTool(ais_data_filename)
@@ -48,11 +52,16 @@ def main():
             verifier_list.append(verifier)
     
     ###############################################
-    # ANIMATION PART
+    # ANIMATION
     ###############################################
-    if visulaize_scenario:
-        for data in data_list:
-            visualize(data, t, show_waypoints=show_waypoints)
+
+    if show_animation or save_animation:
+        for i, data in enumerate(animation_data_list):
+            visualize(data, t, show_waypoints, show_animation, save_animation, save_file=f'{scenario_names[i]}.gif')
+    
+    ###############################################
+    # EVALUATION
+    ###############################################
     if evaluate_results:
         for verifier in verifier_list:
             for vessel in verifier.vessels:

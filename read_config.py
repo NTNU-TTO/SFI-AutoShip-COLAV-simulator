@@ -133,15 +133,19 @@ def read_config():
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
-    key = 'scenario_file'
-    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
-    validate(key, user[key], str)
-
     key = 'new_scenario'
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
-    key = 'visulaize_scenario'
+    key = 'scenario_file'
+    confirm_input(user, key, str, defaults, i_0=0, i_1=0)
+    validate(key, user[key], str)
+
+    key = 'save_animation'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
+    key = 'show_animation'
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
