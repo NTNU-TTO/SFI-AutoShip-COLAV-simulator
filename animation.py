@@ -2,7 +2,7 @@ import matplotlib.animation as animation
 from map import *
 
 
-def visualize(data, t, show_waypoints, show_animation, save_animation, save_file):
+def visualize(data, t, show_waypoints, show_animation, save_animation, save_path):
     fig1, ax1 = plt.subplots(figsize=(12, 10), facecolor=(0.8, 0.8, 0.8))
     x_lim, y_lim = background('show')
 
@@ -55,7 +55,7 @@ def visualize(data, t, show_waypoints, show_animation, save_animation, save_file
                             blit = True)
     
     if save_animation:
-        anim.save(save_file, writer='ffmpeg')
+        anim.save(save_path, writer='ffmpeg')
     if show_animation:
         plt.show()
     

@@ -43,11 +43,13 @@ def main():
 
         animation_data, ais_data, colav_input = run_scenario_simulation(ships=ship_list, time=t, timestep=time_step)
         animation_data_list.append(animation_data)
-        # exporting ais_data.csv
-        ais_data_filename = f'ais_data_{scenario_name}.csv'
-        ais_data.to_csv(ais_data_filename, sep=';')
+        # exporting ais_data to .csv file
+        filename = f'{scenario_name}.csv'
+        save_path = f'output/ais_data/{filename}'
+        ais_data.to_csv(save_path, sep=';')
+
         if evaluate_results:
-            verifier = EvalTool(ais_data_filename)
+            verifier = EvalTool(save_path)
             verifier.evaluate_vessel_behavior()
             verifier_list.append(verifier)
     
@@ -57,7 +59,9 @@ def main():
 
     if show_animation or save_animation:
         for i, data in enumerate(animation_data_list):
-            visualize(data, t, show_waypoints, show_animation, save_animation, save_file=f'{scenario_names[i]}.gif')
+            save_file=f'{scenario_names[i]}.gif'
+            save_path = f'output/animation/{save_file}'
+            visualize(data, t, show_waypoints, show_animation, save_animation, save_path=save_path)
     
     ###############################################
     # EVALUATION
