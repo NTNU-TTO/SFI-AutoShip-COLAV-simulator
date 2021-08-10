@@ -5,9 +5,15 @@ from yaspin import yaspin
 from os import walk
 import sys
 sys.path.insert(0, './UTC/colav/autoVerification/')
-import matplotlib.pyplot as plt
+import pathlib
 
 from EvalTool import EvalTool
+
+# Create output directories
+ais_path = 'output/ais'
+ani_path = 'output/animation'
+pathlib.Path(ais_path).mkdir(parents=True, exist_ok=True)
+pathlib.Path(ani_path).mkdir(parents=True, exist_ok=True)
 
 
 @yaspin(text="Running...")
@@ -45,7 +51,7 @@ def main():
         animation_data_list.append(animation_data)
         # exporting ais_data to .csv file
         filename = f'{scenario_name}.csv'
-        save_path = f'output/ais_data/{filename}'
+        save_path = f'{ais_path}/{filename}'
         ais_data.to_csv(save_path, sep=';')
 
         if evaluate_results:
@@ -60,7 +66,7 @@ def main():
     if show_animation or save_animation:
         for i, data in enumerate(animation_data_list):
             save_file=f'{scenario_names[i]}.gif'
-            save_path = f'output/animation/{save_file}'
+            save_path = f'{ani_path}/{save_file}'
             visualize(data, t, show_waypoints, show_animation, save_animation, save_path=save_path)
     
     ###############################################
