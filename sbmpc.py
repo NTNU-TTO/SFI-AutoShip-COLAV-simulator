@@ -71,7 +71,9 @@ class SBMPC:
                     cost = cost_i
                     u_os_best = self.P_ca_[j]
                     chi_os_best = self.Chi_ca_[i]
-        
+
+        self.P_ca_last_ = u_os_best
+        self.Chi_ca_last_ = chi_os_best
         
         return u_os_best, chi_os_best
 

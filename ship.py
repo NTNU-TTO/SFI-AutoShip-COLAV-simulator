@@ -55,6 +55,12 @@ class Ship:
         else:
             self.message_nr = random.randint(1, 3)
 
+        # SB-MPC
+        self.chi_opt = 0
+        self.u_opt = 1
+        self.u_c = self.u_d*self.u_opt
+        self.chi_c = wrap_to_pi(self.chi_opt + self.chi_d)
+
     def get_full_state(self):
         return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
 
@@ -70,6 +76,10 @@ class Ship:
     def set_waypoints(self, waypoints):
         self.wp = waypoints
 
+    def set_opt_ctrl(self, chi_opt=0, u_opt=1):
+        self.chi_opt = chi_opt
+        self.u_opt = u_opt
+
     ###############################################
     # DYNAMICS
     ###############################################
@@ -77,6 +87,9 @@ class Ship:
         """
             Updates the states based on either a kinmatic model or dynamic model
         """
+        self.u_c = self.u_d*self.u_opt
+        self.chi_c = wrap_to_pi(self.chi_opt + self.chi_d)
+
         if self.ship_model.use_kinematic_model:
             # updates the state
             self.kinematic_state_update(dt)
@@ -99,11 +112,11 @@ class Ship:
         self.psi += self.r * dt
         self.psi = wrap_to_pi(self.psi)
 
-        a = np.sign(self.u_d - self.u)*min(abs(self.u_d - self.u), self.ship_model.a_max)
+        a = np.sign(self.u_c - self.u)*min(abs(self.u_c - self.u), self.ship_model.a_max)
         self.u += a*dt
         self.u = np.sign(self.u)*min(abs(self.u), self.ship_model.U_max)
 
-        delta_psi = math.atan2(np.sin(self.chi_d - self.psi), np.cos(self.chi_d - self.psi))
+        delta_psi = math.atan2(np.sin(self.chi_c - self.psi), np.cos(self.chi_c - self.psi))
         self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
     
     def future_pos(self, time):
@@ -156,8 +169,8 @@ class Ship:
         self.r = self.r + dt * mu_dot[2]
 
     def updateCtrlInput(self):
-        Fx = self.ship_model.Cvv[0] + self.ship_model.Dvv[0] + self.ship_model.Kp_u * self.ship_model.M * (self.u_d - self.u)
-        delta_psi = math.atan2(np.sin(self.chi_d - self.psi), np.cos(self.chi_d - self.psi))
+        Fx = self.ship_model.Cvv[0] + self.ship_model.Dvv[0] + self.ship_model.Kp_u * self.ship_model.M * (self.u_c - self.u)
+        delta_psi = math.atan2(np.sin(self.chi_c - self.psi), np.cos(self.chi_c - self.psi))
         Fy = ((self.ship_model.Kp_psi * self.ship_model.I_z) * (delta_psi - self.ship_model.Kd_psi * self.r)) / self.ship_model.rudder_dist
 
         # saturating controllers
@@ -182,12 +195,9 @@ class Ship:
     ###############################################
 
     def update_reference(self):
-        """
-            Updates desired surge and course, aswell as next waypoint
-        """
-        # check if the ship has reached the next waypoint (within radius of acceptance)
-        if (self.wp[self.idx_next_wp][0]-self.x)**2 + (self.wp[self.idx_next_wp][1]-self.y)**2 <= self.R_a**2:
-            self.idx_next_wp = min(self.idx_next_wp+1, len(self.wp)-1)
+        
+        # check if the ship has reached the next waypoint (within radius of acceptance or passed segment)
+        self.update_active_waypoint()
         
         self.update_desired_course()
         self.u_d = knots2mps(self.speed_plan[self.idx_next_wp])
@@ -199,10 +209,24 @@ class Ship:
         elif (self.wp[-1][0]-self.x)**2 + (self.wp[-1][1]-self.y)**2 <= self.R_a**2:
             self.u_d = 0
 
+    def update_active_waypoint(self):
+        if self.idx_next_wp < len(self.wp)-1:
+            dist_next_wp = np.array([self.wp[self.idx_next_wp][0]-self.x, self.wp[self.idx_next_wp][1]-self.y])
+            if np.linalg.norm(dist_next_wp) <= self.R_a:
+                # ship is inside radius of acceptance of waypoint
+                self.idx_next_wp += 1
+                return
+            L_wp_segment = np.array([self.wp[self.idx_next_wp][0]-self.wp[self.idx_next_wp-1][0],
+                                     self.wp[self.idx_next_wp][1]-self.wp[self.idx_next_wp-1][1]])
+            segment_passed = normalize_vec(L_wp_segment)@normalize_vec(L_wp_segment) < np.cos(np.pi/2)
+            if segment_passed:
+                self.idx_next_wp += 1
+
     def update_desired_course(self):
         """
             Set the desired course based on Proportional LOS guidance law
         """
+
         # path-tangential angle
         pi_p = math.atan2(self.wp[self.idx_next_wp][1] - self.wp[self.idx_next_wp-1][1],
             self.wp[self.idx_next_wp][0] - self.wp[self.idx_next_wp-1][0])
@@ -242,6 +266,4 @@ class Ship:
             x_est_list.append(x_est)
         return x_est_list
 
-
-    
     

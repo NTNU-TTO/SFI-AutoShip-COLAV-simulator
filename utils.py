@@ -65,6 +65,16 @@ def seconds_to_date_time_utc(time: int):
 	utc_dt.strftime("%Y-%m-%d %H:%M:%S")
 	return utc_dt
 
+def normalize_vec(v: np.ndarray):
+	"""
+		Return normalized vector
+	"""
+	norm = np.linalg.norm(v)
+	if norm == 0:
+		return v
+	else:
+		return v/norm
+
 """"def lat_long_dist_to_metres(lon1, lat1, lon2, lat2):
     if lon1 < 0 or lat1 < 0 or lon2 < 0 or lat2 < 0:
         return 999999

@@ -8,6 +8,7 @@ from ship import Ship
 from sensors import *
 from read_config import read_ship_config, read_scenario_gen_config
 from scenario_generator import create_scenario
+from sbmpc import SBMPC
 
 
 def run_scenario_simulation(ships, time, timestep):
@@ -33,7 +34,7 @@ def run_scenario_simulation(ships, time, timestep):
         try: data[f'Ship{i}'][4] = ships[i-1].wp
         except: print(f'Ship{i} has no waypoints')
 
-
+    sbmpc = SBMPC()
     for i, t in enumerate(time):
         for ix, ship in enumerate(ships):
             # Creates ships movement data
@@ -60,10 +61,32 @@ def run_scenario_simulation(ships, time, timestep):
             colav_input = create_colav_input(ships, i)
             # print(colav_input)    # Uncomment to see colav_input data
             # Here Trym's calculate_optimal_offsets function will be called with the colav_input.
+
+        # Simple SBMPC, to use for now 
+        if t % 10 == 0:
+            # Simple sbmpc
+            u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships)
+            u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
+            ships[0].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)
     #print("Ship 2 state: ", ships[1].get_pose())
     #print("Ship 1 state_est of Ship 2: ", ships[0].target_ship_state_est[0])
 
     return data, ais_data, colav_input
+
+def create_sbmpc_input(ships):
+    """
+        Using direct values for now
+    """
+    u_d = ships[0].u_d
+    chi_d = ships[0].chi_d
+    os_state = ships[0].get_full_state()
+    obs_states = []
+    for ix, ship in enumerate(ships[1:]):
+        obs_state = np.array([ship.x, ship.y, ship.psi, ship.u, ship.v,
+            ship.length/2, ship.length/2, ship.length/4, ship.length/4])
+        obs_states.append(obs_state)
+    return u_d, chi_d, os_state, obs_states
+
 
 def create_colav_input(ships, time):
     """
