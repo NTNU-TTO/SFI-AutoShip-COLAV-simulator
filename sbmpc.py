@@ -6,8 +6,8 @@ class SBMPC:
     
     def __init__(self):
         #NB os_ship: copy of own ship initialized class
-        self.T_ = 100.0
-        self.DT_ = 0.1
+        self.T_ = 200.0#400
+        self.DT_ = 0.5#0.1
         self.n_samp = int(self.T_/self.DT_)
 
         self.P_ = 1.0
@@ -33,7 +33,8 @@ class SBMPC:
 
         self.Chi_ca_ = np.deg2rad(np.array([-90.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,90.0]))
         self.Chi_ca_
-        self.P_ca_ = np.array([-1.0, 0.0, 0.5, 1.0])
+        #self.P_ca_ = np.array([-1.0, 0.0, 0.5, 1.0])
+        self.P_ca_ = np.array([0.0, 0.5, 1.0])
 
         self.own_ship = Ship_model(self.T_, self.DT_)
 
@@ -279,27 +280,7 @@ class Ship_model:
 
             self.x_[i] = self.x_[i-1] + self.DT_*(r11*self.u_[i-1] + r12*self.v_[i-1])
             self.y_[i] = self.y_[i-1] + self.DT_*(r21*self.u_[i-1] + r22*self.v_[i-1])
-            self.psi_[i] = psi_d
+            self.psi_[i] = psi_d #self.psi_[i-1] + self.DT_*self.r_[i-1]
             self.u_[i] = u_d
             self.v_[i] = 0
-            self.r_[i] = 0
-
-"""sbmpc = SBMPC()
-u_d = 9.34019
-chi_d = 1.71925
-os_state = np.array([ 0, 0, -0.0959975, 6.88277, 0, 0])
-obs_states = []
-a = np.array([110.359,  146.154,  4.71239,        3,        0,       10,       10,       10,       10])
-b = np.array([-826.865,  714.124,        0,        0,        0,       10,       10,       10,       10])
-c = np.array([3444.27, -1950.35,  5.72293,  13.2727,        0,       10,       10,       10,       10,])
-d = np.array([-614.694,  735.825,  1.24093,  3.29244,        0,       10,       10,       10,       10])
-e = np.array([-522.324,  6325.05,  2.27242,        0,        0,       10,       10,       10,       10])
-obs_states.append(a)
-obs_states.append(b)
-obs_states.append(c)
-obs_states.append(d)
-obs_states.append(e)
-
-
-u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
-print("u_opt: ", u_opt, " chi_opt: ", chi_opt)"""
+            self.r_[i] = 0 #math.atan2(np.sin(psi_d - self.psi_[i-1]), np.cos(psi_d - self.psi_[i-1])) #0

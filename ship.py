@@ -61,6 +61,8 @@ class Ship:
         self.u_c = self.u_d*self.u_opt
         self.chi_c = wrap_to_pi(self.chi_opt + self.chi_d)
 
+        self.debug = 0
+
     def get_full_state(self):
         return np.array([self.x, self.y, self.psi, self.u, self.v, self.r])
 
@@ -218,7 +220,8 @@ class Ship:
                 return
             L_wp_segment = np.array([self.wp[self.idx_next_wp][0]-self.wp[self.idx_next_wp-1][0],
                                      self.wp[self.idx_next_wp][1]-self.wp[self.idx_next_wp-1][1]])
-            segment_passed = normalize_vec(L_wp_segment)@normalize_vec(L_wp_segment) < np.cos(np.pi/2)
+            segment_passed = np.dot(normalize_vec(L_wp_segment), normalize_vec(dist_next_wp)) < np.cos(np.pi/2)
+            #self.debug = np.deg2rad(np.arccos
             if segment_passed:
                 self.idx_next_wp += 1
 
