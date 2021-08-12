@@ -3,11 +3,9 @@ from animation import visualize
 from map import *
 from yaspin import yaspin
 from os import walk
-import sys
-sys.path.insert(0, './UTC/colav/autoVerification/')
 import pathlib
 
-from EvalTool import EvalTool
+from UTC.colav.autoVerification.EvalTool import EvalTool
 
 # Create output directories
 ais_path = 'output/ais'
