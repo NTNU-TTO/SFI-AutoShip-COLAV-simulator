@@ -6,19 +6,20 @@ class SBMPC:
     
     def __init__(self):
         #NB os_ship: copy of own ship initialized class
-        self.T_ = 200.0#400
-        self.DT_ = 0.5#0.1
+        self.T_ = 300.0#400
+        self.DT_ = 5.0#0.1
         self.n_samp = int(self.T_/self.DT_)
 
         self.P_ = 1.0
         self.Q_ = 4.0
+        self.D_INIT_ = 1000 #should be >= D_CLOSE
         self.D_CLOSE_ = 200.0
         self.D_SAFE_ = 40.0
         self.K_COLL_ = 0.5
-        self.PHI_AH_ = 15.0
-        self.PHI_OT_ = 68.5
-        self.PHI_HO_ = 22.5
-        self.PHI_CR_ = 68.5
+        self.PHI_AH_ = np.deg2rad(15.0)
+        self.PHI_OT_ = np.deg2rad(68.5)
+        self.PHI_HO_ = np.deg2rad(22.5)
+        self.PHI_CR_ = np.deg2rad(68.5)
         self.KAPPA_ = 3.0
         self.K_P_ = 2.5
         self.K_CHI_ = 1.3
@@ -45,6 +46,8 @@ class SBMPC:
         """
         cost = np.inf
         cost_i = 0
+        colav_active = False
+        d = np.zeros(2)
 
         if obs_states is None:
             u_os_best = 1
@@ -58,6 +61,19 @@ class SBMPC:
             for obs_state in obs_states:
                 obstacle = Obstacle(obs_state, self.T_, self.DT_)
                 obstacles.append(obstacle)
+
+        # check if obstacles are within init range
+        for obs in obstacles:
+            d[0] = obs.x_[0] - os_state[0]
+            d[1] = obs.y_[0] - os_state[1]
+            if np.linalg.norm(d) < self.D_INIT_:
+                colav_active = True
+        if not colav_active:
+            u_os_best = 1
+            chi_os_best = 0
+            self.P_ca_last_ = 1
+            self.Chi_ca_last_ = 0
+            return u_os_best, chi_os_best
 
         for i in range(len(self.Chi_ca_)):
             for j in range(len(self.P_ca_)):
@@ -281,6 +297,6 @@ class Ship_model:
             self.x_[i] = self.x_[i-1] + self.DT_*(r11*self.u_[i-1] + r12*self.v_[i-1])
             self.y_[i] = self.y_[i-1] + self.DT_*(r21*self.u_[i-1] + r22*self.v_[i-1])
             self.psi_[i] = psi_d #self.psi_[i-1] + self.DT_*self.r_[i-1]
-            self.u_[i] = u_d
+            self.u_[i] = u_d #self.u_[i-1] + self.DT_*(u_d-self.u_[i-1])
             self.v_[i] = 0
-            self.r_[i] = 0 #math.atan2(np.sin(psi_d - self.psi_[i-1]), np.cos(psi_d - self.psi_[i-1])) #0
+            self.r_[i] = 0 #math.atan2(np.sin(psi_d - self.psi_[i-1]), np.cos(psi_d - self.psi_[i-1]))
