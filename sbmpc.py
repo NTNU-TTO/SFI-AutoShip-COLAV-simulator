@@ -16,7 +16,7 @@ class SBMPC:
         self.D_CLOSE_ = 200.0
         self.D_SAFE_ = 40.0
         self.K_COLL_ = 0.5
-        self.PHI_AH_ = np.deg2rad(15.0)
+        self.PHI_AH_ = np.deg2rad(68.5)
         self.PHI_OT_ = np.deg2rad(68.5)
         self.PHI_HO_ = np.deg2rad(22.5)
         self.PHI_CR_ = np.deg2rad(68.5)
@@ -153,7 +153,7 @@ class SBMPC:
                 else:
                     d_safe_i += d_safe + + obs_w/2
 
-                if (v_s[0]*v_o[0]+v_s[1]*v_o[1]) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(v_o):
+                if (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(v_o):
                     d_safe_i = d_safe + os_l/2 + obs_l/2
                 
                 if dist < d_safe_i:
@@ -161,7 +161,7 @@ class SBMPC:
                     k_koll = self.K_COLL_*os_l*obs_l
                     C = k_koll*np.linalg.norm(v_s-v_o)**2
 
-                OT = (v_s[0]*v_o[0]+v_s[1]*v_o[1]) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(v_o)
+                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(v_o)
 
                 SB = phi < 0
 
