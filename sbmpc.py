@@ -161,16 +161,21 @@ class SBMPC:
                     k_koll = self.K_COLL_*os_l*obs_l
                     C = k_koll*np.linalg.norm(v_s-v_o)**2
 
-                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(v_o)
+                # Overtaken by obstacle
+                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self.PHI_OT_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) \
+                    and np.linalg.norm(v_s) < np.linalg.norm(v_o)
 
+                # Obstacle on starboard side
                 SB = phi < 0
 
-                HO = np.linalg.norm(v_o) > 0.05 and \
-                    (v_s[0]*v_o[0]+v_s[1]*v_o[1]) < np.cos(np.deg2rad(self.PHI_HO_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and \
-                    (v_s[0]*los[0]+v_s[1]*los[1]) > np.cos(np.deg2rad(self.PHI_AH_))*np.linalg.norm(v_s)
+                # Obstacle Head-on
+                HO = np.linalg.norm(v_o) > 0.05 \
+                    and (np.dot(v_s, v_o)) < -np.cos(np.deg2rad(self.PHI_HO_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) \
+                    and (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self.PHI_AH_))*np.linalg.norm(v_s)
 
-                CR = (v_s[0]*v_o[0]+v_s[1]*v_o[1]) < np.cos(np.deg2rad(self.PHI_CR_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) and \
-                    (SB and psi_rel > 0)
+                # Crossing situation
+                CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self.PHI_CR_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) \
+                    and (SB and psi_rel > 0)
                 
                 mu = (SB and HO) or (CR and not OT)
 
