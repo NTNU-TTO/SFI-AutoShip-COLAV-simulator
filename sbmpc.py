@@ -6,36 +6,36 @@ class SBMPC:
     
     def __init__(self):
         #NB os_ship: copy of own ship initialized class
-        self.T_ = 300.0#400
-        self.DT_ = 5.0#0.1
-        self.n_samp = int(self.T_/self.DT_)
+        self.T_ = 300.0#400                         # prediction horizon [s]
+        self.DT_ = 5.0#0.1                          # time step [s]
+        self.n_samp = int(self.T_/self.DT_)         # number of samplings
 
-        self.P_ = 1.0
-        self.Q_ = 4.0
-        self.D_INIT_ = 1000 #should be >= D_CLOSE
-        self.D_CLOSE_ = 200.0
-        self.D_SAFE_ = 40.0
-        self.K_COLL_ = 0.5
-        self.PHI_AH_ = np.deg2rad(68.5)
-        self.PHI_OT_ = np.deg2rad(68.5)
-        self.PHI_HO_ = np.deg2rad(22.5)
-        self.PHI_CR_ = np.deg2rad(68.5)
-        self.KAPPA_ = 3.0
-        self.K_P_ = 2.5
-        self.K_CHI_ = 1.3
-        self.K_DP_ = 2.0
-        self.K_DCHI_SB_ = 0.9
-        self.K_DCHI_P_ = 1.2
+        self.P_ = 1.0                               # weights the importance of time until the event of collision occurs
+        self.Q_ = 4.0                               # exponent to satisfy colregs rule 16
+        self.D_INIT_ = 1000 #should be >= D_CLOSE   # distance to an obstacle to activate sbmpc [m]
+        self.D_CLOSE_ = 200.0                       # distance for an nearby obstacle [m]
+        self.D_SAFE_ = 40.0                         # distance of safety zone [m]
+        self.K_COLL_ = 0.5                          # cost scaling factor
+        self.PHI_AH_ = np.deg2rad(68.5)             # colregs angle - ahead [deg]
+        self.PHI_OT_ = np.deg2rad(68.5)             # colregs angle - overtaken [deg]
+        self.PHI_HO_ = np.deg2rad(22.5)             # colregs angle -  head on [deg]
+        self.PHI_CR_ = np.deg2rad(68.5)             # colregs angle -  crossing [deg]
+        self.KAPPA_ = 3.0                           # cost function parameter
+        self.K_P_ = 2.5                             # cost function parameter
+        self.K_CHI_ = 1.3                           # cost function parameter
+        self.K_DP_ = 2.0                            # cost function parameter
+        self.K_DCHI_SB_ = 0.9                       # cost function parameter
+        self.K_DCHI_P_ = 1.2                        # cost function parameter
 
-        self.P_ca_last_ = 1
-        self.Chi_ca_last_ = 0
+        self.P_ca_last_ = 1                         # last control change
+        self.Chi_ca_last_ = 0                       # last course change
 
         self.cost_ = np.inf
 
-        self.Chi_ca_ = np.deg2rad(np.array([-90.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,90.0]))
+        self.Chi_ca_ = np.deg2rad(np.array([-90.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,90.0])) # control behaviors - course offset [deg]
         self.Chi_ca_
         #self.P_ca_ = np.array([-1.0, 0.0, 0.5, 1.0])
-        self.P_ca_ = np.array([0.0, 0.5, 1.0])
+        self.P_ca_ = np.array([0.0, 0.5, 1.0])       # control behaviors - speed factor
 
         self.own_ship = Ship_model(self.T_, self.DT_)
 
