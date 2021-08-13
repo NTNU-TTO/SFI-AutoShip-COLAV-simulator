@@ -11,7 +11,7 @@ import numpy as np
 
 class Telemetron:
     def __init__(self):
-        self.use_kinematic_model = False
+        self.use_kinematic_model = True
 
         # ship parameters:
         self.rudder_dist = 4.0  # m
