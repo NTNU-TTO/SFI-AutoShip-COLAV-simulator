@@ -63,28 +63,37 @@ def run_scenario_simulation(ships, time, timestep):
             # Here Trym's calculate_optimal_offsets function will be called with the colav_input.
 
         # Simple SBMPC, to use for now 
-        if t % 10 == 0:
+        if t % 5 == 0:
             # Simple sbmpc
-            u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships)
+            # All ship colav
+            for i in range(len(ships)):
+                u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships, os_idx=i)
+                u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
+                ships[i].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)
+
+            # Only own ship colav
+            """u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships, os_idx=0)
             u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
             ships[0].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)
+            print("u_opt: ", u_opt, " chi_opt: ", chi_opt)"""
     #print("Ship 2 state: ", ships[1].get_pose())
     #print("Ship 1 state_est of Ship 2: ", ships[0].target_ship_state_est[0])
 
     return data, ais_data, colav_input
 
-def create_sbmpc_input(ships):
+def create_sbmpc_input(ships, os_idx):
     """
         Using direct values for now
     """
-    u_d = ships[0].u_d
-    chi_d = ships[0].chi_d
-    os_state = ships[0].get_full_state()
+    u_d = ships[os_idx].u_d
+    chi_d = ships[os_idx].chi_d
+    os_state = ships[os_idx].get_full_state()
     obs_states = []
-    for ix, ship in enumerate(ships[1:]):
-        obs_state = np.array([ship.x, ship.y, ship.psi, ship.u, ship.v,
-            ship.length/2, ship.length/2, ship.length/4, ship.length/4])
-        obs_states.append(obs_state)
+    for ix, ship in enumerate(ships):
+        if not ix==os_idx:
+            obs_state = np.array([ship.x, ship.y, ship.psi, ship.u, ship.v,
+                ship.length/2, ship.length/2, ship.length/4, ship.length/4])
+            obs_states.append(obs_state)
     return u_d, chi_d, os_state, obs_states
 
 
