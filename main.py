@@ -4,14 +4,17 @@ from map import *
 from yaspin import yaspin
 from os import walk
 import pathlib
+import shutil
 
 from UTC.colav.autoVerification.EvalTool import EvalTool
 
 # Create output directories
 ais_path = 'output/ais'
 ani_path = 'output/animation'
+eval_path = 'output/eval'
 pathlib.Path(ais_path).mkdir(parents=True, exist_ok=True)
 pathlib.Path(ani_path).mkdir(parents=True, exist_ok=True)
+pathlib.Path(eval_path).mkdir(parents=True, exist_ok=True)
 
 
 @yaspin(text="Running...")
@@ -72,10 +75,13 @@ def main():
     ###############################################
     if evaluate_results:
         for verifier in verifier_list:
-            for vessel in verifier.vessels:
+            for i, vessel in enumerate(verifier.vessels):
                 verifier.print_scores(vessel)
+                shutil.move('res_' + str(i+1) + '.xlsx', 'output/eval/res_' + str(i+1) + '.xlsx')
             verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False, legend=True,
                                 savefig=True, filename="figure.png", ax=None)
+            shutil.move("figure.png", "output/eval/figure.png")
+
 
 if __name__ == '__main__':
     main()
