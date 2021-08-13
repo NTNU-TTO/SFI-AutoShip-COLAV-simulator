@@ -166,7 +166,7 @@ class SBMPC:
                     and np.linalg.norm(v_s) < np.linalg.norm(v_o)
 
                 # Obstacle on starboard side
-                SB = phi < 0
+                SB = phi >= 0
 
                 # Obstacle Head-on
                 HO = np.linalg.norm(v_o) > 0.05 \
@@ -175,7 +175,7 @@ class SBMPC:
 
                 # Crossing situation
                 CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self.PHI_CR_))*np.linalg.norm(v_s)*np.linalg.norm(v_o) \
-                    and (SB and psi_rel > 0)
+                    and (SB and psi_rel < 0)
                 
                 mu = (SB and HO) or (CR and not OT)
 
