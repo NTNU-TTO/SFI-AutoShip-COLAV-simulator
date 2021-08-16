@@ -1,3 +1,5 @@
+import os
+
 from scenario_simulator import *
 from animation import visualize
 from map import *
@@ -9,6 +11,8 @@ import shutil
 from UTC.colav.autoVerification.EvalTool import EvalTool
 
 # Create output directories
+if os.path.exists('output'):
+    shutil.rmtree('output')
 ais_path = 'output/ais'
 ani_path = 'output/animation'
 eval_path = 'output/eval'
@@ -75,12 +79,14 @@ def main():
     ###############################################
     if evaluate_results:
         for verifier in verifier_list:
-            for i, vessel in enumerate(verifier.vessels):
+            for vessel in verifier.vessels:
                 verifier.print_scores(vessel)
-                shutil.move('res_' + str(i+1) + '.xlsx', 'output/eval/res_' + str(i+1) + '.xlsx')
             verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False, legend=True,
                                 savefig=True, filename="figure.png", ax=None)
             shutil.move("figure.png", "output/eval/figure.png")
+        for file in os.listdir():
+            if file.endswith('.xlsx'):
+                shutil.move(file, 'output/eval/' + file)
 
 
 if __name__ == '__main__':
