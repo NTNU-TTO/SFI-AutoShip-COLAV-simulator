@@ -60,7 +60,10 @@ def main():
         ais_data.to_csv(save_path, sep=';')
 
         if evaluate_results:
-            verifier = EvalTool(save_path)
+            verifier = EvalTool(save_path, r_pref=radius_preferred_cpa, r_min=radius_minimum_acceptable_cpa,
+                                r_nm=radius_near_miss_encounter, r_col=radius_collision,
+                                r_colregs_2_max=radius_colregs_2_max, r_colregs_3_max=radius_colregs_3_max,
+                                r_colregs_4_max=radius_colregs_4_max)
             verifier.evaluate_vessel_behavior()
             verifier_list.append(verifier)
     
@@ -77,10 +80,11 @@ def main():
     ###############################################
     # EVALUATION
     ###############################################
+
     if evaluate_results:
         for verifier in verifier_list:
             for vessel in verifier.vessels:
-                verifier.print_scores(vessel)
+                verifier.print_scores(vessel, save_results=True)
             verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False, legend=True,
                                 savefig=True, filename="figure.png", ax=None)
             shutil.move("figure.png", "output/eval/figure.png")

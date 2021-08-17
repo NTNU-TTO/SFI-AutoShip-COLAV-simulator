@@ -157,6 +157,34 @@ def read_config():
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
 
+    key = 'radius_preferred_cpa'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_minimum_acceptable_cpa'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_near_miss_encounter'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_collision'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_colregs_2_max'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_colregs_3_max'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
+    key = 'radius_colregs_4_max'
+    confirm_input(user, key, int, defaults, i_0=0, i_1=0)
+    validate(key, user[key], int)
+
     settings = tuple(user.values())
     print('')
     return settings

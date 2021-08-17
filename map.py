@@ -6,9 +6,10 @@ import seacharts
 from read_config import *
 
 files, center, size, new_data, time_start, time_step, time_end, \
-run_all_scenarios, new_scenario, scenario_file, \
-save_animation, show_animation, show_waypoints, \
-evaluate_results = read_config()
+    run_all_scenarios, new_scenario, scenario_file, \
+    save_animation, show_animation, show_waypoints, \
+    evaluate_results, radius_preferred_cpa, radius_minimum_acceptable_cpa, radius_near_miss_encounter,\
+    radius_collision, radius_colregs_2_max, radius_colregs_3_max, radius_colregs_4_max = read_config()
 
 # Creating shapefiles from the defined region
 enc = seacharts.ENC(size=size, center=center, files=files, new_data=new_data)
