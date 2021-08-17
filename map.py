@@ -3,7 +3,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import seacharts
-from read_config import *
+from config_reader import *
 
 files, center, size, new_data, time_start, time_step, time_end, \
     run_all_scenarios, new_scenario, scenario_file, \

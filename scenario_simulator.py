@@ -6,7 +6,7 @@ np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
 from ship import Ship
 from sensors import *
-from read_config import read_ship_config, read_scenario_gen_config
+from config_reader import read_ship_config, read_scenario_gen_config
 from scenario_generator import create_scenario
 from sbmpc import SBMPC
 
@@ -66,18 +66,15 @@ def run_scenario_simulation(ships, time, timestep):
         if t % 5 == 0:
             # Simple sbmpc
             # All ship colav
-            for i in range(len(ships)):
+            """for i in range(len(ships)):
                 u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships, os_idx=i)
                 u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
-                ships[i].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)
+                ships[i].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)"""
 
             # Only own ship colav
-            """u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships, os_idx=0)
+            u_d, chi_d, os_state, obs_states = create_sbmpc_input(ships, os_idx=0)
             u_opt, chi_opt = sbmpc.get_optimal_ctrl_offset(u_d, chi_d, os_state, obs_states)
             ships[0].set_opt_ctrl(chi_opt=chi_opt, u_opt=u_opt)
-            print("u_opt: ", u_opt, " chi_opt: ", chi_opt)"""
-    #print("Ship 2 state: ", ships[1].get_pose())
-    #print("Ship 1 state_est of Ship 2: ", ships[0].target_ship_state_est[0])
 
     return data, ais_data, colav_input
 
