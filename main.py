@@ -1,5 +1,7 @@
 import os
 
+import matplotlib.pyplot as plt
+
 from scenario_simulator import *
 from animation import visualize
 from map import *
@@ -83,11 +85,24 @@ def main():
 
     if evaluate_results:
         for verifier in verifier_list:
-            for vessel in verifier.vessels:
+            for i, vessel in enumerate(verifier.vessels):
+                pathlib.Path('output/eval/ship'+str(i)).mkdir(parents=True, exist_ok=True)
                 verifier.print_scores(vessel, save_results=True)
-            verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False, legend=True,
-                                savefig=True, filename="figure.png", ax=None)
-            shutil.move("figure.png", "output/eval/figure.png")
+                vessel.plot_speed()
+                plt.savefig('output/eval/ship'+str(i)+'/speed'+str(i)+'.png')
+                vessel.plot_heading()
+                plt.savefig('output/eval/ship'+str(i)+'/heading'+str(i)+'.png')
+                verifier.plot_situation(vessel) # outputs which colreg situation the ship has as status
+                plt.savefig('output/eval/ship'+str(i)+'/colreg_situation'+str(i)+'.png')
+
+            if len(verifier.vessels) <= 3:
+                verifier.plot_scores()
+                plt.savefig('output/eval/plot_scores.png')
+            verifier.plot_trajectories(ownship=verifier.vessels[0], show_cpa=True, vessels=None, show_maneuvers=False,
+                                       legend=True, savefig=True, filename="output/eval/trajectories.png", ax=None)
+            #verifier.plot_course_maneuvers() #outputs course, first derivative, second derivative, third derivative for own ship
+            #plt.show()
+
         for file in os.listdir():
             if file.endswith('.xlsx'):
                 shutil.move(file, 'output/eval/' + file)
