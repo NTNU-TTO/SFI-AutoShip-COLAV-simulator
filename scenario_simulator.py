@@ -204,8 +204,6 @@ def init_scenario(new_scenario, scenario_file):
         # Get config parameters for each ship
         ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=len(pose_list))
     else:
-        """ Load scenario generation parameters
-        num_waypoints, scenario_num, os_max_speed, ts_max_speed, num_ships, colav_all_ships = read_scenario_gen_config()"""
         # Get config parameters for each ship
         ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=num_ships)
         # Create and save scenario definition
