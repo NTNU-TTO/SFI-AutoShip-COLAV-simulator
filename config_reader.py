@@ -5,7 +5,7 @@ cwd = pathlib.Path.cwd()
 path = cwd / 'config_simulator.ini'
 path_shp = cwd / 'data' / 'external'
 path_ships = cwd / 'config_ships.ini'
-path_scen_gen = cwd / 'config_scenario_generator.ini'
+path_new_scen = cwd / 'config_new_scenario.ini'
 
 
 def read_settings(category='DEFAULT', path=path):
@@ -253,8 +253,8 @@ def read_ship_config(section_name):
     return settings
 
 def read_scenario_gen_config():
-    user = read_settings(category='USER', path = path_scen_gen)
-    defaults = read_settings(category='DEFAULT', path = path_scen_gen)
+    user = read_settings(category='USER', path = path_new_scen)
+    defaults = read_settings(category='DEFAULT', path = path_new_scen)
 
     key = 'num_waypoints'
     confirm_input(user, key, int, defaults, i_0=0, i_1=0)
