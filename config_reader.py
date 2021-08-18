@@ -141,6 +141,10 @@ def read_config():
     confirm_input(user, key, str, defaults, i_0=0, i_1=0)
     validate(key, user[key], str)
 
+    key = 'colav_all_ships'
+    confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
+    validate(key, user[key], bool)
+
     key = 'save_animation'
     confirm_input(user, key, eval, defaults, i_0=0, i_1=0)
     validate(key, user[key], bool)
@@ -275,3 +279,10 @@ def read_scenario_gen_config():
     settings = tuple(user.values())
     print('')
     return settings
+
+files, center, size, new_data, time_start, time_step, time_end, run_all_scenarios, new_scenario, scenario_file,\
+    colav_all_ships, save_animation, show_animation, show_waypoints, \
+    evaluate_results, radius_preferred_cpa, radius_minimum_acceptable_cpa, radius_near_miss_encounter,\
+    radius_collision, radius_colregs_2_max, radius_colregs_3_max, radius_colregs_4_max = read_config()
+
+num_waypoints, scenario_num, os_max_speed, ts_max_speed, num_ships = read_scenario_gen_config()
