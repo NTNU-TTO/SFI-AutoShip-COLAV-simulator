@@ -1,7 +1,6 @@
 import os
 
-import matplotlib.pyplot as plt
-
+from utils import move_xlsx_files
 from scenario_simulator import *
 from animation import visualize
 from map import *
@@ -103,9 +102,7 @@ def main():
             #verifier.plot_course_maneuvers() #outputs course, first derivative, second derivative, third derivative for own ship
             #plt.show()
 
-        for file in os.listdir():
-            if file.endswith('.xlsx'):
-                shutil.move(file, 'output/eval/' + file)
+        move_xlsx_files()
 
 
 if __name__ == '__main__':
