@@ -125,7 +125,7 @@ def min_distance_to_land(x: int, y: int):
             min_distance = distance
     return int(min_distance)
 
-def path_crosses_land(next_wp: tuple[int, int], prev_wp: tuple[int, int]):
+def path_crosses_land(next_wp: tuple, prev_wp: tuple):
     """
         Returns True if there is land somewhere on the path to the next waypoint
         Note: x-cordinate=East, y-cordinate=North
