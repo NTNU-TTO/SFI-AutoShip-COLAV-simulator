@@ -1,15 +1,15 @@
 import os
-
-from utils import move_xlsx_files
-from scenario_simulator import *
-from animation import visualize
-from map import *
-from yaspin import yaspin
-from os import walk
 import pathlib
 import shutil
+from os import walk
 
 from UTC.colav.autoVerification.EvalTool import EvalTool
+from yaspin import yaspin
+
+from animation import visualize
+from map import *
+from scenario_simulator import *
+from utils import move_xlsx_files
 
 # Create output directories
 if os.path.exists('output'):
@@ -67,7 +67,7 @@ def main():
                                 r_colregs_4_max=radius_colregs_4_max)
             verifier.evaluate_vessel_behavior()
             verifier_list.append(verifier)
-    
+
     ###############################################
     # ANIMATION
     ###############################################
@@ -77,7 +77,7 @@ def main():
             save_file=f'{scenario_names[i]}.gif'
             save_path = f'{ani_path}/{save_file}'
             visualize(data, t, show_waypoints, show_animation, save_animation, save_path=save_path)
-    
+
     ###############################################
     # EVALUATION
     ###############################################
