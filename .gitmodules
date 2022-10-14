@@ -1,0 +1,6 @@
+[submodule "thecolavrepo"]
+	path = thecolavrepo
+	url = https://github.com/trymte/thecolavrepo
+[submodule "UTC"]
+	path = UTC
+	url = https://github.com/ingerbha/UTC
