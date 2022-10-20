@@ -3,12 +3,12 @@ import pathlib
 import shutil
 from os import walk
 
-from UTC.colav.autoVerification.EvalTool import EvalTool
+from colav_evaluation_tool import EvalTool
 from yaspin import yaspin
 
 from animation import visualize
 from map import *
-from scenario_simulator import *
+from scenario_simulator import init_scenario, run_scenario_simulation
 from utils import move_xlsx_files
 
 # Create output directories

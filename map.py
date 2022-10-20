@@ -1,10 +1,11 @@
-from shapely.geometry import Point, Polygon, LineString
 import random
-import numpy as np
-import matplotlib.pyplot as plt
-import seacharts
-from config_reader import *
 
+import matplotlib.pyplot as plt
+import numpy as np
+import seacharts
+from shapely.geometry import LineString, Point, Polygon
+
+from config_reader import *
 
 # Creating shapefiles from the defined region
 enc = seacharts.ENC(size=size, center=center, files=files, new_data=new_data)
@@ -117,7 +118,7 @@ def min_distance_to_land(x: int, y: int):
     position = Point(x, y)
     min_distance = 1000
     land = enc.land.mapping['coordinates']
-    for i in range(len(land)):
+    for i, poly in enumerate(land):
         poly = list(land[i][0])
         polygon = Polygon(poly)
         distance = position.distance(polygon)
