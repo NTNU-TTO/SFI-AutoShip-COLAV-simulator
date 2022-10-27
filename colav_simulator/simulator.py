@@ -13,7 +13,7 @@ from yaspin import yaspin
 from animation import visualize
 #from map import *
 from scenario_simulator import init_scenario, run_scenario_simulation
-from utils.config_reader import read_config, read_scenario_gen_config
+from autotuning.colav_simulator.colav_simulator.utils.config import read_config, read_scenario_gen_config
 from utils.utils import move_xlsx_files
 
 # Create output directories

@@ -2,20 +2,38 @@ import math
 import random
 
 import numpy as np
-from autotuning.colav_simulator.colav_simulator.ship.sensors import *
-from map import path_crosses_land
-from utils import *
+from colav_simulator.map import path_crosses_land
+from colav_simulator.ship.sensors import *
+from colav_simulator.utils import utils
+from zope import interface
 
-from
 
-class Ship2:
+class IShip(interface.Interface):
+    mmsi = interface.Attribute("Ship mmsi")
+    length = interface.Attribute("Ship length")
+    width = interface.Attribute("Ship width")
+    state = interface.Attribute("Ship state")
+
+
+    # mandatory members of ship interface
+    def predict(xs_old:np.ndarray, time_step: float) -> np.ndarray:
+        "Predict one step ahead"
+
+    def predict_trajectory(
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        horizon:float,
+        time_step: float) -> np.ndarray:
+        "Predict the trajectory"
+
+@interface.implementer(IShip)
+class KinematicShip:
     mmsi: str = None
     waypoints: np.array = None
     speed_plan: np.array = None
     state: np.array = None
 
-    sensors: dict = None
-    actuators: dict = None
+
 
 
 class Ship:
