@@ -6,10 +6,11 @@ import pandas as pd
 
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
+from autotuning.colav_simulator.colav_simulator.ship.sensors import *
 from config_reader import *
 from sbmpc import SBMPC
+
 from scenario_generator import create_scenario
-from sensors import *
 from ship import Ship
 
 

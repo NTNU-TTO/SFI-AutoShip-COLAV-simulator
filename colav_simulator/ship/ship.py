@@ -1,12 +1,28 @@
 import math
 import random
-import numpy as np
 
+import numpy as np
+from autotuning.colav_simulator.colav_simulator.ship.sensors import *
 from map import path_crosses_land
-from sensors import *
 from utils import *
 
+from
+
+class Ship2:
+    mmsi: str = None
+    waypoints: np.array = None
+    speed_plan: np.array = None
+    state: np.array = None
+
+    sensors: dict = None
+    actuators: dict = None
+
+
 class Ship:
+
+    # sensors: dict = None
+
+
     '''
     x, y : Initial x and y values of the ship.
     speed: Initial speed value.
@@ -74,7 +90,7 @@ class Ship:
                     'sog': mps2knots(self.u), 'cog': int(math.degrees(self.psi)), 'true_heading': int(math.degrees(self.psi)),
                     'nav_status': 0, 'message_nr': self.message_nr, 'source': ''}
         return row
-        
+
     def set_waypoints(self, waypoints):
         self.wp = waypoints
 
@@ -97,13 +113,13 @@ class Ship:
             self.kinematic_state_update(dt)
         else:
             self.eulersMethod(dt)
-        
+
         # future position of the ship (used for visualization, checking for reaching the last waypoint and anti grounding)
         self.future_pos(10)
 
         # check for waypoints, grounding and update the desired course and surge
         self.update_reference()
-    
+
     def kinematic_state_update(self, dt):
         """
             Updates the pose and turn rate based on a constrained kinematic model
@@ -120,7 +136,7 @@ class Ship:
 
         delta_psi = math.atan2(np.sin(self.chi_c - self.psi), np.cos(self.chi_c - self.psi))
         self.r = np.sign(delta_psi) * min(abs(delta_psi), self.ship_model.r_max)
-    
+
     def future_pos(self, time):
         # Future position in defined time will be used to visualize ship's heading
         self.x_t = self.x + self.u * math.cos(self.psi) * time
@@ -190,17 +206,17 @@ class Ship:
         self.ship_model.tau[1] = Fy
         self.ship_model.tau[2] = self.ship_model.rudder_dist * Fy
 
-    
-    
+
+
     ###############################################
     # GUIDANCE/CONTROL
     ###############################################
 
     def update_reference(self):
-        
+
         # check if the ship has reached the next waypoint (within radius of acceptance or passed segment)
         self.update_active_waypoint()
-        
+
         self.update_desired_course()
         self.u_d = knots2mps(self.speed_plan[self.idx_next_wp])
 
@@ -248,7 +264,7 @@ class Ship:
         """
             Updates the state estimates of the other ships.
             pose_list: list of true poses of target ships,
-            the order of the ships must match in x_true_list and self.target_ship_state_est 
+            the order of the ships must match in x_true_list and self.target_ship_state_est
         """
         if t == 0:
             self.target_ship_state_est = pose_list #initial state estimates set to true value
@@ -269,4 +285,4 @@ class Ship:
             x_est_list.append(x_est)
         return x_est_list
 
-    
+

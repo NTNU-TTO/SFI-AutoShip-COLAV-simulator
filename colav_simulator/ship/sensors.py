@@ -1,7 +1,8 @@
 import math
 import random
+
 import numpy as np
-from utils import wrap_to_pi
+from colav_simulator.utils import wrap_to_pmpi
 
 
 def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
@@ -12,7 +13,7 @@ def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
     """
     z = np.random.multivariate_normal(mean=x_true, cov=cov)
     z[3] = wrap_to_pi(z[3])
-    
+
 class Radar:
     """
     output:
@@ -38,7 +39,7 @@ class Radar:
             return None
         else:
             return simulate_measurement(x_true, self._R)
-        
+
 class AIS:
 
     def __init__(self, meas_rate: float, sigma_z: float, loss_prob: float):
@@ -48,13 +49,14 @@ class AIS:
         self._R = self.sigma_z**2 * np.diag([10, 10, 1, np.deg2rad(0.1)])
         self._H = np.eye(4)
     """
-    # R_realistic values from paper considering quantization effects
-    # https://link.springer.com/chapter/10.1007/978-3-319-55372-6_13#Sec14
+     R_realistic values from paper considering quantization effects
+     https://link.springer.com/chapter/10.1007/978-3-319-55372-6_13#Sec14
     def R_realistic(self, x: np.ndarray):
         R_GNSS = np.diag([0.5, 0.5, 0.1, 0.1])**2
         R_v = np.diag([x[2]**2, x[3]**2, 0, 0])
         self._R = R_GNSS + (1/12)*R_v
     """
+
     def R(self, x: np.ndarray):
         return self._R
 
@@ -70,7 +72,7 @@ class AIS:
             return None
         else:
             return simulate_measurement(x_true, self._R)
-        
+
 class Estimator:
     """
         Estimates the states of the other ships
