@@ -1,9 +1,11 @@
-import random
 import math
+import random
+
 import numpy as np
+
 np.set_printoptions(suppress=True, formatter={'float_kind': '{:.2f}'.format})
 
-from map import start_position, min_distance_to_land, path_crosses_land
+from map import min_distance_to_land, path_crosses_land, start_position
 from utils import create_ship_model
 
 
@@ -17,7 +19,7 @@ def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed,
     for i in range(2, num_ships):
         x, y, speed, heading = random_pose(ts_max_speed, ship_model_name=ship_model_name_list[i])
         pose_list.append([x, y, speed, heading])
-    
+
     # Create plan (waypoints, speed_plan) for all ships
     waypoint_list = []
     speed_plan_list = []
@@ -49,7 +51,7 @@ def create_random_waypoints(x, y, psi, wp_number):
             A bigger value makes the every odd waypoint away from the initial direction.
     '''
     wp = []
-    wp.append((x, y)) # First waypoint init pos 
+    wp.append((x, y)) # First waypoint init pos
     for each in range(wp_number):
         n = random.randint(200, 1000)
         alpha = random.uniform(0, 0.7)
@@ -103,7 +105,7 @@ def overtaking(os_max_speed, ship_model_name):
     y2 = y1 + distance_land * math.sin(math.radians(heading1))
     speed2 = round((speed1 - speed1 * random.uniform(0.5, 0.9)), 1)
     heading2 = heading1 + random.uniform(-13, 13)
-    
+
     return x1, y1, speed1, heading1, x2, y2, speed2, heading2
 
 
@@ -147,7 +149,7 @@ def crossing_stand_on(os_max_speed, ts_max_speed, ship_model_name):
     y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
     speed2 = round(random.randint(1, ts_max_speed), 1)
     heading2 = heading1 + 90
-    
+
     return x1, y1, speed1, heading1, x2, y2, speed2, heading2
 
 
@@ -175,5 +177,3 @@ def random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_mod
         x1, y1, speed1, heading1, x2, y2, speed2, heading2 = crossing_stand_on(os_max_speed, ts_max_speed, ship_model_name)
 
     return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-

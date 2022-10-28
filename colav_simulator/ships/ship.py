@@ -1,42 +1,81 @@
 import math
 import random
 
+import colav_simulator.utils.math_functions as mf
 import numpy as np
-from colav_simulator.map import path_crosses_land
-from colav_simulator.ship.sensors import *
-from colav_simulator.utils import utils
+#from colav_simulator.map import path_crosses_land
+from colav_simulator.ships.guidance import LOSGuidance
+from colav_simulator.ships.models import COGSOGModel
+#from colav_simulator.ships.sensors import *
+#from colav_simulator.utils import utils
 from zope import interface
 
 
 class IShip(interface.Interface):
-    mmsi = interface.Attribute("Ship mmsi")
-    length = interface.Attribute("Ship length")
-    width = interface.Attribute("Ship width")
-    state = interface.Attribute("Ship state")
+    _mmsi = interface.Attribute("Ship mmsi")
+    _length = interface.Attribute("Ship length")
+    _width = interface.Attribute("Ship width")
+    _state = interface.Attribute("Ship state")
 
-
-    # mandatory members of ship interface
-    def predict(xs_old:np.ndarray, time_step: float) -> np.ndarray:
-        "Predict one step ahead"
-
-    def predict_trajectory(
-        waypoints: np.ndarray,
-        speed_plan: np.ndarray,
-        horizon:float,
-        time_step: float) -> np.ndarray:
-        "Predict the trajectory"
+    def forward(xs: np.ndarray, dt: float) -> np.ndarray:
+        "Predict the ship one time step forward in time"
 
 @interface.implementer(IShip)
-class KinematicShip:
-    mmsi: str = None
-    waypoints: np.array = None
-    speed_plan: np.array = None
-    state: np.array = None
-
-
-
-
 class Ship:
+
+    _length: float = 20.0
+    _width: float = 5.0
+    _mmsi: str = None
+    _state: np.ndarray = None
+    _waypoints: np.ndarray = None
+    _speed_plan: np.ndarray = None
+    _guidance = LOSGuidance()
+    _model = COGSOGModel()
+
+    def __init__(self,
+                 waypoints: np.ndarray,
+                 speed_plan: np.ndarray,
+                 guidance = LOSGuidance(),
+                 model = COGSOGModel()) -> None:
+        self._waypoints = waypoints
+        self._speed_plan = speed_plan
+        self._guidance = guidance
+        self._model = model
+
+    def forwardd(self, dt: float) -> np.ndarray:
+        U_d, chi_d = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
+
+        self._state += dt * self._model.dynamics(self._state, np.array([U_d, chi_d]), dt)
+        return self._state
+
+    def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
+        self._waypoints = waypoints
+        self._speed_plan = speed_plan
+
+    @property
+    def length(self):
+        return self._length
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def mmsi(self):
+        return self._mmsi
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def waypoints(self):
+        return self._waypoints
+
+
+
+
+class Ship1:
 
     # sensors: dict = None
 
@@ -56,7 +95,7 @@ class Ship:
         # True states and ship parameters
         self.x = pose[0]
         self.y = pose[1]
-        self.psi = wrap_to_pi(math.radians(pose[3]))    # In radians
+        self.psi = mf.wrap_angle_to_pmpi(math.radians(pose[3]))    # In radians
         self.u = knots2mps(pose[2])                     # longitudinal velocity. Converting knots to meters per second
         self.v = 0                                      # lateral velocity
         self.r = 0                                      # angular velocity
@@ -93,7 +132,7 @@ class Ship:
         self.chi_opt = 0
         self.u_opt = 1
         self.u_c = self.u_d*self.u_opt
-        self.chi_c = wrap_to_pi(self.chi_opt + self.chi_d)
+        self.chi_c = mf.wrap_angle_to_pmpi(self.chi_opt + self.chi_d)
 
         self.debug = 0
 
@@ -124,7 +163,7 @@ class Ship:
             Updates the states based on either a kinmatic model or dynamic model
         """
         self.u_c = self.u_d*self.u_opt
-        self.chi_c = wrap_to_pi(self.chi_opt + self.chi_d)
+        self.chi_c = mf.wrap_angle_to_pmpi(self.chi_opt + self.chi_d)
 
         if self.ship_model.use_kinematic_model:
             # updates the state
@@ -146,7 +185,7 @@ class Ship:
         self.x += self.u * math.cos(self.psi) * dt
         self.y += self.u * math.sin(self.psi) * dt
         self.psi += self.r * dt
-        self.psi = wrap_to_pi(self.psi)
+        self.psi = mf.wrap_angle_to_pmpi(self.psi)
 
         a = np.sign(self.u_c - self.u)*min(abs(self.u_c - self.u), self.ship_model.a_max)
         self.u += a*dt
@@ -171,8 +210,8 @@ class Ship:
         # rotation matrix elements
         r11, r12, r21, r22 = 0.0, 0.0, 0.0, 0.0
 
-        self.psi = normalize_angle(self.psi)
-        #psi_d = normalize_angle_diff(self.los_angle, self.psi)
+        self.psi = mf.wrap_angle_to_pmpi(self.psi)
+        #psi_d = mf.wrap_angle_to_pmpi_diff(self.los_angle, self.psi)
 
         r11 = math.cos(self.psi)
         r12 = -math.sin(self.psi)
@@ -195,7 +234,7 @@ class Ship:
         self.x = self.x + dt * (r11 * self.u + r12 * self.v)
         self.y = self.y + dt * (r21 * self.u + r22 * self.v)
         self.psi = self.psi + dt * self.r
-        self.psi = normalize_angle(self.psi)
+        self.psi = mf.wrap_angle_to_pmpi(self.psi)
 
         mu_dot = self.ship_model.Minv @ (self.ship_model.tau - self.ship_model.Cvv - self.ship_model.Dvv)
         mu_dot = mu_dot.flatten()
@@ -254,7 +293,7 @@ class Ship:
                 return
             L_wp_segment = np.array([self.wp[self.idx_next_wp][0]-self.wp[self.idx_next_wp-1][0],
                                      self.wp[self.idx_next_wp][1]-self.wp[self.idx_next_wp-1][1]])
-            segment_passed = np.dot(normalize_vec(L_wp_segment), normalize_vec(dist_next_wp)) < np.cos(np.pi/2)
+            segment_passed = np.dot(mf.normalize_vec(L_wp_segment), mf.normalize_vec(dist_next_wp)) < np.cos(np.pi/2)
             #self.debug = np.deg2rad(np.arccos
             if segment_passed:
                 self.idx_next_wp += 1
@@ -271,7 +310,7 @@ class Ship:
         e = -np.sin(pi_p)*(self.x - self.wp[self.idx_next_wp-1][0])  + np.cos(pi_p)*(self.y - self.wp[self.idx_next_wp-1][1])
         chi_d = pi_p + math.atan(-e/self.delta)
 
-        self.chi_d = wrap_to_pi(chi_d)
+        self.chi_d = mf.wrap_angle_to_pmpi(chi_d)
 
 
     ###############################################
