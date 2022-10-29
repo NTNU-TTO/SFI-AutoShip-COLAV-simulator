@@ -16,15 +16,11 @@ class LOSGuidance:
     """Class which implements the Line-of-Sight guidance strategy.
 
     :param  wp_counter (float): Keeps track of the current waypoint segment
-    :param  pass_angle_threshold (float): First threshold for switching between
-            wp segments
-    :param  R_a (float): Radius of acceptance, second threshold for switching
-            between wp segments
-    :param  K_p (float): Proportional gain in LOS law, K_p = 1 / lookahead
-            distance
+    :param  pass_angle_threshold (float): First threshold for switching between wp segments
+    :param  R_a (float): Radius of acceptance, second threshold for switching between wp segments
+    :param  K_p (float): Proportional gain in LOS law, K_p = 1 / lookahead distance
     :param  K_i (float): Integral action gain in LOS law.
-    :param  e_int_max (float): Maximum integrated cross-track error when using
-            integral action
+    :param  e_int_max (float): Maximum integrated cross-track error when using integral action
     """
 
     _wp_counter: int = 0
@@ -44,9 +40,7 @@ class LOSGuidance:
         """
         n_px, n_wps = waypoints.shape
         if n_px != 2:
-            raise ValueError(
-                "Waypoints do not contain planar coordinates along each column!"
-            )
+            raise ValueError("Waypoints do not contain planar coordinates along each column!")
 
         if n_wps < 2:
             raise ValueError("Insufficient number of waypoints (< 2)!")
@@ -74,8 +68,7 @@ class LOSGuidance:
             waypoints (np.array): 2 x n_wps waypoints array to follow.
             speed_plan (np.array): 1 x n_wps speed plan array to follow.
             xs (np.array): n x 1 dimensional state of the ship
-            dt (float): Time step between the previous and current run of this
-                        function.
+            dt (float): Time step between the previous and current run of this function.
 
         Returns:
             Tuple(float, float): Desired course, desired speed to track.
@@ -88,13 +81,9 @@ class LOSGuidance:
 
         L_wp_segment = np.zeros(2)
         if self._wp_counter + 1 >= n_wps:
-            L_wp_segment = (
-                waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
-            )
+            L_wp_segment = waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
         else:
-            L_wp_segment = (
-                waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
-            )
+            L_wp_segment = waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
 
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
         e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
@@ -103,22 +92,17 @@ class LOSGuidance:
         self._e_int += e * dt
         if self._e_int >= self._e_int_max:
             self._e_int -= e * dt
-        chi_d = mf.wrap_angle_to_pmpi(
-            alpha + np.arctan(-(self._K_p * e + self._K_i * self._e_int))
-        )
+        chi_d = mf.wrap_angle_to_pmpi(alpha + np.arctan(-(self._K_p * e + self._K_i * self._e_int)))
 
         U_d = speed_plan[self._wp_counter]
         return U_d, chi_d
 
-    def _check_for_wp_segment_switch(
-        self, wp_segment: np.ndarray, d_0wp: np.ndarray
-    ) -> bool:
+    def _check_for_wp_segment_switch(self, wp_segment: np.ndarray, d_0wp: np.ndarray) -> bool:
         """Checks if a switch should be made from the current to the next
         waypoint segment.
 
         Args:
-            wp_segment (np.array): 2D vector describing the distance from
-                                   waypoint i to i + 1 in the current segment.
+            wp_segment (np.array): 2D vector describing the distance from waypoint i to i + 1 in the current segment.
             d_0wp (np.array): 2D distance vector from state to waypoint i + 1.
 
         Returns:
@@ -128,9 +112,7 @@ class LOSGuidance:
         d_0wp_norm = np.linalg.norm(d_0wp)
         d_0wp = mf.normalize_vec(d_0wp)
 
-        segment_passed = wp_segment.dot(d_0wp) < np.cos(
-            np.deg2rad(self._pass_angle_threshold)
-        )
+        segment_passed = wp_segment.dot(d_0wp) < np.cos(np.deg2rad(self._pass_angle_threshold))
 
         segment_passed = segment_passed or d_0wp_norm <= self._R_a
 
