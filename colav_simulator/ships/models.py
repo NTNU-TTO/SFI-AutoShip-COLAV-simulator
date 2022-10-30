@@ -7,25 +7,26 @@
 
     Author: Trym Tengesdal
 """
-from abc import ABCMeta
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+import colav_simulator.utils.math_functions as mf
 import numpy as np
-from zope import interface
 
 
-class Model(metaclass=ABCMeta):
-    pass
+class IModel(ABC):
+    """The InterfaceModel class is abstract and used to force
+    the implementation of the below methods for all subclasses (models),
+    to comply to the model interface.
+    """
+
+    @abstractmethod
+    def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
+        "The r.h.s of the ODE x_k+1 = f(x_k, u_k) for the considered model in discrete time."
 
 
-class IModel(interface.Interface):
-    def dynamics(xs: np.ndarray, u: np.ndarray) -> np.ndarray:
-        "The ODE of the implemented model in discrete time."
-
-
-@interface.implementer(IModel)
 @dataclass
-class COGSOGModel:
+class COGSOGModel(IModel):
     """Implements a planar kinematic model using Course over ground (COG) and Speed over ground (SOG):
 
     x_k+1 = x_k + U_k cos(chi_k)
@@ -37,20 +38,30 @@ class COGSOGModel:
     and U the vessel SOG. => xs = [x, y, psi, U]
     """
 
-    _T_chi: float = 10.0
-    _T_U: float = 10.0
+    _T_chi: float = 5.0
+    _T_U: float = 5.0
 
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
+        """Computes r.h.s of ODE f(x, u) in x_k+1 = f(x_k, u_k), where
+
+        Args:
+            xs (np.ndarray): State x_k = [x_k, y_k, chi_k, U_k]
+            u (np.ndarray): Input equal to u_k = [U_d, chi_d]
+
+        Returns:
+            np.ndarray: New state x_k+1.
+        """
         if len(u) != 2:
             raise ValueError("Dimension of input array should be 2!")
         if len(xs) != 4:
             raise ValueError("Dimension of state should be 4!")
         U_d = u[0]
         chi_d = u[1]
+        chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
 
-        ode_fun = np.zeros([4, 1])
+        ode_fun = np.zeros(4)
         ode_fun[0] = xs[3] * np.cos(xs[2])
         ode_fun[1] = xs[3] * np.sin(xs[2])
-        ode_fun[2] = (chi_d - xs[2]) / self._T_chi
+        ode_fun[2] = chi_diff / self._T_chi
         ode_fun[3] = (U_d - xs[3]) / self._T_U
         return ode_fun

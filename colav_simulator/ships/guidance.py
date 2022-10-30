@@ -6,13 +6,26 @@
 
     Author: Trym Tengesdal
 """
-from typing import Tuple
+from abc import ABC, abstractmethod
 
 import colav_simulator.utils.math_functions as mf
 import numpy as np
 
 
-class LOSGuidance:
+class IGuidance(ABC):
+    """The InterfaceGuidance class is abstract and used to force
+    the implementation of the below methods for all subclasses (guidance strategies),
+    to comply to the guidance interface.
+    """
+
+    @abstractmethod
+    def compute_references(
+        self, waypoints: np.ndarray, speed_plan: np.ndarray, xs: np.ndarray, dt: float
+    ) -> np.ndarray:
+        "The ODE of the implemented model in discrete time."
+
+
+class LOSGuidance(IGuidance):
     """Class which implements the Line-of-Sight guidance strategy.
 
     :param  wp_counter (float): Keeps track of the current waypoint segment
@@ -25,8 +38,8 @@ class LOSGuidance:
 
     _wp_counter: int = 0
     _pass_angle_threshold: float = 90.0
-    _R_a: float = 50.0
-    _K_p: float = 100.0
+    _R_a: float = 15.0
+    _K_p: float = 1.0 / 45.0
     _K_i: float = 0.0
     _e_int: float = 0.0
     _e_int_max: float = 50.0
@@ -48,20 +61,20 @@ class LOSGuidance:
         if xs.size < 2:
             raise ValueError("Wrong state dimension!")
 
-        for i in range(self._wp_counter, n_wps):
-            d_0wp_vec = waypoints[:, i + 1] - xs[1:2]
+        for i in range(self._wp_counter, n_wps - 1):
+            d_0wp_vec = waypoints[:, i + 1] - xs[0:2]
             L_wp_segment = waypoints[:, i + 1] - waypoints[:, i]
 
             segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
             if segment_passed:
                 self._wp_counter += 1
-                print(f"Segment {i} passed!", i)
+                print(f"Segment {i} passed!")
             else:
                 break
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, xs: np.ndarray, dt: float
-    ) -> Tuple[float, float]:
+    ) -> np.ndarray:
         """Computes references in course and speed using the LOS guidance law.
 
         Args:
@@ -75,15 +88,16 @@ class LOSGuidance:
         """
         self.find_active_wp_segment(waypoints, xs)
 
-        n_sp, n_wps = speed_plan.shape
-        if n_sp != 1:
+        n_sp_dim = speed_plan.ndim
+        if n_sp_dim != 1:
             raise ValueError("Speed plan does not consist of scalar reference values!")
 
+        n_wps = speed_plan.size
         L_wp_segment = np.zeros(2)
         if self._wp_counter + 1 >= n_wps:
             L_wp_segment = waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
         else:
-            L_wp_segment = waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
+            L_wp_segment = waypoints[:, self._wp_counter + 1] - waypoints[:, self._wp_counter]
 
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
         e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
@@ -92,10 +106,13 @@ class LOSGuidance:
         self._e_int += e * dt
         if self._e_int >= self._e_int_max:
             self._e_int -= e * dt
-        chi_d = mf.wrap_angle_to_pmpi(alpha + np.arctan(-(self._K_p * e + self._K_i * self._e_int)))
+
+        chi_r = np.arctan2(-(self._K_p * e + self._K_i * self._e_int), 1)
+        chi_d = mf.wrap_angle_to_pmpi(alpha + chi_r)
 
         U_d = speed_plan[self._wp_counter]
-        return U_d, chi_d
+
+        return np.array([U_d, chi_d])
 
     def _check_for_wp_segment_switch(self, wp_segment: np.ndarray, d_0wp: np.ndarray) -> bool:
         """Checks if a switch should be made from the current to the next

@@ -1,5 +1,6 @@
 import math
 import random
+from abc import ABC, abstractmethod
 
 import colav_simulator.utils.math_functions as mf
 import numpy as np
@@ -10,28 +11,27 @@ from colav_simulator.ships.models import COGSOGModel
 
 # from colav_simulator.ships.sensors import *
 # from colav_simulator.utils import utils
-from zope import interface
 
 
-class IShip(interface.Interface):
-    _mmsi = interface.Attribute("Ship mmsi")
-    _length = interface.Attribute("Ship length")
-    _width = interface.Attribute("Ship width")
-    _state = interface.Attribute("Ship state")
+class IShip(ABC):
+    # _mmsi = interface.Attribute("Ship mmsi")
+    # _length = interface.Attribute("Ship length")
+    # _width = interface.Attribute("Ship width")
+    # _state = interface.Attribute("Ship state")
 
-    def forward(xs: np.ndarray, dt: float) -> np.ndarray:
+    @abstractmethod
+    def forward(self, dt: float) -> np.ndarray:
         "Predict the ship one time step forward in time"
 
 
-@interface.implementer(IShip)
-class Ship:
+class Ship(IShip):
 
     _length: float = 20.0
     _width: float = 5.0
-    _mmsi: str = None
-    _state: np.ndarray = None
-    _waypoints: np.ndarray = None
-    _speed_plan: np.ndarray = None
+    _mmsi: str = "1"
+    _state: np.ndarray = np.zeros(4)
+    _waypoints: np.ndarray = np.zeros((2, 0))
+    _speed_plan: np.ndarray = np.zeros(0)
     _guidance = LOSGuidance()
     _model = COGSOGModel()
 
@@ -44,17 +44,21 @@ class Ship:
         guidance=LOSGuidance(),
         model=COGSOGModel(),
     ) -> None:
+        assert state.size >= 4
+        assert speed_plan.size == waypoints.shape[1]
+        self._state = state
+
         self._mmsi = mmsi
         self._waypoints = waypoints
         self._speed_plan = speed_plan
-        self._state = state
+
         self._guidance = guidance
         self._model = model
 
-    def forwardd(self, dt: float) -> np.ndarray:
+    def forward(self, dt: float) -> np.ndarray:
         U_d, chi_d = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
 
-        self._state += dt * self._model.dynamics(self._state, np.array([U_d, chi_d]))
+        self._state = self._state + dt * self._model.dynamics(self._state, np.array([U_d, chi_d]))
         return self._state
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
