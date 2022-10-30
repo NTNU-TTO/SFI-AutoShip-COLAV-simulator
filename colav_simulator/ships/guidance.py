@@ -7,9 +7,17 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import colav_simulator.utils.math_functions as mf
 import numpy as np
+
+
+@dataclass
+class Config:
+    """Configuration class for managing guidance method parameters."""
+
+    pars: dict
 
 
 class IGuidance(ABC):
@@ -38,8 +46,8 @@ class LOSGuidance(IGuidance):
 
     _wp_counter: int = 0
     _pass_angle_threshold: float = 90.0
-    _R_a: float = 15.0
-    _K_p: float = 1.0 / 45.0
+    _R_a: float = 10.0
+    _K_p: float = 1.0 / 66.0
     _K_i: float = 0.0
     _e_int: float = 0.0
     _e_int_max: float = 50.0
