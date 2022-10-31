@@ -1,30 +1,90 @@
 import math
 import random
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional
 
+import colav_simulator.ships as ships
 import colav_simulator.utils.math_functions as mf
 import numpy as np
 
 # from colav_simulator.map import path_crosses_land
 from colav_simulator.ships.guidance import LOSGuidance
-from colav_simulator.ships.models import COGSOGModel
+from colav_simulator.ships.models import CSOGModel
 
 # from colav_simulator.ships.sensors import *
 # from colav_simulator.utils import utils
 
 
+@dataclass
+class Config:
+    """Configuration class for managing ship parameters."""
+
+    model: ships.models.Config
+    guidance: ships.guidance.Config
+
+
+class ShipBuilder:
+    """Class for building all objects needed by a ship, with a specific configuration."""
+
+    @classmethod
+    def construct_guidance(cls, config: Optional[ships.guidance.Config] = None):
+        """Builds a ship guidance method from the configuration
+
+        Args:
+            config (Optional[ships.guidance.Config], optional): Guidance configuration. Defaults to None.
+
+        Returns:
+            Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
+        """
+        if config and config.name == "LOS":
+            guidance = LOSGuidance(config)
+        else:
+            guidance = LOSGuidance()
+        return guidance
+
+    @classmethod
+    def construct_model(cls, config: Optional[ships.models.Config] = None):
+        """Builds a ship model from the configuration
+
+        Args:
+            config (Optional[ships.models.Config], optional): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a CSOGModel.
+        """
+        if config and config.name == "CSOG":
+            model = KinematicCSOG(config)
+        else:
+            model = KinematicCSOG()
+        return model
+
+
 class IShip(ABC):
+    """The InterfaceShip class is abstract and used to force
+    the implementation of the below methods for all subclasses (ships),
+    to comply with the model interface.
+    """
+
     # _mmsi = interface.Attribute("Ship mmsi")
-    # _length = interface.Attribute("Ship length")
-    # _width = interface.Attribute("Ship width")
     # _state = interface.Attribute("Ship state")
 
     @abstractmethod
     def forward(self, dt: float) -> np.ndarray:
-        "Predict the ship one time step forward in time"
+        "Predict the ship dt seconds forward in time"
 
 
 class Ship(IShip):
+    """The Ship class implements a variety of models and guidance methods for use in simulating the ship behaviour.
+
+    Parameters:
+        length (float): Length of the ship.
+        width (float): Width of the ship.
+        mmsi (float): Maritime Mobile Service Identity of the ship.
+        state (np.ndarray): Current state of the ship with position in planar coordinates.
+        waypoints (np.ndarray): Waypoints the ship is following.
+        speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
+    """
 
     _length: float = 20.0
     _width: float = 5.0
@@ -32,8 +92,7 @@ class Ship(IShip):
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
     _speed_plan: np.ndarray = np.zeros(0)
-    _guidance = LOSGuidance()
-    _model = COGSOGModel()
+    _controller = None
 
     def __init__(
         self,
@@ -41,8 +100,7 @@ class Ship(IShip):
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
         state: np.ndarray,
-        guidance=LOSGuidance(),
-        model=COGSOGModel(),
+        config: Optional[Config] = None,
     ) -> None:
         assert state.size >= 4
         assert speed_plan.size == waypoints.shape[1]
@@ -52,26 +110,51 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
-        self._guidance = guidance
-        self._model = model
+        if config:
+            self._model = ShipBuilder.construct_model(config.model)
+            self._guidance = ShipBuilder.construct_guidance(config.guidance)
+        else:
+            self._model = ShipBuilder.construct_model()
+            self._guidance = ShipBuilder.construct_guidance()
 
     def forward(self, dt: float) -> np.ndarray:
-        U_d, chi_d = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
+        """Predicts the ship state dt seconds forward in time.
 
-        self._state = self._state + dt * self._model.dynamics(self._state, np.array([U_d, chi_d]))
+        Args:
+            dt (float): Time step (s) in the prediction.
+
+        Returns:
+            np.ndarray: The new state dt seconds ahead.
+        """
+        references = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
+
+        if self._controller is not None:
+            print("isnone")
+            # u = self._controller.compute_inputs(np.array([U_d, chi_d]), self._state)
+        else:
+            u = references
+
+        self._state = self._state + dt * self._model.dynamics(self._state, u)
         return self._state
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
+        """Reassigns waypoints and speed_plan to the ship, to change its objective.
+
+        Args:
+            waypoints (np.ndarray): New set of waypoints.
+            speed_plan (np.ndarray): New corresponding set of speed references.
+        """
+        assert speed_plan.size == waypoints.shape[1]
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
     @property
     def length(self):
-        return self._length
+        return self._model.pars.length
 
     @property
     def width(self):
-        return self._width
+        return self._model.pars.width
 
     @property
     def mmsi(self):

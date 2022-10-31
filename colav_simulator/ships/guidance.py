@@ -3,27 +3,49 @@
 
     Summary:
         Contains class definitions for guidance methods.
+        Every class must adhere to the model interface IGuidance.
 
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
 import colav_simulator.utils.math_functions as mf
 import numpy as np
 
 
 @dataclass
+class LOSGuidancePars:
+    """Parameter class for the LOS guidance method.
+
+    Parameters:
+        pass_angle_threshold (float): First threshold for switching between wp segments
+        R_a (float): Radius of acceptance, second threshold for switching between wp segments
+        K_p (float): Proportional gain in LOS law, K_p = 1 / lookahead distance
+        K_i (float): Integral action gain in LOS law.
+        e_int_max (float): Maximum integrated cross-track error when using integral action
+    """
+
+    pass_angle_threshold: float = 90.0
+    R_a: float = 10.0
+    K_p: float = 1.0 / 40.0
+    K_i: float = 0.0
+    e_int_max: float = 50.0
+
+
+@dataclass
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    pars: dict
+    name: str
+    los: Optional[LOSGuidancePars]
 
 
 class IGuidance(ABC):
     """The InterfaceGuidance class is abstract and used to force
     the implementation of the below methods for all subclasses (guidance strategies),
-    to comply to the guidance interface.
+    to comply with the guidance interface.
     """
 
     @abstractmethod
@@ -36,21 +58,19 @@ class IGuidance(ABC):
 class LOSGuidance(IGuidance):
     """Class which implements the Line-of-Sight guidance strategy.
 
-    :param  wp_counter (float): Keeps track of the current waypoint segment
-    :param  pass_angle_threshold (float): First threshold for switching between wp segments
-    :param  R_a (float): Radius of acceptance, second threshold for switching between wp segments
-    :param  K_p (float): Proportional gain in LOS law, K_p = 1 / lookahead distance
-    :param  K_i (float): Integral action gain in LOS law.
-    :param  e_int_max (float): Maximum integrated cross-track error when using integral action
+    Internal variables:
+        wp_counter (float): Keeps track of the current waypoint segment
     """
 
     _wp_counter: int = 0
-    _pass_angle_threshold: float = 90.0
-    _R_a: float = 10.0
-    _K_p: float = 1.0 / 66.0
-    _K_i: float = 0.0
     _e_int: float = 0.0
-    _e_int_max: float = 50.0
+    _pars: LOSGuidancePars
+
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config and config.los is not None:
+            self._pars = config.los
+        else:
+            self._pars = LOSGuidancePars()
 
     def find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
         """Finds the active line segment between waypoints to follow.
@@ -92,14 +112,13 @@ class LOSGuidance(IGuidance):
             dt (float): Time step between the previous and current run of this function.
 
         Returns:
-            Tuple(float, float): Desired course, desired speed to track.
+            np.ndarray: 2-element array containing desired course and desired speed.
         """
         self.find_active_wp_segment(waypoints, xs)
 
         n_sp_dim = speed_plan.ndim
         if n_sp_dim != 1:
             raise ValueError("Speed plan does not consist of scalar reference values!")
-
         n_wps = speed_plan.size
         L_wp_segment = np.zeros(2)
         if self._wp_counter + 1 >= n_wps:
@@ -112,10 +131,10 @@ class LOSGuidance(IGuidance):
             xs[1] - waypoints[1, self._wp_counter]
         ) * np.cos(alpha)
         self._e_int += e * dt
-        if self._e_int >= self._e_int_max:
+        if self._e_int >= self._pars.e_int_max:
             self._e_int -= e * dt
 
-        chi_r = np.arctan2(-(self._K_p * e + self._K_i * self._e_int), 1)
+        chi_r = np.arctan2(-(self._pars.K_p * e + self._pars.K_i * self._e_int), 1)
         chi_d = mf.wrap_angle_to_pmpi(alpha + chi_r)
 
         U_d = speed_plan[self._wp_counter]
@@ -137,8 +156,8 @@ class LOSGuidance(IGuidance):
         d_0wp_norm = np.linalg.norm(d_0wp)
         d_0wp = mf.normalize_vec(d_0wp)
 
-        segment_passed = wp_segment.dot(d_0wp) < np.cos(np.deg2rad(self._pass_angle_threshold))
+        segment_passed = wp_segment.dot(d_0wp) < np.cos(np.deg2rad(self._pars.pass_angle_threshold))
 
-        segment_passed = segment_passed or d_0wp_norm <= self._R_a
+        segment_passed = segment_passed or d_0wp_norm <= self._pars.R_a
 
         return segment_passed
