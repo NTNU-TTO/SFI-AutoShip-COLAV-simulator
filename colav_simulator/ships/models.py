@@ -25,8 +25,12 @@ class KinematicCSOGPars:
 
     """
 
+    length: float = 10.0
+    width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
+    r_max: float = np.deg2rad(4)
+    U_max: float = 15.0
 
 
 @dataclass
@@ -38,12 +42,13 @@ class TelemetronPars:
     rudder_dist: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
-    D_c: np.ndarray = np.diag([0.0, 0.0, -3224.0])  # Third order damping
+    D_c: np.ndarray = np.diag([0.0, 0.0, -3224.0])  # Third order/cubic damping
     D_q: np.ndarray = np.diag([-135.0, -2000.0, 0.0])  # Second order/quadratic damping
     D_l: np.ndarray = np.diag([-50.0, -200.0, -1281.0])  # First order/linear damping
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
-    r_max: float = np.deg2rad(0.34)
+    r_max: float = np.deg2rad(4)
+    U_max: float = 18.0
 
 
 @dataclass
@@ -101,15 +106,18 @@ class KinematicCSOG(IModel):
             raise ValueError("Dimension of input array should be 2!")
         if len(xs) != 4:
             raise ValueError("Dimension of state should be 4!")
-        U_d = u[0]
+        U_d = mf.sat(u[0], 0, self._pars.U_max)
         chi_d = u[1]
         chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
+
+        xs[3] = mf.sat(xs[3], 0.0, self._pars.U_max)
 
         ode_fun = np.zeros(4)
         ode_fun[0] = xs[3] * np.cos(xs[2])
         ode_fun[1] = xs[3] * np.sin(xs[2])
-        ode_fun[2] = chi_diff / self._pars.T_chi
+        ode_fun[2] = mf.sat(chi_diff / self._pars.T_chi, -self._pars.r_max, self._pars.r_max)
         ode_fun[3] = (U_d - xs[3]) / self._pars.T_U
+
         return ode_fun
 
     @property
@@ -144,7 +152,7 @@ class Telemetron(IModel):
 
         Args:
             xs (np.ndarray): State xs = [eta, nu]^T
-            u (np.ndarray): Input equal to u = tau = [Fx, Fy, rudder_dist * Fy]
+            u (np.ndarray): Input here equal to u = tau
 
         Returns:
             np.ndarray: New state xs.
@@ -156,54 +164,53 @@ class Telemetron(IModel):
         eta = xs[0:3]
         nu = xs[3:6]
 
-        Mmtrx = self._pars.M_rb + self._pars.M_a
+        u[0] = mf.sat(u[0], self._pars.Fx_limits[0], self._pars.Fx_limits[1])
+        u[1] = mf.sat(u[1], self._pars.Fy_limits[0], self._pars.Fy_limits[1])
+        u[2] = mf.sat(
+            u[2], self._pars.Fy_limits[0] * self._pars.rudder_dist, self._pars.Fy_limits[1] * self._pars.rudder_dist
+        )
+
+        Minv = np.linalg.inv(self._pars.M_rb + self._pars.M_a)
+        Cvv = self._Cmtrx(nu) @ nu
+        Dvv = self._Dmtrx(nu) @ nu
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rpsi(eta[2]) @ nu
-        ode_fun[3:6] = np.linalg.inv(Mmtrx) * (-self._Cvv(nu) - self._Dvv(nu) + u)
+        ode_fun[3:6] = Minv * (-Cvv - Dvv + u)
         return ode_fun
 
-    def _Cvv(self, nu: np.ndarray) -> np.ndarray:
-
-        Mmtrx = self._pars.M_rb + self._pars.M_a
-        c13 = -(Mmtrx[1, 0] * nu[0] + Mmtrx[1, 1] * nu[1] + Mmtrx[1, 2] * nu[2])
-        c23 = Mmtrx[0, 0] * nu[0] + Mmtrx[0, 1] * nu[1] + Mmtrx[0, 2] * nu[2]
-
-        Cvv_vec = np.array([c13 * nu[2], c23 * nu[2], -c13 * nu[0] - c23 * nu[1]])
-        return Cvv_vec
-
-    def _Dvv(self, nu: np.ndarray) -> np.ndarray:
-        """Calculates damping vector D(nu) * nu
+    def _Cmtrx(self, nu: np.ndarray) -> np.ndarray:
+        """Calculates coriolis matrix C(v)
 
         Assumes decoupled surge and sway-yaw dynamics.
-        See eq. (7.24) in Fossen 2011 +
+        See eq. (7.12) - (7.15) in Fossen2011
 
         Args:
             nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
 
         Returns:
-            np.ndarray: Damping vector
+            np.ndarray: Coriolis matrix C(v)
         """
-        Dvv_vec = np.zeros(3)
-        Dvv_vec[0] = (
-            -self._pars.D_l[0, 0] * nu[0]
-            - self._pars.D_q[0, 0] * abs(nu[0]) * nu[0]
-            - self._pars.D_c[0, 0] * nu[0] * nu[0] * nu[0]
-        )
+        Mmtrx = self._pars.M_rb + self._pars.M_a
 
-        Dvv_vec[1] = (
-            -self._pars.D_l[1, 1] * nu[1]
-            - self._pars.D_l[1, 2] * nu[2]
-            - self._pars.D_q[1, 1] * abs(nu[1]) * nu[1]
-            - self._pars.D_q[1, 2] * abs(nu[1]) * nu[2]
-            - self._pars.D_c[1, 1] * nu[1] * nu[1] * nu[1]
-        )
+        c13 = -(Mmtrx[1, 1] * nu[1] + Mmtrx[1, 2] * nu[2])
+        c23 = Mmtrx[0, 0] * nu[0]
 
-        Dvv_vec[2] = (
-            -self._pars.D_l[2, 1] * nu[1]
-            - self._pars.D_l[2, 2] * nu[2]
-            - self._pars.D_q[2, 1] * abs(nu[1]) * nu[1]
-            - self._pars.D_q[2, 2] * abs(nu[1]) * nu[2]
-            - self._pars.D_c[2, 2] * nu[2] * nu[2] * nu[2]
-        )
-        return Dvv_vec
+        Cmtrx = np.array([0, 0, c13 * nu[2], 0, 0, c23 * nu[2], -c13 * nu[0], -c23 * nu[1], 0])
+        return Cmtrx
+
+    def _Dmtrx(self, nu: np.ndarray) -> np.ndarray:
+        """Calculates damping matrix D
+
+        Assumes decoupled surge and sway-yaw dynamics.
+        See eq. (7.24) in Fossen2011+
+
+        Args:
+            nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+        Returns:
+            np.ndarray: Damping matrix D = D_l + D_q(nu) + D_c(nu)
+        """
+        Dmtrx = np.zeros((3, 3))
+        Dmtrx = self._pars.D_l + self._pars.D_q * np.abs(nu) + self._pars.D_c * (nu * nu)
+        return Dmtrx

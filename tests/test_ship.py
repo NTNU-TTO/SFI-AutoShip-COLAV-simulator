@@ -1,6 +1,6 @@
+import colav_simulator.ships.ship as ship
 import colav_simulator.utils.math_functions as mf
 import numpy as np
-from colav_simulator.ships.ship import Ship
 from matplotlib import pyplot as plt
 
 legend_size = 10  # legend size
@@ -16,9 +16,9 @@ if __name__ == "__main__":
         ]
     )
     speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0])
-    state = np.array([0.0, 0.0, 0.0, 0.0])
+    state = np.array([0.0, 0.0, 0.0, 3.0, 0.0, 0.0])
     mmsi = "lol"
-    ship = Ship(mmsi, waypoints, speed_plan, state)
+    ownship = ship.Ship(mmsi, waypoints, speed_plan, state)
 
     horizon = 200.0
     dt = 1.0
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     time = np.zeros(n_samples)
     for k in range(n_samples):
         time[k] = k * dt
-        trajectory[:, k] = ship.forward(dt)
+        trajectory[:, k] = ownship.forward(dt)
 
     # Plots
     plt.figure(1, figsize=(mf.cm2inch(fig_size[0]), mf.cm2inch(fig_size[1])), dpi=dpi_value)

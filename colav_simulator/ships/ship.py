@@ -5,12 +5,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 import colav_simulator.ships as ships
-import colav_simulator.utils.math_functions as mf
-import numpy as np
+import colav_simulator.ships.controllers as controllers
+import colav_simulator.ships.guidance as guidance
 
 # from colav_simulator.map import path_crosses_land
-from colav_simulator.ships.guidance import LOSGuidance
-from colav_simulator.ships.models import CSOGModel
+import colav_simulator.ships.models as models
+import colav_simulator.utils.math_functions as mf
+import numpy as np
 
 # from colav_simulator.ships.sensors import *
 # from colav_simulator.utils import utils
@@ -21,6 +22,7 @@ class Config:
     """Configuration class for managing ship parameters."""
 
     model: ships.models.Config
+    controller: ships.controllers.Config
     guidance: ships.guidance.Config
 
 
@@ -28,7 +30,7 @@ class ShipBuilder:
     """Class for building all objects needed by a ship, with a specific configuration."""
 
     @classmethod
-    def construct_guidance(cls, config: Optional[ships.guidance.Config] = None):
+    def construct_guidance(cls, config: Optional[guidance.Config] = None):
         """Builds a ship guidance method from the configuration
 
         Args:
@@ -38,13 +40,12 @@ class ShipBuilder:
             Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
         """
         if config and config.name == "LOS":
-            guidance = LOSGuidance(config)
+            return guidance.LOSGuidance(config)
         else:
-            guidance = LOSGuidance()
-        return guidance
+            return guidance.KinematicTrajectoryPlanner()
 
     @classmethod
-    def construct_model(cls, config: Optional[ships.models.Config] = None):
+    def construct_controller(cls, config: Optional[controllers.Config] = None):
         """Builds a ship model from the configuration
 
         Args:
@@ -54,10 +55,24 @@ class ShipBuilder:
             Model: Model as specified by the configuration, e.g. a CSOGModel.
         """
         if config and config.name == "CSOG":
-            model = KinematicCSOG(config)
+            return controllers.PassThrough()
         else:
-            model = KinematicCSOG()
-        return model
+            return controllers.MIMOPID()
+
+    @classmethod
+    def construct_model(cls, config: Optional[models.Config] = None):
+        """Builds a ship model from the configuration
+
+        Args:
+            config (Optional[ships.models.Config], optional): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a CSOGModel.
+        """
+        if config and config.name == "CSOG":
+            return models.KinematicCSOG(config)
+        else:
+            return models.Telemetron()
 
 
 class IShip(ABC):
@@ -92,7 +107,6 @@ class Ship(IShip):
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
     _speed_plan: np.ndarray = np.zeros(0)
-    _controller = None
 
     def __init__(
         self,
@@ -112,9 +126,11 @@ class Ship(IShip):
 
         if config:
             self._model = ShipBuilder.construct_model(config.model)
+            self._controller = ShipBuilder.construct_controller(config.controller)
             self._guidance = ShipBuilder.construct_guidance(config.guidance)
         else:
             self._model = ShipBuilder.construct_model()
+            self._controller = ShipBuilder.construct_controller()
             self._guidance = ShipBuilder.construct_guidance()
 
     def forward(self, dt: float) -> np.ndarray:
@@ -128,11 +144,7 @@ class Ship(IShip):
         """
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
 
-        if self._controller is not None:
-            print("isnone")
-            # u = self._controller.compute_inputs(np.array([U_d, chi_d]), self._state)
-        else:
-            u = references
+        u = self._controller.compute_inputs(references, self._state, dt)
 
         self._state = self._state + dt * self._model.dynamics(self._state, u)
         return self._state

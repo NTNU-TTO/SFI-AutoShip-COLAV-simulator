@@ -18,9 +18,9 @@ import numpy as np
 @dataclass
 class MIMOPIDPars:
     "Parameters for a Proportional-Integral-Derivative controller."
-    K_p: np.ndarray = np.eye(3)
-    K_d: np.ndarray = np.eye(3)
-    K_i: np.ndarray = np.eye(3)
+    K_p: np.ndarray = np.diag([200.0, 200.0, 800.0])
+    K_d: np.ndarray = np.diag([700.0, 700.0, 1600.0])
+    K_i: np.ndarray = np.diag([0.0, 0.0, 0.0])
     eta_diff: np.ndarray = np.zeros(3)
 
 
@@ -44,15 +44,35 @@ class IController(ABC):
 
 
 @dataclass
+class PassThrough(IController):
+    """This controller just feeds through the references"""
+
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, model) -> np.ndarray:
+        """Takes inputs directly as references.
+
+        Args:
+            refs (np.ndarray): Desired/references [U_d, chi_d]^T
+            xs (np.ndarray): State xs = [x, y, chi, U]^T
+
+        Returns:
+            np.ndarray: Inputs u = refs to pass through.
+        """
+        return refs
+
+
+@dataclass
 class MIMOPID(IController):
     """Implements a Proportional-Integral-Derivative controller
 
-    tau = J_Theta(eta)^T * (-K_p (eta_d - eta) - K_d (eta_dot - eta_dot_d) - K_i integral_{0}^{t} (eta(l) - eta_d(l)) dl)
+    tau = J_Theta(eta)^T *
+          (-K_p (eta_d - eta)
+           -K_d (eta_dot - eta_dot_d)
+           -K_i integral_{0}^{t} (eta(l) - eta_d(l)) dl)
 
     for a system
 
     eta_dot = J_Theta(eta) * nu
-    M * nu_dot + C(nu) * nu + D * nu = tau
+    M * nu_dot + C(nu) * nu + D(nu) * nu = tau
 
     where J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
 
@@ -69,18 +89,21 @@ class MIMOPID(IController):
         else:
             self._pars = MIMOPIDPars()
 
+    def _reset_integrator(self):
+        self._eta_diff_int = np.zeros(3)
+
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, model) -> np.ndarray:
         """Computes inputs based on the PID law.
 
         Args:
-            xs_d (np.ndarray): Desired/reference state xs_d = [eta_d, nu_d]^T
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d]^T
             xs (np.ndarray): State xs = [eta, nu]^T
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
         """
-        if len(refs) != 6:
-            raise ValueError("Dimension of reference array should be 6!")
+        if len(refs) < 6:
+            raise ValueError("Dimension of reference array should be 6 or more!")
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
         eta_d = refs[0:3]
