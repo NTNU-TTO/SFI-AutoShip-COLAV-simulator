@@ -7,9 +7,10 @@
 
     Author: Trym Tengesdal
 """
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import colav_simulator.utils.math_functions as mf
 import numpy as np
@@ -18,10 +19,12 @@ import numpy as np
 @dataclass
 class MIMOPIDPars:
     "Parameters for a Proportional-Integral-Derivative controller."
-    K_p: np.ndarray = np.diag([200.0, 200.0, 800.0])
-    K_d: np.ndarray = np.diag([700.0, 700.0, 1600.0])
+    wn: np.ndarray = np.diag([0.3, 0.3, 0.15])
+    zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
+    K_p: np.ndarray = np.diag([100.0, 100.0, 100.0 * math.pi])
+    K_d: np.ndarray = np.diag([100.0, 100.0, 100 * math.pi])
     K_i: np.ndarray = np.diag([0.0, 0.0, 0.0])
-    eta_diff: np.ndarray = np.zeros(3)
+    eta_diff_max: np.ndarray = np.zeros(3)
 
 
 @dataclass
@@ -39,7 +42,7 @@ class IController(ABC):
     """
 
     @abstractmethod
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         "Computes inputs using the specific controller strategy"
 
 
@@ -47,12 +50,14 @@ class IController(ABC):
 class PassThrough(IController):
     """This controller just feeds through the references"""
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Takes inputs directly as references.
 
         Args:
             refs (np.ndarray): Desired/references [U_d, chi_d]^T
             xs (np.ndarray): State xs = [x, y, chi, U]^T
+            dt (float): Time step
+            model (IModel): Model object to fetch parameters from, optional in many cases.
 
         Returns:
             np.ndarray: Inputs u = refs to pass through.
@@ -89,15 +94,20 @@ class MIMOPID(IController):
         else:
             self._pars = MIMOPIDPars()
 
+        np.diag([0.3, 0.1, 0.3])  # PID pole placement
+        self.zeta = np.diag([1.0, 1.0, 1.0])
+
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs based on the PID law.
 
         Args:
             refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d]^T
             xs (np.ndarray): State xs = [eta, nu]^T
+            dt (float): Time step
+            model (IModel): Model object to fetch parameters from, not used here.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
@@ -106,23 +116,44 @@ class MIMOPID(IController):
             raise ValueError("Dimension of reference array should be 6 or more!")
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
-        eta_d = refs[0:3]
-        eta_dot_d = refs[3:]
 
         eta = xs[0:3]
-        eta_dot = xs[3:]
+        nu = xs[3:]
+        eta_dot = mf.Rpsi(eta[2]) @ nu
 
-        eta_diff = np.zeros(3)
-        eta_diff[0] = eta[0] - eta_d[0]
-        eta_diff[1] = eta[1] - eta_d[1]
+        Mmtrx = model.pars.M_rb + model.pars.M_a
+        Dmtrx = mf.Dmtrx(model.pars.D_l, model.pars.D_q, model.pars.D_c, nu)
+
+        K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._pars.wn, self._pars.zeta)
+
+        eta_d = refs[0:3]
+        eta_diff = eta - eta_d
         eta_diff[2] = mf.wrap_angle_diff_to_pmpi(eta[2], eta_d[2])
 
-        eta_dot_diff = np.zeros(3)
-        eta_dot_diff[0] = eta_dot[0] - eta_dot_d[0]
-        eta_dot_diff[1] = eta_dot[1] - eta_dot_d[1]
-        eta_dot_diff[2] = eta_dot[2] - eta_dot_d[2]
+        eta_dot_d = refs[3:6]
+        eta_dot_diff = eta_dot - eta_dot_d
 
-        tau = mf.Rpsi(eta[2]) @ (
-            -self._pars.K_p @ eta_diff - self._pars.K_d @ eta_dot_diff - self._pars.K_i @ self._eta_diff_int
-        )
+        self._eta_diff_int = mf.sat_vec(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._pars.eta_diff_max)
+
+        # Compute control input in NED frame.
+        tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
+        # Rotate to BODY frame.
+        tau = mf.Rpsi(eta[2]) @ tau
         return tau
+
+
+def pole_placement(
+    Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Dynamic positioning controller pole placement based on Ex. 12.7 in Fossen 2011.
+
+    Args:
+        Mmtrx (np.ndarray): Mass matrix
+        Dmtrx (np.ndarray): Damping matrix
+        wn (np.ndarray): Natural frequency vector [wn_x, wn_y, wn_psi] > 0
+        zeta (float): Relative damping ratio > 0
+    """
+    K_p = wn @ wn @ Mmtrx
+    K_d = 2.0 * zeta @ wn @ Mmtrx - Dmtrx
+    K_i = (1.0 / 10.0) * wn @ Mmtrx
+    return K_p, K_d, K_i

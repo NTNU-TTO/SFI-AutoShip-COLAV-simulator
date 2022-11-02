@@ -144,7 +144,7 @@ class Ship(IShip):
         """
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
 
-        u = self._controller.compute_inputs(references, self._state, dt)
+        u = self._controller.compute_inputs(references, self._state, dt, self._model)
 
         self._state = self._state + dt * self._model.dynamics(self._state, u)
         return self._state

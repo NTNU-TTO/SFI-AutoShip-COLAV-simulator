@@ -39,12 +39,13 @@ class TelemetronPars:
 
     length: float = 10.0
     width: float = 3.0
+    draft: float = 1.0
     rudder_dist: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
-    D_c: np.ndarray = np.diag([0.0, 0.0, -3224.0])  # Third order/cubic damping
-    D_q: np.ndarray = np.diag([-135.0, -2000.0, 0.0])  # Second order/quadratic damping
-    D_l: np.ndarray = np.diag([-50.0, -200.0, -1281.0])  # First order/linear damping
+    D_c: np.ndarray = np.diag([0.0, 0.0, 3224.0])  # Third order/cubic damping
+    D_q: np.ndarray = np.diag([135.0, 2000.0, 0.0])  # Second order/quadratic damping
+    D_l: np.ndarray = np.diag([50.0, 200.0, 1281.0])  # First order/linear damping
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
     r_max: float = np.deg2rad(4)
@@ -171,46 +172,14 @@ class Telemetron(IModel):
         )
 
         Minv = np.linalg.inv(self._pars.M_rb + self._pars.M_a)
-        Cvv = self._Cmtrx(nu) @ nu
-        Dvv = self._Dmtrx(nu) @ nu
+        Cvv = mf.Cmtrx(self._pars.M_rb + self._pars.M_a, nu) @ nu
+        Dvv = mf.Dmtrx(self._pars.D_l, self._pars.D_q, self._pars.D_c, nu) @ nu
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rpsi(eta[2]) @ nu
-        ode_fun[3:6] = Minv * (-Cvv - Dvv + u)
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
         return ode_fun
 
-    def _Cmtrx(self, nu: np.ndarray) -> np.ndarray:
-        """Calculates coriolis matrix C(v)
-
-        Assumes decoupled surge and sway-yaw dynamics.
-        See eq. (7.12) - (7.15) in Fossen2011
-
-        Args:
-            nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
-
-        Returns:
-            np.ndarray: Coriolis matrix C(v)
-        """
-        Mmtrx = self._pars.M_rb + self._pars.M_a
-
-        c13 = -(Mmtrx[1, 1] * nu[1] + Mmtrx[1, 2] * nu[2])
-        c23 = Mmtrx[0, 0] * nu[0]
-
-        Cmtrx = np.array([0, 0, c13 * nu[2], 0, 0, c23 * nu[2], -c13 * nu[0], -c23 * nu[1], 0])
-        return Cmtrx
-
-    def _Dmtrx(self, nu: np.ndarray) -> np.ndarray:
-        """Calculates damping matrix D
-
-        Assumes decoupled surge and sway-yaw dynamics.
-        See eq. (7.24) in Fossen2011+
-
-        Args:
-            nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
-
-        Returns:
-            np.ndarray: Damping matrix D = D_l + D_q(nu) + D_c(nu)
-        """
-        Dmtrx = np.zeros((3, 3))
-        Dmtrx = self._pars.D_l + self._pars.D_q * np.abs(nu) + self._pars.D_c * (nu * nu)
-        return Dmtrx
+    @property
+    def pars(self):
+        return self._pars

@@ -14,7 +14,7 @@ from typing import Optional, Tuple
 import colav_simulator.utils.math_functions as mf
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import CubicSpline, splev
+from scipy.interpolate import CubicSpline
 
 
 @dataclass
@@ -60,16 +60,22 @@ class IGuidance(ABC):
 class KinematicTrajectoryPlanner(IGuidance):
     """Class which implements a simple kinematic trajectory planner.
 
-    The object converts a path (described by waypoints) and speed plan into a continuous
+    The main functionality converts a path (described by waypoints) and speed plan into a continuous
     trajectory, using cubic splines, for which 3DOF references in position, speed and acceleration are generated.
 
-    Internal variables:
+    Important internal variables:
         s (float): Keeps track of the current path variable/state of
         reference vehicle along the trajectory.
+        epsilon (float): Small value to avoid division by zero.
+        init (bool): Flag to indicate if the trajectory has been initialized.
+        x_spline (CubicSpline): Spline for x setpoints.
+        y_spline (CubicSpline): Spline for y setpoints.
+        heading_spline (CubicSpline): Spline for heading setpoint.
+        speed_spline (CubicSpline): Spline for speed setpoint.
     """
 
-    _s: float = 0.001  # Current path variable
-    _epsilon: float = 0.000000001  # constant to avoid division by zero
+    _s: float = 0.001
+    _epsilon: float = 0.000000001
     _init: bool = False
     _x_spline: CubicSpline
     _y_spline: CubicSpline
@@ -81,6 +87,8 @@ class KinematicTrajectoryPlanner(IGuidance):
     ) -> np.ndarray:
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
+
+        NOTE: The waypoints should be equidistant to ensure that the spline is well-behaved.
 
          Args:
             waypoints (np.array): 2 x n_wps waypoints array to follow.
@@ -113,7 +121,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._x_spline = CubicSpline(linspace, waypoints[0, :], bc_type=((1, x_dot), (1, 0)))
             self._y_spline = CubicSpline(linspace, waypoints[1, :], bc_type=((1, y_dot), (1, 0)))
             self._heading_spline = CubicSpline(linspace, np.unwrap(course_plan), bc_type=((1, psi_dot), (1, 0)))
-            self._speed_spline = CubicSpline(linspace, speed_plan, bc_type=((1, 0), (1, 0)))
+            self._speed_spline = CubicSpline(linspace, speed_plan, bc_type=((1, 1), (1, 0)))
         else:
             self._x_spline = CubicSpline(linspace, waypoints[0, :], bc_type=((1, self._x_spline(self._s, 1)), (1, 0)))
             self._y_spline = CubicSpline(linspace, waypoints[1, :], bc_type=((1, self._y_spline(self._s, 1)), (1, 0)))
@@ -126,13 +134,11 @@ class KinematicTrajectoryPlanner(IGuidance):
 
         s_dot, s_ddot = self._compute_path_variable_derivatives()
 
-        eta_ref = np.array([self._x_spline(self._s), self._y_spline(self._s), self._heading_spline(self._s)])
-
         plt.figure(1)
-        plt.plot(waypoints[1], waypoints[0], "rx", label="Waypoints")
+        plt.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
         plt.plot(
-            self._y_spline(np.linspace(0.0, 1.0, 100)),
-            self._x_spline(np.linspace(0.0, 1.0, 100)),
+            self._y_spline(np.linspace(0.0, 1.0, 1000)),
+            self._x_spline(np.linspace(0.0, 1.0, 1000)),
             "b",
             label="Spline",
         )
@@ -140,33 +146,32 @@ class KinematicTrajectoryPlanner(IGuidance):
         plt.ylabel("North (m)")
         plt.legend()
         plt.grid()
-        plt.show()
 
         plt.figure(2)
-        plt.plot(linspace, np.unwrap(course_plan), "rx", label="course plan")
+        plt.plot(linspace, course_plan, "rx", label="Waypoints")
         plt.plot(
-            self._heading_spline(np.linspace(0.0, 1.0, 100)),
+            np.linspace(0.0, 1.0, 1000),
+            self._heading_spline(np.linspace(0.0, 1.0, 1000)),
             "b",
-            label="Spline",
+            label="heading spline",
+        )
+        plt.legend()
+        plt.grid()
+
+        plt.figure(3)
+        plt.plot(
+            np.linspace(0.0, 1.0, 1000),
+            self._heading_spline(np.linspace(0.0, 1.0, 1000), 1),
+            "b",
+            label="yaw rate spline",
         )
         plt.legend()
         plt.grid()
         plt.show()
 
-        eta_dot_ref = np.array(
-            [
-                self._x_spline(self._s, 1) * s_dot,
-                self._y_spline(self._s, 1) * s_dot,
-                self._heading_spline(self._s, 1) * s_dot,
-            ]
-        )
-        eta_ddot_ref = np.array(
-            [
-                self._x_spline(self._s, 2) * np.power(s_dot, 2.0) + self._x_spline(self._s, 1) * s_ddot,
-                self._y_spline(self._s, 2) * np.power(s_dot, 2.0) + self._y_spline(self._s, 1) * s_ddot,
-                self._heading_spline(self._s, 2) * np.power(s_dot, 2.0) + self._heading_spline(self._s, 1) * s_ddot,
-            ]
-        )
+        eta_ref = self._compute_eta_ref()
+        eta_dot_ref = self._compute_eta_dot_ref(s_dot)
+        eta_ddot_ref = self._compute_eta_ddot_ref(s_dot, s_ddot)
 
         # Increment path variable to propagate reference vehicle along trajectory.
         self._s = mf.sat(self._s + dt * s_dot, 0.0, 1.0)
@@ -199,6 +204,27 @@ class KinematicTrajectoryPlanner(IGuidance):
         )
 
         return s_dot, s_ddot
+
+    def _compute_eta_ref(self) -> np.ndarray:
+        return np.array([self._x_spline(self._s), self._y_spline(self._s), self._heading_spline(self._s)])
+
+    def _compute_eta_dot_ref(self, s_dot: float) -> np.ndarray:
+        return np.array(
+            [
+                self._x_spline(self._s, 1) * s_dot,
+                self._y_spline(self._s, 1) * s_dot,
+                self._heading_spline(self._s, 1) * s_dot,
+            ]
+        )
+
+    def _compute_eta_ddot_ref(self, s_dot: float, s_ddot: float) -> np.ndarray:
+        return np.array(
+            [
+                self._x_spline(self._s, 2) * np.power(s_dot, 2.0) + self._x_spline(self._s, 1) * s_ddot,
+                self._y_spline(self._s, 2) * np.power(s_dot, 2.0) + self._y_spline(self._s, 1) * s_ddot,
+                self._heading_spline(self._s, 2) * np.power(s_dot, 2.0) + self._heading_spline(self._s, 1) * s_ddot,
+            ]
+        )
 
 
 class LOSGuidance(IGuidance):

@@ -13,11 +13,7 @@ def wrap_angle_to_pmpi(angle: float) -> float:
     Returns:
         float: Wrapped angle
     """
-    while angle <= -math.pi:
-        angle += 2 * math.pi
-    while angle > math.pi:
-        angle -= 2 * math.pi
-    return angle
+    return wrap_min_max(angle, -math.pi, math.pi)
 
 
 def wrap_angle_to_02pi(angle: float) -> float:
@@ -29,11 +25,22 @@ def wrap_angle_to_02pi(angle: float) -> float:
     Returns:
         float: Wrapped angle
     """
-    while angle <= 0:
-        angle += 2 * math.pi
-    while angle > 2 * math.pi:
-        angle -= 2 * math.pi
-    return angle
+    return wrap_min_max(angle, 0, 2 * math.pi)
+
+
+def wrap_min_max(x: float, x_min: float, x_max: float) -> float:
+    """Wraps input x to [x_min, x_max)
+
+    Args:
+        x (float): Unwrapped value
+        x_min (float): Minimum value
+        x_max (float): Maximum value
+
+    Returns:
+        float: Wrapped value
+    """
+    interval = x_max - x_min
+    return x_min + (x - x_min) % interval
 
 
 def wrap_angle_diff_to_pmpi(a_1: float, a_2: float) -> float:
@@ -126,6 +133,54 @@ def sat(x: float, x_min: float, x_max: float) -> float:
     elif x < x_min:
         x = x_min
     return x
+
+
+def sat_vec(x: np.ndarray, x_min: np.ndarray, x_max: np.ndarray) -> np.ndarray:
+    """
+    y = sat_vec(x,x_min,x_max) saturates a signal x such that x_min <= x <= x_max
+    """
+    y = x
+    y[0] = sat(x[0], x_min[0], x_max[0])
+    y[1] = sat(x[1], x_min[1], x_max[1])
+    y[2] = sat(x[2], x_min[2], x_max[2])
+    return x
+
+
+def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates coriolis matrix C(v)
+
+    Assumes decoupled surge and sway-yaw dynamics.
+    See eq. (7.12) - (7.15) in Fossen2011
+
+    Args:
+        Mmtrx (np.ndarray): Mass matrix.
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Coriolis matrix C(v)
+    """
+    c13 = -(Mmtrx[1, 1] * nu[1] + Mmtrx[1, 2] * nu[2])
+    c23 = Mmtrx[0, 0] * nu[0]
+
+    return np.array([[0, 0, c13 * nu[2]], [0, 0, c23 * nu[2]], [-c13 * nu[0], -c23 * nu[1], 0]])
+
+
+def Dmtrx(D_l: np.ndarray, D_q: np.ndarray, D_c: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates damping matrix D
+
+    Assumes decoupled surge and sway-yaw dynamics.
+    See eq. (7.24) in Fossen2011+
+
+    Args:
+        D_l (np.ndarray): Linear damping matrix.
+        D_q (np.ndarray): Quadratic damping matrix.
+        D_c (np.ndarray): Cubic damping matrix.
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Damping matrix D = D_l + D_q(nu) + D_c(nu)
+    """
+    return D_l + D_q * np.abs(nu) + D_c * (nu * nu)
 
 
 def Smtrx(a):
