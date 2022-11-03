@@ -42,7 +42,7 @@ class ShipBuilder:
         if config and config.name == "LOS":
             return guidance.LOSGuidance(config)
         else:
-            return guidance.KinematicTrajectoryPlanner()
+            return guidance.LOSGuidance()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -57,7 +57,7 @@ class ShipBuilder:
         if config and config.name == "CSOG":
             return controllers.PassThrough()
         else:
-            return controllers.MIMOPID()
+            return controllers.FLSH()
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None):
@@ -93,16 +93,12 @@ class Ship(IShip):
     """The Ship class implements a variety of models and guidance methods for use in simulating the ship behaviour.
 
     Parameters:
-        length (float): Length of the ship.
-        width (float): Width of the ship.
         mmsi (float): Maritime Mobile Service Identity of the ship.
         state (np.ndarray): Current state of the ship with position in planar coordinates.
         waypoints (np.ndarray): Waypoints the ship is following.
         speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
     """
 
-    _length: float = 20.0
-    _width: float = 5.0
     _mmsi: str = "1"
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
@@ -142,7 +138,7 @@ class Ship(IShip):
         Returns:
             np.ndarray: The new state dt seconds ahead.
         """
-        references = self._guidance.compute_references(self._waypoints, self._speed_plan, self._state, dt)
+        references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
 

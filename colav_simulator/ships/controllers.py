@@ -19,12 +19,17 @@ import numpy as np
 @dataclass
 class MIMOPIDPars:
     "Parameters for a Proportional-Integral-Derivative controller."
-    wn: np.ndarray = np.diag([0.3, 0.3, 0.15])
+    wn: np.ndarray = np.diag([0.3, 0.1, 0.3])
     zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
-    K_p: np.ndarray = np.diag([100.0, 100.0, 100.0 * math.pi])
-    K_d: np.ndarray = np.diag([100.0, 100.0, 100 * math.pi])
-    K_i: np.ndarray = np.diag([0.0, 0.0, 0.0])
     eta_diff_max: np.ndarray = np.zeros(3)
+
+
+@dataclass
+class FLSHPars:
+    "Parameters for the feedback linearizing surge-heading controller."
+    K_p_u: float = 5.0
+    K_p_psi: float = 5.0
+    K_d_psi: float = 10.0
 
 
 @dataclass
@@ -33,6 +38,7 @@ class Config:
 
     name: str
     pid: Optional[MIMOPIDPars]
+    flsh: Optional[FLSHPars]
 
 
 class IController(ABC):
@@ -94,9 +100,6 @@ class MIMOPID(IController):
         else:
             self._pars = MIMOPIDPars()
 
-        np.diag([0.3, 0.1, 0.3])  # PID pole placement
-        self.zeta = np.diag([1.0, 1.0, 1.0])
-
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)
 
@@ -119,7 +122,9 @@ class MIMOPID(IController):
 
         eta = xs[0:3]
         nu = xs[3:]
-        eta_dot = mf.Rpsi(eta[2]) @ nu
+
+        R_n_b = mf.Rpsi(eta[2])
+        eta_dot = R_n_b @ nu
 
         Mmtrx = model.pars.M_rb + model.pars.M_a
         Dmtrx = mf.Dmtrx(model.pars.D_l, model.pars.D_q, model.pars.D_c, nu)
@@ -138,7 +143,7 @@ class MIMOPID(IController):
         # Compute control input in NED frame.
         tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
         # Rotate to BODY frame.
-        tau = mf.Rpsi(eta[2]) @ tau
+        tau = R_n_b.T @ tau
         return tau
 
 
@@ -157,3 +162,75 @@ def pole_placement(
     K_d = 2.0 * zeta @ wn @ Mmtrx - Dmtrx
     K_i = (1.0 / 10.0) * wn @ Mmtrx
     return K_p, K_d, K_i
+
+
+@dataclass
+class FLSH(IController):
+    """Implements a feedback-linearizing surge-heading (FLSH) controller for a thruster/rudder vessel using
+
+    Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * K_p,u * (u_d - u)
+    Fy = (M[2, 2] / l_r) * ( K_p,psi * (psi_d - psi) - K_d,psi * r )
+
+    for the system
+
+    eta_dot = J_Theta(eta) * nu
+    M * nu_dot + C(nu) * nu + D(nu) * nu = tau
+
+    with a rudder placed l_r units away from CG, such that tau = [Fx, Fy, Fy * l_r]^T.
+
+    Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
+    """
+
+    _eta_diff_int: np.ndarray
+    _pars: FLSHPars
+
+    def __init__(self, config: Optional[Config] = None) -> None:
+        self._eta_diff_int = np.zeros(3)
+        if config and config.flsh is not None:
+            self._pars = config.flsh
+        else:
+            self._pars = FLSHPars()
+
+    def _reset_integrator(self):
+        self._eta_diff_int = np.zeros(3)
+
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+        """Computes inputs based on the PID law.
+
+        Args:
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d]^T
+            xs (np.ndarray): State xs = [eta, nu]^T
+            dt (float): Time step
+            model (IModel): Model object to fetch parameters from, not used here.
+
+        Returns:
+            np.ndarray: Inputs u = tau to apply to the system.
+        """
+        if len(refs) == 2:
+            u_d, psi_d, r_d = refs[0], refs[1], 0.0
+        elif len(refs) >= 6:
+            u_d, psi_d, r_d = refs[3], refs[2], mf.sat(refs[5], -model.pars.r_max, model.pars.r_max)
+        else:
+            raise ValueError("Dimension of reference array should be equal to 2 or >=6!")
+
+        if len(xs) != 6:
+            raise ValueError("Dimension of state should be 6!")
+
+        eta = xs[0:3]
+        nu = xs[3:]
+
+        Mmtrx = model.pars.M_rb + model.pars.M_a
+        Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
+        Dvv = mf.Dmtrx(model.pars.D_l, model.pars.D_q, model.pars.D_c, nu) @ nu
+
+        psi_diff = mf.wrap_angle_diff_to_pmpi(psi_d, eta[2])
+
+        Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * self._pars.K_p_u * (u_d - nu[0])
+        Fy = (Mmtrx[2, 2] / model.pars.l_r) * (self._pars.K_p_psi * psi_diff + self._pars.K_d_psi * (r_d - nu[2]))
+
+        tau = np.array([Fx, Fy, Fy * model.pars.l_r])
+
+        #         if psi_diff > 0.1:
+        # print(f"psi_d: {psi_d} | psi_diff: {psi_diff} | u_d: {u_d} | u_diff: {u_d - nu[0]} | Fx: {Fx} | Fy: {Fy}")
+
+        return tau

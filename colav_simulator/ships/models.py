@@ -40,7 +40,7 @@ class TelemetronPars:
     length: float = 10.0
     width: float = 3.0
     draft: float = 1.0
-    rudder_dist: float = 4.0  # Distance from CG to rudder
+    l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
     D_c: np.ndarray = np.diag([0.0, 0.0, 3224.0])  # Third order/cubic damping
@@ -163,13 +163,16 @@ class Telemetron(IModel):
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
         eta = xs[0:3]
+        eta[2] = mf.wrap_angle_to_pmpi(eta[2])
+        # eta[2] = mf.wrap_angle_to_pmpi(eta[2])
+
         nu = xs[3:6]
+        nu[0] = mf.sat(nu[0], -1e10, self._pars.U_max)
+        nu[2] = mf.sat(nu[2], -self._pars.r_max, self._pars.r_max)
 
         u[0] = mf.sat(u[0], self._pars.Fx_limits[0], self._pars.Fx_limits[1])
         u[1] = mf.sat(u[1], self._pars.Fy_limits[0], self._pars.Fy_limits[1])
-        u[2] = mf.sat(
-            u[2], self._pars.Fy_limits[0] * self._pars.rudder_dist, self._pars.Fy_limits[1] * self._pars.rudder_dist
-        )
+        u[2] = mf.sat(u[2], self._pars.Fy_limits[0] * self._pars.l_r, self._pars.Fy_limits[1] * self._pars.l_r)
 
         Minv = np.linalg.inv(self._pars.M_rb + self._pars.M_a)
         Cvv = mf.Cmtrx(self._pars.M_rb + self._pars.M_a, nu) @ nu

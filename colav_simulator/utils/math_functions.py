@@ -54,11 +54,7 @@ def wrap_angle_diff_to_pmpi(a_1: float, a_2: float) -> float:
         float: Wrapped angle difference
     """
     diff = wrap_angle_to_pmpi(a_1) - wrap_angle_to_pmpi(a_2)
-    while diff > math.pi:
-        diff -= 2 * math.pi
-    while diff < -math.pi:
-        diff += 2 * math.pi
-    return diff
+    return wrap_min_max(diff, -math.pi, math.pi)
 
 
 def knots2mps(knots: float) -> float:
@@ -162,7 +158,7 @@ def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
     c13 = -(Mmtrx[1, 1] * nu[1] + Mmtrx[1, 2] * nu[2])
     c23 = Mmtrx[0, 0] * nu[0]
 
-    return np.array([[0, 0, c13 * nu[2]], [0, 0, c23 * nu[2]], [-c13 * nu[0], -c23 * nu[1], 0]])
+    return np.array([[0, 0, c13], [0, 0, c23], [-c13, -c23, 0]])
 
 
 def Dmtrx(D_l: np.ndarray, D_q: np.ndarray, D_c: np.ndarray, nu: np.ndarray) -> np.ndarray:
