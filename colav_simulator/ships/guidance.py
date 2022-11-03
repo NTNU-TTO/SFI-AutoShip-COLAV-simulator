@@ -14,7 +14,7 @@ from typing import Optional, Tuple
 import colav_simulator.utils.math_functions as mf
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicHermiteSpline, CubicSpline
 
 
 @dataclass
@@ -120,8 +120,8 @@ class KinematicTrajectoryPlanner(IGuidance):
             psi_dot = xs[5]
             self._x_spline = CubicSpline(linspace, waypoints[0, :], bc_type=((1, x_dot), (1, 0)))
             self._y_spline = CubicSpline(linspace, waypoints[1, :], bc_type=((1, y_dot), (1, 0)))
-            self._heading_spline = CubicSpline(linspace, np.unwrap(course_plan), bc_type=((1, psi_dot), (1, 0)))
-            self._speed_spline = CubicSpline(linspace, speed_plan, bc_type=((1, 1), (1, 0)))
+            self._heading_spline = CubicSpline(linspace, np.unwrap(course_plan), bc_type=((1, 0), (1, 0)))
+            self._speed_spline = CubicSpline(linspace, speed_plan, bc_type=((1, 0), (1, 0)))
         else:
             self._x_spline = CubicSpline(linspace, waypoints[0, :], bc_type=((1, self._x_spline(self._s, 1)), (1, 0)))
             self._y_spline = CubicSpline(linspace, waypoints[1, :], bc_type=((1, self._y_spline(self._s, 1)), (1, 0)))
