@@ -7,12 +7,11 @@
 
     Author: Trym Tengesdal
 """
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import colav_simulator.utils.math_functions as mf
+import colav_simulator.common.math_functions as mf
 import numpy as np
 
 
@@ -29,7 +28,7 @@ class FLSHPars:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 5.0
     K_p_psi: float = 5.0
-    K_d_psi: float = 10.0
+    K_d_psi: float = 7.0
 
 
 @dataclass

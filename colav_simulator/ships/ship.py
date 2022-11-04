@@ -1,16 +1,25 @@
+"""
+    ship.py
+
+    Summary:
+        Contains class definitions for various ships.
+        Every ship class must adhere to the interface
+        IShip and must be built by a ShipBuilder.
+
+    Author: Trym Tengesdal
+"""
 import math
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-import colav_simulator.ships as ships
+import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
 import colav_simulator.ships.guidance as guidance
 
 # from colav_simulator.map import path_crosses_land
 import colav_simulator.ships.models as models
-import colav_simulator.utils.math_functions as mf
 import numpy as np
 
 # from colav_simulator.ships.sensors import *
@@ -21,13 +30,14 @@ import numpy as np
 class Config:
     """Configuration class for managing ship parameters."""
 
-    model: ships.models.Config
-    controller: ships.controllers.Config
-    guidance: ships.guidance.Config
+    model: models.Config
+    controller: controllers.Config
+    guidance: guidance.Config
+    # colav: colav.Config
 
 
 class ShipBuilder:
-    """Class for building all objects needed by a ship, with a specific configuration."""
+    """Class for building all objects needed by a ship with a specific configuration of systems."""
 
     @classmethod
     def construct_guidance(cls, config: Optional[guidance.Config] = None):
@@ -42,7 +52,7 @@ class ShipBuilder:
         if config and config.name == "LOS":
             return guidance.LOSGuidance(config)
         else:
-            return guidance.LOSGuidance()
+            return guidance.KinematicTrajectoryPlanner()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -92,14 +102,16 @@ class IShip(ABC):
 class Ship(IShip):
     """The Ship class implements a variety of models and guidance methods for use in simulating the ship behaviour.
 
-    Parameters:
+    Internal variables:
         mmsi (float): Maritime Mobile Service Identity of the ship.
-        state (np.ndarray): Current state of the ship with position in planar coordinates.
+        ais_msg_nr (int): AIS message number (1, 2 or 3 for AIS Class A transponders, 18 for AIS Class B transponders).
         waypoints (np.ndarray): Waypoints the ship is following.
         speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
+        state (np.ndarray): Initial pose of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T` where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad), `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model in `Fossen2011`.
     """
 
     _mmsi: str = "1"
+    _ais_msg_nr: int = 18
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
     _speed_plan: np.ndarray = np.zeros(0)
@@ -129,6 +141,13 @@ class Ship(IShip):
             self._controller = ShipBuilder.construct_controller()
             self._guidance = ShipBuilder.construct_guidance()
 
+        # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
+        # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
+        if self.length <= 45:
+            self._ais_msg_nr = 18
+        else:
+            self._ais_msg_nr = random.randint(1, 3)
+
     def forward(self, dt: float) -> np.ndarray:
         """Predicts the ship state dt seconds forward in time.
 
@@ -143,7 +162,7 @@ class Ship(IShip):
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
 
         self._state = self._state + dt * self._model.dynamics(self._state, u)
-        return self._state
+        return np.concatenate([self._state, references, u])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
@@ -156,24 +175,50 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
+    def get_ais_data(self, timestamp: int) -> dict:
+        """Returns an AIS data message for the ship at the given timestamp.
+        Args:
+            t (float): Time in seconds.
+
+        Returns:
+            dict: AIS message as a dictionary.
+        """
+        row = {
+            "mmsi": self.mmsi,
+            "lon": self._state[1] * 10 ** (-5),
+            "lat": self._state[0] * 10 ** (-5),
+            "date_time_utc": mf.utc_timestamp_to_datetime(timestamp),
+            "sog": mf.mps2knots(self._state[3]),
+            "cog": int(np.rad2deg(self._state[2])),
+            "true_heading": int(np.rad2deg(self._state[2])),
+            "nav_status": 0,
+            "message_nr": self.ais_msg_nr,
+            "source": "",
+        }
+        return row
+
     @property
-    def length(self):
+    def length(self) -> float:
         return self._model.pars.length
 
     @property
-    def width(self):
+    def width(self) -> float:
         return self._model.pars.width
 
     @property
-    def mmsi(self):
+    def mmsi(self) -> str:
         return self._mmsi
 
     @property
-    def state(self):
+    def ais_msg_nr(self) -> int:
+        return self._ais_msg_nr
+
+    @property
+    def state(self) -> np.ndarray:
         return self._state
 
     @property
-    def waypoints(self):
+    def waypoints(self) -> np.ndarray:
         return self._waypoints
 
 

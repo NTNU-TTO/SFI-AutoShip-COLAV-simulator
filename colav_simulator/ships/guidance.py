@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import colav_simulator.utils.math_functions as mf
+import colav_simulator.common.math_functions as mf
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline, PchipInterpolator
@@ -95,7 +95,7 @@ class KinematicTrajectoryPlanner(IGuidance):
     _heading_spline: PchipInterpolator
     _speed_spline: PchipInterpolator
 
-    def __init__(self, config: Optional[Config]) -> None:
+    def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.ktp is not None:
             self._pars = config.ktp
         else:
@@ -140,6 +140,16 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._x_spline = CubicSpline(linspace, waypoints[0, :], bc_type=((1, self._x_spline(self._s, 1)), (1, 0)))
             self._y_spline = CubicSpline(linspace, waypoints[1, :], bc_type=((1, self._y_spline(self._s, 1)), (1, 0)))
 
+        # x_new = self._x_spline(np.linspace(0.0, 1.0, 100))
+        # y_new = self._y_spline(np.linspace(0.0, 1.0, 100))
+
+        # delta_s = np.sqrt(np.diff(x_new) ** 2 + np.diff(y_new) ** 2)
+        # new_s_vals = np.cumsum([0, *np.sqrt(np.diff(x_new) ** 2 + np.diff(y_new) ** 2)])
+        # new_s_vals = new_s_vals / np.max(new_s_vals)
+
+        # self._x_spline = CubicSpline(new_s_vals, x_new)
+        # self._y_spline = CubicSpline(new_s_vals, y_new)
+
         # Create reference heading values based on angle of extracted linear path segments in the x, y splines.
         n_heading_samples = round(n_wps / self._pars.dt_seg)
         path_values = np.linspace(0.0, 1.0, n_heading_samples)
@@ -153,6 +163,8 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._heading_spline = PchipInterpolator(path_values, np.unwrap(heading_references))
         self._speed_spline = PchipInterpolator(linspace, speed_plan)
 
+        der_heading = [0, *np.diff(self._heading_spline(path_values))] / path_values
+
         s_dot, s_ddot = self._compute_path_variable_derivatives()
 
         eta_ref = self._compute_eta_ref()
@@ -162,75 +174,77 @@ class KinematicTrajectoryPlanner(IGuidance):
         # Increment path variable to propagate reference vehicle along trajectory.
         self._s = mf.sat(self._s + dt * s_dot, 0.0, 1.0)
 
-        # fig = plt.figure(figsize=(5, 10))
-        # axs = fig.subplot_mosaic(
-        #     [
-        #         ["xy", "psi", "r"],
-        #         ["U", "Udot", "x"],
-        #     ]
-        # )
+        plot = False
+        if plot:
+            fig = plt.figure(figsize=(5, 10))
+            axs = fig.subplot_mosaic(
+                [
+                    ["xy", "psi", "r"],
+                    ["U", "Udot", "x"],
+                ]
+            )
 
-        # axs["xy"].plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
-        # axs["xy"].plot(
-        #     self._y_spline(np.linspace(0.0, 1.0, 1000)),
-        #     self._x_spline(np.linspace(0.0, 1.0, 1000)),
-        #     "b",
-        #     label="Spline",
-        # )
-        # axs["xy"].set_xlabel("South (m)")
-        # axs["xy"].set_ylabel("North (m)")
-        # axs["xy"].legend()
-        # axs["xy"].grid()
+            axs["xy"].plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
+            axs["xy"].plot(
+                self._y_spline(np.linspace(0.0, 1.0, 100)),
+                self._x_spline(np.linspace(0.0, 1.0, 100)),
+                "b.",
+                label="Spline",
+            )
+            axs["xy"].set_xlabel("South (m)")
+            axs["xy"].set_ylabel("North (m)")
+            axs["xy"].legend()
+            axs["xy"].grid()
 
-        # axs["psi"].plot(path_values, np.unwrap(heading_references), "rx", label="Waypoints")
-        # axs["psi"].plot(
-        #     np.linspace(0.0, 1.0, 1000),
-        #     self._heading_spline(np.linspace(0.0, 1.0, 1000)),
-        #     "b",
-        #     label="heading spline",
-        # )
-        # axs["psi"].legend()
-        # axs["psi"].grid()
+            axs["psi"].plot(path_values, np.unwrap(heading_references), "rx", label="Waypoints")
+            axs["psi"].plot(
+                np.linspace(0.0, 1.0, 100),
+                self._heading_spline(np.linspace(0.0, 1.0, 100)),
+                "b.",
+                label="heading spline",
+            )
+            axs["psi"].legend()
+            axs["psi"].grid()
 
-        # axs["r"].plot(
-        #     np.linspace(0.0, 1.0, 1000),
-        #     self._heading_spline(np.linspace(0.0, 1.0, 1000), 1),
-        #     "b",
-        #     label="yaw rate spline",
-        # )
-        # axs["r"].legend()
-        # axs["r"].grid()
+            axs["r"].plot(
+                np.linspace(0.0, 1.0, 100),
+                self._heading_spline(np.linspace(0.0, 1.0, 100), 1),
+                "b.",
+                label="yaw rate spline",
+            )
+            axs["r"].legend()
+            axs["r"].grid()
 
-        # axs["U"].plot(linspace, self._speed_spline(linspace), "rx", label="Waypoints")
-        # axs["U"].plot(
-        #     np.linspace(0.0, 1.0, 1000),
-        #     self._speed_spline(np.linspace(0.0, 1.0, 1000)),
-        #     "b",
-        #     label="speed spline",
-        # )
-        # axs["U"].legend()
-        # axs["U"].grid()
+            axs["U"].plot(linspace, self._speed_spline(linspace), "rx", label="Waypoints")
+            axs["U"].plot(
+                np.linspace(0.0, 1.0, 100),
+                self._speed_spline(np.linspace(0.0, 1.0, 100)),
+                "b.",
+                label="speed spline",
+            )
+            axs["U"].legend()
+            axs["U"].grid()
 
-        # axs["Udot"].plot(
-        #     np.linspace(0.0, 1.0, 1000),
-        #     self._speed_spline(np.linspace(0.0, 1.0, 1000), 1),
-        #     "b",
-        #     label="speed der spline",
-        # )
-        # axs["Udot"].legend()
-        # axs["Udot"].grid()
+            axs["Udot"].plot(
+                np.linspace(0.0, 1.0, 100),
+                self._speed_spline(np.linspace(0.0, 1.0, 100), 1),
+                "b.",
+                label="speed der spline",
+            )
+            axs["Udot"].legend()
+            axs["Udot"].grid()
 
-        # axs["x"].plot(linspace, waypoints[0, :], "rx")
-        # axs["x"].plot(
-        #     np.linspace(0.0, 1.0, 1000),
-        #     self._x_spline(np.linspace(0.0, 1.0, 1000)),
-        #     "b",
-        #     label="x spline",
-        # )
-        # axs["x"].legend()
-        # axs["x"].grid()
-        # plt.show()
-        # plt.close()
+            axs["x"].plot(linspace, waypoints[0, :], "rx")
+            axs["x"].plot(
+                np.linspace(0.0, 1.0, 100),
+                self._x_spline(np.linspace(0.0, 1.0, 100)),
+                "b.",
+                label="x spline",
+            )
+            axs["x"].legend()
+            axs["x"].grid()
+            plt.show()
+            plt.close()
 
         return np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
 

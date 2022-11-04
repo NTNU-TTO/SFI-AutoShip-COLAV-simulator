@@ -1,7 +1,65 @@
 """Contains commonly used math functions."""
 import math
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import numpy as np
+
+
+def current_utc_timestamp() -> int:
+    """
+    Returns:
+        int: Current UTC timestamp
+    """
+    return int(datetime.utcnow().timestamp())
+
+
+def utc_timestamp_to_local_time(timestamp: int) -> datetime:
+    """
+    Converts UTC timestamp to local time.
+
+    Args:
+        timestamp (int): UTC timestamp
+
+    Returns:
+        datetime: Local time
+    """
+    return utc_to_local(utc_timestamp_to_datetime(timestamp))
+
+
+def utc_timestamp_to_datetime(timestamp: int) -> datetime:
+    """
+    Converts UTC timestamp to datetime.
+
+    Args:
+        timestamp (int): UTC timestamp
+
+    Returns:
+        datetime: Datetime object
+    """
+    return datetime.fromtimestamp(timestamp)
+
+
+def local_timestamp_from_utc():
+    """
+
+    Returns:
+        int: Current local time referenced timestamp
+    """
+    return datetime.now().astimezone().timestamp()
+
+
+def utc_to_local(utc_dt) -> datetime:
+    """
+    Convert UTC datetime to local datetime.
+
+    Parameters:
+        utc_dt (datetime): UTC datetime
+
+    Returns:
+        datetime: Local datetime
+    """
+    return utc_dt.replace(tzinfo=ZoneInfo("localtime"))
 
 
 def wrap_angle_to_pmpi(angle: float) -> float:

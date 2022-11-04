@@ -1,0 +1,193 @@
+"""
+    map_functions.py
+
+    Summary:
+        Contains functionality for plotting the Electronic Navigational Chart (ENC),
+        computing distance to land polygons, generating random ship starting positions etc.
+
+    Author: Trym Tengesdal, Magne Aune, Joachim Miller
+"""
+import random
+from typing import Optional, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
+from seacharts.enc import ENC
+from shapely.geometry import LineString, Point, Polygon
+
+# Creating shapefiles from the defined region
+# enc = senc.ENC(size=size, center=center, files=files, new_data=new_data)
+# enc.close_display()
+
+
+def get_blue_colors(bins: int):
+    """Returns a blue color palette for the input number of bins.
+
+    Args:
+        bins (int): Number of colors to get.
+
+    Returns:
+        cmap: Color map/palette of length bins.
+    """
+    # blue color palette
+    return plt.get_cmap("Blues")(np.linspace(0.6, 0.9, bins))
+
+
+def get_green_colors(bins: int):
+    """Returns a green palette for the input number of bins.
+
+    Args:
+        bins (int): Number of colors to get.
+
+    Returns:
+        cmap: Color map/palette of length bins.
+    """
+    return plt.get_cmap("Greens")(np.linspace(0.6, 0.5, bins))
+
+
+def plot_background(
+    fig: plt.Figure, enc: ENC, show: Optional[bool] = True
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    """Creates a static background based on the input seacharts
+
+    Args:
+        fig (plt.Figure): Matplotlib figure handle.
+        enc (ENC): Electronic Navigational Chart object
+        show = Option for visualization
+
+    Returns:
+        Tuple[]: Tuple of limits in x and y for the background extent
+    """
+    ax = fig.gca()
+    layers = []
+    colors = []
+    # For every layer put in list and assign a color
+    if enc.land:
+        land = enc.land
+        layers.append(land)
+        colors.append(get_green_colors(1))
+
+    if enc.shore:
+        shore = enc.shore
+        layers.append(shore)
+        if enc.land:
+            del colors[0]
+            colors.append(get_green_colors(2))
+        else:
+            colors.append(get_green_colors(1))
+
+    if enc.seabed:
+        sea = enc.seabed
+        sea_layer = list(sea.keys())
+        for key in sea_layer:
+            if len(sea[key].mapping["coordinates"]) == 0:
+                sea_layer.remove(key)
+            layers.append(enc.seabed[key])
+        colors.append(get_blue_colors(len(sea_layer)))
+
+    # Flatten color list
+    colors_new = []
+    for sublist in colors:
+        for color in sublist:
+            colors_new.append(color)
+
+    # Plot the contour for every layer and assign color
+    for c, layer in enumerate(layers):
+        for i in range(len(layer.mapping["coordinates"])):
+            try:
+                pol = list(layer.mapping["coordinates"][i][0])
+                poly = Polygon(pol)
+                x, y = poly.exterior.xy
+                ax.fill(x, y, c=colors_new[c], zorder=layer.z_order)
+            except Exception as exc:
+                raise RuntimeError(f"Error plotting polygon {i} in {layer}") from exc
+
+    if show is None:
+        fig.close()
+
+    x_lim = ax.get_xlim()
+    y_lim = ax.get_ylim()
+    return x_lim, y_lim
+
+
+def randomize_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
+    """Randomly chooses a valid sea depth (seabed) depending on a ship's draft.
+
+    Args:
+        draft (float): Ship's draft in meters.
+
+    Returns:
+        float: Seabed depth in meters.
+    """
+    feasible_depth_vals = list(enc.seabed.keys())
+    for d in enc.seabed.keys():
+        if len(enc.seabed[d].mapping["coordinates"]) in [0, 1] or float(d) < draft:
+            feasible_depth_vals.remove(d)
+
+    index = random.randint(0, len(feasible_depth_vals) - 1)
+    return feasible_depth_vals[index]
+
+
+def randomize_start_position(enc: ENC, draft: float) -> Tuple[float, float]:
+    """
+    Randomly defining starting easting and northing coordinates of a ship
+    inside the safe sea region by considering ship draft.
+
+    Args:
+        enc (ENC): Electronic Navigational Chart object
+        draft (float): Ship's draft in meters.
+
+    Returns:
+        Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
+    """
+    depth = randomize_seabed_depth_from_draft(enc, draft)
+    safe_sea = enc.seabed[depth]
+    ss_bounds = safe_sea.geometry.bounds
+
+    is_safe = False
+    while not is_safe:
+        easting = random.uniform(ss_bounds[0], ss_bounds[2])
+        northing = random.uniform(ss_bounds[1], ss_bounds[3])
+        is_safe = safe_sea.geometry.contains(Point(easting, northing))
+
+    return northing, easting
+
+
+def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
+    """Compute the minimum distance to land from a given point.
+
+    Args:
+        enc (ENC): Electronic Navigational Chart object
+        y (float): Ship's easting coordinate
+        x (float): Ship's northing coordinate
+
+    Returns:
+        float: Minimum distance to land in meters.
+    """
+    position = Point(y, x)
+    min_distance = 1e10
+    land = enc.land.mapping["coordinates"]
+    for i, _ in enumerate(land):
+        poly = list(land[i][0])
+        polygon = Polygon(poly)
+        distance = position.distance(polygon)
+        if distance < min_distance:
+            min_distance = distance
+    return min_distance
+
+
+def check_if_path_crosses_land(enc: ENC, next_wp: Tuple[float, float], prev_wp: Tuple[float, float]) -> bool:
+    """Checks if a path segment between two waypoints crosses land.
+
+    NOTE: wp[0] = East, wp[1] = North
+
+    Args:
+        next_wp (Tuple[float, float]): Next waypoint .
+        prev_wp (Tuple[float, float]): Previous waypoint.
+
+    Returns:
+        bool: True if path segment crosses land, False otherwise.
+
+    """
+    wp_line = LineString([next_wp, prev_wp])
+    return wp_line.intersects(enc.shore.geometry)

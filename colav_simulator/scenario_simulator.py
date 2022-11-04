@@ -1,17 +1,25 @@
+"""
+    simulator.py
+
+    Summary:
+        Contains class definitions for the simulator, enables the
+        simulation of a diverse set of COLAV scenarios from files.
+
+    Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
+"""
 import json
-import math
 
 import numpy as np
 import pandas as pd
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
-from autotuning.colav_simulator.colav_simulator.ships.sensors import *
+import colav_simulator.ships.ship as ship
 from config_reader import *
 from sbmpc import SBMPC
-
-from colav_simulator.ships import ship
 from scenario_generator import create_scenario
+
+from autotuning.colav_simulator.colav_simulator.ships.sensors import *
 
 
 class Simulator:
@@ -24,7 +32,7 @@ class Simulator:
     def __init__(self) -> None:
         pass
 
-    def run(self, horizon: float, dt: float) -> None:
+    def run(self) -> None:
         """Runs the simulator for the choice of scenarios
 
         Args:

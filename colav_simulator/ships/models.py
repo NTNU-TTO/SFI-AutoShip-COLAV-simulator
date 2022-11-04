@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-import colav_simulator.utils.math_functions as mf
+import colav_simulator.common.math_functions as mf
 import numpy as np
 
 
