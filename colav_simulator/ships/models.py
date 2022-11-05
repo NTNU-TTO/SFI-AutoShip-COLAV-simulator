@@ -94,7 +94,7 @@ class KinematicCSOG(IModel):
             self._pars = KinematicCSOGPars()
 
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
-        """Computes r.h.s of ODE f(x, u) in x_k+1 = f(x_k, u_k), where
+        """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
             xs (np.ndarray): State x_k = [x_k, y_k, chi_k, U_k]
@@ -149,7 +149,7 @@ class Telemetron(IModel):
         self._pars = TelemetronPars()
 
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
-        """Computes r.h.s of ODE f(x, u) in x_k+1 = f(x_k, u_k), where
+        """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
             xs (np.ndarray): State xs = [eta, nu]^T

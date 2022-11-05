@@ -41,10 +41,7 @@ if __name__ == "__main__":
     time = np.zeros(n_samples)
     for k in range(n_samples):
         time[k] = k * dt
-        data = ownship.forward(dt)
-        trajectory[:, k] = data[0:6]
-        refs[:, k] = data[6:15]
-        tau[:, k] = data[15:]
+        trajectory[:, k], refs[:, k], tau[:, k] = ownship.forward(dt)
 
     # Plots
     fig = plt.figure(figsize=(mf.cm2inch(fig_size[0]), mf.cm2inch(fig_size[1])), dpi=dpi_value)

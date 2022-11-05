@@ -352,6 +352,7 @@ class LOSGuidance(IGuidance):
         Args:
             waypoints (np.array): 2 x n_wps waypoints array to follow.
             speed_plan (np.array): 1 x n_wps speed plan array to follow.
+            times (np.array): 1 x n_wps of time instances corresponding to the waypoints.
             xs (np.array): n x 1 dimensional state of the ship
             dt (float): Time step between the previous and current run of this function.
 

@@ -2,7 +2,7 @@
     ship.py
 
     Summary:
-        Contains class definitions for various ships.
+        Contains class definitions for ship classes.
         Every ship class must adhere to the interface
         IShip and must be built by a ShipBuilder.
 
@@ -12,7 +12,7 @@ import math
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
@@ -23,7 +23,6 @@ import colav_simulator.ships.models as models
 import numpy as np
 
 # from colav_simulator.ships.sensors import *
-# from colav_simulator.utils import utils
 
 
 @dataclass
@@ -34,6 +33,7 @@ class Config:
     controller: controllers.Config
     guidance: guidance.Config
     # colav: colav.Config
+    # tracker: tracker.config
 
 
 class ShipBuilder:
@@ -95,8 +95,8 @@ class IShip(ABC):
     # _state = interface.Attribute("Ship state")
 
     @abstractmethod
-    def forward(self, dt: float) -> np.ndarray:
-        "Predict the ship dt seconds forward in time"
+    def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        "Predict the ship dt seconds forward in time. Returns new state, inputs to get there and references used."
 
 
 class Ship(IShip):
@@ -107,7 +107,10 @@ class Ship(IShip):
         ais_msg_nr (int): AIS message number (1, 2 or 3 for AIS Class A transponders, 18 for AIS Class B transponders).
         waypoints (np.ndarray): Waypoints the ship is following.
         speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
-        state (np.ndarray): Initial pose of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T` where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad), `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model in `Fossen2011`.
+        state (np.ndarray): Initial pose of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T`
+                            where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad),
+                            `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model
+                            in `Fossen2011`.
     """
 
     _mmsi: str = "1"
@@ -126,7 +129,6 @@ class Ship(IShip):
     ) -> None:
         assert state.size >= 4
         assert speed_plan.size == waypoints.shape[1]
-        self._state = state
 
         self._mmsi = mmsi
         self._waypoints = waypoints
@@ -141,6 +143,14 @@ class Ship(IShip):
             self._controller = ShipBuilder.construct_controller()
             self._guidance = ShipBuilder.construct_guidance()
 
+        if self._model.dim_x == 4:
+            self._state = state
+        else:
+            self._state = np.zeros(6)
+            self._state[0:2] = state[0:2]
+            self._state[2] = state[2]
+            self._state[3] = state[3]
+
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
         if self.length <= 45:
@@ -148,21 +158,30 @@ class Ship(IShip):
         else:
             self._ais_msg_nr = random.randint(1, 3)
 
-    def forward(self, dt: float) -> np.ndarray:
+    def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
 
         Args:
             dt (float): Time step (s) in the prediction.
 
         Returns:
-            np.ndarray: The new state dt seconds ahead.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead, inputs to get there and the references used.
         """
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
 
         self._state = self._state + dt * self._model.dynamics(self._state, u)
-        return np.concatenate([self._state, references, u])
+        return self._state, u, references
+
+    def track_obstacles(self) -> np.ndarray:
+        """Uses its target tracker to estimate the states of dynamic obstacles in the environment.
+
+        Returns:
+            np.ndarray: Updated states on obstacles in the environment.
+        """
+        # tracks = self._tracker.track()
+        return np.zeros((2, 0))
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
@@ -212,6 +231,28 @@ class Ship(IShip):
     @property
     def ais_msg_nr(self) -> int:
         return self._ais_msg_nr
+
+    @property
+    def ais_msg_freq(self) -> float:
+        return 1.0 / 3.0
+
+    @property
+    def pose(self) -> np.ndarray:
+        """Returns the ship pose as parameterized in an AIS message,
+        i.e. `xs = [x, y, chi, U]` where `x` and `y` are planar coordinates (north-east),
+        `chi` the course over ground (rad), and `U` the ship forward speed (m/s).
+
+        Returns:
+            np.ndarray: Ship pose.
+        """
+        if self._state.size == 4:
+            return self._state
+        elif self._state.size == 6:
+            heading = self._state[2]  # take heading as course over ground (COG)
+            speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
+            return np.array([self._state[0], self._state[1], heading, speed])
+        else:
+            raise ValueError("Ship state has wrong dimension.")
 
     @property
     def state(self) -> np.ndarray:
