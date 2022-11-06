@@ -88,7 +88,7 @@ class KinematicTrajectoryPlanner(IGuidance):
     """
 
     _pars: KTPGuidancePars
-    _s: float = 0.00001
+    _s: float = 0.001
     _init: bool = False
     _x_spline: CubicSpline
     _y_spline: CubicSpline
@@ -107,7 +107,9 @@ class KinematicTrajectoryPlanner(IGuidance):
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
 
-        NOTE: The waypoints should be equidistant to ensure that the spline is well-behaved.
+        NOTE:
+            The waypoints should be equidistant to ensure that the spline is well-behaved.
+            Assumes validated inputs.
 
          Args:
             waypoints (np.array): 2 x n_wps waypoints array to follow.
@@ -119,13 +121,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         Returns:
             np.ndarray: 2-element array containing desired course and desired speed.
         """
-
-        n_px, n_wps = waypoints.shape
-        if n_px != 2:
-            raise ValueError("Waypoints do not contain planar coordinates along each column!")
-
-        if n_wps < 2:
-            raise ValueError("Insufficient number of waypoints (< 2)!")
+        _, n_wps = waypoints.shape
 
         if times:
             linspace = times
@@ -163,7 +159,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._heading_spline = PchipInterpolator(path_values, np.unwrap(heading_references))
         self._speed_spline = PchipInterpolator(linspace, speed_plan)
 
-        der_heading = [0, *np.diff(self._heading_spline(path_values))] / path_values
+        # der_heading = [0, *np.diff(self._heading_spline(path_values))] / path_values
 
         s_dot, s_ddot = self._compute_path_variable_derivatives()
 
@@ -316,34 +312,6 @@ class LOSGuidance(IGuidance):
         else:
             self._pars = LOSGuidancePars()
 
-    def find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
-        """Finds the active line segment between waypoints to follow.
-
-        Args:
-            waypoints (np.array): 2 x n_wps waypoints array to follow.
-            xs (np.array): n x 1 dimensional state of the ship
-        """
-        n_px, n_wps = waypoints.shape
-        if n_px != 2:
-            raise ValueError("Waypoints do not contain planar coordinates along each column!")
-
-        if n_wps < 2:
-            raise ValueError("Insufficient number of waypoints (< 2)!")
-
-        if xs.size < 2:
-            raise ValueError("Wrong state dimension!")
-
-        for i in range(self._wp_counter, n_wps - 1):
-            d_0wp_vec = waypoints[:, i + 1] - xs[0:2]
-            L_wp_segment = waypoints[:, i + 1] - waypoints[:, i]
-
-            segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
-            if segment_passed:
-                self._wp_counter += 1
-                print(f"Segment {i} passed!")
-            else:
-                break
-
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
     ) -> np.ndarray:
@@ -359,7 +327,7 @@ class LOSGuidance(IGuidance):
         Returns:
             np.ndarray: 2-element array containing desired course and desired speed.
         """
-        self.find_active_wp_segment(waypoints, xs)
+        self._find_active_wp_segment(waypoints, xs)
 
         n_sp_dim = speed_plan.ndim
         if n_sp_dim != 1:
@@ -385,6 +353,30 @@ class LOSGuidance(IGuidance):
         U_d = speed_plan[self._wp_counter]
 
         return np.array([U_d, chi_d])
+
+    def _find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
+        """Finds the active line segment between waypoints to follow.
+
+            Assumes validated inputs.
+        Args:
+            waypoints (np.array): 2 x n_wps waypoints array to follow.
+            xs (np.array): n x 1 dimensional state of the ship
+        """
+        _, n_wps = waypoints.shape
+
+        if xs.size < 2:
+            raise ValueError("Wrong state dimension!")
+
+        for i in range(self._wp_counter, n_wps - 1):
+            d_0wp_vec = waypoints[:, i + 1] - xs[0:2]
+            L_wp_segment = waypoints[:, i + 1] - waypoints[:, i]
+
+            segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
+            if segment_passed:
+                self._wp_counter += 1
+                print(f"Segment {i} passed!")
+            else:
+                break
 
     def _check_for_wp_segment_switch(self, wp_segment: np.ndarray, d_0wp: np.ndarray) -> bool:
         """Checks if a switch should be made from the current to the next

@@ -1,0 +1,10 @@
+
+# Note: evaluating results currently requires some small alteration to EvalTool.py to be runable
+evaluate_results: True
+radius_preferred_cpa: 50
+radius_minimum_acceptable_cpa: 25
+radius_near_miss_encounter: 15
+radius_collision: 10
+radius_colregs_2_max: 1000
+radius_colregs_3_max: 100
+radius_colregs_4_max: 50

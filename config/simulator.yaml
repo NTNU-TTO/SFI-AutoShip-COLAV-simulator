@@ -6,20 +6,8 @@ simulator:
   run_all_scenarios: False
   # new_scenario = False -> loads scenario from scenario_file. new_scenario = True -> creates new scenario and saves scenario to scenario_file
   new_scenario: False
-  scenario_file: head_on.json
-  colav_all_ships: False
+  scenario_files: "head_on.json"
 
   save_animation: True
   show_animation: True
   show_waypoints: True
-
-evaluator:
-  # Note: evaluating results currently requires some small alteration to EvalTool.py to be runable
-  evaluate_results: True
-  radius_preferred_cpa: 50
-  radius_minimum_acceptable_cpa: 25
-  radius_near_miss_encounter: 15
-  radius_collision: 10
-  radius_colregs_2_max: 1000
-  radius_colregs_3_max: 100
-  radius_colregs_4_max: 50

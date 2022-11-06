@@ -1,17 +1,35 @@
 import math
 import random
+from enum import Enum
 from typing import Optional, Tuple
 
+import colav_simulator.common.map_functions as mapf
 import numpy as np
+from seacharts.enc import ENC
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
-from map import min_distance_to_land, path_crosses_land, start_position
+
+class ScenarioType(Enum):
+    """Enum for the different possible scenario/situation types."""
+
+    RANDOM = 0
+    HO = 1
+    OT_ing = 2
+    OT_en = 3
+    CR_GW = 4
+    CR_SO = 5
+    MS = 6
 
 
-def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, wp_number):
-    """
-    Creates a COLREG scenario (based on scenario_num), with a random plans for all ships
+def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, n_wps: int):
+    """Creates a COLREGS scenario based on the scenario type, with random plans for all ships
+
+    Args:
+        num_ships (int): Number of ships in the scenario
+
+    Returns:
+        dict: Dictionary containing the scenario
     """
     # Create the initial poses
     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(
@@ -26,14 +44,14 @@ def create_scenario(num_ships, scenario_num, ship_model_name_list, os_max_speed,
     waypoint_list = []
     speed_plan_list = []
     for i in range(num_ships):
-        wp = create_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], wp_number)
-        speed_plan = create_random_speed_plan(pose_list[i][2], wp_number)
+        wp = create_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], n_wps)
+        speed_plan = create_random_speed_plan(pose_list[i][2], n_wps)
         waypoint_list.append(wp)
         speed_plan_list.append(speed_plan)
     return pose_list, waypoint_list, speed_plan_list
 
 
-def random_pose(max_speed=15.0, draft=5.0) -> Tuple[float, float, float, float]:
+def random_pose(enc: ENC, max_speed: float = 15.0, draft: float = 5.0) -> np.ndarray:
     """Creates a random pose (x, y, speed, heading)
 
     Args:
@@ -43,50 +61,65 @@ def random_pose(max_speed=15.0, draft=5.0) -> Tuple[float, float, float, float]:
     Returns:
         Tuple[float, float, float, float]: Tuple containing the vessel state
     """
-    x, y = start_position(draft)
+    x, y = mapf.randomize_start_position_from_draft(enc, draft)
+
     speed = round(random.uniform(1, max_speed), 1)
-    heading = np.deg2rad(random.randint(0, 359))
-    return x, y, speed, heading
+
+    heading = random.uniform(0, 2.0 * np.pi)
+
+    return np.array([x, y, speed, heading])
 
 
-def create_random_waypoints(x, y, psi, wp_number):
+def create_random_waypoints(enc: ENC, x: float, y: float, psi: float, n_wps: int) -> np.ndarray:
+    """Creates random waypoints starting from a ship position and heading.
+
+    Args:
+        x (float): x position (north) of the ship.
+        y (float): y position (east) of the ship.
+        psi (float): heading of the ship in radians.
+        n_wps (int): Number of waypoints to create.
+
+    Returns:
+        np.ndarray: 2 x n_wps array of waypoints.
     """
-    Creates random waypoints starting from the ship's position.
-    wp_number: Number of waypoints to create.
-    n: Random distance between waypoints.
-    alpha: Angle in radians to make waypoints in zigzag shape.
-            A bigger value makes the every odd waypoint away from the initial direction.
-    """
-    wp = []
-    wp.append((x, y))  # First waypoint init pos
-    for each in range(wp_number):
-        n = random.randint(200, 1000)
-        alpha = random.uniform(0, 0.7)
-        if not each:
-            alpha = 0
-        wp_x = wp[each][0] + n * math.cos(math.radians(psi) + alpha)
-        wp_y = wp[each][1] + n * math.sin(math.radians(psi) + alpha)
-        # check if the waypoint path is intersecting with the shore polygon
-        if path_crosses_land((wp[each][1], wp[each][0]), (wp_y, wp_x)):
-            wp_x = wp[each][0]
-            wp_y = wp[each][1]
-        wp.append((wp_x, wp_y))
-    return wp
+    waypoints = np.array((2, n_wps))
+    waypoints[:, 0] = np.array([x, y])
+    for i in range(1, n_wps):
+        crosses_grounding_hazards = True
+        while crosses_grounding_hazards:
+            distance_wp_to_wp = random.randint(200, 1000)
+            alpha = random.uniform(0, np.pi / 4)
+
+            new_wp = np.array(
+                [waypoints[0, i - 1] + distance_wp_to_wp * np.cos(psi + alpha)],
+                [waypoints[1, i - 1] + distance_wp_to_wp * np.sin(psi + alpha)],
+            )
+
+            crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
+                enc, new_wp, waypoints[:, i - 1]
+            )
+
+        waypoints[:, i] = new_wp
+    return waypoints
 
 
-def create_random_speed_plan(speed, wp_number):
+def create_random_speed_plan(U_min: float, U_max: float, n_wps: int) -> np.ndarray:
+    """Creates a random speed plan using the input minimum and maximum speed.
+
+    Args:
+        U_min (float): Minimum speed.
+        U_max (float): Maximum speed.
+        n_wps (int): Number of waypoints to create.
+
+    Returns:
+        np.ndarray: 1 x n_wps array containing the speed plan.
     """
-    Creates random waypoints starting from the ship's position.
-    wp_number: Number of waypoints to create.
-    n: Random distance between waypoints.
-    alpha: Angle in radians to make waypoints in zigzag shape.
-            A bigger value makes the every odd waypoint away from the initial direction.
-    """
-    speed_plan = []
-    speed_plan.append(speed)  # First speed init speed
-    for each in range(wp_number):
-        U = speed + random.uniform(-1, 1)
-        speed_plan.append(U)
+    speed_plan = np.array(n_wps)
+    U = random.uniform(U_min, U_max)
+    speed_plan[0] = U
+    for i in range(1, n_wps):
+        U = U + random.uniform(-1.0, 1.0)
+        speed_plan[i] = U
     return speed_plan
 
 
@@ -153,9 +186,9 @@ def crossing_stand_on(os_max_speed, ts_max_speed, ship_model_name):
 
     # random target ship considering own ship pose
     n = random.uniform(-112.5, 0)
-    distance_land = min_distance_to_land(y1, x1)
-    x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
-    y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
+    distance_to_land = min_distance_to_land(y1, x1)
+    x2 = x1 + distance_to_land * np.cos(np.radians(heading1 + n))
+    y2 = y1 + distance_to_land * np.sin(np.radians(heading1 + n))
     speed2 = round(random.randint(1, ts_max_speed), 1)
     heading2 = heading1 + 90
 
@@ -163,13 +196,10 @@ def crossing_stand_on(os_max_speed, ts_max_speed, ship_model_name):
 
 
 def random_scenario_generator(scenario_num, os_max_speed, ts_max_speed, ship_model_name):
-    """
-    scenario_num = 0 -> random selection
-    scenario_num = 1 -> head on
-    scenario_num = 2 -> overtaking
-    scenario_num = 3 -> overtaken
-    scenario_num = 4 -> crossing give way
-    scenario_num = 5 -> crossing stand on
+    """Generate random COLREGS scenario based on type and ship max speeds.
+
+    Args:
+
     """
     if scenario_num == 0:
         n = random.randint(1, 5)

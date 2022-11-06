@@ -18,7 +18,7 @@ import numpy as np
 @dataclass
 class MIMOPIDPars:
     "Parameters for a Proportional-Integral-Derivative controller."
-    wn: np.ndarray = np.diag([0.3, 0.1, 0.3])
+    wn: np.ndarray = np.diag([0.3, 0.3, 0.3])
     zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
     eta_diff_max: np.ndarray = np.zeros(3)
 
@@ -27,8 +27,8 @@ class MIMOPIDPars:
 class FLSHPars:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 5.0
-    K_p_psi: float = 5.0
-    K_d_psi: float = 7.0
+    K_p_psi: float = 8.0
+    K_d_psi: float = 10.0
 
 
 @dataclass
@@ -72,7 +72,7 @@ class PassThrough(IController):
 
 @dataclass
 class MIMOPID(IController):
-    """Implements a Proportional-Integral-Derivative controller
+    """Implements a multiple input multiple output (MIMO) Proportional-Integral-Derivative (PID) controller
 
     tau = J_Theta(eta)^T *
           (-K_p (eta_d - eta)
@@ -106,7 +106,7 @@ class MIMOPID(IController):
         """Computes inputs based on the PID law.
 
         Args:
-            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d]^T
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T
             xs (np.ndarray): State xs = [eta, nu]^T
             dt (float): Time step
             model (IModel): Model object to fetch parameters from, not used here.
@@ -139,10 +139,14 @@ class MIMOPID(IController):
 
         self._eta_diff_int = mf.sat_vec(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._pars.eta_diff_max)
 
-        # Compute control input in NED frame.
         tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
-        # Rotate to BODY frame.
         tau = R_n_b.T @ tau
+
+        if eta[0] > 40.0:
+            print(
+                f"x_diff = {-eta_diff[0]} | y_diff = {-eta_diff[1]} psi_diff: {-eta_diff[2]} | r_d: {refs[5]} | r: {nu[2]}"
+            )
+
         return tau
 
 
@@ -197,10 +201,10 @@ class FLSH(IController):
         """Computes inputs based on the PID law.
 
         Args:
-            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d]^T
+            refs (np.ndarray): Desired/reference state xs_d = [U_d, psi_d]^T or [eta_d, eta_dot_d, eta_ddot_d]^T
             xs (np.ndarray): State xs = [eta, nu]^T
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from, not used here.
+            model (IModel): Model object to fetch parameters from.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
@@ -208,7 +212,11 @@ class FLSH(IController):
         if len(refs) == 2:
             u_d, psi_d, r_d = refs[0], refs[1], 0.0
         elif len(refs) >= 6:
-            u_d, psi_d, r_d = refs[3], refs[2], mf.sat(refs[5], -model.pars.r_max, model.pars.r_max)
+            u_d, psi_d, r_d = (
+                mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.pars.U_max),
+                refs[2],
+                mf.sat(refs[5], -model.pars.r_max, model.pars.r_max),
+            )
         else:
             raise ValueError("Dimension of reference array should be equal to 2 or >=6!")
 
@@ -228,8 +236,5 @@ class FLSH(IController):
         Fy = (Mmtrx[2, 2] / model.pars.l_r) * (self._pars.K_p_psi * psi_diff + self._pars.K_d_psi * (r_d - nu[2]))
 
         tau = np.array([Fx, Fy, Fy * model.pars.l_r])
-
-        #         if psi_diff > 0.1:
-        # print(f"psi_d: {psi_d} | psi_diff: {psi_diff} | u_d: {u_d} | u_diff: {u_d - nu[0]} | Fx: {Fx} | Fy: {Fy}")
 
         return tau

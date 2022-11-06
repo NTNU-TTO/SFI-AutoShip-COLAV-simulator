@@ -9,7 +9,7 @@
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
 import numpy as np
@@ -78,14 +78,15 @@ class KinematicCSOG(IModel):
 
     x_k+1 = x_k + U_k cos(chi_k)
     y_k+1 = y_k + U_k sin(chi_k)
-    chi_k+1 = chi_k + (1 / T_chi)(chi_d - chi_k)
     U_k+1 = U_k + (1 / T_U)(U_d - U_k)
+    chi_k+1 = chi_k + (1 / T_chi)(chi_d - chi_k)
 
-    where x,y are the planar coordinates, chi the vessel COG
-    and U the vessel SOG. => xs = [x, y, psi, U]
+    where x,y are the planar coordinates, U the vessel SOG and chi the vessel COG => xs = [x, y, U, chi]
     """
 
     _pars: KinematicCSOGPars
+    _n_x: int = 4
+    _n_u: int = 2
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.csog is not None:
@@ -97,33 +98,38 @@ class KinematicCSOG(IModel):
         """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
-            xs (np.ndarray): State x_k = [x_k, y_k, chi_k, U_k]
+            xs (np.ndarray): State x_k = [x_k, y_k, U_k, chi_k]
             u (np.ndarray): Input equal to u_k = [U_d, chi_d]
 
         Returns:
             np.ndarray: New state x_k+1.
         """
-        if len(u) != 2:
+        if len(u) != self._n_u:
             raise ValueError("Dimension of input array should be 2!")
-        if len(xs) != 4:
+        if len(xs) != self._n_x:
             raise ValueError("Dimension of state should be 4!")
+
         U_d = mf.sat(u[0], 0, self._pars.U_max)
         chi_d = u[1]
-        chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
 
-        xs[3] = mf.sat(xs[3], 0.0, self._pars.U_max)
+        xs[2] = mf.sat(xs[2], 0.0, self._pars.U_max)
+        chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[3])
 
         ode_fun = np.zeros(4)
-        ode_fun[0] = xs[3] * np.cos(xs[2])
-        ode_fun[1] = xs[3] * np.sin(xs[2])
-        ode_fun[2] = mf.sat(chi_diff / self._pars.T_chi, -self._pars.r_max, self._pars.r_max)
-        ode_fun[3] = (U_d - xs[3]) / self._pars.T_U
+        ode_fun[0] = xs[2] * np.cos(xs[3])
+        ode_fun[1] = xs[2] * np.sin(xs[3])
+        ode_fun[2] = (U_d - xs[2]) / self._pars.T_U
+        ode_fun[3] = mf.sat(chi_diff / self._pars.T_chi, -self._pars.r_max, self._pars.r_max)
 
         return ode_fun
 
     @property
     def pars(self):
         return self._pars
+
+    @property
+    def dims(self):
+        return self._n_x, self._n_u
 
 
 @dataclass
@@ -144,6 +150,8 @@ class Telemetron(IModel):
     """
 
     _pars: TelemetronPars
+    _n_x: int = 6
+    _n_u: int = 3
 
     def __init__(self) -> None:
         self._pars = TelemetronPars()
@@ -158,13 +166,13 @@ class Telemetron(IModel):
         Returns:
             np.ndarray: New state xs.
         """
-        if len(u) != 3:
+        if u.size != self._n_u:
             raise ValueError("Dimension of input array should be 3!")
-        if len(xs) != 6:
+        if xs.size != self._n_x:
             raise ValueError("Dimension of state should be 6!")
+
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-        # eta[2] = mf.wrap_angle_to_pmpi(eta[2])
 
         nu = xs[3:6]
         nu[0] = mf.sat(nu[0], -1e10, self._pars.U_max)
@@ -185,4 +193,10 @@ class Telemetron(IModel):
 
     @property
     def pars(self):
+        "Returns the parameters of the considered model."
         return self._pars
+
+    @property
+    def dims(self):
+        "Returns dimension/size of the state and input vectors for the considered model."
+        return self._n_x, self._n_u

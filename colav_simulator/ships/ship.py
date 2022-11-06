@@ -67,7 +67,7 @@ class ShipBuilder:
         if config and config.name == "CSOG":
             return controllers.PassThrough()
         else:
-            return controllers.FLSH()
+            return controllers.MIMOPID()
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None):
@@ -124,11 +124,19 @@ class Ship(IShip):
         mmsi: str,
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
-        state: np.ndarray,
+        pose: np.ndarray,
         config: Optional[Config] = None,
     ) -> None:
-        assert state.size >= 4
-        assert speed_plan.size == waypoints.shape[1]
+
+        n_px, n_wps = waypoints.shape
+        assert pose.size == 4  # The pose is xs = [x, y, U, chi]
+        assert speed_plan.size == n_wps
+
+        if n_px != 2:
+            raise ValueError("Waypoints do not contain planar coordinates along each column!")
+
+        if n_wps < 2:
+            raise ValueError("Insufficient number of waypoints (< 2)!")
 
         self._mmsi = mmsi
         self._waypoints = waypoints
@@ -143,13 +151,14 @@ class Ship(IShip):
             self._controller = ShipBuilder.construct_controller()
             self._guidance = ShipBuilder.construct_guidance()
 
-        if self._model.dim_x == 4:
-            self._state = state
+        # pose = [x, y, U, chi]
+        if self._model.dims[0] == 4:
+            self._state = pose
         else:
             self._state = np.zeros(6)
-            self._state[0:2] = state[0:2]
-            self._state[2] = state[2]
-            self._state[3] = state[3]
+            self._state[0:2] = pose[0:2]
+            self._state[2] = pose[3]
+            self._state[3] = pose[2]
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -191,6 +200,13 @@ class Ship(IShip):
             speed_plan (np.ndarray): New corresponding set of speed references.
         """
         assert speed_plan.size == waypoints.shape[1]
+        n_px, n_wps = waypoints.shape
+        if n_px != 2:
+            raise ValueError("Waypoints do not contain planar coordinates along each column!")
+
+        if n_wps < 2:
+            raise ValueError("Insufficient number of waypoints (< 2)!")
+
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
@@ -204,12 +220,12 @@ class Ship(IShip):
         """
         row = {
             "mmsi": self.mmsi,
-            "lon": self._state[1] * 10 ** (-5),
-            "lat": self._state[0] * 10 ** (-5),
+            "lon": self.pose[1] * 10 ** (-5),
+            "lat": self.pose[0] * 10 ** (-5),
             "date_time_utc": mf.utc_timestamp_to_datetime(timestamp),
-            "sog": mf.mps2knots(self._state[3]),
-            "cog": int(np.rad2deg(self._state[2])),
-            "true_heading": int(np.rad2deg(self._state[2])),
+            "sog": mf.mps2knots(self.pose[2]),
+            "cog": int(np.rad2deg(self.pose[3])),
+            "true_heading": int(np.rad2deg(self.heading)),
             "nav_status": 0,
             "message_nr": self.ais_msg_nr,
             "source": "",
@@ -237,26 +253,29 @@ class Ship(IShip):
         return 1.0 / 3.0
 
     @property
+    def heading(self):
+        if self._state.size == 4:
+            return self._state[3]
+        else:  # self._state.size == 6
+            return self._state[2]
+
+    @property
     def pose(self) -> np.ndarray:
         """Returns the ship pose as parameterized in an AIS message,
-        i.e. `xs = [x, y, chi, U]` where `x` and `y` are planar coordinates (north-east),
-        `chi` the course over ground (rad), and `U` the ship forward speed (m/s).
+        i.e. `xs = [x, y, U, chi]` where `x` and `y` are planar coordinates (north-east),
+        `U` the ship forward speed (m/s) and `chi` the course over ground (rad).
 
         Returns:
             np.ndarray: Ship pose.
         """
         if self._state.size == 4:
             return self._state
-        elif self._state.size == 6:
-            heading = self._state[2]  # take heading as course over ground (COG)
+        else:  # self._state.size == 6
+            heading = self._state[2]
+            crab_angle = np.arctan2(self._state[4], self._state[3])
+            cog = heading + crab_angle
             speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
-            return np.array([self._state[0], self._state[1], heading, speed])
-        else:
-            raise ValueError("Ship state has wrong dimension.")
-
-    @property
-    def state(self) -> np.ndarray:
-        return self._state
+            return np.array([self._state[0], self._state[1], speed, cog])
 
     @property
     def waypoints(self) -> np.ndarray:

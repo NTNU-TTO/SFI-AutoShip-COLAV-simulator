@@ -62,57 +62,68 @@ def utc_to_local(utc_dt) -> datetime:
     return utc_dt.replace(tzinfo=ZoneInfo("localtime"))
 
 
-def wrap_angle_to_pmpi(angle: float) -> float:
-    """Wraps input angle to [-pi, pi)
-
-    Args:
-        angle (float): Angle in radians
-
-    Returns:
-        float: Wrapped angle
-    """
-    return wrap_min_max(angle, -math.pi, math.pi)
-
-
-def wrap_angle_to_02pi(angle: float) -> float:
-    """Wraps input angle to [0, 2pi)
-
-    Args:
-        angle (float): Angle in radians
-
-    Returns:
-        float: Wrapped angle
-    """
-    return wrap_min_max(angle, 0, 2 * math.pi)
-
-
-def wrap_min_max(x: float, x_min: float, x_max: float) -> float:
+def wrap_min_max(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndarray) -> float | np.ndarray:
     """Wraps input x to [x_min, x_max)
 
     Args:
-        x (float): Unwrapped value
-        x_min (float): Minimum value
-        x_max (float): Maximum value
+        x (float or np.ndarray): Unwrapped value
+        x_min (float or np.ndarray): Minimum value
+        x_max (float or np.ndarray): Maximum value
 
     Returns:
-        float: Wrapped value
+        float or np.ndarray: Wrapped value
     """
-    interval = x_max - x_min
-    return x_min + (x - x_min) % interval
+    if isinstance(x, np.ndarray):
+        return x_min + np.mod(x - x_min, x_max - x_min)
+    else:
+        return x_min + (x - x_min) % (x_max - x_min)
 
 
-def wrap_angle_diff_to_pmpi(a_1: float, a_2: float) -> float:
+def wrap_angle_to_pmpi(angle: float | np.ndarray) -> float | np.ndarray:
+    """Wraps input angle to [-pi, pi)
+
+    Args:
+        angle (float or np.ndarray): Angle in radians
+
+    Returns:
+        float or np.ndarray: Wrapped angle
+    """
+    if isinstance(angle, np.ndarray):
+        return wrap_min_max(angle, -np.pi * np.ones(angle.size), np.pi * np.ones(angle.size))
+    else:
+        return wrap_min_max(angle, -np.pi, np.pi)
+
+
+def wrap_angle_to_02pi(angle: float | np.ndarray) -> float | np.ndarray:
+    """Wraps input angle to [0, 2pi)
+
+    Args:
+        angle (float or np.ndarray): Angle in radians
+
+    Returns:
+        float or np.ndarray: Wrapped angle
+    """
+    if isinstance(angle, np.ndarray):
+        return wrap_min_max(angle, np.zeros(angle.size), 2 * np.pi * np.ones(angle.size))
+    else:
+        return wrap_min_max(angle, 0, 2 * np.pi)
+
+
+def wrap_angle_diff_to_pmpi(a_1: float | np.ndarray, a_2: float | np.ndarray) -> float | np.ndarray:
     """Wraps angle difference a_1 - a_2 to within [-pi, pi)
 
     Args:
-        a_1 (float): Angle in radians
-        a_2 (float): Angle in radians
+        a_1 (float or np.ndarray): Angle in radians
+        a_2 (float or np.ndarray): Angle in radians
 
     Returns:
-        float: Wrapped angle difference
+        float or np.ndarray: Wrapped angle difference
     """
     diff = wrap_angle_to_pmpi(a_1) - wrap_angle_to_pmpi(a_2)
-    return wrap_min_max(diff, -math.pi, math.pi)
+    if isinstance(diff, np.ndarray):
+        return wrap_min_max(diff, -np.pi * np.ones(diff.size), np.pi * np.ones(diff.size))
+    else:
+        return wrap_min_max(diff, -np.pi, np.pi)
 
 
 def knots2mps(knots: float) -> float:
@@ -163,41 +174,17 @@ def normalize_vec(v: np.ndarray):
         np.ndarray: Normalized vector
     """
     norm = np.linalg.norm(v)
-    if norm == 0:
+    if norm < 0.000001:
         return v
     else:
         return v / norm
 
 
-def ssa(angle: float) -> float:
-    """
-    angle = ssa(angle) returns the smallest-signed angle in [ -pi, pi )
-    """
-    angle = (angle + math.pi) % (2 * math.pi) - math.pi
-
-    return angle
-
-
-def sat(x: float, x_min: float, x_max: float) -> float:
+def sat(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndarray) -> float | np.ndarray:
     """
     x = sat(x,x_min,x_max) saturates a signal x such that x_min <= x <= x_max
     """
-    if x > x_max:
-        x = x_max
-    elif x < x_min:
-        x = x_min
-    return x
-
-
-def sat_vec(x: np.ndarray, x_min: np.ndarray, x_max: np.ndarray) -> np.ndarray:
-    """
-    y = sat_vec(x,x_min,x_max) saturates a signal x such that x_min <= x <= x_max
-    """
-    y = x
-    y[0] = sat(x[0], x_min[0], x_max[0])
-    y[1] = sat(x[1], x_min[1], x_max[1])
-    y[2] = sat(x[2], x_min[2], x_max[2])
-    return x
+    return np.clip(x, x_min, x_max)
 
 
 def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
@@ -290,9 +277,7 @@ def Rzyx(phi, theta, psi):
 
 def Rpsi(psi):
     """
-    R = Rpsi(psi) computes the 3x3 transformation matrix in
-
-    eta_dot = R(psi) * nu for a 3DOF vehicle with eta = [x, y, psi], nu = [u, v, r].
+    R = Rpsi(psi) computes the 3x3 rotation matrix of an angle psi about the z-axis
     """
     Rmtrx = np.array([[np.cos(psi), -np.sin(psi), 0], [np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
     return Rmtrx

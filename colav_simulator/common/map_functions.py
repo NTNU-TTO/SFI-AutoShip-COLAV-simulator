@@ -128,10 +128,10 @@ def randomize_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
     return feasible_depth_vals[index]
 
 
-def randomize_start_position(enc: ENC, draft: float) -> Tuple[float, float]:
+def randomize_start_position_from_draft(enc: ENC, draft: float) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
-    inside the safe sea region by considering ship draft.
+    inside the safe sea region by considering a ship draft.
 
     Args:
         enc (ENC): Electronic Navigational Chart object
@@ -176,18 +176,33 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
     return min_distance
 
 
-def check_if_path_crosses_land(enc: ENC, next_wp: Tuple[float, float], prev_wp: Tuple[float, float]) -> bool:
-    """Checks if a path segment between two waypoints crosses land.
-
-    NOTE: wp[0] = East, wp[1] = North
+def check_if_segment_crosses_grounding_hazards(
+    enc: ENC, next_wp: np.ndarray, prev_wp: np.ndarray, draft: float = 5.0
+) -> bool:
+    """Checks if a line segment between two waypoints crosses nearby grounding hazards (land, shore).
 
     Args:
-        next_wp (Tuple[float, float]): Next waypoint .
-        prev_wp (Tuple[float, float]): Previous waypoint.
+        enc (ENC): Electronic Navigational Chart object
+        next_wp (np.ndarray): Next waypoint position.
+        prev_wp (np.ndarray): Previous waypoint position.
+        draft (float): Ship's draft in meters.
 
     Returns:
         bool: True if path segment crosses land, False otherwise.
 
     """
-    wp_line = LineString([next_wp, prev_wp])
-    return wp_line.intersects(enc.shore.geometry)
+    # Create linestring with east as the x value and north as the y value
+    wp_line = LineString((next_wp[1], next_wp[0]), (prev_wp[1], prev_wp[0]))
+
+    depths = list(enc.seabed.keys())
+    for depth in depths:
+        if draft >= depth:
+            intersects_seabed = wp_line.intersects(enc.seabed[depth].geometry)
+
+    intersects_shore = wp_line.intersects(enc.shore.geometry)
+
+    intersects_land = wp_line.intersects(enc.land.geometry)
+
+    crosses_grounding_hazards = intersects_shore or intersects_land or intersects_seabed
+
+    return crosses_grounding_hazards
