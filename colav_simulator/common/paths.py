@@ -1,11 +1,25 @@
-"""Contains "hard-coded" paths to default configuration files"""
+"""
+    paths.py
+
+    Summary:
+        Contains paths to default configuration files and schemas.
+
+    Author: Trym Tengesdal
+"""
 import pathlib
 
-root = pathlib.Path.cwd().parents[2]
-package = root / 'colav_simulator'
-config = root / 'config'
-simulator = config / 'simulator.yaml'
-seacharts = config / 'seacharts.yaml'
-ships = config / 'ships.yaml'
-new_scenario = config / 'new_scenario.yaml'
-map_data = root / 'map_data'
+root = pathlib.Path(__file__).parents[2]
+config = root / "config"
+package = root / "colav_simulator"
+schemas = package / "schemas"
+
+simulator_schema = schemas / "simulator.yaml"
+ship_schema = schemas / "ship.yaml"
+scenario_generation_schema = schemas / "scenario.yaml"
+
+simulator_config = config / "simulator.yaml"
+seacharts_config = config / "seacharts.yaml"
+ships_config = config / "ships.yaml"
+scenario_generation_config = config / "scenario.yaml"
+
+map_data = root / "map_data"

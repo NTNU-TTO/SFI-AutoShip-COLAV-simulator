@@ -192,7 +192,9 @@ def check_if_segment_crosses_grounding_hazards(
 
     """
     # Create linestring with east as the x value and north as the y value
-    wp_line = LineString((next_wp[1], next_wp[0]), (prev_wp[1], prev_wp[0]))
+    p1 = (next_wp[1], next_wp[0])
+    p2 = (prev_wp[1], prev_wp[0])
+    wp_line = LineString([p1, p2])
 
     depths = list(enc.seabed.keys())
     for depth in depths:

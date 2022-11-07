@@ -174,7 +174,8 @@ class Ship(IShip):
             dt (float): Time step (s) in the prediction.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead, inputs to get there and the references used.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,
+            inputs to get there and the references used.
         """
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
@@ -212,6 +213,7 @@ class Ship(IShip):
 
     def get_ais_data(self, timestamp: int) -> dict:
         """Returns an AIS data message for the ship at the given timestamp.
+
         Args:
             t (float): Time in seconds.
 

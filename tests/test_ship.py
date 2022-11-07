@@ -24,9 +24,6 @@ if __name__ == "__main__":
 
     speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]) / 6.0
 
-    # speed_plan = np.array([6.0, 6.0, 6.0, 6.0])
-    # waypoints = np.array([[0, 100, 200, 300], [0, 0, 0, 0]])
-
     state = np.array([0.0, 0.0, 1.0, 0.0])
     mmsi = "lol"
     ownship = ship.Ship(mmsi, waypoints, speed_plan, state)

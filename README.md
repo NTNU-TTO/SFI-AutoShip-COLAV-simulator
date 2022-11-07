@@ -27,7 +27,7 @@ Are all outlined in setup.cfg, and listed below:
 ### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a `forward(dt) -> np.ndarray` function that allows simple simulation of the vessel.
 
-It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code for more information on how
+It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code for more information on how this is done.
 
 The `Ship` object must be initialized with the following parameters
 

@@ -1,13 +1,14 @@
-simulator:
-  time_start: 0
-  time_step: 1
-  time_end: 300
-  # run_all_scenrios = True -> loads and runs all scenarios from the scenarios folder. run_all_scenrios = False -> run single scenario
-  run_all_scenarios: False
-  # new_scenario = False -> loads scenario from scenario_file. new_scenario = True -> creates new scenario and saves scenario to scenario_file
-  new_scenario: False
-  scenario_files: "head_on.json"
 
-  save_animation: True
-  show_animation: True
-  show_waypoints: True
+time_start: 0
+time_step: 1
+time_end: 300
+# run_all_scenrios = True -> loads and runs all scenarios from the scenarios folder. run_all_scenrios = False -> run single scenario
+run_all_scenarios: False
+# new_scenario = False -> loads scenario from scenario_file. new_scenario = True -> creates new scenario and saves scenario to scenario_file
+new_scenario: False
+scenario_files: ["head_on.json"]
+
+save_animation: True
+show_animation: True
+show_waypoints: True
+verbose: True

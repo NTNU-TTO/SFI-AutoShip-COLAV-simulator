@@ -12,9 +12,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import colav_simulator.common.file_utils as futils
+import colav_simulator.common.paths as dp  # default paths
 import colav_simulator.ships as ships
 import numpy as np
 import pandas as pd
+from cerberus import Validator
 from colav_simulator.scenario_generator import create_scenario
 from colav_simulator.ships.ship import Ship
 
@@ -41,7 +44,7 @@ class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios.
 
     Internal variables:
-        _settings (Config): Configuration object containing all relevant settings for the simulation.
+        _config (Config): Configuration object containing all relevant settings for the simulation.
     """
 
     _ais_data_column_format: List[str] = [
@@ -57,23 +60,25 @@ class Simulator:
         "source",
     ]
 
-    def __init__(self, config_file: Optional[str]) -> None:
+    def __init__(self, config_file: Optional[Path] = None) -> None:
 
-        # load simulator settings from file.
+        if config_file:
+            self._config = Config(config_file)
+        else:
+            self._config = Config()
 
         # => then load relevant scenarios if provided, or create new ones (FOR LOOP OVER SCENARIOS).
         # => save newly created scenarios to file if requested.
         # => run the scenarios and save sim_data and emulated ais_data to file. Toggle animation on/off based on config.
         # => The COLAV evaluator can then load the sim & ais data from file and plot/evaluate the results.
-        pass
 
     def run_scenario(self, ship_list: List[Ship], sim_times: np.ndarray):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
             ships (List[Ship]): 1 x n_ships array of configured ship objects. Each ship
-                                is assumed to be properly configured and initialized to its
-                                initial state at the scenario start (t0).
+            is assumed to be properly configured and initialized to its initial state at
+            the scenario start (t0).
             sim_times (np.ndarray): 1 x n_samples array of sim_times to simulate the ships.
 
         Returns:
@@ -110,7 +115,6 @@ class Simulator:
                         ship.get_ais_data(t),
                         ignore_index=True,
                     )
-
         return sim_data, ais_data
 
 
