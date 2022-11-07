@@ -15,7 +15,8 @@ from cerberus import Validator
 
 
 def extract(data_class: Any, config_file: Path, config_schema: Path, converter: Optional[dict] = None, **kwargs) -> Any:
-    """Extracts configuration settings from a configuration file, and converts them to a dataclass. Validation is performed using the schema which the parser is initialized with.
+    """Extracts configuration settings from a configuration file, and converts them to a dataclass.
+    Validation is performed using the input schema.
 
     Args:
         data_class (Any): Dataclass to convert the settings to.
@@ -32,9 +33,10 @@ def extract(data_class: Any, config_file: Path, config_schema: Path, converter: 
     settings = parse(config_file, schema)
     settings = override(settings, schema, **kwargs)
 
-    settings = dacite.from_dict(
-        data_class=data_class, data=settings, config=dacite.Config(strict=True, cast=[converter])
-    )
+    if converter is not None:
+        settings = dacite.from_dict(data_class=data_class, data=settings, config=dacite.Config(type_hooks=converter))
+    else:
+        settings = dacite.from_dict(data_class=data_class, data=settings)
 
     return settings
 
@@ -113,7 +115,7 @@ def override(settings: dict, schema: dict, **kwargs) -> dict:
         dict: The new settings.
     """
     if not kwargs:
-        raise ValueError("No values to override with!")
+        return settings
 
     new_settings = settings
     for key, value in kwargs.items():

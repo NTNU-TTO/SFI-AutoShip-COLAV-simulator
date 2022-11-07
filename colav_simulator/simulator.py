@@ -12,12 +12,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-import colav_simulator.common.file_utils as futils
+import colav_simulator.common.config_parsing as config_parsing
+import colav_simulator.common.converters as converters
 import colav_simulator.common.paths as dp  # default paths
 import colav_simulator.ships as ships
 import numpy as np
 import pandas as pd
-from cerberus import Validator
 from colav_simulator.scenario_generator import create_scenario
 from colav_simulator.ships.ship import Ship
 
@@ -26,46 +26,29 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
 @dataclass
 class Config:
-    """Configuration class for managing all parameters/settings related to the simulation."""
+    """Simulation related configuration/parameter class."""
 
+    t_start: float
+    dt_sim: float
+    t_end: float
     scenario_files: List[str]
-    run_all_scenarios: bool = False
-    new_scenario: bool = False
-    t_start: float = 0.0
-    t_end: float = 300.0
-    dt_sim: float = 1.0
-
-    save_animation: bool = True
-    show_animation: bool = True
-    show_waypoints: bool = True
+    run_all_scenarios: bool
+    new_scenario: bool
+    save_animation: bool
+    show_animation: bool
+    show_waypoints: bool
+    verbose: bool
+    ais_data_column_format: List[str]
 
 
 class Simulator:
-    """Class for simulating collision avoidance/maritime vessel scenarios.
+    """Class for simulating collision avoidance/maritime vessel scenarios."""
 
-    Internal variables:
-        _config (Config): Configuration object containing all relevant settings for the simulation.
-    """
+    _config: Config
 
-    _ais_data_column_format: List[str] = [
-        "mmsi",
-        "lon",
-        "lat",
-        "datetime_utc",
-        "sog",
-        "cog",
-        "true_heading",
-        "nav_status",
-        "message_nr",
-        "source",
-    ]
+    def __init__(self, config_file: Path = dp.simulator_config) -> None:
 
-    def __init__(self, config_file: Optional[Path] = None) -> None:
-
-        if config_file:
-            self._config = Config(config_file)
-        else:
-            self._config = Config()
+        self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, converters.simulator)
 
         # => then load relevant scenarios if provided, or create new ones (FOR LOOP OVER SCENARIOS).
         # => save newly created scenarios to file if requested.
@@ -85,7 +68,7 @@ class Simulator:
             sim_data (dict): Dictionary containing the simulation data.
             ais_data (Dataframe): Dataframe/table containing the AIS data broadcasted from all ships.
         """
-        ais_data = pd.DataFrame(columns=self._ais_data_column_format)
+        ais_data = pd.DataFrame(columns=self._config.ais_data_column_format)
 
         sim_data = {}
         for i, ship in enumerate(ships):

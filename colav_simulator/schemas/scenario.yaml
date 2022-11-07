@@ -1,29 +1,28 @@
-t_start:
+
+time_start:
   required: True
   type: float
   min: 0.0
-dt_sim:
+time_step:
   required: True
   type: float
   min: 0.1
-t_end:
+time_end:
   required: True
   type: float
   min: 0.0
-
-scenario_files:
-  required: True
-  type: list
-  minlength: 0
-  schema:
-    type: string
 run_all_scenarios:
   required: True
   type: boolean
 new_scenario:
   required: False
   type: boolean
-
+scenario_files:
+  required: True
+  type: list
+  minlength: 0
+  schema:
+    type: string
 save_animation:
   required: True
   type: boolean
@@ -36,9 +35,3 @@ show_waypoints:
 verbose:
   required: True
   type: boolean
-
-ais_data_column_format:
-  required: True
-  type: list
-  allowed: ["mmsi", "lon", "lat", "datetime_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
-  minlength: 10

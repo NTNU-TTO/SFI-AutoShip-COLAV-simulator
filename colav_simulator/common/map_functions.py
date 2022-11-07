@@ -15,10 +15,6 @@ import numpy as np
 from seacharts.enc import ENC
 from shapely.geometry import LineString, Point, Polygon
 
-# Creating shapefiles from the defined region
-# enc = senc.ENC(size=size, center=center, files=files, new_data=new_data)
-# enc.close_display()
-
 
 def get_blue_colors(bins: int):
     """Returns a blue color palette for the input number of bins.
