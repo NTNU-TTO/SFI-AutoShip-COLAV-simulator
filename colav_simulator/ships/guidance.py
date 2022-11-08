@@ -53,7 +53,6 @@ class KTPGuidancePars:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    name: str
     los: Optional[LOSGuidancePars]
     ktp: Optional[KTPGuidancePars]
 

@@ -27,7 +27,7 @@ class ScenarioType(Enum):
     """Enum for the different possible scenario/situation types.
 
     Explanation:
-        RANDOM: Randoml choice of the below scenario types.
+        SS: Only one ship (the own-ship) in the scenario.
         HO: Head on scenario.
         OT_ing: Overtaking scenario (own-ship overtakes and should give-way).
         OT_en: Overtaken scenario (own-ship is overtaken and should stand-on).
@@ -36,17 +36,20 @@ class ScenarioType(Enum):
         MS: Multi-ship scenario.
     """
 
-    HO = 0
-    OT_ing = 1
-    OT_en = 2
-    CR_GW = 3
-    CR_SO = 4
-    MS = 5
+    SS = 0
+    HO = 1
+    OT_ing = 2
+    OT_en = 3
+    CR_GW = 4
+    CR_SO = 5
+    MS = 6
 
 
 @dataclass
 class Config:
-    """Configuration class for managing all parameters/settings related to the creation of scenarios."""
+    """Configuration class for managing all parameters/settings related to the creation of scenarios.
+    All angle ranges are in degrees, and all distances are in meters.
+    """
 
     n_ship_range: List[int]  # Range of number of ships to be generated
     n_wps_range: List[int]  # Range of number of waypoints to be generated
@@ -85,11 +88,11 @@ class ScenarioGenerator:
     _config: Config
 
     def __init__(
-        self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generation_config
+        self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
     ) -> None:
-        self._enc = ENC(enc_config_file)
+        self._enc = ENC(enc_config_file, new_data=False)
         self._config = config_parsing.extract(
-            Config, config_file, dp.scenario_generation_schema, converters.scenario_generator
+            Config, config_file, dp.scenario_generator_schema, converters.scenario_generator
         )
 
     def generate(
@@ -97,7 +100,7 @@ class ScenarioGenerator:
         os_pose: Optional[np.ndarray],
         os_max_speed: float = 15.0,
         ts_max_speed: float = 15.0,
-        num_ships: Optional[int] = 2,
+        num_ships: Optional[int] = None,
         scenario_type: Optional[ScenarioType] = None,
     ) -> Tuple[list, list, list]:
         """Creates a COLREGS scenario based on the scenario type, with random plans for all ships.
@@ -123,7 +126,6 @@ class ScenarioGenerator:
 
         for i in range(1, num_ships):
             ts_pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
-
             pose_list.append(ts_pose.tolist())
 
         # Create plan (waypoints, speed_plan) for all ships
@@ -160,36 +162,41 @@ class ScenarioGenerator:
         if scenario_type == ScenarioType.HO:
             bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
             speed = random.uniform(U_min, U_max)
-            heading = (
-                os_pose[3] + 180.0 + random.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
+            heading_modifier = 180.0 + random.uniform(
+                self._config.ho_heading_range[0], self._config.ho_heading_range[1]
             )
 
         elif scenario_type == ScenarioType.OT_ing:
             assert U_min < os_pose[2]  # Own-ship speed must be greater than the minimum target ship speed.
             bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
             speed = random.uniform(U_min, os_pose[2])
-            heading = os_pose[3] + random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+            heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
         elif scenario_type == ScenarioType.OT_en:
             assert U_max > os_pose[2]  # Own-ship speed must be less than the maximum target ship speed.
             bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
             speed = random.uniform(os_pose[2], U_max)
-            heading = os_pose[3] + random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+            heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
         elif scenario_type == ScenarioType.CR_GW:
             bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
             speed = random.uniform(U_min, U_max)
-            heading = os_pose[3] - random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+            heading_modifier = -90.0 + random.uniform(
+                self._config.cr_heading_range[0], self._config.cr_heading_range[1]
+            )
 
         elif scenario_type == ScenarioType.CR_SO:
             bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
             speed = random.uniform(U_min, U_max)
-            heading = os_pose[3] + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+            heading_modifier = 90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
         else:
             bearing = random.uniform(0.0, 2.0 * np.pi)
             speed = random.uniform(U_min, U_max)
-            heading = random.uniform(0.0, 2.0 * np.pi)
+            heading_modifier = random.uniform(0.0, 359.999)
+
+        bearing = np.deg2rad(bearing)
+        heading = os_pose[3] + np.deg2rad(heading_modifier)
 
         x = os_pose[0] + distance_os_ts * np.cos(os_pose[3] + bearing)
         y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
@@ -203,6 +210,7 @@ class ScenarioGenerator:
         Args:
             max_speed (float): Vessel's maximum speed
             draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
+            heading (Optional[float], optional): Heading of the ship in radians. Defaults to None.
 
         Returns:
             np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
@@ -239,7 +247,9 @@ class ScenarioGenerator:
                 distance_wp_to_wp = random.uniform(
                     self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
                 )
-                alpha = random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
+                alpha = np.deg2rad(
+                    random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
+                )
 
                 new_wp = np.array(
                     [waypoints[0, i - 1] + distance_wp_to_wp * np.cos(psi + alpha)],

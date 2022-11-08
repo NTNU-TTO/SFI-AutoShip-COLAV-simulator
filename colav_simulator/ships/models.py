@@ -25,11 +25,13 @@ class KinematicCSOGPars:
 
     """
 
+    draft: float = 2.0
     length: float = 10.0
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
     r_max: float = np.deg2rad(4)
+    U_min: float = 0.0
     U_max: float = 15.0
 
 
@@ -37,9 +39,9 @@ class KinematicCSOGPars:
 class TelemetronPars:
     """Parameters for the Telemetron vessel (read only)."""
 
+    draft: float = 1.0
     length: float = 10.0
     width: float = 3.0
-    draft: float = 1.0
     l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
@@ -49,6 +51,7 @@ class TelemetronPars:
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
     r_max: float = np.deg2rad(4)
+    U_min: float = 0.0
     U_max: float = 18.0
 
 
@@ -56,7 +59,6 @@ class TelemetronPars:
 class Config:
     """Configuration class for managing model parameters."""
 
-    name: str
     csog: Optional[KinematicCSOGPars]
     telemetron: Optional[TelemetronPars]
 

@@ -48,10 +48,12 @@ class ShipBuilder:
         Returns:
             Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
         """
-        if config and config.name == "LOS":
+        if config and config.los:
             return guidance.LOSGuidance(config)
+        elif config and config.ktp:
+            return guidance.KinematicTrajectoryPlanner(config)
         else:
-            return guidance.KinematicTrajectoryPlanner()
+            return guidance.LOSGuidance()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -63,7 +65,11 @@ class ShipBuilder:
         Returns:
             Model: Model as specified by the configuration, e.g. a CSOGModel.
         """
-        if config and config.name == "CSOG":
+        if config and config.pid:
+            return controllers.MIMOPID(config)
+        elif config and config.flsh:
+            return controllers.FLSH(config)
+        elif config and config.pass_through:
             return controllers.PassThrough()
         else:
             return controllers.MIMOPID()
@@ -78,8 +84,10 @@ class ShipBuilder:
         Returns:
             Model: Model as specified by the configuration, e.g. a CSOGModel.
         """
-        if config and config.name == "CSOG":
+        if config and config.csog:
             return models.KinematicCSOG(config)
+        elif config and config.telemetron:
+            return models.Telemetron()
         else:
             return models.Telemetron()
 
@@ -106,7 +114,7 @@ class Ship(IShip):
         ais_msg_nr (int): AIS message number (1, 2 or 3 for AIS Class A transponders, 18 for AIS Class B transponders).
         waypoints (np.ndarray): Waypoints the ship is following.
         speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
-        state (np.ndarray): Initial pose of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T`
+        state (np.ndarray): State of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T`
                             where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad),
                             `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model
                             in `Fossen2011`.

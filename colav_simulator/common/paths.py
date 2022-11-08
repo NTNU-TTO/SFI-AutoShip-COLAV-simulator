@@ -16,13 +16,13 @@ output = root / "output"
 
 schemas = package / "schemas"
 simulator_schema = schemas / "simulator.yaml"
-ship_schema = schemas / "ship.yaml"
-scenario_generation_schema = schemas / "scenario.yaml"
+scenario_schema = schemas / "scenario.yaml"
+scenario_generator_schema = schemas / "scenario_generator.yaml"
 
 simulator_config = config / "simulator.yaml"
 seacharts_config = config / "seacharts.yaml"
-ships_config = config / "ships.yaml"
-scenario_generation_config = config / "scenario.yaml"
+scenario_config = config / "scenario.yaml"
+scenario_generator_config = config / "scenario_generator.yaml"
 
 ais_output = output / "ais"
 animation_output = output / "animation"

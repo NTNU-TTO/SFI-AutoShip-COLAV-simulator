@@ -2,7 +2,7 @@
     config_parsing.py
 
     Summary:
-        Contains class definitions for reading and validating configuration files from schemas.
+        Contains functionality for reading and validating configuration files from schemas.
 
     Author: Trym Tengesdal
 """

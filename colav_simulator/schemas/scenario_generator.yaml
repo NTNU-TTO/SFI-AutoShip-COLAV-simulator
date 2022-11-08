@@ -4,14 +4,14 @@ n_ship_range:
   type: list
   maxlength: 2
   schema:
-    type: int
+    type: integer
     min: 1
 n_wps_range:
   required: True
   type: list
   maxlength: 2
   schema:
-    type: int
+    type: integer
     min: 2
 speed_plan_variation_range:
   required: True
@@ -19,7 +19,6 @@ speed_plan_variation_range:
   maxlength: 2
   schema:
     type: float
-    min: 2
 waypoint_dist_range:
   required: True
   type: list

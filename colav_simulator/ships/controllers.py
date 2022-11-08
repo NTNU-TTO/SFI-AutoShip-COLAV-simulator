@@ -9,7 +9,7 @@
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
 import numpy as np
@@ -35,9 +35,9 @@ class FLSHPars:
 class Config:
     """Configuration class for managing controller parameters."""
 
-    name: str
     pid: Optional[MIMOPIDPars]
     flsh: Optional[FLSHPars]
+    pass_through: Optional[Any]
 
 
 class IController(ABC):
