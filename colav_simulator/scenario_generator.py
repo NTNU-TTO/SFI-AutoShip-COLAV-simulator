@@ -1,9 +1,17 @@
-import math
+"""
+    scenario_generator.py
+
+    Summary:
+        Contains a class for generating scenarios for the simulator.
+
+    Author: Trym Tengesdal, Joachim Miller, Melih Akdag
+"""
+
 import random
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.converters as converters
@@ -28,32 +36,49 @@ class ScenarioType(Enum):
         MS: Multi-ship scenario.
     """
 
-    RANDOM = 0
-    HO = 1
-    OT_ing = 2
-    OT_en = 3
-    CR_GW = 4
-    CR_SO = 5
-    MS = 6
+    HO = 0
+    OT_ing = 1
+    OT_en = 2
+    CR_GW = 3
+    CR_SO = 4
+    MS = 5
 
 
 @dataclass
 class Config:
     """Configuration class for managing all parameters/settings related to the creation of scenarios."""
 
-    generic_vessel_max_speed: float  # Maximum speed of a generic vessel
     n_ship_range: List[int]  # Range of number of ships to be generated
+    n_wps_range: List[int]  # Range of number of waypoints to be generated
     speed_plan_variation_range: List[float]  # Determines maximal +- change in speed plan from one segment to the next
     waypoint_dist_range: List[float]  # Range of [min, max] change in distance between randomly created waypoints
     waypoint_ang_range: List[float]  # Range of [min, max] change in angle between randomly created waypoints
+    ho_bearing_range: List[
+        float
+    ]  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
+    ho_heading_range: List[
+        float
+    ]  # Range of [min, max] heading variations of the target ship relative to completely reciprocal head-on scenarios
+    ot_bearing_range: List[
+        float
+    ]  # Range of [min, max] bearing from the own-ship to the target ship for overtaking scenarios
+    ot_heading_range: List[
+        float
+    ]  # Range of [min, max] heading variations of the target ship relative to completely parallel overtaking scenarios
+    cr_bearing_range: List[
+        float
+    ]  # Range of [min, max] bearing from the own-ship to the target ship for crossing scenarios
+    cr_heading_range: List[
+        float
+    ]  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
 
 
 class ScenarioGenerator:
     """Class for generating maritime traffic scenarios in a given geographical environment.
 
     Internal variables:
-        enc (ENC): Electronic Navigational Chart object containing the geographical environment.
-
+        _enc (ENC): Electronic Navigational Chart object containing the geographical environment.
+        _config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
     """
 
     _enc: ENC
@@ -68,136 +93,150 @@ class ScenarioGenerator:
         )
 
     def generate(
-        self, os_max_speed: float = 15.0, ts_max_speed: float = 15.0
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Creates a COLREGS scenario based on the scenario type, with random plans for all ships
+        self,
+        os_pose: Optional[np.ndarray],
+        os_max_speed: float = 15.0,
+        ts_max_speed: float = 15.0,
+        num_ships: Optional[int] = 2,
+        scenario_type: Optional[ScenarioType] = None,
+    ) -> Tuple[list, list, list]:
+        """Creates a COLREGS scenario based on the scenario type, with random plans for all ships.
 
         Args:
             num_ships (int): Number of ships in the scenario
 
         Returns:
-            dict: Dictionary containing the scenario
+            Tuple[list, list, list]: Lists containing initial poses, waypoints, speed plans for each ship.
         """
-        # Create the initial poses
-        x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(
-            scenario_num, os_max_speed, ts_max_speed, ship_model_name_list[0]
-        )
-        pose_list = [[x1, y1, speed1, heading1], [x2, y2, speed2, heading2]]
-        for i in range(2, num_ships):
-            x, y, speed, heading = random_pose(ts_max_speed, ship_model_name=ship_model_name_list[i])
-            pose_list.append([x, y, speed, heading])
+        if num_ships is None:
+            num_ships = random.randint(self._config.n_ship_range[0], self._config.n_ship_range[1])
+
+        if scenario_type is None:
+            scenario_type = random.choice(list(ScenarioType))
+
+        if os_pose is None:
+            os_pose = self._generate_random_pose(os_max_speed, 5.0)
+
+        ts_pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
+
+        pose_list = [os_pose.tolist()]
+
+        for i in range(1, num_ships):
+            ts_pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
+
+            pose_list.append(ts_pose.tolist())
 
         # Create plan (waypoints, speed_plan) for all ships
         waypoint_list = []
         speed_plan_list = []
         for i in range(num_ships):
-            wp = create_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], n_wps)
-            speed_plan = create_random_speed_plan(pose_list[i][2], n_wps)
-            waypoint_list.append(wp)
-            speed_plan_list.append(speed_plan)
-        return pose_list, waypoint_list, speed_plan_list
-
-    def generate_two_ship_scenario(self, scenario_num, os_max_speed, ts_max_speed, ship_model_name):
-        """Generate random COLREGS scenario based on type and ship max speeds.
-
-        Args:
-
-        """
-        # if scenario_num == 0:
-        #     n = random.randint(1, 5)
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = random_scenario_generator(
-        #         n, os_max_speed, ts_max_speed, ship_model_name
-        #     )
-        # elif scenario_num == 1:
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = head_on(os_max_speed, ts_max_speed, ship_model_name)
-        # elif scenario_num == 2:
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = overtaking(os_max_speed, ship_model_name)
-        # elif scenario_num == 3:
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = overtaken(os_max_speed, ship_model_name)
-        # elif scenario_num == 4:
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = crossing_give_way(
-        #         os_max_speed, ts_max_speed, ship_model_name
-        #     )
-        # elif scenario_num == 5:
-        #     x1, y1, speed1, heading1, x2, y2, speed2, heading2 = crossing_stand_on(
-        #         os_max_speed, ts_max_speed, ship_model_name
-        #     )
-
-        # return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-    def create_scenario(
-        self, scenario_type: ScenarioType, ship_model_name_list, os_max_speed, ts_max_speed, n_wps: int
-    ):
-        """Creates a COLREGS scenario based on the scenario type, with random plans for all ships
-
-        Args:
-            num_ships (int): Number of ships in the scenario
-
-        Returns:
-            dict: Dictionary containing the scenario
-        """
-        num_ships = random.uniform(self._config.n_ship_range[0], self._config.n_ship_range[1])
-
-        # create own-ship initial pose
-
-        # create target-ship(s) initial pose based on scenario type
-
-        # Create the initial poses
-        x1, y1, speed1, heading1, x2, y2, speed2, heading2 = self.random_scenario_generator(
-            scenario_type, os_max_speed, ts_max_speed, ship_model_name_list[0]
-        )
-        pose_list = [[x1, y1, speed1, heading1], [x2, y2, speed2, heading2]]
-        for i in range(2, num_ships):
-            x, y, speed, heading = self.random_pose(ts_max_speed, ship_model_name=ship_model_name_list[i])
-            pose_list.append([x, y, speed, heading])
-
-        waypoint_list = []
-        speed_plan_list = []
-        for i in range(num_ships):
-            waypoints = self.generate_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3], n_wps)
+            waypoints = self._generate_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3])
             waypoint_list.append(waypoints)
 
-            speed_plan = self.generate_random_speed_plan(pose_list[i][2], n_wps)
+            speed_plan = self._generate_random_speed_plan(pose_list[i][2])
             speed_plan_list.append(speed_plan)
 
         return pose_list, waypoint_list, speed_plan_list
 
-    def random_pose(self, max_speed: float = 15.0, draft: float = 5.0) -> np.ndarray:
-        """Creates a random pose (x, y, speed, heading)
+    def _generate_ts_pose(
+        self, scenario_type: ScenarioType, os_pose: np.ndarray, U_min: float = 1.0, U_max: float = 15.0
+    ) -> np.ndarray:
+        """Generates a position for the target ship based on the perspective/pose of the first ship/own-ship,
+        such that the scenario is of the input type.
+
+        Args:
+            scenario_type (ScenarioType): Type of scenario.
+            os_pose (np.ndarray): Own-ship pose = [x, y, speed, heading].
+            U_min (float, optional): Minimum speed. Defaults to 1.0.
+            U_max (float, optional): Maximum speed. Defaults to 15.0.
+
+        Returns:
+            Tuple[float, float]: Target ship position = [x, y].
+        """
+
+        distance_to_land = mapf.min_distance_to_land(self._enc, os_pose[1], os_pose[0])
+        distance_os_ts = random.uniform(50.0, distance_to_land)
+
+        if scenario_type == ScenarioType.HO:
+            bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
+            speed = random.uniform(U_min, U_max)
+            heading = (
+                os_pose[3] + 180.0 + random.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
+            )
+
+        elif scenario_type == ScenarioType.OT_ing:
+            assert U_min < os_pose[2]  # Own-ship speed must be greater than the minimum target ship speed.
+            bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
+            speed = random.uniform(U_min, os_pose[2])
+            heading = os_pose[3] + random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+
+        elif scenario_type == ScenarioType.OT_en:
+            assert U_max > os_pose[2]  # Own-ship speed must be less than the maximum target ship speed.
+            bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
+            speed = random.uniform(os_pose[2], U_max)
+            heading = os_pose[3] + random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+
+        elif scenario_type == ScenarioType.CR_GW:
+            bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
+            speed = random.uniform(U_min, U_max)
+            heading = os_pose[3] - random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+
+        elif scenario_type == ScenarioType.CR_SO:
+            bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
+            speed = random.uniform(U_min, U_max)
+            heading = os_pose[3] + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+
+        else:
+            bearing = random.uniform(0.0, 2.0 * np.pi)
+            speed = random.uniform(U_min, U_max)
+            heading = random.uniform(0.0, 2.0 * np.pi)
+
+        x = os_pose[0] + distance_os_ts * np.cos(os_pose[3] + bearing)
+        y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
+        return np.array([x, y, speed, heading])
+
+    def _generate_random_pose(
+        self, max_speed: float = 15.0, draft: float = 5.0, heading: Optional[float] = None
+    ) -> np.ndarray:
+        """Creates a random pose which adheres to the ship's draft and maximum speed.
 
         Args:
             max_speed (float): Vessel's maximum speed
             draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
 
         Returns:
-            Tuple[float, float, float, float]: Tuple containing the vessel state
+            np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
         """
         x, y = mapf.randomize_start_position_from_draft(self._enc, draft)
 
-        speed = round(random.uniform(1, max_speed), 1)
+        speed = random.uniform(0.0, max_speed)
 
-        heading = random.uniform(0, 2.0 * np.pi)
+        if heading is None:
+            heading = random.uniform(0, 2.0 * np.pi)
 
         return np.array([x, y, speed, heading])
 
-    def generate_random_waypoints(self, x: float, y: float, psi: float, n_wps: int) -> np.ndarray:
+    def _generate_random_waypoints(self, x: float, y: float, psi: float, n_wps: Optional[int] = None) -> np.ndarray:
         """Creates random waypoints starting from a ship position and heading.
 
         Args:
             x (float): x position (north) of the ship.
             y (float): y position (east) of the ship.
             psi (float): heading of the ship in radians.
-            n_wps (int): Number of waypoints to create.
+            n_wps (Optional[int]): Number of waypoints to create.
 
         Returns:
             np.ndarray: 2 x n_wps array of waypoints.
         """
+        if n_wps is None:
+            n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
+
         waypoints = np.array((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
             crosses_grounding_hazards = True
             while crosses_grounding_hazards:
-                distance_wp_to_wp = random.randint(
+                distance_wp_to_wp = random.uniform(
                     self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
                 )
                 alpha = random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
@@ -212,97 +251,32 @@ class ScenarioGenerator:
                 )
 
             waypoints[:, i] = new_wp
+
         return waypoints
 
-    def generate_random_speed_plan(self, U_min: float, U_max: float, n_wps: int) -> np.ndarray:
-        """Creates a random speed plan using the input minimum and maximum speed.
+    def _generate_random_speed_plan(
+        self, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None
+    ) -> np.ndarray:
+        """Creates a random speed plan using the input speed and min/max speed of the ship.
 
         Args:
-            U_min (float): Minimum speed.
-            U_max (float): Maximum speed.
-            n_wps (int): Number of waypoints to create.
+            U (float): The ship's speed.
+            U_min (float, optional): The ship's minimum speed. Defaults to 1.0.
+            U_max (float, optional): The ship's maximum speed. Defaults to 15.0.
+            n_wps (Optional[int]): Number of waypoints to create.
 
         Returns:
             np.ndarray: 1 x n_wps array containing the speed plan.
         """
+        if n_wps is None:
+            n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
+
         speed_plan = np.array(n_wps)
-        U = random.uniform(U_min, U_max)
         speed_plan[0] = U
         for i in range(1, n_wps):
-            U = U + random.uniform(
-                self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1]
-            )
+            lb = max(U_min, speed_plan[i - 1] - self._config.speed_plan_variation_range[0])
+            ub = min(U_max, speed_plan[i - 1] + self._config.speed_plan_variation_range[1])
+            U = U + random.uniform(lb, ub)
             speed_plan[i] = U
+
         return speed_plan
-
-
-def head_on(enc: ENC, os_max_speed, ts_max_speed, ship_model_name):
-    # random own ship
-    x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
-
-    # random target ship considering own ship pose
-    distance_land = mapf.min_distance_to_land(enc, y1, x1)
-    x2 = x1 + distance_land * math.cos(math.radians(heading1))
-    y2 = y1 + distance_land * math.sin(math.radians(heading1))
-    speed2 = round(random.uniform(1, ts_max_speed), 1)
-    heading2 = heading1 + 180 + random.uniform(-14, 14)
-
-    return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-
-def overtaking(enc: ENC, os_max_speed, ship_model_name):
-    # random own ship
-    x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
-
-    # random target ship considering own ship pose
-    distance_land = mapf.min_distance_to_land(enc, y1, x1)
-    x2 = x1 + distance_land * math.cos(math.radians(heading1))
-    y2 = y1 + distance_land * math.sin(math.radians(heading1))
-    speed2 = round((speed1 - speed1 * random.uniform(0.5, 0.9)), 1)
-    heading2 = heading1 + random.uniform(-13, 13)
-
-    return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-
-def overtaken(enc: ENC, os_max_speed, ship_model_name):
-    # random own ship
-    x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
-
-    # random target ship considering own ship pose
-    distance_land = mapf.min_distance_to_land(enc, y1, x1)
-    x2 = x1 - distance_land * math.cos(math.radians(heading1))
-    y2 = y1 - distance_land * math.sin(math.radians(heading1))
-    speed2 = round((speed1 + speed1 * random.uniform(0.5, 0.9)), 1)
-    heading2 = heading1 + random.uniform(-13, 13)
-
-    return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-
-def crossing_give_way(enc: ENC, os_max_speed, ts_max_speed, ship_model_name):
-    # random own ship
-    x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
-
-    # random target ship considering own ship pose
-    n = random.uniform(0, 112.5)
-    distance_land = mapf.min_distance_to_land(enc, y1, x1)
-    x2 = x1 + distance_land * math.cos(math.radians(heading1 + n))
-    y2 = y1 + distance_land * math.sin(math.radians(heading1 + n))
-    speed2 = round(random.uniform(1, ts_max_speed), 1)
-    heading2 = heading1 - 90
-
-    return x1, y1, speed1, heading1, x2, y2, speed2, heading2
-
-
-def crossing_stand_on(enc: ENC, os_max_speed, ts_max_speed, ship_model_name):
-    # random own ship
-    x1, y1, speed1, heading1 = random_pose(os_max_speed, ship_model_name)
-
-    # random target ship considering own ship pose
-    n = random.uniform(-112.5, 0)
-    distance_to_land = mapf.min_distance_to_land(enc, y1, x1)
-    x2 = x1 + distance_to_land * np.cos(np.radians(heading1 + n))
-    y2 = y1 + distance_to_land * np.sin(np.radians(heading1 + n))
-    speed2 = round(random.randint(1, ts_max_speed), 1)
-    heading2 = heading1 + 90
-
-    return x1, y1, speed1, heading1, x2, y2, speed2, heading2

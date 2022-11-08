@@ -22,4 +22,18 @@ simulator = {
     list: list,
 }
 
-scenario_generator = {}
+scenario_generator = {
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+    list: list,
+}
+
+ship = {}

@@ -1,0 +1,20 @@
+
+n_ship_range: [1, 10]
+n_wps_range: [2, 10]
+speed_plan_variation_range: [-2.0, 2.0]
+waypoint_dist_range: [50.0, 1000.0]
+waypoint_ang_range: [-90.0, 90.0]
+ho_bearing_range: [-20.0, 20.0]
+ho_heading_range: [-15.0, 15.0]
+ot_bearing_range: [-20.0, 20.0]
+ot_heading_range: [-15.0, 15.0]
+cr_bearing_range: [15.1, 112.5]
+cr_heading_range: [-15.0, 15.0]
+
+
+
+os_max_speed: 20
+ts_max_speed: 20
+num_ships: 3
+
+scenario_num: 0

@@ -1,16 +1,44 @@
+num_ships: 3
+scenario_num: 0
 
-
-num_waypoints: 5
 os_max_speed: 20
 ts_max_speed: 20
-num_ships: 3
 
-# scenario_num:
-# 0: random selection
-# 1: head on
-# 2: overtaking
-# 3: overtaken
-# 4: crossing give way
-# 5: crossing stand on
-# 6: multi-ship
-scenario_num: 0
+
+
+
+ship0: #own-ship
+  guidance:
+    name: "KinematicTrajectoryPlanner"
+    ktp:
+      epsilon: 0.0001
+      dt_seg: 0.1
+    los: None
+  controller:
+    name: "MIMOPID"
+    pid:
+      wn: [0.3, 0.3, 0.3]
+      zeta: [1.0, 1.0, 1.0]
+      eta_diff_max: [100.0, 100.0, 1.57]
+    flsh: None
+  model:
+    name: "Telemetron"
+    csog: None
+    telemetron: None # Fixed parameter settings
+
+
+ship1:
+  ship_model: telemetron
+
+  radar_active: True
+  radar_meas_rate: 2
+  radar_sigma_z: 2
+
+  ais_active: True
+  ais_meas_rate: 4
+  ais_sigma_z: 2
+  ais_loss_prob: 0.0
+
+  #LOS guidance parameters
+  lookahead_distance: 100
+  radius_of_acceptance: 50

@@ -3,13 +3,13 @@
 
     Summary:
         Contains class definitions for various models.
-        Every class must adhere to the model interface IModel.
+        Every model class must adhere to the interface IModel.
 
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 
 import colav_simulator.common.math_functions as mf
 import numpy as np

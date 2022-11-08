@@ -11,8 +11,10 @@ import pathlib
 root = pathlib.Path(__file__).parents[2]
 config = root / "config"
 package = root / "colav_simulator"
-schemas = package / "schemas"
+scenarios = root / "scenarios"
+output = root / "output"
 
+schemas = package / "schemas"
 simulator_schema = schemas / "simulator.yaml"
 ship_schema = schemas / "ship.yaml"
 scenario_generation_schema = schemas / "scenario.yaml"
@@ -22,4 +24,6 @@ seacharts_config = config / "seacharts.yaml"
 ships_config = config / "ships.yaml"
 scenario_generation_config = config / "scenario.yaml"
 
+ais_output = output / "ais"
+animation_output = output / "animation"
 map_data = root / "map_data"
