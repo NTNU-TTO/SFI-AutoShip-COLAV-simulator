@@ -35,9 +35,9 @@ class FLSHPars:
 class Config:
     """Configuration class for managing controller parameters."""
 
-    pid: Optional[MIMOPIDPars]
-    flsh: Optional[FLSHPars]
-    pass_through: Optional[Any]
+    pid: Optional[MIMOPIDPars] = None
+    flsh: Optional[FLSHPars] = None
+    pass_through: Optional[Any] = None
 
 
 class IController(ABC):

@@ -16,18 +16,17 @@ from typing import Optional, Tuple
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
 import colav_simulator.ships.guidance as guidance
-
-# from colav_simulator.map import path_crosses_land
 import colav_simulator.ships.models as models
 import numpy as np
-
-# from colav_simulator.ships.sensors import *
 
 
 @dataclass
 class Config:
     """Configuration class for managing ship parameters."""
 
+    pose: Optional[np.ndarray]
+    waypoints: Optional[np.ndarray]
+    speed_plan: Optional[np.ndarray]
     model: models.Config
     controller: controllers.Config
     guidance: guidance.Config
@@ -39,11 +38,32 @@ class ShipBuilder:
     """Class for building all objects needed by a ship with a specific configuration of systems."""
 
     @classmethod
+    def construct_ship(cls, config: Optional[Config] = None):
+        """Builds a ship from the configuration
+
+        Args:
+            config (Optional[Config], optional): Ship configuration. Defaults to None.
+
+        Returns:
+            Tuple[Model, Controller, Guidance]: The subsystems comprising the ship: model, controller, guidance.
+        """
+        if config:
+            model = cls.construct_model(config.model)
+            controller = cls.construct_controller(config.controller)
+            guidance_system = cls.construct_guidance(config.guidance)
+        else:
+            model = cls.construct_model()
+            controller = cls.construct_controller()
+            guidance_system = cls.construct_guidance()
+
+        return model, controller, guidance_system
+
+    @classmethod
     def construct_guidance(cls, config: Optional[guidance.Config] = None):
         """Builds a ship guidance method from the configuration
 
         Args:
-            config (Optional[ships.guidance.Config], optional): Guidance configuration. Defaults to None.
+            config (Optional[guidance.Config], optional): Guidance configuration. Defaults to None.
 
         Returns:
             Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
@@ -60,7 +80,7 @@ class ShipBuilder:
         """Builds a ship model from the configuration
 
         Args:
-            config (Optional[ships.models.Config], optional): Model configuration. Defaults to None.
+            config (Optional[controllers.Config], optional): Model configuration. Defaults to None.
 
         Returns:
             Model: Model as specified by the configuration, e.g. a CSOGModel.
@@ -79,7 +99,7 @@ class ShipBuilder:
         """Builds a ship model from the configuration
 
         Args:
-            config (Optional[ships.models.Config], optional): Model configuration. Defaults to None.
+            config (Optional[models.Config], optional): Model configuration. Defaults to None.
 
         Returns:
             Model: Model as specified by the configuration, e.g. a CSOGModel.
@@ -97,9 +117,6 @@ class IShip(ABC):
     the implementation of the below methods for all subclasses (ships),
     to comply with the model interface.
     """
-
-    # _mmsi = interface.Attribute("Ship mmsi")
-    # _state = interface.Attribute("Ship state")
 
     @abstractmethod
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -120,7 +137,7 @@ class Ship(IShip):
                             in `Fossen2011`.
     """
 
-    _mmsi: str = "1"
+    _mmsi: int = 0
     _ais_msg_nr: int = 18
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
@@ -128,44 +145,37 @@ class Ship(IShip):
 
     def __init__(
         self,
-        mmsi: str,
-        waypoints: np.ndarray,
-        speed_plan: np.ndarray,
-        pose: np.ndarray,
+        mmsi: int,
+        pose: Optional[np.ndarray] = None,
+        waypoints: Optional[np.ndarray] = None,
+        speed_plan: Optional[np.ndarray] = None,
         config: Optional[Config] = None,
     ) -> None:
 
-        n_px, n_wps = waypoints.shape
-        assert pose.size == 4  # The pose is xs = [x, y, U, chi]
-        assert speed_plan.size == n_wps
-
-        if n_px != 2:
-            raise ValueError("Waypoints do not contain planar coordinates along each column!")
-
-        if n_wps < 2:
-            raise ValueError("Insufficient number of waypoints (< 2)!")
-
         self._mmsi = mmsi
-        self._waypoints = waypoints
-        self._speed_plan = speed_plan
 
-        if config:
-            self._model = ShipBuilder.construct_model(config.model)
-            self._controller = ShipBuilder.construct_controller(config.controller)
-            self._guidance = ShipBuilder.construct_guidance(config.guidance)
-        else:
-            self._model = ShipBuilder.construct_model()
-            self._controller = ShipBuilder.construct_controller()
-            self._guidance = ShipBuilder.construct_guidance()
+        self._model, self._controller, self._guidance = ShipBuilder.construct_ship(config)
 
-        # pose = [x, y, U, chi]
-        if self._model.dims[0] == 4:
-            self._state = pose
-        else:
-            self._state = np.zeros(6)
-            self._state[0:2] = pose[0:2]
-            self._state[2] = pose[3]
-            self._state[3] = pose[2]
+        if waypoints and speed_plan:
+            n_px, n_wps = waypoints.shape
+            assert speed_plan.size == n_wps
+            self._waypoints = waypoints
+            self._speed_plan = speed_plan
+
+            if n_px != 2:
+                raise ValueError("Waypoints do not contain planar coordinates along each column!")
+
+            if n_wps < 2:
+                raise ValueError("Insufficient number of waypoints (< 2)!")
+
+        if pose is not None:
+            if self._model.dims[0] == 4:
+                self._state = pose
+            else:
+                self._state = np.zeros(6)
+                self._state[0:2] = pose[0:2]
+                self._state[2] = pose[3]
+                self._state[3] = pose[2]
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -184,6 +194,9 @@ class Ship(IShip):
             Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,
             inputs to get there and the references used.
         """
+        if self._waypoints.size < 2 or self._speed_plan.size < 2:
+            raise ValueError("Insufficient waypoints for the ship to follow!")
+
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
@@ -199,6 +212,17 @@ class Ship(IShip):
         """
         # tracks = self._tracker.track()
         return np.zeros((2, 0))
+
+    def set_initial_pose(self, pose: np.ndarray) -> None:
+        """Sets the initial pose of the ship.
+
+        Args:
+            pose (np.ndarray): Initial pose = [x, y, U, chi] of the ship.
+        """
+        if self._model.dims[0] == 4:
+            self._state = pose
+        else:  # self._state.size == 6
+            self._state = np.array([pose[0], pose[1], pose[3], pose[2], 0, 0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
@@ -254,7 +278,7 @@ class Ship(IShip):
         return self._model.pars.width
 
     @property
-    def mmsi(self) -> str:
+    def mmsi(self) -> int:
         return self._mmsi
 
     @property
@@ -293,3 +317,26 @@ class Ship(IShip):
     @property
     def waypoints(self) -> np.ndarray:
         return self._waypoints
+
+
+def convert_ship_config_dict_to_dataclass(config_dict: dict) -> Config:
+    """Converts a dictionary of configuration parameters to a dataclass.
+
+    Args:
+        config_dict (dict): Dictionary of configuration parameters.
+
+    Returns:
+        Config: Dataclass of configuration parameters.
+    """
+    config = Config(
+        pose=None,
+        waypoints=None,
+        speed_plan=None,
+        model=models.Config(),
+        controller=controllers.Config(),
+        guidance=guidance.Config(),
+    )
+
+    config.model = config_parsing.covert_dict_to_dataclass(models.Config, config_dict["model"])
+
+    return config

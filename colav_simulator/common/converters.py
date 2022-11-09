@@ -7,33 +7,3 @@
 
     Author: Trym Tengesdal
 """
-
-simulator = {
-    float: float,
-    float: float,
-    float: float,
-    list: list,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    list: list,
-}
-
-scenario_generator = {
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-    list: list,
-}
-
-ship = {}

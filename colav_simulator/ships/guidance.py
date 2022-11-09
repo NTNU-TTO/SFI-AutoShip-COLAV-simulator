@@ -53,8 +53,8 @@ class KTPGuidancePars:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    los: Optional[LOSGuidancePars]
-    ktp: Optional[KTPGuidancePars]
+    los: Optional[LOSGuidancePars] = None
+    ktp: Optional[KTPGuidancePars] = None
 
 
 class IGuidance(ABC):

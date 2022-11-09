@@ -1,4 +1,3 @@
-
 n_ship_range:
   required: True
   type: list

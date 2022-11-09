@@ -13,12 +13,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
-import colav_simulator.common.converters as converters
 import colav_simulator.common.paths as dp  # default paths
-import colav_simulator.ships as ships
 import numpy as np
 import pandas as pd
-from colav_simulator.scenario_generator import create_scenario
+import yaspin
+from colav_simulator.scenario_generator import ScenarioGenerator
+from colav_simulator.ships.ship import Config as ShipConfig
 from colav_simulator.ships.ship import Ship
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
@@ -40,21 +40,76 @@ class Config:
     verbose: bool
     ais_data_column_format: List[str]
 
+simulator_converter = {
+    float: float,
+    float: float,
+    float: float,
+    list: list,
+    bool: bool,
+    bool: bool,
+    bool: bool,
+    bool: bool,
+    bool: bool,
+    bool: bool,
+    list: list,
+}
 
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
     _config: Config
+    _scenario_generator: ScenarioGenerator
 
-    def __init__(self, config_file: Path = dp.simulator_config) -> None:
+    def __init__(self, scenario_files: List[Path], config_file: Path = dp.simulator_config) -> None:
 
-        self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, converters.simulator)
+        self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, simulator_converter)
 
-        # => then load relevant scenarios if provided, or create new ones (FOR LOOP OVER SCENARIOS).
+        # => then load relevant scenarios if provided, or create new ones.
         # => save newly created scenarios to file if requested.
         # => run the scenarios and save sim_data and emulated ais_data to file. Toggle animation on/off based on config.
         # => The COLAV evaluator can then load the sim & ais data from file and plot/evaluate the results.
 
+    @yaspin(text="Running simulator...")
+    def run(
+        self, t_start: Optional[float], t_end: Optional[float], dt_sim: Optional[float], save_results: bool = False
+    ):
+        """Runs through all specified scenarios.
+
+        Args:
+            t_start (Optional[float]): Simulation start time
+            t_end (Optional[float]): Simulation end time
+            dt_sim (Optional[float]): Simulation time step
+
+
+        Returns:
+
+        """
+
+        if t_start is None:
+            t_start = self._config.t_start
+
+        if t_end is None:
+            t_end = self._config.t_end
+
+        if dt_sim is None:
+            dt_sim = self._config.dt_sim
+
+        n_scenarios = len(self._config.scenario_files)
+
+        sim_times = np.arange(t_start, t_end, dt_sim)
+        for scenario_file in self._config.scenario_files:
+            if "new" in scenario_file or "new_scenario" in scenario_file:
+                pose_list, waypoints_list, speed_plan_list = self._scenario_generator.generate()
+            else:
+                pose_list, waypoints_list, speed_plan_list = load_scenario_definition(Path(scenario_file))
+
+            ship_list = configure_ships_in_scenario(pose_list, waypoints_list, speed_plan_list)
+
+            sim_data, ais_data = self.run_scenario(ship_list, sim_times)
+
+        return sim_data_list, ais_data_list
+
+    @yaspin(text="Running scenario...")
     def run_scenario(self, ship_list: List[Ship], sim_times: np.ndarray):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
@@ -71,7 +126,7 @@ class Simulator:
         ais_data = pd.DataFrame(columns=self._config.ais_data_column_format)
 
         sim_data = {}
-        for i, ship in enumerate(ships):
+        for i, ship in enumerate(ship_list):
             x_i = np.zeros(len(sim_times))
             y_i = np.zeros(len(sim_times))
             U_i_t = np.zeros(len(sim_times))
@@ -101,9 +156,11 @@ class Simulator:
         return sim_data, ais_data
 
 
-def load_scenario(loadfile: Path):
+@yaspin(text="Loading scenario...")
+def load_scenario_definition(loadfile: Path):
     """
-    Loads a scenario definition from a json file and processes into a dict
+    Loads a scenario definition from a json file and processes into a list of poses,
+    waypoints and speed plans (the definition).
 
     Parameters:
         loadfile (pathlib.Path): Absolute path to scenario_file.
@@ -111,7 +168,7 @@ def load_scenario(loadfile: Path):
     Returns:
         dict: Dictionary containing the scenario definition, with keys:
                     poses[i]: pose [x, y, U, psi] for ship i
-                    waypoints[i]: waypoints for ship i
+                    waypoint_list[i]: waypoints for ship i
                     speed_plans[i]: speed_plan for ship i
     """
 
@@ -123,15 +180,17 @@ def load_scenario(loadfile: Path):
     speed_plan_list = data["speed_plans"]
 
     for i in range(len(data["waypoints"])):
-        wp = [tuple(row) for row in data["waypoints"][i]]
-        waypoint_list.append(wp)
+        waypoints = [tuple(row) for row in data["waypoints"][i]]
+        waypoint_list.append(waypoints)
+
     return pose_list, waypoint_list, speed_plan_list
 
 
+@yaspin(text="Saving...")
 def save_scenario(
     pose_list: List[np.ndarray], waypoint_list: List[np.ndarray], speed_plan_list: List[np.ndarray], savefile: Path
 ):
-    """Saves the the scenario defined by the list of configured ships, to a json file as a dict at savefile
+    """Saves the the scenario defined by the list of ship poses, waypoints and speed plans, to a json file as a dict at savefile
     dict keys:
         pose_list[i]: pose [x,y,u,psi] for ship i
         waypoint_list[i]: waypoints for ship i
@@ -143,38 +202,24 @@ def save_scenario(
         json.dump(data, file, indent=2)
 
 
-def init_scenario(scenario_file: Optional[Path] = None):
-    """Initializes and configures ships in the considered scenario from file.
+@yaspin(text="Configuring ships...")
+def configure_ships_from_file(ship_config_file: Path = dp.ship_config):
+    """Configures the subsystems of the ships in a scenario from file.
 
     Parameters:
-        scenario_file (pathlib.Path, optional): Absolute path to scenario_file. If None,
-            a new scenario is created based on a defaultconfiguration.
+        ship_config_file (pathlib.Path): Absolute path to the ship configuration file.
 
     Returns:
-        List[Ship]: list of initialized and configured Ship objects in the scenario.
+        List[Ship]: list of initialized and configured Ship objects.
     """
 
-    if scenario_file:
-        pose_list, waypoint_list, speed_plan_list = load_scenario(scenario_file)
-
-        ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=len(pose_list))
-    else:
-        ship_model_name_list, sensors_list, LOS_params_list = get_ship_parameters(num_ships=num_ships)
-        pose_list, waypoint_list, speed_plan_list = create_scenario(
-            num_ships, scenario_num, ship_model_name_list, os_max_speed, ts_max_speed, num_waypoints
-        )
-        save_scenario_definition(pose_list, waypoint_list, speed_plan_list, scenario_file)
-
-    # LOAD configuration here
-
     ship_list = []
-    for i, pose in enumerate(pose_list):
-        # ship = Ship(
-        #     pose=pose,
-        #     waypoints=waypoint_list[i],
-        #     speed_plan=speed_plan_list[i],
-        #     mmsi=i + 1,  # f'Ship{i+1}',
-
-        # )
+    for i, range(n_ships):
+        ship_config = config_parsing.extract(ShipConfig, ship_config_file, dp.ship_schema, converters.ship)
+        ship = Ship(
+            mmsi=i + 1,
+            config=ship_config,
+        )
         ship_list.append(ship)
+
     return ship_list

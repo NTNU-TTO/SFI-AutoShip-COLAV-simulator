@@ -33,11 +33,24 @@ def extract(data_class: Any, config_file: Path, config_schema: Path, converter: 
     settings = parse(config_file, schema)
     settings = override(settings, schema, **kwargs)
 
-    if converter is not None:
-        settings = dacite.from_dict(data_class=data_class, data=settings, config=dacite.Config(type_hooks=converter))
-    else:
-        settings = dacite.from_dict(data_class=data_class, data=settings)
+    settings = convert_settings_dict_to_dataclass(data_class, settings, converter)
 
+    return settings
+
+
+def convert_settings_dict_to_dataclass(data_class, config_dict: dict, converter: Optional[dict] = None) -> Any:
+    """Converts a settings dictionary to a dataclass.
+
+    Args:
+        dataclass (Any): Data class to convert to.
+
+    Returns:
+        Any: The dataclass.
+    """
+    if converter is not None:
+        settings = dacite.from_dict(data_class=data_class, data=config_dict, config=dacite.Config(type_hooks=converter))
+    else:
+        settings = dacite.from_dict(data_class=data_class, data=config_dict)
     return settings
 
 

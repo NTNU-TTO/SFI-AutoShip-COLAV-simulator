@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as config_parsing
-import colav_simulator.common.converters as converters
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.paths as dp  # Default paths
+import colav_simulator.ships.ship as ship
 import numpy as np
 from seacharts.enc import ENC
 
@@ -33,7 +33,7 @@ class ScenarioType(Enum):
         OT_en: Overtaken scenario (own-ship is overtaken and should stand-on).
         CR_GW: Crossing scenario where own-ship has give-way duties.
         CR_SO: Crossing scenario where own-ship has stand-on duties.
-        MS: Multi-ship scenario.
+        RANDOM: Random number of ships in the scenario.
     """
 
     SS = 0
@@ -42,7 +42,17 @@ class ScenarioType(Enum):
     OT_en = 3
     CR_GW = 4
     CR_SO = 5
-    MS = 6
+    RANDOM = 6
+
+
+@dataclass
+class ScenarioConfig:
+    """Configuration class for specifying a new scenario."""
+
+    type: ScenarioType
+    n_ships: int
+    min_dist_between_ships: float
+    ship_list: List[ship.Config]
 
 
 @dataclass
@@ -91,44 +101,40 @@ class ScenarioGenerator:
         self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
     ) -> None:
         self._enc = ENC(enc_config_file, new_data=False)
-        self._config = config_parsing.extract(
-            Config, config_file, dp.scenario_generator_schema, converters.scenario_generator
-        )
+        self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
     def generate(
         self,
-        os_pose: Optional[np.ndarray],
-        os_max_speed: float = 15.0,
-        ts_max_speed: float = 15.0,
-        num_ships: Optional[int] = None,
-        scenario_type: Optional[ScenarioType] = None,
+        scenario_config_file: Path = dp.new_scenario_config,
     ) -> Tuple[list, list, list]:
-        """Creates a COLREGS scenario based on the scenario type, with random plans for all ships.
+        """Creates a maritime scenario based on the input config file, with random plans for each ship
+        unless specified.
 
         Args:
-            num_ships (int): Number of ships in the scenario
+            scenario_config_file (Path): Path to the scenario config file.
 
         Returns:
-            Tuple[list, list, list]: Lists containing initial poses, waypoints, speed plans for each ship.
+            List[Ship]: List of ships in the scenario with initialized poses and plans.
         """
-        if num_ships is None:
-            num_ships = random.randint(self._config.n_ship_range[0], self._config.n_ship_range[1])
 
-        if scenario_type is None:
-            scenario_type = random.choice(list(ScenarioType))
+        scenario_config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
+        scenario_config = convert_scenario_config_dict_to_dataclass(scenario_config)
 
-        if os_pose is None:
-            os_pose = self._generate_random_pose(os_max_speed, 5.0)
+        ship_list = []
 
-        ts_pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
+        n_ships = scenario_config.n_ships
+        n_configured_ships = len(ship_list)
 
-        pose_list = [os_pose.tolist()]
+        for i in range(n_ships):
 
-        for i in range(1, num_ships):
-            ts_pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
+            if i == 0:
+                pose = self._generate_random_pose(ship_list[0].model.pars.U_max)
+            pose_list = [os_pose.tolist()]
+
+            pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
             pose_list.append(ts_pose.tolist())
 
-        # Create plan (waypoints, speed_plan) for all ships
+        # Create plan (waypoints, speed_plan) for all ships which does not have it
         waypoint_list = []
         speed_plan_list = []
         for i in range(num_ships):
@@ -138,7 +144,7 @@ class ScenarioGenerator:
             speed_plan = self._generate_random_speed_plan(pose_list[i][2])
             speed_plan_list.append(speed_plan)
 
-        return pose_list, waypoint_list, speed_plan_list
+        return ship_list
 
     def _generate_ts_pose(
         self, scenario_type: ScenarioType, os_pose: np.ndarray, U_min: float = 1.0, U_max: float = 15.0
@@ -290,3 +296,26 @@ class ScenarioGenerator:
             speed_plan[i] = U
 
         return speed_plan
+
+
+def convert_scenario_config_dict_to_dataclass(config_dict: dict) -> ScenarioConfig:
+    """Converts a dictionary to a ScenarioConfig dataclass.
+
+    Args:
+        scenario_config_dict (dict): Dictionary containing the scenario config.
+
+    Returns:
+        ScenarioConfig: ScenarioConfig dataclass.
+    """
+    config = ScenarioConfig(
+        type=ScenarioType(config_dict["type"]),
+        n_ships=config_dict["n_ships"],
+        min_dist_between_ships=config_dict["min_dist_between_ships"],
+        ship_list=[],
+    )
+
+    for ship_config_dict in config_dict["ship_list"]:
+        ship_config = ship.convert_ship_config_dict_to_dataclass(ship_config_dict)
+
+        config.ship_list.append(ship_config)
+    return config

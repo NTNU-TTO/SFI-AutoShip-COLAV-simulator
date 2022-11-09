@@ -8,4 +8,6 @@ if __name__ == "__main__":
 
     scenario_generator = ScenarioGenerator()
 
+    scenario_generator.generate()
+
     print("done")

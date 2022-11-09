@@ -59,8 +59,8 @@ class TelemetronPars:
 class Config:
     """Configuration class for managing model parameters."""
 
-    csog: Optional[KinematicCSOGPars]
-    telemetron: Optional[TelemetronPars]
+    csog: Optional[KinematicCSOGPars] = None
+    telemetron: Optional[TelemetronPars] = None
 
 
 class IModel(ABC):
