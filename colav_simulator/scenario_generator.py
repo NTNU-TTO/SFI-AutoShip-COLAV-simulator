@@ -54,6 +54,17 @@ class ScenarioConfig:
     min_dist_between_ships: float
     ship_list: List[ship.Config]
 
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        cls.type = ScenarioType(config_dict["type"])
+        cls.n_ships = config_dict["n_ships"]
+        cls.min_dist_between_ships = config_dict["min_dist_between_ships"]
+
+        for ship_config in config_dict["ship_list"]:
+            cls.ship_list.append(ship.Config.from_dict(ship_config))
+
+        return cls
+
 
 @dataclass
 class Config:
@@ -118,9 +129,7 @@ class ScenarioGenerator:
         """
 
         scenario_config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
-        scenario_config = convert_scenario_config_dict_to_dataclass(scenario_config)
-
-        ship_list = []
+        scenario_config = ScenarioConfig.from_dict(scenario_config)
 
         n_ships = scenario_config.n_ships
         n_configured_ships = len(ship_list)
@@ -296,26 +305,3 @@ class ScenarioGenerator:
             speed_plan[i] = U
 
         return speed_plan
-
-
-def convert_scenario_config_dict_to_dataclass(config_dict: dict) -> ScenarioConfig:
-    """Converts a dictionary to a ScenarioConfig dataclass.
-
-    Args:
-        scenario_config_dict (dict): Dictionary containing the scenario config.
-
-    Returns:
-        ScenarioConfig: ScenarioConfig dataclass.
-    """
-    config = ScenarioConfig(
-        type=ScenarioType(config_dict["type"]),
-        n_ships=config_dict["n_ships"],
-        min_dist_between_ships=config_dict["min_dist_between_ships"],
-        ship_list=[],
-    )
-
-    for ship_config_dict in config_dict["ship_list"]:
-        ship_config = ship.convert_ship_config_dict_to_dataclass(ship_config_dict)
-
-        config.ship_list.append(ship_config)
-    return config

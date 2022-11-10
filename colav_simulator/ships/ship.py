@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
 import colav_simulator.ships.guidance as guidance
@@ -32,6 +33,42 @@ class Config:
     guidance: guidance.Config
     # colav: colav.Config
     # tracker: tracker.config
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        """Converts a dictionary of configuration parameters to a dataclass.
+
+        Args:
+            config_dict (dict): Dictionary of configuration parameters.
+
+        Returns:
+            Config: Dataclass of configuration parameters.
+        """
+        config = Config(
+            pose=None,
+            waypoints=None,
+            speed_plan=None,
+            model=models.Config(),
+            controller=controllers.Config(),
+            guidance=guidance.Config(),
+        )
+
+        if "pose" in config_dict:
+            config.pose = np.array(config_dict["pose"])
+
+        if "waypoints" in config_dict:
+            config.waypoints = np.array(config_dict["waypoints"])
+
+        if "speed_plan" in config_dict:
+            config.speed_plan = np.array(config_dict["speed_plan"])
+
+        config.model = models.Config.from_dict(config_dict["model"])
+
+        config.controller = controllers.Config.from_dict(config_dict["controller"])
+
+        config.guidance = guidance.Config.from_dict(config_dict["guidance"])
+
+        return config
 
 
 class ShipBuilder:
@@ -317,26 +354,3 @@ class Ship(IShip):
     @property
     def waypoints(self) -> np.ndarray:
         return self._waypoints
-
-
-def convert_ship_config_dict_to_dataclass(config_dict: dict) -> Config:
-    """Converts a dictionary of configuration parameters to a dataclass.
-
-    Args:
-        config_dict (dict): Dictionary of configuration parameters.
-
-    Returns:
-        Config: Dataclass of configuration parameters.
-    """
-    config = Config(
-        pose=None,
-        waypoints=None,
-        speed_plan=None,
-        model=models.Config(),
-        controller=controllers.Config(),
-        guidance=guidance.Config(),
-    )
-
-    config.model = config_parsing.covert_dict_to_dataclass(models.Config, config_dict["model"])
-
-    return config

@@ -6,6 +6,7 @@
 
     Author: Trym Tengesdal
 """
+from dataclasses import is_dataclass
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -43,15 +44,22 @@ def convert_settings_dict_to_dataclass(data_class, config_dict: dict, converter:
 
     Args:
         dataclass (Any): Data class to convert to.
+        config_dict (dict): Dictionary containing the settings.
+        converter (Optional[dict]): Dictionary specifying data types to convert to in the settings to the dataclass. Defaults to None.
 
     Returns:
         Any: The dataclass.
     """
+    if not is_dataclass(data_class):
+        raise ValueError(f"Desired class is not a dataclass type, its type is {data_class}")
+
+    if hasattr(data_class, "from_dict") and callable(getattr(data_class, "from_dict")):
+        return data_class.from_dict(config_dict)
+
     if converter is not None:
-        settings = dacite.from_dict(data_class=data_class, data=config_dict, config=dacite.Config(type_hooks=converter))
-    else:
-        settings = dacite.from_dict(data_class=data_class, data=config_dict)
-    return settings
+        return dacite.from_dict(data_class=data_class, data=config_dict, config=dacite.Config(type_hooks=converter))
+
+    return dacite.from_dict(data_class=data_class, data=config_dict)
 
 
 def validate(settings: dict, schema: dict) -> None:

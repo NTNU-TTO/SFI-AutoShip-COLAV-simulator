@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import numpy as np
 
@@ -37,7 +38,7 @@ class KinematicCSOGPars:
 
 @dataclass
 class TelemetronPars:
-    """Parameters for the Telemetron vessel (read only)."""
+    """Parameters for the Telemetron vessel (read only / Fixed)."""
 
     draft: float = 1.0
     length: float = 10.0
@@ -61,6 +62,16 @@ class Config:
 
     csog: Optional[KinematicCSOGPars] = None
     telemetron: Optional[TelemetronPars] = None
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        if "csog" in config_dict:
+            cls.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGPars, config_dict["csog"])
+
+        if "telemetron" in config_dict:
+            cls.telemetron = TelemetronPars()
+
+        return cls
 
 
 class IModel(ABC):

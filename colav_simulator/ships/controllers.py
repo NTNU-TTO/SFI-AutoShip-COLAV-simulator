@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import numpy as np
 
@@ -38,6 +39,23 @@ class Config:
     pid: Optional[MIMOPIDPars] = None
     flsh: Optional[FLSHPars] = None
     pass_through: Optional[Any] = None
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        if "pid" in config_dict:
+            cls.pid = MIMOPIDPars(
+                wn=np.diag(config_dict["pid"]["wn"]),
+                zeta=np.diag(config_dict["pid"]["zeta"]),
+                eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
+            )
+
+        if "flsh" in config_dict:
+            cls.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
+
+        if "pass_through" in config_dict:
+            cls.pass_through = True
+
+        return cls
 
 
 class IController(ABC):
@@ -137,7 +155,7 @@ class MIMOPID(IController):
         eta_dot_d = refs[3:6]
         eta_dot_diff = eta_dot - eta_dot_d
 
-        self._eta_diff_int = mf.sat_vec(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._pars.eta_diff_max)
+        self._eta_diff_int = mf.sat(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._pars.eta_diff_max)
 
         tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
         tau = R_n_b.T @ tau

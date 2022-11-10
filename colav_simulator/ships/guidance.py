@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import matplotlib.pyplot as plt
 import numpy as np
@@ -55,6 +56,16 @@ class Config:
 
     los: Optional[LOSGuidancePars] = None
     ktp: Optional[KTPGuidancePars] = None
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        if "csog" in config_dict:
+            cls.los = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["los"])
+
+        if "ktp" in config_dict:
+            cls.ktp = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["ktp"])
+
+        return cls
 
 
 class IGuidance(ABC):
