@@ -8,4 +8,6 @@ if __name__ == "__main__":
 
     simulator = Simulator()
 
+    simulator.run()
+
     print("done")

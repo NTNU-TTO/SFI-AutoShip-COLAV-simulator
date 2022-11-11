@@ -52,7 +52,7 @@ class TelemetronPars:
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
     r_max: float = np.deg2rad(4)
-    U_min: float = 0.0
+    U_min: float = 2.0
     U_max: float = 18.0
 
 
@@ -65,13 +65,14 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
+        config = Config()
         if "csog" in config_dict:
-            cls.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGPars, config_dict["csog"])
+            config.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGPars, config_dict["csog"])
 
         if "telemetron" in config_dict:
-            cls.telemetron = TelemetronPars()
+            config.telemetron = TelemetronPars()
 
-        return cls
+        return config
 
 
 class IModel(ABC):

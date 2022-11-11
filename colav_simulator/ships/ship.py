@@ -25,32 +25,21 @@ import numpy as np
 class Config:
     """Configuration class for managing ship parameters."""
 
-    pose: Optional[np.ndarray]
-    waypoints: Optional[np.ndarray]
-    speed_plan: Optional[np.ndarray]
+    # colav: colav.Config
+    # tracker: tracker.config
     model: models.Config
     controller: controllers.Config
     guidance: guidance.Config
-    # colav: colav.Config
-    # tracker: tracker.config
+    pose: Optional[np.ndarray] = None
+    waypoints: Optional[np.ndarray] = None
+    speed_plan: Optional[np.ndarray] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        """Converts a dictionary of configuration parameters to a dataclass.
-
-        Args:
-            config_dict (dict): Dictionary of configuration parameters.
-
-        Returns:
-            Config: Dataclass of configuration parameters.
-        """
         config = Config(
-            pose=None,
-            waypoints=None,
-            speed_plan=None,
-            model=models.Config(),
-            controller=controllers.Config(),
-            guidance=guidance.Config(),
+            model=models.Config.from_dict(config_dict["model"]),
+            controller=controllers.Config.from_dict(config_dict["controller"]),
+            guidance=guidance.Config.from_dict(config_dict["guidance"]),
         )
 
         if "pose" in config_dict:
@@ -61,12 +50,6 @@ class Config:
 
         if "speed_plan" in config_dict:
             config.speed_plan = np.array(config_dict["speed_plan"])
-
-        config.model = models.Config.from_dict(config_dict["model"])
-
-        config.controller = controllers.Config.from_dict(config_dict["controller"])
-
-        config.guidance = guidance.Config.from_dict(config_dict["guidance"])
 
         return config
 
@@ -301,6 +284,21 @@ class Ship(IShip):
             "source": "",
         }
         return row
+
+    @property
+    def max_speed(self) -> float:
+        """Returns the max speed of the ship."""
+        return self._model.pars.U_max
+
+    @property
+    def min_speed(self) -> float:
+        """Returns the max speed of the ship."""
+        return self._model.pars.U_min
+
+    @property
+    def max_turn_rate(self) -> float:
+        """Returns the max speed of the ship."""
+        return self._model.pars.r_max
 
     @property
     def draft(self) -> float:

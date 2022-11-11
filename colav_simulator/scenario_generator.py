@@ -11,10 +11,11 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.map_functions as mapf
+import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.ships.ship as ship
 import numpy as np
@@ -56,14 +57,17 @@ class ScenarioConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        cls.type = ScenarioType(config_dict["type"])
-        cls.n_ships = config_dict["n_ships"]
-        cls.min_dist_between_ships = config_dict["min_dist_between_ships"]
+        config = ScenarioConfig(
+            type=ScenarioType(config_dict["type"]),
+            n_ships=config_dict["n_ships"],
+            min_dist_between_ships=config_dict["min_dist_between_ships"],
+            ship_list=[],
+        )
 
         for ship_config in config_dict["ship_list"]:
-            cls.ship_list.append(ship.Config.from_dict(ship_config))
+            config.ship_list.append(ship.Config.from_dict(ship_config))
 
-        return cls
+        return config
 
 
 @dataclass
@@ -117,7 +121,7 @@ class ScenarioGenerator:
     def generate(
         self,
         scenario_config_file: Path = dp.new_scenario_config,
-    ) -> Tuple[list, list, list]:
+    ) -> list:
         """Creates a maritime scenario based on the input config file, with random plans for each ship
         unless specified.
 
@@ -128,30 +132,36 @@ class ScenarioGenerator:
             List[Ship]: List of ships in the scenario with initialized poses and plans.
         """
 
-        scenario_config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
-        scenario_config = ScenarioConfig.from_dict(scenario_config)
+        config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
 
-        n_ships = scenario_config.n_ships
-        n_configured_ships = len(ship_list)
+        n_ships = config.n_ships
+        n_cfg_ships = len(config.ship_list)
 
+        ship_list = []
+        pose_list = []
         for i in range(n_ships):
+            if i < n_cfg_ships:
+                ship_obj = ship.Ship(mmsi=i + 1, config=config.ship_list[i])
+            else:
+                ship_obj = ship.Ship(mmsi=i + 1)
 
-            if i == 0:
-                pose = self._generate_random_pose(ship_list[0].model.pars.U_max)
-            pose_list = [os_pose.tolist()]
+            if i == 0:  # Own-ship
+                pose = self._generate_random_pose(ship_obj.max_speed, ship_obj.draft)
+            else:  # Target ships
+                pose = self._generate_ts_pose(
+                    config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
+                )
 
-            pose = self._generate_ts_pose(scenario_type, os_pose, U_max=ts_max_speed)
-            pose_list.append(ts_pose.tolist())
+            waypoints = self._generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
+            speed_plan = self._generate_random_speed_plan(
+                pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
+            )
 
-        # Create plan (waypoints, speed_plan) for all ships which does not have it
-        waypoint_list = []
-        speed_plan_list = []
-        for i in range(num_ships):
-            waypoints = self._generate_random_waypoints(pose_list[i][0], pose_list[i][1], pose_list[i][3])
-            waypoint_list.append(waypoints)
+            ship_obj.set_initial_pose(pose)
+            ship_obj.set_nominal_plan(waypoints, speed_plan)
 
-            speed_plan = self._generate_random_speed_plan(pose_list[i][2])
-            speed_plan_list.append(speed_plan)
+            pose_list.append(pose)
+            ship_list.append(ship_obj)
 
         return ship_list
 
@@ -239,7 +249,9 @@ class ScenarioGenerator:
 
         return np.array([x, y, speed, heading])
 
-    def _generate_random_waypoints(self, x: float, y: float, psi: float, n_wps: Optional[int] = None) -> np.ndarray:
+    def _generate_random_waypoints(
+        self, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None
+    ) -> np.ndarray:
         """Creates random waypoints starting from a ship position and heading.
 
         Args:
@@ -254,7 +266,7 @@ class ScenarioGenerator:
         if n_wps is None:
             n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
 
-        waypoints = np.array((2, n_wps))
+        waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
             crosses_grounding_hazards = True
@@ -267,12 +279,14 @@ class ScenarioGenerator:
                 )
 
                 new_wp = np.array(
-                    [waypoints[0, i - 1] + distance_wp_to_wp * np.cos(psi + alpha)],
-                    [waypoints[1, i - 1] + distance_wp_to_wp * np.sin(psi + alpha)],
+                    [
+                        waypoints[0, i - 1] + distance_wp_to_wp * np.cos(psi + alpha),
+                        waypoints[1, i - 1] + distance_wp_to_wp * np.sin(psi + alpha),
+                    ],
                 )
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
-                    self._enc, new_wp, waypoints[:, i - 1]
+                    self._enc, new_wp, waypoints[:, i - 1], draft
                 )
 
             waypoints[:, i] = new_wp
@@ -296,12 +310,12 @@ class ScenarioGenerator:
         if n_wps is None:
             n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
 
-        speed_plan = np.array(n_wps)
+        speed_plan = np.zeros(n_wps)
         speed_plan[0] = U
         for i in range(1, n_wps):
-            lb = max(U_min, speed_plan[i - 1] - self._config.speed_plan_variation_range[0])
-            ub = min(U_max, speed_plan[i - 1] + self._config.speed_plan_variation_range[1])
-            U = U + random.uniform(lb, ub)
-            speed_plan[i] = U
+            U_mod = random.uniform(
+                self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1]
+            )
+            speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
 
         return speed_plan

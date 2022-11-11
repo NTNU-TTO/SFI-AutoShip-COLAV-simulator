@@ -42,20 +42,21 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
+        config = Config()
         if "pid" in config_dict:
-            cls.pid = MIMOPIDPars(
+            config.pid = MIMOPIDPars(
                 wn=np.diag(config_dict["pid"]["wn"]),
                 zeta=np.diag(config_dict["pid"]["zeta"]),
                 eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
             )
 
         if "flsh" in config_dict:
-            cls.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
+            config.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
 
         if "pass_through" in config_dict:
-            cls.pass_through = True
+            config.pass_through = True
 
-        return cls
+        return config
 
 
 class IController(ABC):
@@ -159,11 +160,6 @@ class MIMOPID(IController):
 
         tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
         tau = R_n_b.T @ tau
-
-        if eta[0] > 40.0:
-            print(
-                f"x_diff = {-eta_diff[0]} | y_diff = {-eta_diff[1]} psi_diff: {-eta_diff[2]} | r_d: {refs[5]} | r: {nu[2]}"
-            )
 
         return tau
 

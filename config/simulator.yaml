@@ -1,7 +1,7 @@
 t_start: 0.0
 dt_sim: 0.5
 t_end: 300.0
-scenario_files: ["head_on.json"]
+scenario_files: ["new_scenario", "head_on.json"]
 # run_all_scenrios = True -> loads and runs all scenarios from the scenarios folder. run_all_scenrios = False -> run single scenario
 run_all_scenarios: False
 # new_scenario = False -> loads scenario from scenario_file. new_scenario = True -> creates new scenario and saves scenario to scenario_file

@@ -192,15 +192,17 @@ def check_if_segment_crosses_grounding_hazards(
     p2 = (prev_wp[1], prev_wp[0])
     wp_line = LineString([p1, p2])
 
-    depths = list(enc.seabed.keys())
-    for depth in depths:
-        if draft >= depth:
-            intersects_seabed = wp_line.intersects(enc.seabed[depth].geometry)
+    intersects_relevant_seabed = False
+    # depths = list(enc.seabed.keys())
+    # for depth in depths:
+    #     if draft >= float(depth):
+    #         intersects_seabed = wp_line.intersects(enc.seabed[depth].geometry)
+    #         break
 
     intersects_shore = wp_line.intersects(enc.shore.geometry)
 
     intersects_land = wp_line.intersects(enc.land.geometry)
 
-    crosses_grounding_hazards = intersects_shore or intersects_land or intersects_seabed
+    crosses_grounding_hazards = intersects_shore or intersects_land or intersects_relevant_seabed
 
     return crosses_grounding_hazards

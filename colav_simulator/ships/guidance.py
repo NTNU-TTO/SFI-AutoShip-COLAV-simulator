@@ -59,13 +59,14 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        if "csog" in config_dict:
-            cls.los = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["los"])
+        config = Config()
+        if "los" in config_dict:
+            config.los = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["los"])
 
         if "ktp" in config_dict:
-            cls.ktp = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["ktp"])
+            config.ktp = cp.convert_settings_dict_to_dataclass(KTPGuidancePars, config_dict["ktp"])
 
-        return cls
+        return config
 
 
 class IGuidance(ABC):

@@ -4,22 +4,44 @@ min_dist_between_ships: 50.0
 ship_list:
   - guidance:
       ktp:
-        epsilon: 0.0001
-        dt_seg: 0.1
+        epsilon: 0.0009
+        dt_seg: 0.9
     controller:
       pid:
-        wn: [0.3, 0.3, 0.3]
+        wn: [0.3, 0.3, 0.2]
         zeta: [1.0, 1.0, 1.0]
-        eta_diff_max: [100.0, 100.0, 1.57]
+        eta_diff_max: [110.0, 110.0, 1.9]
     model:
       telemetron: ''
   - guidance:
+      los:
+        pass_angle_threshold: 90.0
+        R_a: 20.0
+        K_p: 0.025
+        K_i: 0.0
+        e_int_max: 100.0
+    controller:
+      flsh:
+        K_p_u: 7.0
+        K_p_psi: 8.5
+        K_d_psi: 11.0
+    model:
+      csog:
+        draft: 2.0
+        length: 10.0
+        width: 3.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 0.15
+        U_min: 0.0
+        U_max: 15.0
+  - guidance:
       ktp:
-        epsilon: 0.0001
-        dt_seg: 0.1
+        epsilon: 0.0005
+        dt_seg: 0.5
     controller:
       pid:
-        wn: [0.3, 0.3, 0.3]
+        wn: [0.3, 0.3, 0.4]
         zeta: [1.0, 1.0, 1.0]
         eta_diff_max: [100.0, 100.0, 1.57]
     model:
