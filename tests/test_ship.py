@@ -1,6 +1,7 @@
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.ship as ship
 import numpy as np
+from colav_simulator.scenario_generator import ScenarioGenerator
 from matplotlib import pyplot as plt
 
 legend_size = 10  # legend size
@@ -8,32 +9,38 @@ fig_size = [25, 13]  # figure1 size in cm
 dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
+
     n_wps = 9
-    waypoints = np.zeros((2, n_wps))
-    for i in range(n_wps):
-        if i == 0:
-            waypoints[:, i] = np.array([0, 0])
-        elif i == 1:
-            waypoints[:, i] = waypoints[:, i - 1] + np.array([50, 0])
-        elif i >= 2 and i < 4:
-            waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, 50])
-        elif i >= 4 and i < 6:
-            waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, -50])
-        elif i >= 6:
-            waypoints[:, i] = waypoints[:, i - 1] + np.array([50, -50])
+    scenario_generator = ScenarioGenerator()
+    origin = scenario_generator.enc_origin
 
-    speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]) / 6.0
+    pose = np.array([0.0, 0.0, 5.0, 0.0])
+    waypoints = scenario_generator.generate_random_waypoints(origin[0], origin[1], 0.0, 1.0, n_wps)
+    speed_plan = scenario_generator.generate_random_speed_plan(5.0, n_wps)
 
-    state = np.array([0.0, 0.0, 1.0, 0.0])
-    mmsi = "lol"
-    ownship = ship.Ship(mmsi, waypoints, speed_plan, state)
-    horizon = 500.0
+    # waypoints = np.zeros((2, n_wps))
+    # for i in range(n_wps):
+    #     if i == 0:
+    #         waypoints[:, i] = np.array([0, 0])
+    #     elif i == 1:
+    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([50, 0])
+    #     elif i >= 2 and i < 4:
+    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, 50])
+    #     elif i >= 4 and i < 6:
+    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, -50])
+    #     elif i >= 6:
+    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([50, -50])
+    # speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]) / 6.0
+
+    mmsi = 1
+    ownship = ship.Ship(mmsi, waypoints, speed_plan, pose)
+    horizon = 100.0
     dt = 0.1
     n = 4  # n = 4 when using kinematic model considering only pos and vel, and 6 otherwise
     n_samples = round(horizon / dt)
     trajectory = np.zeros((n, n_samples))
-    refs = np.zeros((2, n_samples))
-    tau = np.zeros((2, n_samples))
+    refs = np.zeros((9, n_samples))
+    tau = np.zeros((3, n_samples))
     time = np.zeros(n_samples)
     for k in range(n_samples):
         time[k] = k * dt

@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
 import colav_simulator.ships.guidance as guidance
@@ -93,7 +92,7 @@ class ShipBuilder:
         elif config and config.ktp:
             return guidance.KinematicTrajectoryPlanner(config)
         else:
-            return guidance.LOSGuidance()
+            return guidance.KinematicTrajectoryPlanner()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -217,6 +216,9 @@ class Ship(IShip):
         if self._waypoints.size < 2 or self._speed_plan.size < 2:
             raise ValueError("Insufficient waypoints for the ship to follow!")
 
+        if dt <= 0.0:
+            raise ValueError("Time step must be strictly positive!")
+
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
@@ -262,6 +264,19 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
+    def get_ship_nav_data(self, timestamp: int) -> dict:
+
+        ship_nav_data = {
+            "pose": self.pose,
+            "waypoints": self._waypoints,
+            "speed_plan": self._speed_plan,
+            "timestamp": mf.utc_timestamp_to_datetime(timestamp),
+            # predicted trajectory from COLAV/planner
+            # "obstacles": self.track_obstacles(),
+        }
+
+        return ship_nav_data
+
     def get_ais_data(self, timestamp: int) -> dict:
         """Returns an AIS data message for the ship at the given timestamp.
 
@@ -286,18 +301,33 @@ class Ship(IShip):
         return row
 
     @property
+    def pose(self) -> np.ndarray:
+        """Returns the ship pose as parameterized in an AIS message,
+        i.e. `xs = [x, y, U, chi]` where `x` and `y` are planar coordinates (north-east),
+        `U` the ship forward speed (m/s) and `chi` the course over ground (rad).
+
+        Returns:
+            np.ndarray: Ship pose.
+        """
+        if self._state.size == 4:
+            return self._state
+        else:  # self._state.size == 6
+            heading = self._state[2]
+            crab_angle = np.arctan2(self._state[4], self._state[3])
+            cog = heading + crab_angle
+            speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
+            return np.array([self._state[0], self._state[1], speed, cog])
+
+    @property
     def max_speed(self) -> float:
-        """Returns the max speed of the ship."""
         return self._model.pars.U_max
 
     @property
     def min_speed(self) -> float:
-        """Returns the max speed of the ship."""
         return self._model.pars.U_min
 
     @property
     def max_turn_rate(self) -> float:
-        """Returns the max speed of the ship."""
         return self._model.pars.r_max
 
     @property
@@ -330,24 +360,6 @@ class Ship(IShip):
             return self._state[3]
         else:  # self._state.size == 6
             return self._state[2]
-
-    @property
-    def pose(self) -> np.ndarray:
-        """Returns the ship pose as parameterized in an AIS message,
-        i.e. `xs = [x, y, U, chi]` where `x` and `y` are planar coordinates (north-east),
-        `U` the ship forward speed (m/s) and `chi` the course over ground (rad).
-
-        Returns:
-            np.ndarray: Ship pose.
-        """
-        if self._state.size == 4:
-            return self._state
-        else:  # self._state.size == 6
-            heading = self._state[2]
-            crab_angle = np.arctan2(self._state[4], self._state[3])
-            cog = heading + crab_angle
-            speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
-            return np.array([self._state[0], self._state[1], speed, cog])
 
     @property
     def waypoints(self) -> np.ndarray:

@@ -11,7 +11,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.map_functions as mapf
@@ -116,6 +116,8 @@ class ScenarioGenerator:
         self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
     ) -> None:
         self._enc = ENC(enc_config_file, new_data=False)
+        self._enc.close_display()
+
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
     def generate(
@@ -146,14 +148,14 @@ class ScenarioGenerator:
                 ship_obj = ship.Ship(mmsi=i + 1)
 
             if i == 0:  # Own-ship
-                pose = self._generate_random_pose(ship_obj.max_speed, ship_obj.draft)
+                pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
             else:  # Target ships
-                pose = self._generate_ts_pose(
+                pose = self.generate_ts_pose(
                     config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
                 )
 
-            waypoints = self._generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
-            speed_plan = self._generate_random_speed_plan(
+            waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
+            speed_plan = self.generate_random_speed_plan(
                 pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
             )
 
@@ -165,7 +167,7 @@ class ScenarioGenerator:
 
         return ship_list
 
-    def _generate_ts_pose(
+    def generate_ts_pose(
         self, scenario_type: ScenarioType, os_pose: np.ndarray, U_min: float = 1.0, U_max: float = 15.0
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective/pose of the first ship/own-ship,
@@ -227,7 +229,7 @@ class ScenarioGenerator:
         y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
         return np.array([x, y, speed, heading])
 
-    def _generate_random_pose(
+    def generate_random_pose(
         self, max_speed: float = 15.0, draft: float = 5.0, heading: Optional[float] = None
     ) -> np.ndarray:
         """Creates a random pose which adheres to the ship's draft and maximum speed.
@@ -249,7 +251,7 @@ class ScenarioGenerator:
 
         return np.array([x, y, speed, heading])
 
-    def _generate_random_waypoints(
+    def generate_random_waypoints(
         self, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None
     ) -> np.ndarray:
         """Creates random waypoints starting from a ship position and heading.
@@ -259,6 +261,7 @@ class ScenarioGenerator:
             y (float): y position (east) of the ship.
             psi (float): heading of the ship in radians.
             n_wps (Optional[int]): Number of waypoints to create.
+            no_enc (bool): If True, the waypoints will not be constrained by the ENC area.
 
         Returns:
             np.ndarray: 2 x n_wps array of waypoints.
@@ -269,11 +272,14 @@ class ScenarioGenerator:
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
+            min_dist_to_land = mapf.min_distance_to_land(self._enc, waypoints[1, i - 1], waypoints[0, i - 1])
             crosses_grounding_hazards = True
             while crosses_grounding_hazards:
                 distance_wp_to_wp = random.uniform(
                     self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
                 )
+                distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
+
                 alpha = np.deg2rad(
                     random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
                 )
@@ -293,7 +299,7 @@ class ScenarioGenerator:
 
         return waypoints
 
-    def _generate_random_speed_plan(
+    def generate_random_speed_plan(
         self, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None
     ) -> np.ndarray:
         """Creates a random speed plan using the input speed and min/max speed of the ship.
@@ -319,3 +325,19 @@ class ScenarioGenerator:
             speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
 
         return speed_plan
+
+    @property
+    def enc_bbox(self) -> np.ndarray:
+        """Returns the bounding box of the considered ENC area.
+
+        Returns:
+            np.ndarray: Array containing the ENC bounding box = [min_x, min_y, max_x, max_y]
+        """
+        size = self._enc.size
+        origin = self._enc.origin
+
+        return np.array([origin[0], origin[1], origin[0] + size[0], origin[1] + size[1]])
+
+    @property
+    def enc_origin(self) -> np.ndarray:
+        return np.array([self._enc.origin[1], self._enc.origin[0]])

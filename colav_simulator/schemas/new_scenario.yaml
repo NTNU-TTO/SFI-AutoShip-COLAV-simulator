@@ -73,7 +73,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [flsh, pass_through]
+            excludes: [flsh, pass_through, csog]
             schema:
               wn:
                 required: True
@@ -101,7 +101,7 @@ ship_list:
                   min: 0.0
           flsh:
             type: dict
-            excludes: [pid, pass_through]
+            excludes: [pid, pass_through, csog]
             schema:
               K_p_u:
                 required: True
@@ -116,7 +116,8 @@ ship_list:
                 type: float
                 min: 0.0
           pass_through:
-            type: dict
+            type: string
+            empty: True
             excludes: [pid, flsh]
 
       model:

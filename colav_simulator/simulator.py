@@ -17,7 +17,6 @@ import colav_simulator.common.paths as dp  # default paths
 import numpy as np
 import pandas as pd
 from colav_simulator.scenario_generator import ScenarioGenerator
-from colav_simulator.ships.ship import Config as ShipConfig
 from colav_simulator.ships.ship import Ship
 from yaspin import yaspin
 
@@ -32,8 +31,6 @@ class Config:
     dt_sim: float
     t_end: float
     scenario_files: List[str]
-    run_all_scenarios: bool
-    new_scenario: bool
     save_animation: bool
     show_animation: bool
     show_waypoints: bool
@@ -101,7 +98,7 @@ class Simulator:
 
 
         Returns:
-
+            Tuple[list, list]: Lists of simulation data and AIS data for each scenario.
         """
 
         if t_start is None:
@@ -139,50 +136,39 @@ class Simulator:
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
-            ships (List[Ship]): 1 x n_ships array of configured ship objects. Each ship
+            ships (list): 1 x n_ships array of configured ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
             sim_times (np.ndarray): 1 x n_samples array of sim_times to simulate the ships.
 
         Returns:
-            sim_data (dict): Dictionary containing the simulation data.
-            ais_data (Dataframe): Dataframe/table containing the AIS data broadcasted from all ships.
+            sim_data (DataFrame): Dataframe/table containing the ship simulation data.
+            ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
         """
-        ais_data = pd.DataFrame(columns=self._config.ais_data_column_format)
-
-        sim_data = {}
-        for i, ship in enumerate(ship_list):
-            x_i = np.zeros(len(sim_times))
-            y_i = np.zeros(len(sim_times))
-            U_i_t = np.zeros(len(sim_times))
-            chi_i_t = np.zeros(len(sim_times))
-            sim_data[f"Ship{i}"]["pose"] = [x_i, y_i, U_i_t, chi_i_t]
-            sim_data[f"Ship{i}"]["waypoints"][0] = ship.waypoints[0, :]
-            sim_data[f"Ship{i}"]["waypoints"][1] = ship.waypoints[1, :]
-
+        sim_data = []
+        ais_data = []
         t0 = sim_times[0]
         t_prev = t0
-        for t_idx, t in enumerate(sim_times, start=1):
+        for _, t in enumerate(sim_times):
+
+            sim_data_dict = {}
             for i, ship in enumerate(ship_list):
                 dt_sim = t - t_prev
 
-                ship.track_obstacles()
+                if dt_sim > 0:
+                    ship.track_obstacles()
 
-                ship.forward(dt_sim)
+                    ship.forward(dt_sim)
 
-                # Logging
-                sim_data[f"Ship{i}"][0][t_idx] = ship.pose[0]
-                sim_data[f"Ship{i}"][1][t_idx] = ship.pose[1]
-                sim_data[f"Ship{i}"][2][t_idx] = ship.pose[2]
-                sim_data[f"Ship{i}"][3][t_idx] = ship.pose[3]
+                sim_data_dict[f"Ship{i}"] = ship.get_ship_nav_data(t)
 
                 if t % 1.0 / ship.ais_msg_freq == 0:
-                    ais_data = ais_data.append(
-                        ship.get_ais_data(t),
-                        ignore_index=True,
-                    )
+                    ais_data_row = ship.get_ais_data(t)
 
-        return sim_data, ais_data
+            sim_data.append(sim_data_dict)
+            ais_data.append(ais_data_row)
+
+        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
 
     def visualize_scenario(
         self, ship_list: List[Ship], sim_data: dict, ais_data: pd.DataFrame, save_results: bool = False

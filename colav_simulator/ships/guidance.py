@@ -181,7 +181,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         # Increment path variable to propagate reference vehicle along trajectory.
         self._s = mf.sat(self._s + dt * s_dot, 0.0, 1.0)
 
-        plot = False
+        plot = True
         if plot:
             fig = plt.figure(figsize=(5, 10))
             axs = fig.subplot_mosaic(

@@ -17,12 +17,6 @@ scenario_files:
   minlength: 0
   schema:
     type: string
-run_all_scenarios:
-  required: True
-  type: boolean
-new_scenario:
-  required: False
-  type: boolean
 
 save_animation:
   required: True

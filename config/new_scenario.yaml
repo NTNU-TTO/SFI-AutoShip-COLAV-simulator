@@ -1,14 +1,14 @@
 type: 1
-n_ships: 5
+n_ships: 1
 min_dist_between_ships: 50.0
 ship_list:
   - guidance:
       ktp:
-        epsilon: 0.0009
-        dt_seg: 0.9
+        epsilon: 0.000001
+        dt_seg: 0.1
     controller:
       pid:
-        wn: [0.3, 0.3, 0.2]
+        wn: [0.3, 0.1, 0.3]
         zeta: [1.0, 1.0, 1.0]
         eta_diff_max: [110.0, 110.0, 1.9]
     model:
@@ -21,10 +21,7 @@ ship_list:
         K_i: 0.0
         e_int_max: 100.0
     controller:
-      flsh:
-        K_p_u: 7.0
-        K_p_psi: 8.5
-        K_d_psi: 11.0
+      pass_through: ''
     model:
       csog:
         draft: 2.0
@@ -37,12 +34,26 @@ ship_list:
         U_max: 15.0
   - guidance:
       ktp:
-        epsilon: 0.0005
-        dt_seg: 0.5
+        epsilon: 0.000001
+        dt_seg: 0.11
     controller:
       pid:
         wn: [0.3, 0.3, 0.4]
         zeta: [1.0, 1.0, 1.0]
         eta_diff_max: [100.0, 100.0, 1.57]
+    model:
+      telemetron: ''
+  - guidance:
+      los:
+        pass_angle_threshold: 90.0
+        R_a: 20.0
+        K_p: 0.025
+        K_i: 0.0
+        e_int_max: 100.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 8.1
+        K_d_psi: 10.1
     model:
       telemetron: ''
