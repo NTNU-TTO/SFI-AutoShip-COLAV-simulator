@@ -124,14 +124,15 @@ def randomize_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
     return feasible_depth_vals[index]
 
 
-def randomize_start_position_from_draft(enc: ENC, draft: float) -> Tuple[float, float]:
+def randomize_start_position_from_draft(enc: ENC, draft: float, land_clearance: float = 0.0) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
-    inside the safe sea region by considering a ship draft.
+    inside the safe sea region by considering a ship draft, with an optional land clearance distance.
 
     Args:
         enc (ENC): Electronic Navigational Chart object
         draft (float): Ship's draft in meters.
+        land_clearance (float): Minimum distance to land in meters.
 
     Returns:
         Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
@@ -144,7 +145,10 @@ def randomize_start_position_from_draft(enc: ENC, draft: float) -> Tuple[float, 
     while not is_safe:
         easting = random.uniform(ss_bounds[0], ss_bounds[2])
         northing = random.uniform(ss_bounds[1], ss_bounds[3])
-        is_safe = safe_sea.geometry.contains(Point(easting, northing))
+
+        is_ok_clearance = min_distance_to_land(enc, easting, northing) >= land_clearance
+
+        is_safe = safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance
 
     return northing, easting
 
@@ -192,17 +196,21 @@ def check_if_segment_crosses_grounding_hazards(
     p2 = (prev_wp[1], prev_wp[0])
     wp_line = LineString([p1, p2])
 
-    intersects_relevant_seabed = False
-    # depths = list(enc.seabed.keys())
-    # for depth in depths:
-    #     if draft >= float(depth):
-    #         intersects_seabed = wp_line.intersects(enc.seabed[depth].geometry)
-    #         break
+    entire_seabed = enc.seabed[0].geometry
+    depths = list(enc.seabed.keys())
+    for depth in depths:
+        if float(depth) > draft:
+            seabed_below_draft = enc.seabed[depth].geometry
+            break
 
-    intersects_shore = wp_line.intersects(enc.shore.geometry)
+    seabed_down_to_draft = entire_seabed.difference(seabed_below_draft)
 
-    intersects_land = wp_line.intersects(enc.land.geometry)
+    enc.draw_polygon(seabed_down_to_draft, "orange")
 
-    crosses_grounding_hazards = intersects_shore or intersects_land or intersects_relevant_seabed
+    intersects_relevant_seabed = wp_line.intersects(seabed_down_to_draft)
+
+    intersects_land_or_shore = wp_line.intersects(enc.shore.geometry)
+
+    crosses_grounding_hazards = intersects_land_or_shore or intersects_relevant_seabed
 
     return crosses_grounding_hazards

@@ -14,8 +14,8 @@ if __name__ == "__main__":
     scenario_generator = ScenarioGenerator()
     origin = scenario_generator.enc_origin
 
-    pose = np.array([0.0, 0.0, 5.0, 0.0])
-    waypoints = scenario_generator.generate_random_waypoints(origin[0], origin[1], 0.0, 1.0, n_wps)
+    pose = scenario_generator.generate_random_pose(draft=5.0, land_clearance=50.0)
+    waypoints = scenario_generator.generate_random_waypoints(pose[0], pose[1], pose[3], 10.0, n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(5.0, n_wps)
 
     # waypoints = np.zeros((2, n_wps))
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     mmsi = 1
     ownship = ship.Ship(mmsi, waypoints, speed_plan, pose)
-    horizon = 100.0
+    horizon = 10.0
     dt = 0.1
     n = 4  # n = 4 when using kinematic model considering only pos and vel, and 6 otherwise
     n_samples = round(horizon / dt)

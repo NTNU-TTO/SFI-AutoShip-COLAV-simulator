@@ -175,7 +175,7 @@ class Ship(IShip):
 
         self._model, self._controller, self._guidance = ShipBuilder.construct_ship(config)
 
-        if waypoints and speed_plan:
+        if waypoints is not None and speed_plan is not None:
             n_px, n_wps = waypoints.shape
             assert speed_plan.size == n_wps
             self._waypoints = waypoints

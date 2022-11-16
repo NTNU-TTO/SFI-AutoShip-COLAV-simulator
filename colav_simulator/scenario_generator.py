@@ -11,7 +11,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.map_functions as mapf
@@ -115,8 +115,16 @@ class ScenarioGenerator:
     def __init__(
         self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
     ) -> None:
+        """Constructor for the ScenarioManager.
+
+        Args:
+            enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
+            config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
+            **kwargs: Keyword arguments for the ScenarioManager, can be any of the following:
+                    new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
+        """
         self._enc = ENC(enc_config_file, new_data=False)
-        self._enc.close_display()
+        # self._enc.close_display()
 
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
@@ -131,7 +139,7 @@ class ScenarioGenerator:
             scenario_config_file (Path): Path to the scenario config file.
 
         Returns:
-            List[Ship]: List of ships in the scenario with initialized poses and plans.
+            list: List of ships in the scenario with initialized poses and plans.
         """
 
         config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
@@ -168,7 +176,12 @@ class ScenarioGenerator:
         return ship_list
 
     def generate_ts_pose(
-        self, scenario_type: ScenarioType, os_pose: np.ndarray, U_min: float = 1.0, U_max: float = 15.0
+        self,
+        scenario_type: ScenarioType,
+        os_pose: np.ndarray,
+        U_min: float = 1.0,
+        U_max: float = 15.0,
+        land_clearance: float = 100.0,
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective/pose of the first ship/own-ship,
         such that the scenario is of the input type.
@@ -230,7 +243,11 @@ class ScenarioGenerator:
         return np.array([x, y, speed, heading])
 
     def generate_random_pose(
-        self, max_speed: float = 15.0, draft: float = 5.0, heading: Optional[float] = None
+        self,
+        max_speed: float = 15.0,
+        draft: float = 5.0,
+        heading: Optional[float] = None,
+        land_clearance: float = 100.0,
     ) -> np.ndarray:
         """Creates a random pose which adheres to the ship's draft and maximum speed.
 
@@ -242,7 +259,7 @@ class ScenarioGenerator:
         Returns:
             np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
         """
-        x, y = mapf.randomize_start_position_from_draft(self._enc, draft)
+        x, y = mapf.randomize_start_position_from_draft(self._enc, draft, land_clearance)
 
         speed = random.uniform(0.0, max_speed)
 

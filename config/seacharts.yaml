@@ -1,7 +1,7 @@
 
 enc:
   utm_zone: 33
-  size: [9000.0, 5062.0]                                                  # width, height (east, north) window to consider map data from. Unit is distance in meters
+  size: [15000.0, 7000.0]                                                  # width, height (east, north) window to consider map data from. Unit is distance in meters
   origin: [44300.0, 6956450.0]                                            # easting/northing origin in UTM zone matchin that of input .gdb data
   buffer: 0                                                               # int of dilation or erosion distance for geometries
   tolerance: 0                                                            # int of maximum tolerance distance for geometries
