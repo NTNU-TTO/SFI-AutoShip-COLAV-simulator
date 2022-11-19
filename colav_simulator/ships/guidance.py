@@ -181,8 +181,23 @@ class KinematicTrajectoryPlanner(IGuidance):
         # Increment path variable to propagate reference vehicle along trajectory.
         self._s = mf.sat(self._s + dt * s_dot, 0.0, 1.0)
 
-        plot = True
+        plot = False
         if plot:
+
+            figgca = plt.gcf()
+            gca = figgca.axes[0]
+            gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints", linewidth=2.0)
+            gca.plot(
+                self._y_spline(np.linspace(0.0, 1.0, 100)),
+                self._x_spline(np.linspace(0.0, 1.0, 100)),
+                "b.",
+                label="Spline",
+            )
+            gca.set_xlabel("South (m)")
+            gca.set_ylabel("North (m)")
+            gca.legend()
+            gca.grid()
+
             fig = plt.figure(figsize=(5, 10))
             axs = fig.subplot_mosaic(
                 [
@@ -190,18 +205,6 @@ class KinematicTrajectoryPlanner(IGuidance):
                     ["U", "Udot", "x"],
                 ]
             )
-
-            axs["xy"].plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
-            axs["xy"].plot(
-                self._y_spline(np.linspace(0.0, 1.0, 100)),
-                self._x_spline(np.linspace(0.0, 1.0, 100)),
-                "b.",
-                label="Spline",
-            )
-            axs["xy"].set_xlabel("South (m)")
-            axs["xy"].set_ylabel("North (m)")
-            axs["xy"].legend()
-            axs["xy"].grid()
 
             axs["psi"].plot(path_values, np.unwrap(heading_references), "rx", label="Waypoints")
             axs["psi"].plot(
@@ -363,7 +366,7 @@ class LOSGuidance(IGuidance):
 
         U_d = speed_plan[self._wp_counter]
 
-        return np.array([U_d, chi_d])
+        return np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     def _find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
         """Finds the active line segment between waypoints to follow.

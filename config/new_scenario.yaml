@@ -1,7 +1,40 @@
 type: 1
 n_ships: 1
-min_dist_between_ships: 50.0
+min_dist_between_ships: 100.0
 ship_list:
+  - guidance:
+      los:
+        pass_angle_threshold: 90.0
+        R_a: 20.0
+        K_p: 0.025
+        K_i: 0.0
+        e_int_max: 100.0
+    controller:
+      pass_through_cs: ''
+    model:
+      csog:
+        draft: 2.0
+        length: 10.0
+        width: 3.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 0.15
+        U_min: 0.0
+        U_max: 15.0
+  - guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 16.0
+        K_p: 0.02
+        K_i: 0.0
+        e_int_max: 120.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 8.1
+        K_d_psi: 10.1
+    model:
+      telemetron: ''
   - guidance:
       ktp:
         epsilon: 0.000001
@@ -14,25 +47,6 @@ ship_list:
     model:
       telemetron: ''
   - guidance:
-      los:
-        pass_angle_threshold: 90.0
-        R_a: 20.0
-        K_p: 0.025
-        K_i: 0.0
-        e_int_max: 100.0
-    controller:
-      pass_through: ''
-    model:
-      csog:
-        draft: 2.0
-        length: 10.0
-        width: 3.0
-        T_chi: 3.0
-        T_U: 5.0
-        r_max: 0.15
-        U_min: 0.0
-        U_max: 15.0
-  - guidance:
       ktp:
         epsilon: 0.000001
         dt_seg: 0.11
@@ -41,19 +55,5 @@ ship_list:
         wn: [0.3, 0.3, 0.4]
         zeta: [1.0, 1.0, 1.0]
         eta_diff_max: [100.0, 100.0, 1.57]
-    model:
-      telemetron: ''
-  - guidance:
-      los:
-        pass_angle_threshold: 90.0
-        R_a: 20.0
-        K_p: 0.025
-        K_i: 0.0
-        e_int_max: 100.0
-    controller:
-      flsh:
-        K_p_u: 5.1
-        K_p_psi: 8.1
-        K_d_psi: 10.1
     model:
       telemetron: ''

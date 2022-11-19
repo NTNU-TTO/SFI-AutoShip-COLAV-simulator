@@ -19,7 +19,7 @@ import numpy as np
 @dataclass
 class MIMOPIDPars:
     "Parameters for a Proportional-Integral-Derivative controller."
-    wn: np.ndarray = np.diag([0.3, 0.3, 0.3])
+    wn: np.ndarray = np.diag([0.3, 0.2, 0.35])
     zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
     eta_diff_max: np.ndarray = np.zeros(3)
 
@@ -28,8 +28,8 @@ class MIMOPIDPars:
 class FLSHPars:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 5.0
-    K_p_psi: float = 8.0
-    K_d_psi: float = 10.0
+    K_p_psi: float = 6.0
+    K_d_psi: float = 12.0
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Config:
 
     pid: Optional[MIMOPIDPars] = None
     flsh: Optional[FLSHPars] = None
-    pass_through: Optional[Any] = None
+    pass_through_cs: Optional[Any] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -53,8 +53,8 @@ class Config:
         if "flsh" in config_dict:
             config.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
 
-        if "pass_through" in config_dict:
-            config.pass_through = True
+        if "pass_through_cs" in config_dict:
+            config.pass_through_cs = True
 
         return config
 
@@ -67,26 +67,37 @@ class IController(ABC):
 
     @abstractmethod
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
-        "Computes inputs using the specific controller strategy"
+        """Computes inputs using the specific controller strategy.
+
+        References should be of dimension 9 to include pose (typically in NED),
+        pose derivative (NED or BODY), and pose double derivative (NED or BODY).
+        """
 
 
 @dataclass
-class PassThrough(IController):
-    """This controller just feeds through the references"""
+class PassThroughCS(IController):
+    """This controller just feeds through the course (heading) and forward speed references."""
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
-        """Takes inputs directly as references.
+        """Takes out relevant parts of references as inputs directly
 
         Args:
-            refs (np.ndarray): Desired/references [U_d, chi_d]^T
-            xs (np.ndarray): State xs = [x, y, chi, U]^T
+            refs (np.ndarray): Desired/references
+            xs (np.ndarray): State xs
             dt (float): Time step
             model (IModel): Model object to fetch parameters from, optional in many cases.
 
         Returns:
-            np.ndarray: Inputs u = refs to pass through.
+            np.ndarray: 3 x 1 inputs u = [chi_d, U_d, 0.0]^T, where chi_d and U_d are the desired course and speed over ground
         """
-        return refs
+
+        if len(refs) != 9:
+            raise ValueError("Dimension of reference array should be equal to 9!")
+        if len(xs) != 6:
+            raise ValueError("Dimension of state should be 6!")
+
+        # Course taken directly as heading reference.
+        return np.array([refs[2], np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0])
 
 
 @dataclass
@@ -133,8 +144,8 @@ class MIMOPID(IController):
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
         """
-        if len(refs) < 6:
-            raise ValueError("Dimension of reference array should be 6 or more!")
+        if len(refs) != 9:
+            raise ValueError("Dimension of reference array should be equal to 9!")
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
 
@@ -215,27 +226,24 @@ class FLSH(IController):
         """Computes inputs based on the PID law.
 
         Args:
-            refs (np.ndarray): Desired/reference state xs_d = [U_d, psi_d]^T or [eta_d, eta_dot_d, eta_ddot_d]^T
-            xs (np.ndarray): State xs = [eta, nu]^T
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d^T, eta_dot_d^T, eta_ddot_d^T]^T
+            (equal to [0, 0, psi_d, U_d, 0, 0, 0, 0, 0]^T in case of LOSGuidance)
+            xs (np.ndarray): State xs = [eta^T, nu^T]^T
             dt (float): Time step
             model (IModel): Model object to fetch parameters from.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
         """
-        if len(refs) == 2:
-            u_d, psi_d, r_d = refs[0], refs[1], 0.0
-        elif len(refs) >= 6:
-            u_d, psi_d, r_d = (
-                mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.pars.U_max),
-                refs[2],
-                mf.sat(refs[5], -model.pars.r_max, model.pars.r_max),
-            )
-        else:
-            raise ValueError("Dimension of reference array should be equal to 2 or >=6!")
+        if len(refs) != 9:
+            raise ValueError("Dimension of reference array should be equal to 9!")
 
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
+
+        u_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.pars.U_max)
+        psi_d = refs[2]
+        r_d = mf.sat(refs[5], -model.pars.r_max, model.pars.r_max)
 
         eta = xs[0:3]
         nu = xs[3:]

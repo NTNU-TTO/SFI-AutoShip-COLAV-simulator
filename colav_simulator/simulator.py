@@ -14,6 +14,7 @@ from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.paths as dp  # default paths
+import colav_simulator.viz.animation as animation
 import numpy as np
 import pandas as pd
 from colav_simulator.scenario_generator import ScenarioGenerator
@@ -123,8 +124,7 @@ class Simulator:
 
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
-            if self._config.show_animation:
-                self.visualize_scenario(ship_list, sim_data, ais_data, save_results)
+            self.visualize_scenario(ship_list, sim_data, ais_data, save_results)
 
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
@@ -132,7 +132,7 @@ class Simulator:
         return sim_data_list, ais_data_list
 
     @yaspin(text="Running scenario...")
-    def run_scenario(self, ship_list: List[Ship], sim_times: np.ndarray):
+    def run_scenario(self, ship_list: list, sim_times: np.ndarray):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
@@ -150,11 +150,11 @@ class Simulator:
         t0 = sim_times[0]
         t_prev = t0
         for _, t in enumerate(sim_times):
+            dt_sim = t - t_prev
+            t_prev = t
 
             sim_data_dict = {}
             for i, ship in enumerate(ship_list):
-                dt_sim = t - t_prev
-
                 if dt_sim > 0:
                     ship.track_obstacles()
 
@@ -163,15 +163,20 @@ class Simulator:
                 sim_data_dict[f"Ship{i}"] = ship.get_ship_nav_data(t)
 
                 if t % 1.0 / ship.ais_msg_freq == 0:
-                    ais_data_row = ship.get_ais_data(t)
+                    ais_data_row = ship.get_ais_data(int(t))
+                    ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)
-            ais_data.append(ais_data_row)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
 
     def visualize_scenario(
-        self, ship_list: List[Ship], sim_data: dict, ais_data: pd.DataFrame, save_results: bool = False
+        self,
+        ship_list: List[Ship],
+        sim_data: dict,
+        ais_data: pd.DataFrame,
+        times: np.ndarray,
+        save_results: bool = False,
     ) -> None:
         """Visualizes the simulation results.
 
@@ -183,7 +188,10 @@ class Simulator:
         Returns:
 
         """
-        pass
+        if not self._config.show_animation:
+            return
+
+        animation.visualize(enc=self._scenario_generator.enc, data=sim_data, times=times)
 
 
 @yaspin(text="Loading scenario...")

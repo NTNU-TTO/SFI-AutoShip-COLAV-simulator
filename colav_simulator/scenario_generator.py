@@ -105,11 +105,11 @@ class ScenarioGenerator:
     """Class for generating maritime traffic scenarios in a given geographical environment.
 
     Internal variables:
-        _enc (ENC): Electronic Navigational Chart object containing the geographical environment.
+        enc (ENC): Electronic Navigational Chart object containing the geographical environment.
         _config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
     """
 
-    _enc: ENC
+    enc: ENC
     _config: Config
 
     def __init__(
@@ -123,8 +123,8 @@ class ScenarioGenerator:
             **kwargs: Keyword arguments for the ScenarioManager, can be any of the following:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-        self._enc = ENC(enc_config_file, new_data=False)
-        # self._enc.close_display()
+        self.enc = ENC(enc_config_file, new_data=False)
+        # self.enc.close_display()
 
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
@@ -167,7 +167,7 @@ class ScenarioGenerator:
                 pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
             )
 
-            ship_obj.set_initial_pose(pose)
+            ship_obj.set_initial_state(pose)
             ship_obj.set_nominal_plan(waypoints, speed_plan)
 
             pose_list.append(pose)
@@ -196,7 +196,7 @@ class ScenarioGenerator:
             Tuple[float, float]: Target ship position = [x, y].
         """
 
-        distance_to_land = mapf.min_distance_to_land(self._enc, os_pose[1], os_pose[0])
+        distance_to_land = mapf.min_distance_to_land(self.enc, os_pose[1], os_pose[0])
         distance_os_ts = random.uniform(50.0, distance_to_land)
 
         if scenario_type == ScenarioType.HO:
@@ -259,12 +259,12 @@ class ScenarioGenerator:
         Returns:
             np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
         """
-        x, y = mapf.randomize_start_position_from_draft(self._enc, draft, land_clearance)
+        x, y = mapf.randomize_start_position_from_draft(self.enc, draft, land_clearance)
 
         speed = random.uniform(0.0, max_speed)
 
         if heading is None:
-            heading = random.uniform(0, 2.0 * np.pi)
+            heading = random.uniform(0.0, 2.0 * np.pi)
 
         return np.array([x, y, speed, heading])
 
@@ -289,9 +289,12 @@ class ScenarioGenerator:
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
-            min_dist_to_land = mapf.min_distance_to_land(self._enc, waypoints[1, i - 1], waypoints[0, i - 1])
+            min_dist_to_land = mapf.min_distance_to_land(self.enc, waypoints[1, i - 1], waypoints[0, i - 1])
             crosses_grounding_hazards = True
+            cgh_count = -1
             while crosses_grounding_hazards:
+                cgh_count += 1
+
                 distance_wp_to_wp = random.uniform(
                     self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
                 )
@@ -309,8 +312,15 @@ class ScenarioGenerator:
                 )
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
-                    self._enc, new_wp, waypoints[:, i - 1], draft
+                    self.enc, new_wp, waypoints[:, i - 1], draft
                 )
+
+                if cgh_count >= 10:
+                    break
+
+            if cgh_count >= 10:
+                waypoints = waypoints[:, 0:i]
+                break
 
             waypoints[:, i] = new_wp
 
@@ -350,11 +360,11 @@ class ScenarioGenerator:
         Returns:
             np.ndarray: Array containing the ENC bounding box = [min_x, min_y, max_x, max_y]
         """
-        size = self._enc.size
-        origin = self._enc.origin
+        size = self.enc.size
+        origin = self.enc.origin
 
         return np.array([origin[0], origin[1], origin[0] + size[0], origin[1] + size[1]])
 
     @property
     def enc_origin(self) -> np.ndarray:
-        return np.array([self._enc.origin[1], self._enc.origin[0]])
+        return np.array([self.enc.origin[1], self.enc.origin[0]])

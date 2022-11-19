@@ -51,7 +51,7 @@ class TelemetronPars:
     D_l: np.ndarray = np.diag([50.0, 200.0, 1281.0])  # First order/linear damping
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
-    r_max: float = np.deg2rad(4)
+    r_max: float = np.deg2rad(15)
     U_min: float = 2.0
     U_max: float = 18.0
 
@@ -83,7 +83,11 @@ class IModel(ABC):
 
     @abstractmethod
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
-        "The r.h.s of the ODE x_k+1 = f(x_k, u_k) for the considered model in discrete time."
+        """The r.h.s of the ODE x_k+1 = f(x_k, u_k) for the considered model in discrete time.
+
+        The state should be 6 x 1
+        The input should be 3 x 1.
+        """
 
 
 @dataclass
@@ -92,10 +96,11 @@ class KinematicCSOG(IModel):
 
     x_k+1 = x_k + U_k cos(chi_k)
     y_k+1 = y_k + U_k sin(chi_k)
-    U_k+1 = U_k + (1 / T_U)(U_d - U_k)
     chi_k+1 = chi_k + (1 / T_chi)(chi_d - chi_k)
+    U_k+1 = U_k + (1 / T_U)(U_d - U_k)
 
-    where x,y are the planar coordinates, U the vessel SOG and chi the vessel COG => xs = [x, y, U, chi]
+
+    where x,y are the planar coordinates, U the vessel SOG and chi the vessel COG => xs = [x, y, chi, U, 0, 0]
     """
 
     _pars: KinematicCSOGPars
@@ -112,28 +117,29 @@ class KinematicCSOG(IModel):
         """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
-            xs (np.ndarray): State x_k = [x_k, y_k, U_k, chi_k]
-            u (np.ndarray): Input equal to u_k = [U_d, chi_d]
+            xs (np.ndarray): State x_k = [x_k, y_k, chi_k, U_k, 0.0, 0.0]
+            u (np.ndarray): Input equal to [chi_d, U_d, 0]
 
         Returns:
             np.ndarray: New state x_k+1.
         """
-        if len(u) != self._n_u:
-            raise ValueError("Dimension of input array should be 2!")
-        if len(xs) != self._n_x:
-            raise ValueError("Dimension of state should be 4!")
+        if len(u) != 3:
+            raise ValueError("Dimension of input array should be 3!")
 
-        U_d = mf.sat(u[0], 0, self._pars.U_max)
-        chi_d = u[1]
+        if len(xs) != 6:
+            raise ValueError("Dimension of state should be 6!")
 
-        xs[2] = mf.sat(xs[2], 0.0, self._pars.U_max)
-        chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[3])
+        chi_d = u[0]
+        U_d = mf.sat(u[1], 0, self._pars.U_max)
 
-        ode_fun = np.zeros(4)
-        ode_fun[0] = xs[2] * np.cos(xs[3])
-        ode_fun[1] = xs[2] * np.sin(xs[3])
-        ode_fun[2] = (U_d - xs[2]) / self._pars.T_U
-        ode_fun[3] = mf.sat(chi_diff / self._pars.T_chi, -self._pars.r_max, self._pars.r_max)
+        chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
+        xs[3] = mf.sat(xs[3], 0.0, self._pars.U_max)
+
+        ode_fun = np.zeros(6)
+        ode_fun[0] = xs[3] * np.cos(xs[2])
+        ode_fun[1] = xs[3] * np.sin(xs[2])
+        ode_fun[2] = mf.sat(chi_diff / self._pars.T_chi, -self._pars.r_max, self._pars.r_max)
+        ode_fun[3] = (U_d - xs[3]) / self._pars.T_U
 
         return ode_fun
 
@@ -143,6 +149,9 @@ class KinematicCSOG(IModel):
 
     @property
     def dims(self):
+        """Returns the ACTUAL state and input dimensions considered in the model.
+
+        NOTE: Not to be mistaken with the model interface state (6) and input (3) dimension requirements."""
         return self._n_x, self._n_u
 
 
@@ -175,7 +184,7 @@ class Telemetron(IModel):
 
         Args:
             xs (np.ndarray): State xs = [eta, nu]^T
-            u (np.ndarray): Input here equal to u = tau
+            u (np.ndarray): Input vector u = tau (generalized forces in X, Y and Z)
 
         Returns:
             np.ndarray: New state xs.
@@ -212,5 +221,7 @@ class Telemetron(IModel):
 
     @property
     def dims(self):
-        "Returns dimension/size of the state and input vectors for the considered model."
+        """Returns the ACTUAL state and input dimensions considered in the model.
+
+        NOTE: Not to be mistaken with the model interface state (6) and input (3) dimension requirements."""
         return self._n_x, self._n_u

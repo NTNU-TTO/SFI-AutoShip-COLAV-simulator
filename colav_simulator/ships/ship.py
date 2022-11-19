@@ -108,8 +108,8 @@ class ShipBuilder:
             return controllers.MIMOPID(config)
         elif config and config.flsh:
             return controllers.FLSH(config)
-        elif config and config.pass_through:
-            return controllers.PassThrough()
+        elif config and config.pass_through_cs:
+            return controllers.PassThroughCS()
         else:
             return controllers.MIMOPID()
 
@@ -176,25 +176,10 @@ class Ship(IShip):
         self._model, self._controller, self._guidance = ShipBuilder.construct_ship(config)
 
         if waypoints is not None and speed_plan is not None:
-            n_px, n_wps = waypoints.shape
-            assert speed_plan.size == n_wps
-            self._waypoints = waypoints
-            self._speed_plan = speed_plan
-
-            if n_px != 2:
-                raise ValueError("Waypoints do not contain planar coordinates along each column!")
-
-            if n_wps < 2:
-                raise ValueError("Insufficient number of waypoints (< 2)!")
+            self.set_nominal_plan(waypoints, speed_plan)
 
         if pose is not None:
-            if self._model.dims[0] == 4:
-                self._state = pose
-            else:
-                self._state = np.zeros(6)
-                self._state[0:2] = pose[0:2]
-                self._state[2] = pose[3]
-                self._state[3] = pose[2]
+            self.set_initial_state(pose)
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -235,16 +220,13 @@ class Ship(IShip):
         # tracks = self._tracker.track()
         return np.zeros((2, 0))
 
-    def set_initial_pose(self, pose: np.ndarray) -> None:
-        """Sets the initial pose of the ship.
+    def set_initial_state(self, pose: np.ndarray) -> None:
+        """Sets the initial state of the ship based on the input pose.
 
         Args:
             pose (np.ndarray): Initial pose = [x, y, U, chi] of the ship.
         """
-        if self._model.dims[0] == 4:
-            self._state = pose
-        else:  # self._state.size == 6
-            self._state = np.array([pose[0], pose[1], pose[3], pose[2], 0, 0])
+        self._state = np.array([pose[0], pose[1], pose[3], pose[2], 0.0, 0.0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
@@ -265,12 +247,21 @@ class Ship(IShip):
         self._speed_plan = speed_plan
 
     def get_ship_nav_data(self, timestamp: int) -> dict:
+        """Returns navigational++ related data for the ship
 
+        Args:
+            timestamp (int): UTC referenced timestamp.
+
+        Returns:
+            dict: Navigation data as dictionary
+        """
+        datetime_t = mf.utc_timestamp_to_datetime(timestamp)
+        datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         ship_nav_data = {
             "pose": self.pose,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
-            "timestamp": mf.utc_timestamp_to_datetime(timestamp),
+            "timestamp": datetime_str,
             # predicted trajectory from COLAV/planner
             # "obstacles": self.track_obstacles(),
         }
@@ -281,16 +272,18 @@ class Ship(IShip):
         """Returns an AIS data message for the ship at the given timestamp.
 
         Args:
-            t (float): Time in seconds.
+            timestamp (int): UTC referenced timestamp.
 
         Returns:
             dict: AIS message as a dictionary.
         """
+        datetime_t = mf.utc_timestamp_to_datetime(timestamp)
+        datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         row = {
             "mmsi": self.mmsi,
             "lon": self.pose[1] * 10 ** (-5),
             "lat": self.pose[0] * 10 ** (-5),
-            "date_time_utc": mf.utc_timestamp_to_datetime(timestamp),
+            "date_time_utc": datetime_str,
             "sog": mf.mps2knots(self.pose[2]),
             "cog": int(np.rad2deg(self.pose[3])),
             "true_heading": int(np.rad2deg(self.heading)),
@@ -309,9 +302,9 @@ class Ship(IShip):
         Returns:
             np.ndarray: Ship pose.
         """
-        if self._state.size == 4:
-            return self._state
-        else:  # self._state.size == 6
+        if self._model.dims[0] == 4:
+            return np.array([self._state[0], self._state[1], self._state[3], self._state[2]])
+        else:  # self._model.dims[0] == 6
             heading = self._state[2]
             crab_angle = np.arctan2(self._state[4], self._state[3])
             cog = heading + crab_angle

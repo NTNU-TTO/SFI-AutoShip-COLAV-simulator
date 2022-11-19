@@ -6,30 +6,31 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
-import pathlib
+from pathlib import Path
 from typing import Optional
 
-import colav_simulator.common.map_functions as map_functions
+import colav_simulator.common.map_functions as mapf
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
 from seacharts.enc import ENC
 
 
 def visualize(
     enc: ENC,
-    data: dict,
-    t,
+    data,
+    times: np.ndarray,
     show_waypoints: Optional[bool] = True,
     show_animation: Optional[bool] = True,
     save_animation: Optional[bool] = True,
-    save_path: Optional[pathlib.Path] = None,
+    save_path: Optional[Path] = None,
 ) -> None:
     """Visualize the ship trajectories.
 
     Args:
         enc (ENC): Electronic Navigational Chart object.
-        data (dict): Dictionary containing the ship trajectory data.
-        t (List/np.ndarray): List/array of times to consider.
+        data (DataFrame): Pandas DataFrame containing the ship simulation data.
+        times (List/np.ndarray): List/array of times to consider.
         show_waypoints (Optional[bool]): _description_. Defaults to True.
         show_animation (Optional[bool]): _description_. Defaults to True.
         save_animation (Optional[bool]): Boolean flag for saving the animation. Defaults to True.
@@ -37,7 +38,7 @@ def visualize(
     """
 
     fig1, ax1 = plt.subplots(figsize=(12, 10), facecolor=(0.8, 0.8, 0.8))
-    x_lim, y_lim = map_functions.plot_background(fig1, enc, show=True)
+    x_lim, y_lim = mapf.plot_background(fig1, enc, show=True)
 
     # make the position(circle) and speed(line) visualizing
     circles = []
@@ -56,7 +57,7 @@ def visualize(
             circles.append(plt.plot([], [], "ko")[0])
             lines.append(plt.plot([], [], "k-")[0])
         if show_waypoints:
-            waypoints = data[f"Ship{i+1}"][4]
+            waypoints = data[f"Ship{i}"][4]
             for w in range(len(waypoints) - 1):
                 ax1.scatter(waypoints[w][1], waypoints[w][0], color=c, s=15, alpha=0.3)
                 ax1.plot(
@@ -72,19 +73,21 @@ def visualize(
 
     def update(i):
         for j in range(len(data)):
-            circles[j].set_xdata(data[f"Ship{j+1}"][1][i])
-            circles[j].set_ydata(data[f"Ship{j+1}"][0][i])
+            circles[j].set_xdata(data[f"Ship{j}"][1][i])
+            circles[j].set_ydata(data[f"Ship{j}"][0][i])
             lines[j].set_data(
-                [data[f"Ship{j+1}"][1][i], data[f"Ship{j+1}"][3][i]],
-                [data[f"Ship{j+1}"][0][i], data[f"Ship{j+1}"][2][i]],
+                [data[f"Ship{j}"][1][i], data[f"Ship{j}"][3][i]],
+                [data[f"Ship{j}"][0][i], data[f"Ship{j}"][2][i]],
             )
         artists = circles + lines
         return artists
 
     plt.legend(loc="upper right")
 
-    # ani = animation.FuncAnimation(fig1, update,  frames=len(t) - 1, init_func=init, blit=True, interval)
-    anim = animation.FuncAnimation(fig1, update, init_func=init, frames=len(t) - 1, interval=200 * t[1], blit=True)
+    # ani = animation.FuncAnimation(fig1, update,  frames=len(sim_times) - 1, init_func=init, blit=True, interval)
+    anim = animation.FuncAnimation(
+        fig1, update, init_func=init, frames=len(times) - 1, interval=200 * times[1], blit=True
+    )
 
     if save_animation:
         anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))

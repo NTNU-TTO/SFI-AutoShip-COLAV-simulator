@@ -205,8 +205,6 @@ def check_if_segment_crosses_grounding_hazards(
 
     seabed_down_to_draft = entire_seabed.difference(seabed_below_draft)
 
-    enc.draw_polygon(seabed_down_to_draft, "orange")
-
     intersects_relevant_seabed = wp_line.intersects(seabed_down_to_draft)
 
     intersects_land_or_shore = wp_line.intersects(enc.shore.geometry)

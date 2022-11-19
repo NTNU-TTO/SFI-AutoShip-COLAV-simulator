@@ -115,7 +115,7 @@ ship_list:
                 required: True
                 type: float
                 min: 0.0
-          pass_through:
+          pass_through_cs:
             type: string
             empty: True
             excludes: [pid, flsh]
