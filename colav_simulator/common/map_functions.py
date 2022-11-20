@@ -41,6 +41,18 @@ def get_green_colors(bins: int):
     return plt.get_cmap("Greens")(np.linspace(0.6, 0.5, bins))
 
 
+def create_ship_polygon(length: float, width: float, scale: float) -> np.ndarray:
+    eff_length = length * scale
+    eff_width = width * scale
+
+    x_min, x_max = -eff_width / 2.0, eff_width / 2.0
+    y_min, y_max = -eff_length / 2.0, eff_length / 2.0
+    left_aft, right_aft = (x_min, y_min), (x_max, y_min)
+    left_bow, right_bow = (x_min, y_max), (x_max, y_max)
+    coords = [left_aft, left_bow, (0.0, eff_length / 2.0), right_bow, right_aft]
+    return Polygon(coords)
+
+
 def plot_background(
     fig: plt.Figure, enc: ENC, show: Optional[bool] = True
 ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
@@ -59,13 +71,11 @@ def plot_background(
     colors = []
     # For every layer put in list and assign a color
     if enc.land:
-        land = enc.land
-        layers.append(land)
+        layers.append(enc.land)
         colors.append(get_green_colors(1))
 
     if enc.shore:
-        shore = enc.shore
-        layers.append(shore)
+        layers.append(enc.shore)
         if enc.land:
             del colors[0]
             colors.append(get_green_colors(2))
@@ -89,6 +99,7 @@ def plot_background(
 
     # Plot the contour for every layer and assign color
     for c, layer in enumerate(layers):
+        # ax.add_feature(layer, facecolor=colors_new[c], zorder=layer.z_order)
         for i in range(len(layer.mapping["coordinates"])):
             try:
                 pol = list(layer.mapping["coordinates"][i][0])

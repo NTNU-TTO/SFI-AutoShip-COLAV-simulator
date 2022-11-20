@@ -31,12 +31,12 @@ class Config:
     t_start: float
     dt_sim: float
     t_end: float
-    scenario_files: List[str]
+    scenario_files: list
     save_animation: bool
     show_animation: bool
     show_waypoints: bool
     verbose: bool
-    ais_data_column_format: List[str]
+    ais_data_column_format: list
 
 
 simulator_converter = {
@@ -82,7 +82,6 @@ class Simulator:
         # => run the scenarios and save sim_data and emulated ais_data to file. Toggle animation on/off based on config.
         # => The COLAV evaluator can then load the sim & ais data from file and plot/evaluate the results.
 
-    @yaspin(text="Starting simulator...")
     def run(
         self,
         t_start: Optional[float] = None,
@@ -124,14 +123,20 @@ class Simulator:
 
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
-            self.visualize_scenario(ship_list, sim_data, ais_data, save_results)
+            self.visualize_scenario(
+                ship_list=ship_list,
+                sim_data=sim_data,
+                ais_data=ais_data,
+                times=sim_times,
+                scenario_name=scenario_file,
+                save_results=save_results,
+            )
 
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
 
         return sim_data_list, ais_data_list
 
-    @yaspin(text="Running scenario...")
     def run_scenario(self, ship_list: list, sim_times: np.ndarray):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
@@ -172,10 +177,11 @@ class Simulator:
 
     def visualize_scenario(
         self,
-        ship_list: List[Ship],
+        ship_list: list,
         sim_data: dict,
         ais_data: pd.DataFrame,
         times: np.ndarray,
+        scenario_name: str,
         save_results: bool = False,
     ) -> None:
         """Visualizes the simulation results.
@@ -191,10 +197,15 @@ class Simulator:
         if not self._config.show_animation:
             return
 
-        animation.visualize(enc=self._scenario_generator.enc, data=sim_data, times=times)
+        animation.visualize(
+            enc=self._scenario_generator.enc,
+            ship_list=ship_list,
+            data=sim_data,
+            times=times,
+            save_path=dp.animation_output / (scenario_name + ".gif"),
+        )
 
 
-@yaspin(text="Loading scenario...")
 def load_scenario_definition(loadfile: Path):
     """
     Loads a scenario definition from a json file and processes into a list of poses,
@@ -224,7 +235,6 @@ def load_scenario_definition(loadfile: Path):
     return pose_list, waypoint_list, speed_plan_list
 
 
-@yaspin(text="Saving...")
 def save_scenario(
     pose_list: List[np.ndarray], waypoint_list: List[np.ndarray], speed_plan_list: List[np.ndarray], savefile: Path
 ):

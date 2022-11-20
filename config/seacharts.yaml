@@ -20,4 +20,4 @@ display:
   resolution: 1080
   fullscreen_mode: false
   colorbar_mode: true
-  dark_mode: false
+  dark_mode: true

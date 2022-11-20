@@ -18,6 +18,7 @@ from seacharts.enc import ENC
 
 def visualize(
     enc: ENC,
+    ship_list: list,
     data,
     times: np.ndarray,
     show_waypoints: Optional[bool] = True,
@@ -29,6 +30,7 @@ def visualize(
 
     Args:
         enc (ENC): Electronic Navigational Chart object.
+        ship_list
         data (DataFrame): Pandas DataFrame containing the ship simulation data.
         times (List/np.ndarray): List/array of times to consider.
         show_waypoints (Optional[bool]): _description_. Defaults to True.
@@ -37,13 +39,19 @@ def visualize(
         save_path (Optional[pathlib.Path]): Path to file where the animation is saved. Defaults to None.
     """
 
-    fig1, ax1 = plt.subplots(figsize=(12, 10), facecolor=(0.8, 0.8, 0.8))
-    x_lim, y_lim = mapf.plot_background(fig1, enc, show=True)
+    fig_map, ax_map = plt.subplots(figsize=(12, 10))  # facecolor=(0.8, 0.8, 0.8))
+    ax_map.margins(x=0.0, y=0.0)
+
+    mapf.plot_background(fig_map, enc, show=True)
 
     # make the position(circle) and speed(line) visualizing
     circles = []
     lines = []
-    for i in range(len(data)):
+
+    n_ships = len(data.columns)
+
+    # data: n_ships x 1 dataframe, where each ship entry contains n_samples x 1 dictionaries of pose, waypoints, speed plans etc..
+    for i in range(n_ships):
         if i == 0:
             c = "b"
             circles.append(plt.plot([], [], c + "o", label="Own ship")[0])
@@ -57,40 +65,55 @@ def visualize(
             circles.append(plt.plot([], [], "ko")[0])
             lines.append(plt.plot([], [], "k-")[0])
         if show_waypoints:
-            waypoints = data[f"Ship{i}"][4]
-            for w in range(len(waypoints) - 1):
-                ax1.scatter(waypoints[w][1], waypoints[w][0], color=c, s=15, alpha=0.3)
-                ax1.plot(
-                    [waypoints[w][1], waypoints[w + 1][1]], [waypoints[w][0], waypoints[w + 1][0]], "--" + c, alpha=0.4
-                )
+            waypoints = data[f"Ship{i}"][0]["waypoints"]
+            _, n_wps = waypoints.shape
+            for w in range(n_wps):
+                ax_map.scatter(waypoints[1, w], waypoints[0, w], color=c, s=15, alpha=0.3)
+
+                if w < n_wps - 1:
+                    ax_map.plot(
+                        [waypoints[1, w], waypoints[1, w + 1]],
+                        [waypoints[0, w], waypoints[0, w + 1]],
+                        "--" + c,
+                        alpha=0.4,
+                    )
 
     artists = circles + lines
 
     def init():
-        ax1.set_xlim(x_lim[0], x_lim[1])
-        ax1.set_ylim(y_lim[0], y_lim[1])
+        # ax_map.set_xlim(x_lim[0], x_lim[1])
+        # ax_map.set_ylim(y_lim[0], y_lim[1])
         return artists
 
     def update(i):
-        for j in range(len(data)):
-            circles[j].set_xdata(data[f"Ship{j}"][1][i])
-            circles[j].set_ydata(data[f"Ship{j}"][0][i])
+        for j in range(n_ships):
+            x_i = data[f"Ship{j}"][i]["pose"][0]
+            y_i = data[f"Ship{j}"][i]["pose"][1]
+            U_i = data[f"Ship{j}"][i]["pose"][2]
+            chi_i = data[f"Ship{j}"][i]["pose"][3]
+
+            circles[j].set_xdata(y_i)
+            circles[j].set_ydata(x_i)
+
+            # create heading arrow
+            x_i_ = x_i + 0.1 * U_i * np.cos(chi_i)
+            y_i_ = y_i + 0.1 * U_i * np.sin(chi_i)
             lines[j].set_data(
-                [data[f"Ship{j}"][1][i], data[f"Ship{j}"][3][i]],
-                [data[f"Ship{j}"][0][i], data[f"Ship{j}"][2][i]],
+                [y_i, y_i_],
+                [x_i, x_i_],
             )
+
         artists = circles + lines
         return artists
 
     plt.legend(loc="upper right")
 
-    # ani = animation.FuncAnimation(fig1, update,  frames=len(sim_times) - 1, init_func=init, blit=True, interval)
     anim = animation.FuncAnimation(
-        fig1, update, init_func=init, frames=len(times) - 1, interval=200 * times[1], blit=True
+        fig_map, func=update, init_func=init, frames=len(times) - 1, repeat=False, interval=200, blit=True
     )
-
-    if save_animation:
-        anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
 
     if show_animation:
         plt.show()
+
+    if save_animation:
+        anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))

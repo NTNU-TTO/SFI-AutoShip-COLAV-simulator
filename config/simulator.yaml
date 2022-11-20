@@ -1,6 +1,6 @@
 t_start: 0.0
-dt_sim: 0.1
-t_end: 100.0
+dt_sim: 1.0
+t_end: 200.0
 scenario_files: ["new_scenario"]
 save_animation: True
 show_animation: True
