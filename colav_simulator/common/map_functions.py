@@ -13,6 +13,7 @@ from typing import Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 from seacharts.enc import ENC
+from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon
 
 
@@ -41,16 +42,32 @@ def get_green_colors(bins: int):
     return plt.get_cmap("Greens")(np.linspace(0.6, 0.5, bins))
 
 
-def create_ship_polygon(length: float, width: float, scale: float) -> np.ndarray:
+def create_ship_polygon(
+    x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0
+) -> np.ndarray:
+    """Creates
+
+    Args:
+        x (float): The ship`s north position
+        y (float): The ship`s east position
+        heading (float): _description_
+        length (float): _description_
+        width (float): _description_
+        scale (float, optional): _description_. Defaults to 1.0.
+
+    Returns:
+        np.ndarray: _description_
+    """
     eff_length = length * scale
     eff_width = width * scale
 
-    x_min, x_max = -eff_width / 2.0, eff_width / 2.0
-    y_min, y_max = -eff_length / 2.0, eff_length / 2.0
-    left_aft, right_aft = (x_min, y_min), (x_max, y_min)
-    left_bow, right_bow = (x_min, y_max), (x_max, y_max)
-    coords = [left_aft, left_bow, (0.0, eff_length / 2.0), right_bow, right_aft]
-    return Polygon(coords)
+    x_min, x_max = x - eff_length / 2.0, x + eff_length / 2.0 - eff_width
+    y_min, y_max = y - eff_width / 2.0, y + eff_width / 2.0
+    left_aft, right_aft = (y_min, x_min), (y_max, x_min)
+    left_bow, right_bow = (y_min, x_max), (y_max, x_max)
+    coords = [left_aft, left_bow, (y, x + eff_length / 2.0), right_bow, right_aft]
+    poly = Polygon(coords)
+    return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
 def plot_background(

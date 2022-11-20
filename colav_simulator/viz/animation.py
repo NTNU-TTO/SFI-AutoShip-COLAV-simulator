@@ -45,7 +45,7 @@ def visualize(
     mapf.plot_background(fig_map, enc, show=True)
 
     # make the position(circle) and speed(line) visualizing
-    circles = []
+    vessels = []
     lines = []
 
     n_ships = len(data.columns)
@@ -54,22 +54,22 @@ def visualize(
     for i in range(n_ships):
         if i == 0:
             c = "b"
-            circles.append(plt.plot([], [], c + "o", label="Own ship")[0])
+            vessels.append(plt.fill([], [], c, label="Own ship")[0])
             lines.append(plt.plot([], [], c + "-")[0])
         elif i == 1:
             c = "r"
-            circles.append(plt.plot([], [], c + "o", label="Target ship")[0])
+            vessels.append(plt.fill([], [], c, label="Target ship")[0])
             lines.append(plt.plot([], [], c + "-")[0])
         else:
             c = "k"
-            circles.append(plt.plot([], [], "ko")[0])
+            vessels.append(plt.fill([], [], "ko")[0])
             lines.append(plt.plot([], [], "k-")[0])
         if show_waypoints:
+            c = "m"
             waypoints = data[f"Ship{i}"][0]["waypoints"]
             _, n_wps = waypoints.shape
             for w in range(n_wps):
                 ax_map.scatter(waypoints[1, w], waypoints[0, w], color=c, s=15, alpha=0.3)
-
                 if w < n_wps - 1:
                     ax_map.plot(
                         [waypoints[1, w], waypoints[1, w + 1]],
@@ -78,7 +78,7 @@ def visualize(
                         alpha=0.4,
                     )
 
-    artists = circles + lines
+    artists = vessels  # + trajectories
 
     def init():
         # ax_map.set_xlim(x_lim[0], x_lim[1])
@@ -91,25 +91,22 @@ def visualize(
             y_i = data[f"Ship{j}"][i]["pose"][1]
             U_i = data[f"Ship{j}"][i]["pose"][2]
             chi_i = data[f"Ship{j}"][i]["pose"][3]
+            length = ship_list[j].length
+            width = ship_list[j].width
 
-            circles[j].set_xdata(y_i)
-            circles[j].set_ydata(x_i)
+            ship_poly = mapf.create_ship_polygon(x_i, y_i, chi_i, length, width, 1.0)
+            y_ship, x_ship = ship_poly.exterior.xy
 
-            # create heading arrow
-            x_i_ = x_i + 0.1 * U_i * np.cos(chi_i)
-            y_i_ = y_i + 0.1 * U_i * np.sin(chi_i)
-            lines[j].set_data(
-                [y_i, y_i_],
-                [x_i, x_i_],
-            )
+            # vessels[j].set_xy()
+            vessels[j].set_xy(np.array([y_ship, x_ship]).T)
 
-        artists = circles + lines
+        artists = vessels
         return artists
 
     plt.legend(loc="upper right")
 
     anim = animation.FuncAnimation(
-        fig_map, func=update, init_func=init, frames=len(times) - 1, repeat=False, interval=200, blit=True
+        fig_map, func=update, init_func=init, frames=len(times) - 1, repeat=False, interval=1000, blit=True
     )
 
     if show_animation:
