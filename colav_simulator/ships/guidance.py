@@ -34,7 +34,7 @@ class LOSGuidancePars:
     R_a: float = 10.0
     K_p: float = 1.0 / 40.0
     K_i: float = 0.0
-    e_int_max: float = 50.0
+    e_int_max: float = 100.0
 
 
 @dataclass

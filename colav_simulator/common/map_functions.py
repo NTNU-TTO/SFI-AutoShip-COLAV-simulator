@@ -70,20 +70,17 @@ def create_ship_polygon(
     return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
-def plot_background(
-    fig: plt.Figure, enc: ENC, show: Optional[bool] = True
-) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+def plot_background(ax: plt.Axes, enc: ENC) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     """Creates a static background based on the input seacharts
 
     Args:
-        fig (plt.Figure): Matplotlib figure handle.
+        ax (plt.Axes): Matplotlib axes handle.
         enc (ENC): Electronic Navigational Chart object
         show = Option for visualization
 
     Returns:
         Tuple[]: Tuple of limits in x and y for the background extent
     """
-    ax = fig.gca()
     layers = []
     colors = []
     # For every layer put in list and assign a color
@@ -126,15 +123,12 @@ def plot_background(
             except Exception as exc:
                 raise RuntimeError(f"Error plotting polygon {i} in {layer}") from exc
 
-    if show is None:
-        fig.close()
-
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()
     return x_lim, y_lim
 
 
-def randomize_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
+def generate_random_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
     """Randomly chooses a valid sea depth (seabed) depending on a ship's draft.
 
     Args:
@@ -152,7 +146,9 @@ def randomize_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
     return feasible_depth_vals[index]
 
 
-def randomize_start_position_from_draft(enc: ENC, draft: float, land_clearance: float = 0.0) -> Tuple[float, float]:
+def generate_random_start_position_from_draft(
+    enc: ENC, draft: float, land_clearance: float = 0.0
+) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
@@ -165,7 +161,7 @@ def randomize_start_position_from_draft(enc: ENC, draft: float, land_clearance: 
     Returns:
         Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
     """
-    depth = randomize_seabed_depth_from_draft(enc, draft)
+    depth = generate_random_seabed_depth_from_draft(enc, draft)
     safe_sea = enc.seabed[depth]
     ss_bounds = safe_sea.geometry.bounds
 

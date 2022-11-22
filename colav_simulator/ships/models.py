@@ -212,6 +212,12 @@ class Telemetron(IModel):
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rpsi(eta[2]) @ nu
         ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
+
+        if np.abs(nu[0]) < 0.1:
+            ode_fun[2] = 0.0
+
+        if nu[0] < 0.05:
+            print(f"psi = {eta[2]}, ddt_psi = {ode_fun[2]}")
         return ode_fun
 
     @property

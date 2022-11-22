@@ -1,11 +1,26 @@
 type: 1
 n_ships: 1
-min_dist_between_ships: 100.0
+min_dist_between_ships: 500.0
+max_dist_between_ships: 1000.0
 ship_list:
   - guidance:
       los:
+        pass_angle_threshold: 80.0
+        R_a: 15.0
+        K_p: 0.024
+        K_i: 0.0
+        e_int_max: 101.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 6.1
+        K_d_psi: 12.1
+    model:
+      telemetron: ''
+  - guidance:
+      los:
         pass_angle_threshold: 90.0
-        R_a: 20.0
+        R_a: 15.0
         K_p: 0.025
         K_i: 0.0
         e_int_max: 100.0
@@ -21,20 +36,6 @@ ship_list:
         r_max: 0.15
         U_min: 0.0
         U_max: 15.0
-  - guidance:
-      los:
-        pass_angle_threshold: 80.0
-        R_a: 16.0
-        K_p: 0.02
-        K_i: 0.0
-        e_int_max: 120.0
-    controller:
-      flsh:
-        K_p_u: 5.1
-        K_p_psi: 8.1
-        K_d_psi: 10.1
-    model:
-      telemetron: ''
   - guidance:
       ktp:
         epsilon: 0.000001

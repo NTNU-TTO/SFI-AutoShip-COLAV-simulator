@@ -6,7 +6,7 @@ from os import walk
 from colav_simulator.common.config import read_config, read_scenario_gen_config
 from colav_simulator.common.file_utils import move_xlsx_files
 from colav_simulator.simulator import Simulator
-from colav_simulator.viz.animation import visualize
+from colav_simulator.viz.visualizer import visualize
 from scenario_simulator import init_scenario, run_scenario_simulation
 
 # from colav_evaluation_tool.EvalTool import EvalTool

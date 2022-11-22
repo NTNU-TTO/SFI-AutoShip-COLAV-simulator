@@ -14,11 +14,10 @@ from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.paths as dp  # default paths
-import colav_simulator.viz.animation as animation
 import numpy as np
 import pandas as pd
 from colav_simulator.scenario_generator import ScenarioGenerator
-from colav_simulator.ships.ship import Ship
+from colav_simulator.viz.visualizer import Visualizer
 from yaspin import yaspin
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
@@ -39,26 +38,12 @@ class Config:
     ais_data_column_format: list
 
 
-simulator_converter = {
-    float: float,
-    float: float,
-    float: float,
-    list: list,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    bool: bool,
-    list: list,
-}
-
-
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
     _config: Config
     _scenario_generator: ScenarioGenerator
+    _visualizer: Visualizer
 
     def __init__(self, config_file: Path = dp.simulator_config, **kwargs) -> None:
         """Initializes the simulator.
@@ -72,9 +57,11 @@ class Simulator:
 
         """
 
-        self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, simulator_converter, **kwargs)
+        self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, **kwargs)
 
         self._scenario_generator = ScenarioGenerator()
+
+        self._visualizer = Visualizer(enc=self._scenario_generator.enc)
 
         # override
 
@@ -123,13 +110,11 @@ class Simulator:
 
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
-            self.visualize_scenario(
+            self._visualizer.visualize(
                 ship_list=ship_list,
-                sim_data=sim_data,
-                ais_data=ais_data,
+                data=sim_data,
                 times=sim_times,
-                scenario_name=scenario_file,
-                save_results=save_results,
+                save_path=dp.animation_output / (scenario_file + ".gif"),
             )
 
             sim_data_list.append(sim_data)
@@ -174,36 +159,6 @@ class Simulator:
             sim_data.append(sim_data_dict)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
-
-    def visualize_scenario(
-        self,
-        ship_list: list,
-        sim_data: dict,
-        ais_data: pd.DataFrame,
-        times: np.ndarray,
-        scenario_name: str,
-        save_results: bool = False,
-    ) -> None:
-        """Visualizes the simulation results.
-
-        Args:
-            ship_list (List[Ship]): List of ships in the scenario.
-            sim_data (dict): Dictionary containing the simulation data.
-            ais_data (Dataframe): Dataframe/table containing the AIS data broadcasted from all ships.
-
-        Returns:
-
-        """
-        if not self._config.show_animation:
-            return
-
-        animation.visualize(
-            enc=self._scenario_generator.enc,
-            ship_list=ship_list,
-            data=sim_data,
-            times=times,
-            save_path=dp.animation_output / (scenario_name + ".gif"),
-        )
 
 
 def load_scenario_definition(loadfile: Path):

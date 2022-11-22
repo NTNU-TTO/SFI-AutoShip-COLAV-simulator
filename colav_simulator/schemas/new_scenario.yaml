@@ -7,6 +7,9 @@ n_ships:
 min_dist_between_ships:
   required: True
   type: float
+max_dist_between_ships:
+  required: True
+  type: float
 ship_list:
   required: True
   type: list

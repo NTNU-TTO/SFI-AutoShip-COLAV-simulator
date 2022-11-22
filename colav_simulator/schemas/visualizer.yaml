@@ -1,0 +1,36 @@
+save_animation:
+  required: True
+  type: boolean
+show_animation:
+  required: True
+  type: boolean
+show_waypoints:
+  required: True
+  type: boolean
+frame_delay:
+  required: True
+  type: float
+figsize:
+  required: True
+  type: list
+  minlength: 2
+  maxlength: 2
+  schema:
+    type: integer
+linewidth:
+  required: True
+  type: float
+margins:
+  required: True
+  type: list
+  minlength: 2
+  maxlength: 2
+  schema:
+    type: float
+
+ship_colors:
+  required: True
+  type: list
+  minlength: 10
+  schema:
+    type: string

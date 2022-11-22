@@ -92,7 +92,7 @@ class ShipBuilder:
         elif config and config.ktp:
             return guidance.KinematicTrajectoryPlanner(config)
         else:
-            return guidance.KinematicTrajectoryPlanner()
+            return guidance.LOSGuidance()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -111,7 +111,7 @@ class ShipBuilder:
         elif config and config.pass_through_cs:
             return controllers.PassThroughCS()
         else:
-            return controllers.MIMOPID()
+            return controllers.FLSH()
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None):
@@ -208,7 +208,12 @@ class Ship(IShip):
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
 
+        psi_prev = self._state[2]
         self._state = self._state + dt * self._model.dynamics(self._state, u)
+        diff = mf.wrap_angle_diff_to_pmpi(self._state[2], psi_prev)
+        if abs(diff) > np.deg2rad(10):
+            print("psi_prev: {psi_prev} | psi_now: {self._state[2]}")
+
         return self._state, u, references
 
     def track_obstacles(self) -> np.ndarray:

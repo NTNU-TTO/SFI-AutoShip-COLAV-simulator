@@ -124,7 +124,6 @@ class ScenarioGenerator:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
         self.enc = ENC(enc_config_file, new_data=False)
-        # self.enc.close_display()
 
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
@@ -181,7 +180,9 @@ class ScenarioGenerator:
         os_pose: np.ndarray,
         U_min: float = 1.0,
         U_max: float = 15.0,
-        land_clearance: float = 100.0,
+        min_dist_between_ships: float = 100.0,
+        max_dist_between_ships: float = 1000.0,
+        min_land_clearance: float = 100.0,
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective/pose of the first ship/own-ship,
         such that the scenario is of the input type.
@@ -191,13 +192,12 @@ class ScenarioGenerator:
             os_pose (np.ndarray): Own-ship pose = [x, y, speed, heading].
             U_min (float, optional): Minimum speed. Defaults to 1.0.
             U_max (float, optional): Maximum speed. Defaults to 15.0.
+            min_dist_between_ships (float, optional): Minimum distance between own-ship and target ship. Defaults to 100.0.
+            min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
 
         Returns:
             Tuple[float, float]: Target ship position = [x, y].
         """
-
-        distance_to_land = mapf.min_distance_to_land(self.enc, os_pose[1], os_pose[0])
-        distance_os_ts = random.uniform(50.0, distance_to_land)
 
         if scenario_type == ScenarioType.HO:
             bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
@@ -238,8 +238,17 @@ class ScenarioGenerator:
         bearing = np.deg2rad(bearing)
         heading = os_pose[3] + np.deg2rad(heading_modifier)
 
-        x = os_pose[0] + distance_os_ts * np.cos(os_pose[3] + bearing)
-        y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
+        is_safe_pose = False
+        while not is_safe_pose:
+            distance_os_ts = random.uniform(min_dist_between_ships, max_dist_between_ships)
+            x = os_pose[0] + distance_os_ts * np.cos(os_pose[3] + bearing)
+            y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
+
+            distance_to_land = mapf.min_distance_to_land(self.enc, y, x)
+
+            if distance_to_land >= min_land_clearance:
+                is_safe_pose = True
+
         return np.array([x, y, speed, heading])
 
     def generate_random_pose(
@@ -249,7 +258,7 @@ class ScenarioGenerator:
         heading: Optional[float] = None,
         land_clearance: float = 100.0,
     ) -> np.ndarray:
-        """Creates a random pose which adheres to the ship's draft and maximum speed.
+        """Creates a random pose which adheres to the ship's draft and maximum speed, and points away from the closest land mass.
 
         Args:
             max_speed (float): Vessel's maximum speed
@@ -259,7 +268,7 @@ class ScenarioGenerator:
         Returns:
             np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
         """
-        x, y = mapf.randomize_start_position_from_draft(self.enc, draft, land_clearance)
+        x, y = mapf.generate_random_start_position_from_draft(self.enc, draft, land_clearance)
 
         speed = random.uniform(0.0, max_speed)
 
@@ -300,9 +309,12 @@ class ScenarioGenerator:
                 )
                 distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
 
-                alpha = np.deg2rad(
-                    random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
-                )
+                if i == 1:
+                    alpha = 0.0
+                else:
+                    alpha = np.deg2rad(
+                        random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
+                    )
 
                 new_wp = np.array(
                     [
@@ -350,6 +362,9 @@ class ScenarioGenerator:
                 self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1]
             )
             speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
+
+            if i == n_wps - 1:
+                speed_plan[i] = 0.0
 
         return speed_plan
 
