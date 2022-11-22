@@ -47,7 +47,7 @@ class ScenarioType(Enum):
 
 
 @dataclass
-class ScenarioConfig:
+class NewScenarioConfig:
     """Configuration class for specifying a new scenario."""
 
     type: ScenarioType
@@ -57,7 +57,7 @@ class ScenarioConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = ScenarioConfig(
+        config = NewScenarioConfig(
             type=ScenarioType(config_dict["type"]),
             n_ships=config_dict["n_ships"],
             min_dist_between_ships=config_dict["min_dist_between_ships"],
@@ -141,7 +141,7 @@ class ScenarioGenerator:
             list: List of ships in the scenario with initialized poses and plans.
         """
 
-        config = config_parsing.extract(ScenarioConfig, scenario_config_file, dp.new_scenario_schema)
+        config = config_parsing.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
 
         n_ships = config.n_ships
         n_cfg_ships = len(config.ship_list)
@@ -258,7 +258,7 @@ class ScenarioGenerator:
         heading: Optional[float] = None,
         land_clearance: float = 100.0,
     ) -> np.ndarray:
-        """Creates a random pose which adheres to the ship's draft and maximum speed, and points away from the closest land mass.
+        """Creates a random pose which adheres to the ship's draft and maximum speed.
 
         Args:
             max_speed (float): Vessel's maximum speed
@@ -309,9 +309,8 @@ class ScenarioGenerator:
                 )
                 distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
 
-                if i == 1:
-                    alpha = 0.0
-                else:
+                alpha = 0.0
+                if i > 1:
                     alpha = np.deg2rad(
                         random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
                     )

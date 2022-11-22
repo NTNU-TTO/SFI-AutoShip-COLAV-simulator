@@ -26,14 +26,15 @@ def test_randomize_start_position():
     """Test randomize start position functionality."""
     enc = ENC(new_data=False)
 
-    x0, y0 = map_functions.randomize_start_position(enc, 4.0)
+    x0, y0 = map_functions.generate_random_start_position_from_draft(enc, 4.0)
     assert enc.seabed[5].geometry.contains(Point(y0, x0))
 
 
 def test_min_distance_to_land():
+    """Test min distance to land functionality."""
     enc = ENC(new_data=False)
 
-    x0, y0 = map_functions.randomize_start_position(enc, 4.0)
+    x0, y0 = map_functions.generate_random_start_position_from_draft(enc, 4.0)
     min_dist = map_functions.min_distance_to_land(enc, y0, x0)
     assert min_dist < 4000.0
 

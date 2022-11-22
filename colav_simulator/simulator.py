@@ -38,6 +38,24 @@ class Config:
     ais_data_column_format: list
 
 
+@dataclass
+class ExistingScenarioConfig:
+    """Configuration class for existing scenarios."""
+
+    ship_list: list
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = ExistingScenarioConfig(
+            ship_list=[],
+        )
+
+        for ship_config in config_dict["ship_list"]:
+            config.ship_list.append(ship.Config.from_dict(ship_config))
+
+        return config
+
+
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
@@ -105,8 +123,7 @@ class Simulator:
             if "new" in scenario_file or "new_scenario" in scenario_file:
                 ship_list = self._scenario_generator.generate()
             else:
-                "pass"
-                # ship_list = load_scenario_definition(Path(scenario_file))
+                ship_list = load_scenario_definition(dp.scenarios / scenario_file)
 
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
@@ -161,10 +178,10 @@ class Simulator:
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
 
 
-def load_scenario_definition(loadfile: Path):
+def load_scenario_definition(scenario_file: Path):
     """
     Loads a scenario definition from a json file and processes into a list of poses,
-    waypoints and speed plans (the definition).
+    waypoints and speed plans (the definition). Uses default ship configurations unless otherwise specified.
 
     Parameters:
         loadfile (pathlib.Path): Absolute path to scenario_file.
@@ -176,11 +193,11 @@ def load_scenario_definition(loadfile: Path):
                     speed_plans[i]: speed_plan for ship i
     """
 
-    with loadfile.open(mode="r") as file:
+    with scenario_file.open(mode="r") as file:
         data = json.load(file)
 
     pose_list = data["poses"]
-    waypoint_list = []  # data['waypoints']
+    waypoint_list = []
     speed_plan_list = data["speed_plans"]
 
     for i in range(len(data["waypoints"])):
