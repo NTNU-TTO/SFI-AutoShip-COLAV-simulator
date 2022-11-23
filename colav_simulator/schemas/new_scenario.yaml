@@ -16,6 +16,11 @@ ship_list:
   schema:
     type: dict
     schema:
+      default:
+        required: False
+        type: string
+        empty: True
+        excludes: [colav, guidance, controller, model]
       pose:
         required: False
         type: list
@@ -36,9 +41,11 @@ ship_list:
       colav:
         required: False
         type: dict
+        excludes: [default]
       guidance:
-        required: True
+        required: False
         type: dict
+        excludes: [default]
         schema:
           los:
             type: dict
@@ -71,8 +78,9 @@ ship_list:
                 type: float
 
       controller:
-        required: True
+        required: False
         type: dict
+        excludes: [default]
         schema:
           pid:
             type: dict
@@ -124,8 +132,9 @@ ship_list:
             excludes: [pid, flsh]
 
       model:
-        required: True
+        required: False
         type: dict
+        excludes: [default]
         schema:
           csog:
             type: dict

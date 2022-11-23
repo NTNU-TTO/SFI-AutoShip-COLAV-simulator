@@ -15,7 +15,7 @@ from typing import Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.controllers as controllers
-import colav_simulator.ships.guidance as guidance
+import colav_simulator.ships.guidances as guidances
 import colav_simulator.ships.models as models
 import numpy as np
 
@@ -26,29 +26,39 @@ class Config:
 
     # colav: colav.Config
     # tracker: tracker.config
-    model: models.Config
-    controller: controllers.Config
-    guidance: guidance.Config
+    model: models.Config = models.Config()
+    controller: controllers.Config = controllers.Config()
+    guidance: guidances.Config = guidances.Config()
     pose: Optional[np.ndarray] = None
     waypoints: Optional[np.ndarray] = None
     speed_plan: Optional[np.ndarray] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config(
-            model=models.Config.from_dict(config_dict["model"]),
-            controller=controllers.Config.from_dict(config_dict["controller"]),
-            guidance=guidance.Config.from_dict(config_dict["guidance"]),
-        )
+
+        config = Config()
 
         if "pose" in config_dict:
             config.pose = np.array(config_dict["pose"])
+            config.pose[3] = np.deg2rad(config.pose[3])
 
         if "waypoints" in config_dict:
             config.waypoints = np.array(config_dict["waypoints"])
 
         if "speed_plan" in config_dict:
             config.speed_plan = np.array(config_dict["speed_plan"])
+
+        if "default" in config_dict:
+            return config
+
+        if "model" in config_dict:
+            config.model = models.Config.from_dict(config_dict["model"])
+
+        if "controller" in config_dict:
+            config.controller = controllers.Config.from_dict(config_dict["controller"])
+
+        if "guidance" in config_dict:
+            config.guidance = guidances.Config.from_dict(config_dict["guidance"])
 
         return config
 
@@ -78,7 +88,7 @@ class ShipBuilder:
         return model, controller, guidance_system
 
     @classmethod
-    def construct_guidance(cls, config: Optional[guidance.Config] = None):
+    def construct_guidance(cls, config: Optional[guidances.Config] = None):
         """Builds a ship guidance method from the configuration
 
         Args:
@@ -88,11 +98,11 @@ class ShipBuilder:
             Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
         """
         if config and config.los:
-            return guidance.LOSGuidance(config)
+            return guidances.LOSGuidance(config)
         elif config and config.ktp:
-            return guidance.KinematicTrajectoryPlanner(config)
+            return guidances.KinematicTrajectoryPlanner(config)
         else:
-            return guidance.LOSGuidance()
+            return guidances.LOSGuidance()
 
     @classmethod
     def construct_controller(cls, config: Optional[controllers.Config] = None):
@@ -111,7 +121,7 @@ class ShipBuilder:
         elif config and config.pass_through_cs:
             return controllers.PassThroughCS()
         else:
-            return controllers.FLSH()
+            return controllers.PassThroughCS()
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None):
@@ -128,7 +138,7 @@ class ShipBuilder:
         elif config and config.telemetron:
             return models.Telemetron()
         else:
-            return models.Telemetron()
+            return models.KinematicCSOGPars()
 
 
 class IShip(ABC):
@@ -175,11 +185,18 @@ class Ship(IShip):
 
         self._model, self._controller, self._guidance = ShipBuilder.construct_ship(config)
 
-        if waypoints is not None and speed_plan is not None:
-            self.set_nominal_plan(waypoints, speed_plan)
+        if config and config.pose is not None:
+            self.set_initial_state(config.pose)
 
+        if config and config.waypoints is not None and config.speed_plan is not None:
+            self.set_nominal_plan(config.waypoints, config.speed_plan)
+
+        # Input pose, waypoints and speed plans take precedence over config specified ones
         if pose is not None:
             self.set_initial_state(pose)
+
+        if waypoints is not None and speed_plan is not None:
+            self.set_nominal_plan(waypoints, speed_plan)
 
         # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
         # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
@@ -211,7 +228,7 @@ class Ship(IShip):
         psi_prev = self._state[2]
         self._state = self._state + dt * self._model.dynamics(self._state, u)
         diff = mf.wrap_angle_diff_to_pmpi(self._state[2], psi_prev)
-        if abs(diff) > np.deg2rad(10):
+        if abs(diff) > np.deg2rad(5):
             print("psi_prev: {psi_prev} | psi_now: {self._state[2]}")
 
         return self._state, u, references

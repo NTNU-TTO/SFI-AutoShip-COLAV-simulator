@@ -3,6 +3,7 @@ n_ships: 1
 min_dist_between_ships: 500.0
 max_dist_between_ships: 1000.0
 ship_list:
+  - default: ''
   - guidance:
       los:
         pass_angle_threshold: 80.0

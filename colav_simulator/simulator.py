@@ -14,13 +14,13 @@ from typing import List, Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.paths as dp  # default paths
+import colav_simulator.ships.ship as ship
 import numpy as np
 import pandas as pd
 from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.viz.visualizer import Visualizer
-from yaspin import yaspin
 
-np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
+np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 
 
 @dataclass
@@ -161,16 +161,16 @@ class Simulator:
             t_prev = t
 
             sim_data_dict = {}
-            for i, ship in enumerate(ship_list):
+            for i, ship_obj in enumerate(ship_list):
                 if dt_sim > 0:
-                    ship.track_obstacles()
+                    ship_obj.track_obstacles()
 
-                    ship.forward(dt_sim)
+                    ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship.get_ship_nav_data(t)
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_nav_data(t)
 
-                if t % 1.0 / ship.ais_msg_freq == 0:
-                    ais_data_row = ship.get_ais_data(int(t))
+                if t % 1.0 / ship_obj.ais_msg_freq == 0:
+                    ais_data_row = ship_obj.get_ais_data(int(t))
                     ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)
@@ -180,31 +180,24 @@ class Simulator:
 
 def load_scenario_definition(scenario_file: Path):
     """
-    Loads a scenario definition from a json file and processes into a list of poses,
-    waypoints and speed plans (the definition). Uses default ship configurations unless otherwise specified.
+    Loads a scenario definition from a yaml file and processes into a list ships with specified poses,
+    waypoints and speed plans (the definition). The ships are configured as specified in the scenario file.
 
     Parameters:
-        loadfile (pathlib.Path): Absolute path to scenario_file.
+        scenario_file (Path): Absolute path to scenario file.
 
     Returns:
-        dict: Dictionary containing the scenario definition, with keys:
-                    poses[i]: pose [x, y, U, psi] for ship i
-                    waypoint_list[i]: waypoints for ship i
-                    speed_plans[i]: speed_plan for ship i
+        list: List of configured ships with specified poses, waypoints and speed plans.
     """
 
-    with scenario_file.open(mode="r") as file:
-        data = json.load(file)
+    ship_list = []
 
-    pose_list = data["poses"]
-    waypoint_list = []
-    speed_plan_list = data["speed_plans"]
+    config = config_parsing.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
 
-    for i in range(len(data["waypoints"])):
-        waypoints = [tuple(row) for row in data["waypoints"][i]]
-        waypoint_list.append(waypoints)
+    for i, ship_config in enumerate(config.ship_list):
+        ship_list.append(ship.Ship(mmsi=i + 1, config=ship_config))
 
-    return pose_list, waypoint_list, speed_plan_list
+    return ship_list
 
 
 def save_scenario(

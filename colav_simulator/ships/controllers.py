@@ -38,7 +38,7 @@ class Config:
 
     pid: Optional[MIMOPIDPars] = None
     flsh: Optional[FLSHPars] = None
-    pass_through_cs: Optional[Any] = None
+    pass_through_cs: Optional[Any] = True
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -49,12 +49,18 @@ class Config:
                 zeta=np.diag(config_dict["pid"]["zeta"]),
                 eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
             )
+            config.flsh = None
+            config.pass_through_cs = None
 
         if "flsh" in config_dict:
             config.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
+            config.pid = None
+            config.pass_through_cs = None
 
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
+            config.pid = None
+            config.flsh = None
 
         return config
 

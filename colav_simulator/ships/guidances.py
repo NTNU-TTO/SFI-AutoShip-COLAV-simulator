@@ -54,7 +54,7 @@ class KTPGuidancePars:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    los: Optional[LOSGuidancePars] = None
+    los: Optional[LOSGuidancePars] = LOSGuidancePars()
     ktp: Optional[KTPGuidancePars] = None
 
     @classmethod
@@ -62,9 +62,11 @@ class Config:
         config = Config()
         if "los" in config_dict:
             config.los = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["los"])
+            config.ktp = None
 
         if "ktp" in config_dict:
             config.ktp = cp.convert_settings_dict_to_dataclass(KTPGuidancePars, config_dict["ktp"])
+            config.los = None
 
         return config
 

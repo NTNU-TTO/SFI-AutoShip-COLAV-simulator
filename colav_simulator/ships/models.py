@@ -60,7 +60,7 @@ class TelemetronPars:
 class Config:
     """Configuration class for managing model parameters."""
 
-    csog: Optional[KinematicCSOGPars] = None
+    csog: Optional[KinematicCSOGPars] = KinematicCSOGPars()
     telemetron: Optional[TelemetronPars] = None
 
     @classmethod
@@ -68,9 +68,11 @@ class Config:
         config = Config()
         if "csog" in config_dict:
             config.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGPars, config_dict["csog"])
+            config.telemetron = None
 
         if "telemetron" in config_dict:
             config.telemetron = TelemetronPars()
+            config.csog = None
 
         return config
 
