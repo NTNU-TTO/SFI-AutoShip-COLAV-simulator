@@ -9,7 +9,7 @@
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -38,7 +38,7 @@ class Config:
 
     pid: Optional[MIMOPIDPars] = None
     flsh: Optional[FLSHPars] = None
-    pass_through_cs: Optional[Any] = True
+    pass_through_cs: Optional[bool] = True
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -88,7 +88,7 @@ class PassThroughCS(IController):
         """Takes out relevant parts of references as inputs directly
 
         Args:
-            refs (np.ndarray): Desired/references
+            refs (np.ndarray): Desired/references = [x, y, psi, u, v, r, ax, ay, rdot]
             xs (np.ndarray): State xs
             dt (float): Time step
             model (IModel): Model object to fetch parameters from, optional in many cases.
