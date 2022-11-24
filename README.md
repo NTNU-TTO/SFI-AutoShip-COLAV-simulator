@@ -23,6 +23,13 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 - yaspin
 
+## Git Workflow
+
+All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.
+
+If you're unfamiliar with git, check out <https://try.github.io/> to get familiar, and use <https://learngitbranching.js.org/> for trying out topics on your own.
+
+
 ## Main modules
 
 Each main module have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code.
@@ -75,13 +82,3 @@ Main Functions: </p>
 - `track_obstacles()`: (TODO): Implement function for tracking nearby vessels
 - `get_ais_data(t)`: Returns an AIS message for the ship information at the given UTC timestamp.
 - `get_ship_nav_data(t)`: Returns relevant simulation data for the ship at the given UTC timestamp. This includes its pose, waypoints, speed plan etc.
-
-
-
-## Git Workflow
-
-Everyone are encouraged to contribute to the software in this repository, to provide new features or fix existing issues.
-
-All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.
-
-If you're unfamiliar with git, check out <https://try.github.io/> to get familiar, and use <https://learngitbranching.js.org/> for trying out topics on your own.
