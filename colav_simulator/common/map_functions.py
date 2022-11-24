@@ -42,9 +42,7 @@ def get_green_colors(bins: int):
     return plt.get_cmap("Greens")(np.linspace(0.6, 0.5, bins))
 
 
-def create_ship_polygon(
-    x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0
-) -> np.ndarray:
+def create_ship_polygon(x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0) -> Polygon:
     """Creates
 
     Args:
@@ -115,13 +113,11 @@ def plot_background(ax: plt.Axes, enc: ENC) -> Tuple[Tuple[float, float], Tuple[
     for c, layer in enumerate(layers):
         # ax.add_feature(layer, facecolor=colors_new[c], zorder=layer.z_order)
         for i in range(len(layer.mapping["coordinates"])):
-            try:
-                pol = list(layer.mapping["coordinates"][i][0])
+            pol = list(layer.mapping["coordinates"][i][0])
+            if len(pol) >= 3:
                 poly = Polygon(pol)
                 x, y = poly.exterior.xy
                 ax.fill(x, y, c=colors_new[c], zorder=layer.z_order)
-            except Exception as exc:
-                raise RuntimeError(f"Error plotting polygon {i} in {layer}") from exc
 
     x_lim = ax.get_xlim()
     y_lim = ax.get_ylim()

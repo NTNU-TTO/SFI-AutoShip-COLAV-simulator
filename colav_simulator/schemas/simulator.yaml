@@ -21,10 +21,7 @@ scenario_files:
 save_animation:
   required: True
   type: boolean
-show_animation:
-  required: True
-  type: boolean
-show_waypoints:
+visualize:
   required: True
   type: boolean
 verbose:

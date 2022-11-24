@@ -8,7 +8,7 @@
 """
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
@@ -66,32 +66,131 @@ class Visualizer:
     _config: Config
     fig: plt.figure
     axes: list
-    artists: list
+    background: Any
+    ship_plt_handles: list
 
     def __init__(self, enc: ENC, config_file: Path = dp.visualizer_config) -> None:
         self._config = cp.extract(Config, config_file, dp.visualizer_schema)
 
-        self.fig, self.axes = self._init_figure(enc)
+        self._init_figure(enc)
         self.artists = []
 
-    def _init_figure(self, enc: ENC) -> Tuple[plt.Figure, list]:
+    def _init_figure(self, enc: ENC) -> None:
         plt.close()
 
-        fig, ax_map = plt.subplots(figsize=self._config.figsize)
+        self.fig, ax_map = plt.subplots(figsize=self._config.figsize)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
         ax_map.set_autoscale_on(True)
+        ax_map.set_xlabel("East [m]")
+        ax_map.set_ylabel("North [m]")
 
         mapf.plot_background(ax_map, enc)
 
-        axes = [ax_map]
+        self.ship_plt_handles = []
+        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
+
+        self.axes = [ax_map]
+
         # TODO: Add more axes for plotting vessel speed, heading, vessel-vessel distances etc..
 
-        return fig, axes
+    def clear_ship_handles(self) -> None:
+        for ship_i_handle in self.ship_plt_handles:
+            if "patch" in ship_i_handle:
+                ship_i_handle["patch"].remove()
 
-    def _clear_artists(self) -> None:
-        for artist in self.artists:
-            artist.remove()
-            del artist
+            if "trajectory" in ship_i_handle:
+                ship_i_handle["trajectory"].remove()
+
+            if "predicted_trajectory" in ship_i_handle:
+                ship_i_handle["predicted_trajectory"].remove()
+
+            if "waypoints" in ship_i_handle:
+                ship_i_handle["waypoints"].remove()
+
+        self.ship_plt_handles = []
+
+    def init_live_plot(self, ship_list: list) -> None:
+        """Initializes the plot handles of the live plot for a simulation
+        given by the ship list.
+
+        Args:
+            ship_list (list): List of configured ships in the simulation.
+        """
+        ax_map = self.axes[0]
+
+        self.clear_ship_handles()
+
+        self.fig.canvas.restore_region(self.background)
+
+        for i, ship in enumerate(ship_list):
+
+            c = self._config.ship_colors[i]
+            lw = self._config.linewidth
+
+            ship_i_handles = {}
+
+            if i == 0:
+                ship_name = "OS"
+            else:
+                ship_name = "DO " + str(i + 1)
+
+            ship_i_handles["patch"] = ax_map.fill([], [], color=c, linewidth=lw, label=ship_name)[0]
+
+            ship_i_handles["trajectory"] = ax_map.plot([], [], color=c, linewidth=lw, label=ship_name + " traj.")[0]
+
+            ship_i_handles["predicted_trajectory"] = ax_map.plot(
+                [], [], color=c, linewidth=lw, marker="*", linestyle="-", label=ship_name + " pred. traj."
+            )[0]
+
+            ship_i_handles["waypoints"] = ax_map.plot(
+                ship.waypoints[1, :],
+                ship.waypoints[0, :],
+                color=c,
+                marker="o",
+                markersize=13,
+                linestyle="--",
+                linewidth=lw,
+                alpha=0.3,
+                label=ship_name + " waypoints",
+            )[0]
+
+            self.ship_plt_handles.append(ship_i_handles)
+
+    def update_live_plot(self, ship_list: list) -> None:
+        """Updates the live plot with the current data of the ships in the simulation.
+
+        Args:
+            ship_list (list): List of configured ships in the simulation.
+        """
+
+        for i, ship in enumerate(ship_list):
+            pose_i = ship.pose
+
+            # Update ship patch
+            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 2.0)
+            y_ship, x_ship = ship_poly.exterior.xy
+            self.ship_plt_handles[i]["patch"].set_xy(np.array([y_ship, x_ship]).T)
+
+            self.axes[0].draw_artist(self.ship_plt_handles[i]["patch"])
+
+            # Update ship trajectory
+            self.ship_plt_handles[i]["trajectory"].set_xdata(
+                [*self.ship_plt_handles[i]["trajectory"].get_xdata(), pose_i[1]]
+            )
+            self.ship_plt_handles[i]["trajectory"].set_ydata(
+                [*self.ship_plt_handles[i]["trajectory"].get_ydata(), pose_i[0]]
+            )
+            self.axes[0].draw_artist(self.ship_plt_handles[i]["trajectory"])
+
+            self.ship_plt_handles[i]["waypoints"].set_xdata(ship.waypoints[1, :])
+            self.ship_plt_handles[i]["waypoints"].set_ydata(ship.waypoints[0, :])
+            self.axes[0].draw_artist(self.ship_plt_handles[i]["waypoints"])
+
+            # TODO: Update predicted ship trajectory
+
+        self.fig.canvas.blit(self.axes[0].bbox)
+
+        plt.pause(self._config.frame_delay / 1000)
 
     def visualize(
         self,
@@ -188,7 +287,18 @@ class Visualizer:
         )
 
         if self._config.show_animation:
-            plt.show()
+            self.wait_fig()
 
         if self._config.save_animation:
             anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
+
+    def wait_fig(self) -> None:
+        # Block the execution of the code until the figure is closed.
+        # This works even with multiprocessing.
+        if plt.isinteractive():
+            plt.ioff()  # this is necessary in mutliprocessing
+            plt.show(block=True)
+            plt.ion()  # restitute the interractive state
+        else:
+            plt.show(block=True)
+        return

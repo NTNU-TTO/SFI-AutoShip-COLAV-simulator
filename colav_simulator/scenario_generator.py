@@ -123,7 +123,7 @@ class ScenarioGenerator:
             **kwargs: Keyword arguments for the ScenarioManager, can be any of the following:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-        self.enc = ENC(enc_config_file, new_data=False)
+        self.enc = ENC(enc_config_file)
 
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
@@ -140,7 +140,7 @@ class ScenarioGenerator:
         Returns:
             list: List of ships in the scenario with initialized poses and plans.
         """
-
+        print("Generating new scenario...")
         config = config_parsing.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
 
         n_ships = config.n_ships

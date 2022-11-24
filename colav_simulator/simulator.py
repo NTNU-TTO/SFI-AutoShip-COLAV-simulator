@@ -32,8 +32,7 @@ class Config:
     t_end: float
     scenario_files: list
     save_animation: bool
-    show_animation: bool
-    show_waypoints: bool
+    visualize: bool
     verbose: bool
     ais_data_column_format: list
 
@@ -105,6 +104,7 @@ class Simulator:
         Returns:
             Tuple[list, list]: Lists of simulation data and AIS data for each scenario.
         """
+        print("Running simulator...")
 
         if t_start is None:
             t_start = self._config.t_start
@@ -119,20 +119,21 @@ class Simulator:
         ais_data_list = []
 
         sim_times = np.arange(t_start, t_end, dt_sim)
-        for scenario_file in self._config.scenario_files:
+        for i, scenario_file in enumerate(self._config.scenario_files):
             if "new" in scenario_file or "new_scenario" in scenario_file:
                 ship_list = self._scenario_generator.generate()
             else:
                 ship_list = load_scenario_definition(dp.scenarios / scenario_file)
 
+            print(f"Running scenario nr {i}: {scenario_file}...")
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
-            self._visualizer.visualize(
-                ship_list=ship_list,
-                data=sim_data,
-                times=sim_times,
-                save_path=dp.animation_output / (scenario_file + ".gif"),
-            )
+            # self._visualizer.visualize(
+            #     ship_list=ship_list,
+            #     data=sim_data,
+            #     times=sim_times,
+            #     save_path=dp.animation_output / (scenario_file + ".gif"),
+            # )
 
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
@@ -152,6 +153,10 @@ class Simulator:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
             ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
         """
+        print("")
+        if self._config.visualize:
+            self._visualizer.init_live_plot(ship_list)
+
         sim_data = []
         ais_data = []
         t0 = sim_times[0]
@@ -160,8 +165,12 @@ class Simulator:
             dt_sim = t - t_prev
             t_prev = t
 
+            if self._config.visualize:
+                self._visualizer.update_live_plot(ship_list)
+
             sim_data_dict = {}
             for i, ship_obj in enumerate(ship_list):
+
                 if dt_sim > 0:
                     ship_obj.track_obstacles()
 
@@ -189,7 +198,7 @@ def load_scenario_definition(scenario_file: Path):
     Returns:
         list: List of configured ships with specified poses, waypoints and speed plans.
     """
-
+    print("Loading existing scenario definition...")
     ship_list = []
 
     config = config_parsing.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)

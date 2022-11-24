@@ -1,9 +1,8 @@
 t_start: 0.0
-dt_sim: 0.2
-t_end: 200.0
+dt_sim: 0.5
+t_end: 100.0
 scenario_files: ["new_scenario", "head_on.yaml"]
 save_animation: True
-show_animation: True
-show_waypoints: True
+visualize: True
 verbose: True
 ais_data_column_format: ["mmsi", "lon", "lat", "datetime_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]

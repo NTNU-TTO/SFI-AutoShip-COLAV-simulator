@@ -3,7 +3,7 @@ save_animation: False
 show_animation: True
 show_waypoints: True
 
-frame_delay: 100 # in milliseconds
+frame_delay: 10 # in milliseconds
 
 figsize: [14, 10]
 linewidth: 2.1
