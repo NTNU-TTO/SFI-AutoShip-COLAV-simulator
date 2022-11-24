@@ -1,7 +1,7 @@
 import colav_simulator.common.math_functions as mf
 import colav_simulator.ships.ship as ship
 import numpy as np
-from colav_simulator.scenario_generator import ScenarioGenerator
+from colav_simulator.scenario_management import ScenarioGenerator
 from matplotlib import pyplot as plt
 
 legend_size = 10  # legend size

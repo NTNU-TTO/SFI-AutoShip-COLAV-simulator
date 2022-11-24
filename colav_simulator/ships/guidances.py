@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -36,6 +36,9 @@ class LOSGuidancePars:
     K_i: float = 0.0
     e_int_max: float = 100.0
 
+    def to_dict(self):
+        return asdict(self)
+
 
 @dataclass
 class KTPGuidancePars:
@@ -48,6 +51,9 @@ class KTPGuidancePars:
 
     epsilon: float = 0.00001
     dt_seg: float = 0.1
+
+    def to_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -69,6 +75,17 @@ class Config:
             config.los = None
 
         return config
+
+    def to_dict(self) -> dict:
+        config_dict = {}
+
+        if self.los is not None:
+            config_dict["los"] = self.los.to_dict()
+
+        if self.ktp is not None:
+            config_dict["ktp"] = self.ktp.to_dict()
+
+        return config_dict
 
 
 class IGuidance(ABC):

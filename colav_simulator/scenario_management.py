@@ -1,8 +1,10 @@
 """
-    scenario_generator.py
+    scenario_management.py
 
     Summary:
-        Contains a class for generating scenarios for the simulator.
+        Contains functionality for loading existing scenario definitions,
+        and also a ScenarioGenerator class for generating new scenarios. Functionality
+        for saving these new scenarios also exists.
 
     Author: Trym Tengesdal, Joachim Miller, Melih Akdag
 """
@@ -11,7 +13,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.map_functions as mapf
@@ -19,6 +21,7 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.ships.ship as ship
 import numpy as np
+import yaml
 from seacharts.enc import ENC
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
@@ -44,6 +47,24 @@ class ScenarioType(Enum):
     CR_GW = 4
     CR_SO = 5
     RANDOM = 6
+
+
+@dataclass
+class ExistingScenarioConfig:
+    """Configuration class for existing scenarios."""
+
+    ship_list: list
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = ExistingScenarioConfig(
+            ship_list=[],
+        )
+
+        for ship_config in config_dict["ship_list"]:
+            config.ship_list.append(ship.Config.from_dict(ship_config))
+
+        return config
 
 
 @dataclass
@@ -115,12 +136,12 @@ class ScenarioGenerator:
     def __init__(
         self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
     ) -> None:
-        """Constructor for the ScenarioManager.
+        """Constructor for the ScenarioGenerator.
 
         Args:
             enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
             config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
-            **kwargs: Keyword arguments for the ScenarioManager, can be any of the following:
+            **kwargs: Keyword arguments for the ScenarioGenerator, can be any of the following:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
         self.enc = ENC(enc_config_file)
@@ -130,7 +151,7 @@ class ScenarioGenerator:
     def generate(
         self,
         scenario_config_file: Path = dp.new_scenario_config,
-    ) -> list:
+    ) -> Tuple[list, list]:
         """Creates a maritime scenario based on the input config file, with random plans for each ship
         unless specified.
 
@@ -138,7 +159,8 @@ class ScenarioGenerator:
             scenario_config_file (Path): Path to the scenario config file.
 
         Returns:
-            list: List of ships in the scenario with initialized poses and plans.
+            Tuple[list, list]: List of ships in the scenario with initialized poses and plans,
+                and also the corresponding ship configuration objects.
         """
         print("Generating new scenario...")
         config = config_parsing.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
@@ -147,12 +169,15 @@ class ScenarioGenerator:
         n_cfg_ships = len(config.ship_list)
 
         ship_list = []
+        ship_config_list = []
         pose_list = []
         for i in range(n_ships):
             if i < n_cfg_ships:
-                ship_obj = ship.Ship(mmsi=i + 1, config=config.ship_list[i])
+                ship_config = config.ship_list[i]
             else:
-                ship_obj = ship.Ship(mmsi=i + 1)
+                ship_config = ship.Config()
+
+            ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
 
             if i == 0:  # Own-ship
                 pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
@@ -172,7 +197,12 @@ class ScenarioGenerator:
             pose_list.append(pose)
             ship_list.append(ship_obj)
 
-        return ship_list
+            ship_config.pose = pose
+            ship_config.waypoints = waypoints
+            ship_config.speed_plan = speed_plan
+            ship_config_list.append(ship_config)
+
+        return ship_list, ship_config_list
 
     def generate_ts_pose(
         self,
@@ -382,3 +412,43 @@ class ScenarioGenerator:
     @property
     def enc_origin(self) -> np.ndarray:
         return np.array([self.enc.origin[1], self.enc.origin[0]])
+
+
+def load_scenario_definition(scenario_file: Path):
+    """
+    Loads a scenario definition from a yaml file and processes into a list ships with specified poses,
+    waypoints and speed plans (the definition). The ships are configured as specified in the scenario file.
+
+    Parameters:
+        scenario_file (Path): Absolute path to scenario file.
+
+    Returns:
+        list: List of configured ships with specified poses, waypoints and speed plans.
+    """
+    print("Loading existing scenario definition...")
+    ship_list = []
+
+    config = config_parsing.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
+
+    for i, ship_config in enumerate(config.ship_list):
+        ship_list.append(ship.Ship(mmsi=i + 1, config=ship_config))
+
+    return ship_list
+
+
+def save_scenario(ship_config_list: list, save_file: Path) -> None:
+    """Saves the the scenario defined by the list of configured ships, to a json file as a dict at savefile
+
+    Args:
+        ship_config_list (list): List of ship configurations.
+        save_file (Path): Absolute path to save the scenario definition to.
+    """
+
+    scenario_data_dict: dict = {}
+    scenario_data_dict["ship_list"] = []
+    for ship_config in ship_config_list:
+        ship_data_dict = ship_config.to_dict()
+        scenario_data_dict["ship_list"].append(ship_data_dict)
+
+    with save_file.open(mode="w") as file:
+        yaml.dump(scenario_data_dict, file)

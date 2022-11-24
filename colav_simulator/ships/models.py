@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
@@ -31,9 +31,12 @@ class KinematicCSOGPars:
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
-    r_max: float = np.deg2rad(4)
+    r_max: float = float(np.deg2rad(4))
     U_min: float = 0.0
     U_max: float = 15.0
+
+    def to_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -51,7 +54,7 @@ class TelemetronPars:
     D_l: np.ndarray = np.diag([50.0, 200.0, 1281.0])  # First order/linear damping
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
-    r_max: float = np.deg2rad(15)
+    r_max: float = float(np.deg2rad(15))
     U_min: float = 2.0
     U_max: float = 18.0
 
@@ -75,6 +78,17 @@ class Config:
             config.csog = None
 
         return config
+
+    def to_dict(self) -> dict:
+        config_dict = {}
+
+        if self.csog is not None:
+            config_dict["csog"] = self.csog.to_dict()
+
+        if self.telemetron is not None:
+            config_dict["telemetron"] = ""
+
+        return config_dict
 
 
 class IModel(ABC):

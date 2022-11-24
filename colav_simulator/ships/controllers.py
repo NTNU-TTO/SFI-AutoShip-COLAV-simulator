@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -23,6 +23,12 @@ class MIMOPIDPars:
     zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
     eta_diff_max: np.ndarray = np.zeros(3)
 
+    def to_dict(self):
+        output_dict = {}
+        output_dict["wn"] = self.wn.diagonal().tolist()
+        output_dict["zeta"] = self.zeta.diagonal().tolist()
+        output_dict["eta_diff_max"] = self.eta_diff_max.tolist()
+
 
 @dataclass
 class FLSHPars:
@@ -30,6 +36,9 @@ class FLSHPars:
     K_p_u: float = 5.0
     K_p_psi: float = 6.0
     K_d_psi: float = 12.0
+
+    def to_dict(self):
+        return asdict(self)
 
 
 @dataclass
@@ -63,6 +72,19 @@ class Config:
             config.flsh = None
 
         return config
+
+    def to_dict(self) -> dict:
+        config_dict = {}
+        if self.pid is not None:
+            config_dict["pid"] = self.pid.to_dict()
+
+        if self.flsh is not None:
+            config_dict["flsh"] = self.flsh.to_dict()
+
+        if self.pass_through_cs is not None:
+            config_dict["pass_through_cs"] = ""
+
+        return config_dict
 
 
 class IController(ABC):

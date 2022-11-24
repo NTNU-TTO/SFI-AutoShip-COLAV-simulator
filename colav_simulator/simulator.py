@@ -7,17 +7,15 @@
 
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
-import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.paths as dp  # default paths
-import colav_simulator.ships.ship as ship
+import colav_simulator.scenario_management as sm
 import numpy as np
 import pandas as pd
-from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.viz.visualizer import Visualizer
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
@@ -32,34 +30,17 @@ class Config:
     t_end: float
     scenario_files: list
     save_animation: bool
+    save_new_scenarios: bool
     visualize: bool
     verbose: bool
     ais_data_column_format: list
-
-
-@dataclass
-class ExistingScenarioConfig:
-    """Configuration class for existing scenarios."""
-
-    ship_list: list
-
-    @classmethod
-    def from_dict(cls, config_dict: dict):
-        config = ExistingScenarioConfig(
-            ship_list=[],
-        )
-
-        for ship_config in config_dict["ship_list"]:
-            config.ship_list.append(ship.Config.from_dict(ship_config))
-
-        return config
 
 
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
     _config: Config
-    _scenario_generator: ScenarioGenerator
+    _scenario_generator: sm.ScenarioGenerator
     _visualizer: Visualizer
 
     def __init__(self, config_file: Path = dp.simulator_config, **kwargs) -> None:
@@ -76,7 +57,7 @@ class Simulator:
 
         self._config = config_parsing.extract(Config, config_file, dp.simulator_schema, **kwargs)
 
-        self._scenario_generator = ScenarioGenerator()
+        self._scenario_generator = sm.ScenarioGenerator()
 
         self._visualizer = Visualizer(enc=self._scenario_generator.enc)
 
@@ -91,7 +72,8 @@ class Simulator:
         t_start: Optional[float] = None,
         t_end: Optional[float] = None,
         dt_sim: Optional[float] = None,
-        save_results: bool = False,
+        save_results: Optional[bool] = None,
+        save_new_scenarios: Optional[bool] = None,
     ):
         """Runs through all specified scenarios.
 
@@ -104,7 +86,8 @@ class Simulator:
         Returns:
             Tuple[list, list]: Lists of simulation data and AIS data for each scenario.
         """
-        print("Running simulator...")
+        if self._config.verbose:
+            print("Running simulator...")
 
         if t_start is None:
             t_start = self._config.t_start
@@ -115,17 +98,25 @@ class Simulator:
         if dt_sim is None:
             dt_sim = self._config.dt_sim
 
+        if save_new_scenarios is None:
+            save_new_scenarios = self._config.save_new_scenarios
+
         sim_data_list = []
         ais_data_list = []
 
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
-            if "new" in scenario_file or "new_scenario" in scenario_file:
-                ship_list = self._scenario_generator.generate()
-            else:
-                ship_list = load_scenario_definition(dp.scenarios / scenario_file)
+            if "new_scenario" in scenario_file:
+                ship_list, ship_config_list = self._scenario_generator.generate()
 
-            print(f"Running scenario nr {i}: {scenario_file}...")
+                if save_new_scenarios:
+                    sm.save_scenario(ship_config_list, dp.scenarios / (scenario_file + str(i + 1) + ".yaml"))
+
+            else:
+                ship_list = sm.load_scenario_definition(dp.scenarios / scenario_file)
+
+            if self._config.verbose:
+                print(f"Running scenario nr {i}: {scenario_file}...")
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
             # self._visualizer.visualize(
@@ -153,7 +144,6 @@ class Simulator:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
             ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
         """
-        print("")
         if self._config.visualize:
             self._visualizer.init_live_plot(ship_list)
 
@@ -185,40 +175,3 @@ class Simulator:
             sim_data.append(sim_data_dict)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
-
-
-def load_scenario_definition(scenario_file: Path):
-    """
-    Loads a scenario definition from a yaml file and processes into a list ships with specified poses,
-    waypoints and speed plans (the definition). The ships are configured as specified in the scenario file.
-
-    Parameters:
-        scenario_file (Path): Absolute path to scenario file.
-
-    Returns:
-        list: List of configured ships with specified poses, waypoints and speed plans.
-    """
-    print("Loading existing scenario definition...")
-    ship_list = []
-
-    config = config_parsing.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
-
-    for i, ship_config in enumerate(config.ship_list):
-        ship_list.append(ship.Ship(mmsi=i + 1, config=ship_config))
-
-    return ship_list
-
-
-def save_scenario(
-    pose_list: List[np.ndarray], waypoint_list: List[np.ndarray], speed_plan_list: List[np.ndarray], savefile: Path
-):
-    """Saves the the scenario defined by the list of ship poses, waypoints and speed plans, to a json file as a dict at savefile
-    dict keys:
-        pose_list[i]: pose [x,y,u,psi] for ship i
-        waypoint_list[i]: waypoints for ship i
-        speed_plan_list[i]: speed_plan for ship i
-    """
-
-    data = {"poses": pose_list, "waypoints": waypoint_list, "speed_plans": speed_plan_list}
-    with savefile.open(mode="w") as file:
-        json.dump(data, file, indent=2)

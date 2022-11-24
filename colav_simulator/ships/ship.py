@@ -51,16 +51,34 @@ class Config:
         if "default" in config_dict:
             return config
 
-        if "model" in config_dict:
-            config.model = models.Config.from_dict(config_dict["model"])
+        config.model = models.Config.from_dict(config_dict["model"])
 
-        if "controller" in config_dict:
-            config.controller = controllers.Config.from_dict(config_dict["controller"])
+        config.controller = controllers.Config.from_dict(config_dict["controller"])
 
-        if "guidance" in config_dict:
-            config.guidance = guidances.Config.from_dict(config_dict["guidance"])
+        config.guidance = guidances.Config.from_dict(config_dict["guidance"])
 
         return config
+
+    def to_dict(self):
+        config_dict = {}
+
+        if self.pose is not None:
+            config_dict["pose"] = self.pose.tolist()
+            config_dict["pose"][3] = float(np.rad2deg(self.pose[3]))
+
+        if self.waypoints is not None:
+            config_dict["waypoints"] = self.waypoints.tolist()
+
+        if self.speed_plan is not None:
+            config_dict["speed_plan"] = self.speed_plan.tolist()
+
+        config_dict["model"] = self.model.to_dict()
+
+        config_dict["controller"] = self.controller.to_dict()
+
+        config_dict["guidance"] = self.guidance.to_dict()
+
+        return config_dict
 
 
 class ShipBuilder:
@@ -112,7 +130,7 @@ class ShipBuilder:
             config (Optional[controllers.Config], optional): Model configuration. Defaults to None.
 
         Returns:
-            Model: Model as specified by the configuration, e.g. a CSOGModel.
+            Model: Model as specified by the configuration, e.g. a MIMOPID controller.
         """
         if config and config.pid:
             return controllers.MIMOPID(config)
@@ -131,7 +149,7 @@ class ShipBuilder:
             config (Optional[models.Config], optional): Model configuration. Defaults to None.
 
         Returns:
-            Model: Model as specified by the configuration, e.g. a CSOGModel.
+            Model: Model as specified by the configuration, e.g. a KinematicCSOG model.
         """
         if config and config.csog:
             return models.KinematicCSOG(config)

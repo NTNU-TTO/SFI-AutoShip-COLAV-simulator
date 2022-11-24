@@ -29,12 +29,12 @@ ship_list:
       pass_through_cs: ''
     model:
       csog:
-        draft: 2.0
-        length: 10.0
-        width: 3.0
+        draft: 2.5
+        length: 10.5
+        width: 3.5
         T_chi: 3.0
         T_U: 5.0
-        r_max: 0.15
+        r_max: 0.16
         U_min: 0.0
         U_max: 15.0
   - guidance:

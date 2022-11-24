@@ -1,8 +1,9 @@
 t_start: 0.0
 dt_sim: 0.5
 t_end: 100.0
-scenario_files: ["new_scenario", "head_on.yaml"]
+scenario_files: ["scenario1.yaml", "head_on.yaml"]
 save_animation: True
+save_new_scenarios: True
 visualize: True
 verbose: True
 ais_data_column_format: ["mmsi", "lon", "lat", "datetime_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
