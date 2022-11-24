@@ -138,7 +138,7 @@ class ShipBuilder:
         elif config and config.telemetron:
             return models.Telemetron()
         else:
-            return models.KinematicCSOGPars()
+            return models.KinematicCSOG()
 
 
 class IShip(ABC):

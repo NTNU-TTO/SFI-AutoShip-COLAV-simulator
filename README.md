@@ -25,6 +25,8 @@ Are all outlined in setup.cfg, and listed below:
 
 ## Main modules
 
+Each main module have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code.
+
 ### Simulator
 
 The simulator runs through a set of scenarios specified from the config, visualizes these and saves the results. The scenarios can be generated randomly through a `new_scenario.yaml` config file in the ScenarioGenerator, or loaded from file using an existing scenario definition.
@@ -48,12 +50,14 @@ Seacharts is used to provide access to Electronic Navigational Charts, and an `E
 
 ### Visualizer
 
-Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these.
+Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. Lots of work remaining here.
 
 #### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a `forward(dt) -> np.ndarray` function that allows simple simulation of the vessel.
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code for more information on how this is done.
+
+TODO: Implement interfaces for using arbitrary target tracking systems and collision avoidance algorithms.
 
 The `Ship` object can be initialized with the following parameters
 
