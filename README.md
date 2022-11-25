@@ -32,10 +32,10 @@ If you're unfamiliar with git, check out <https://try.github.io/> to get familia
 ### Main branch
 The `main` branch shall always be working. This means that:
 
-- All its features/modules shall be properly documented, preferably through quality code + descriptive text where appropriate.
+- All of its features/modules shall be properly documented, preferably through quality code + descriptive text where appropriate.
 - The `Simulator` is successfully able to run through any number of scenarios, either generated or loaded from file. Furthermore, it should be problem free to save and load scenarios to/from file.
 - The `Visualizer`is successfully able to visualize each of these scenarios live, if toggled on.
-- Subsystems added to the `Ship` class properly adheres to their interfaces (prefixed with `I` in front of the class name, e.g. interface `IModel` for the model interface).
+- Subsystems added to the `Ship` class properly adheres to their interfaces (prefixed with `I` in front of the class name, e.g. interface `IModel` for the ship model interface).
 
 ### Project and master thesis work
 For students who use this repository for their project/master work, we want you to be free to experiment with the code. In order to enable this, such work shall be performed in branches prepended with `project/<year>/`. For example, if Per in 2023 is working on his master thesis creating a deep reinforcement learning-based trajectory tracking controller, he should do so by branching out from `main` into his own branch called e.g. `project/2023/drl-controller`. This makes browsing the branches later easier.
@@ -56,7 +56,7 @@ When you're developing a feature (or beginning your thesis work) based on the si
 #### Retrieving main branch
 
 ```bash
-cd milliampere
+cd colav_simulator
 git checkout main
 git pull
 # If you need to rebase because you have uncommited (non-important) changes in your working directory, you can run:
