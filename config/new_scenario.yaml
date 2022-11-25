@@ -34,7 +34,7 @@ ship_list:
         width: 3.5
         T_chi: 3.0
         T_U: 5.0
-        r_max: 0.16
+        r_max: 9.0
         U_min: 0.0
         U_max: 15.0
   - guidance:

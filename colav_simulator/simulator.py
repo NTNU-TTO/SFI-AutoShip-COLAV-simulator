@@ -61,18 +61,11 @@ class Simulator:
 
         self._visualizer = Visualizer(enc=self._scenario_generator.enc)
 
-        # override
-
-        # => save newly created scenarios to file if requested.
-        # => run the scenarios and save sim_data and emulated ais_data to file. Toggle animation on/off based on config.
-        # => The COLAV evaluator can then load the sim & ais data from file and plot/evaluate the results.
-
     def run(
         self,
         t_start: Optional[float] = None,
         t_end: Optional[float] = None,
         dt_sim: Optional[float] = None,
-        save_results: Optional[bool] = None,
         save_new_scenarios: Optional[bool] = None,
     ):
         """Runs through all specified scenarios.
@@ -118,13 +111,6 @@ class Simulator:
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
-
-            # self._visualizer.visualize(
-            #     ship_list=ship_list,
-            #     data=sim_data,
-            #     times=sim_times,
-            #     save_path=dp.animation_output / (scenario_file + ".gif"),
-            # )
 
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)

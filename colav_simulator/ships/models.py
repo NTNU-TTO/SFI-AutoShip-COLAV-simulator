@@ -71,6 +71,7 @@ class Config:
         config = Config()
         if "csog" in config_dict:
             config.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGPars, config_dict["csog"])
+            config.csog.r_max = float(np.deg2rad(config.csog.r_max))
             config.telemetron = None
 
         if "telemetron" in config_dict:
@@ -84,6 +85,7 @@ class Config:
 
         if self.csog is not None:
             config_dict["csog"] = self.csog.to_dict()
+            config_dict["csog"]["r_max"] = float(np.rad2deg(self.csog.r_max))
 
         if self.telemetron is not None:
             config_dict["telemetron"] = ""
