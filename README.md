@@ -85,7 +85,7 @@ git push -u origin feature/name_of_feature # -u flag with origin only needed fir
 #### Performing tests before merging into main
 
 After doing some development and thorough testing, it might be time to merge the feature into the `main` branch.
-Before doing that, make sure that all the main simulator functionality is working properly, such as running, loading and saving scenarios.
+Before doing that, make sure that all the steps listed under the heading [_Main branch_](#Main-branch).
 
 To make sure new issues don't arise when merging into `main` later (because of other changes to `main`) we merge `main` into `feature/name_of_feature` first:
 
