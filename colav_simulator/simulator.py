@@ -121,7 +121,7 @@ class Simulator:
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
-            ships (list): 1 x n_ships array of configured ship objects. Each ship
+            ship_list (list): 1 x n_ships array of configured ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
             sim_times (np.ndarray): 1 x n_samples array of sim_times to simulate the ships.
