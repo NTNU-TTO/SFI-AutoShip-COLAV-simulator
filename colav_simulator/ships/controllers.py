@@ -88,11 +88,6 @@ class Config:
 
 
 class IController(ABC):
-    """The InterfaceController class is abstract and used to force
-    the implementation of the below methods for all subclasses (controllers),
-    to comply with the model interface.
-    """
-
     @abstractmethod
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs using the specific controller strategy.

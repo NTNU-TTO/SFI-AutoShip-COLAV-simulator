@@ -160,11 +160,6 @@ class ShipBuilder:
 
 
 class IShip(ABC):
-    """The InterfaceShip class is abstract and used to force
-    the implementation of the below methods for all subclasses (ships),
-    to comply with the model interface.
-    """
-
     @abstractmethod
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         "Predict the ship dt seconds forward in time. Returns new state, inputs to get there and references used."
@@ -176,7 +171,7 @@ class Ship(IShip):
     Internal variables:
         mmsi (float): Maritime Mobile Service Identity of the ship.
         ais_msg_nr (int): AIS message number (1, 2 or 3 for AIS Class A transponders, 18 for AIS Class B transponders).
-        waypoints (np.ndarray): Waypoints the ship is following.
+        waypoints (np.ndarray): Nominal waypoints the ship is following.
         speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
         state (np.ndarray): State of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T`
                             where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad),

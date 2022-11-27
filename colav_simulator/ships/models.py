@@ -94,11 +94,6 @@ class Config:
 
 
 class IModel(ABC):
-    """The InterfaceModel class is abstract and used to force
-    the implementation of the below methods for all subclasses (models),
-    to comply with the model interface.
-    """
-
     @abstractmethod
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
         """The r.h.s of the ODE x_k+1 = f(x_k, u_k) for the considered model in discrete time.
