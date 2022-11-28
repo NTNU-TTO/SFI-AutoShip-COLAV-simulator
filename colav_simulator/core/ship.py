@@ -14,9 +14,9 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
-import colav_simulator.ships.controllers as controllers
-import colav_simulator.ships.guidances as guidances
-import colav_simulator.ships.models as models
+import colav_simulator.core.controllers as controllers
+import colav_simulator.core.guidances as guidances
+import colav_simulator.core.models as models
 import numpy as np
 
 

@@ -19,7 +19,7 @@ import colav_simulator.common.config_parsing as config_parsing
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # Default paths
-import colav_simulator.ships.ship as ship
+import colav_simulator.core.ship as ship
 import numpy as np
 import yaml
 from seacharts.enc import ENC
