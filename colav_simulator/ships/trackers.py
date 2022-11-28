@@ -17,7 +17,7 @@ import scipy.linalg as la
 
 class ITracker(ABC):
     @abstractmethod
-    def track(self, dt: float, true_do_states: list) -> None:
+    def track(self, dt: float, true_do_states: list) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
@@ -35,7 +35,7 @@ class KF(ITracker):
         self._pred_model = prediction_model
         self.sensors = sensors
 
-    def track(self, dt: float, true_do_states: list) -> Tuple[list, list, list, list]:
+    def track(self, dt: float, true_do_states: list) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states.
 
@@ -63,7 +63,7 @@ class KF(ITracker):
                     self.xs_p[i], self.P_p[i], sensor_measurements[i], sensor_id
                 )
 
-        return self.xs_upd, self.P_upd, self.xs_p, self.P_p
+        return self.xs_upd, self.P_upd
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
         F = self._pred_model.F(dt)

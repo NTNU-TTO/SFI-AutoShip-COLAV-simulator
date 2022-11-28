@@ -1,19 +1,36 @@
+"""
+    sensors.py
+
+    Summary:
+        Contains class definitions for various sensors.
+        Every seonsor must adhere to the ISensor interface.
+
+    Author: Trym Tengesdal
+"""
 import math
 import random
 
 import colav_simulator.common.math_functions as mf
 import numpy as np
+from abc import ABC, abstractmethod
 
+class ISensor(ABC):
 
-def simulate_measurement(x_true: np.ndarray, cov: np.ndarray):
-    """
-    Input:
-        x_true: [x_true, y_true, SOG_true, COG_true].T
-        cov: WGN covariance matrix
-    """
-    z = np.random.multivariate_normal(mean=x_true, cov=cov)
-    z[3] = mf.wrap_to_pi(z[3])
+    @abstractmethod
+    def generate_measurements(self, dt: float, true_do_states: list) -> list:
+        """Generates sensor measurements from the input true dynamic obstacle states."""
 
+    @abstractmethod
+    def R(self, xs: np.ndarray)
+        """Returns the measurement noise covariance matrix for the input state."""
+
+    @abstractmethod
+    def H(self, xs: np.ndarray):
+        """Returns the measurement matrix for the input state."""
+
+    @abstractmethod
+    def h(self, xs: np.ndarray):
+        """Returns the measurement function for the input state."""
 
 class Radar:
     """
@@ -144,3 +161,19 @@ class Estimator:
 
     Camera?
 """
+
+
+def simulate_measurement(x_true: np.ndarray, P: np.ndarray):
+    """ Simulates a measurement from the true state x_true with covariance P.
+
+    Args:
+        x_true: [x_true, y_true, U_true, chi_true].T
+        P: MVN covariance matrix
+
+    Returns:
+        np.ndarray: Measurement z = [x_meas, y_meas, U_meas, chi_meas].T
+    """
+    z = np.random.multivariate_normal(mean=x_true, cov=P)
+    z[3] = mf.wrap_to_pi(z[3])
+
+    return z
