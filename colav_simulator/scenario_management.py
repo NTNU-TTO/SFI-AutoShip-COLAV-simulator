@@ -21,8 +21,8 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
 import numpy as np
+import seacharts.enc as senc
 import yaml
-from seacharts.enc import ENC
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
@@ -130,7 +130,7 @@ class ScenarioGenerator:
         _config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
     """
 
-    enc: ENC
+    enc: senc.ENC
     _config: Config
 
     def __init__(
@@ -144,7 +144,7 @@ class ScenarioGenerator:
             **kwargs: Keyword arguments for the ScenarioGenerator, can be any of the following:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-        self.enc = ENC(enc_config_file)
+        self.enc = senc.ENC(enc_config_file)
 
         self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
 
