@@ -98,12 +98,33 @@ class ShipBuilder:
             model = cls.construct_model(config.model)
             controller = cls.construct_controller(config.controller)
             guidance_system = cls.construct_guidance(config.guidance)
+            sensors = cls.construct_sensors(config.sensors)
+            tracker = cls.construct_tracker(sensors, config.tracker)
         else:
             model = cls.construct_model()
             controller = cls.construct_controller()
             guidance_system = cls.construct_guidance()
 
-        return model, controller, guidance_system
+        return model, controller, guidance_system, sensors, tracker
+
+    @classmethod
+    def construct_sensors(cls, config: Optional[Config] = None) -> list:
+        """Builds a list of sensors from the configuration
+
+        Args:
+            config (Optional[Config]): Configuration of ship sensors
+
+        Returns:
+            List[Sensor]: List of sensors.
+        """
+        if config:
+            sensors = []
+            for sensor in config.sensors:
+                sensors.append(cls.construct_sensor(sensor_config))
+        else:
+            sensors = [cls.construct_sensor()]
+
+        return sensors
 
     @classmethod
     def construct_guidance(cls, config: Optional[guidances.Config] = None):
@@ -196,7 +217,7 @@ class Ship(IShip):
 
         self._mmsi = mmsi
 
-        self._model, self._controller, self._guidance = ShipBuilder.construct_ship(config)
+        self._model, self._controller, self._guidance, self._sensors, self._tracker = ShipBuilder.construct_ship(config)
 
         if config and config.pose is not None:
             self.set_initial_state(config.pose)

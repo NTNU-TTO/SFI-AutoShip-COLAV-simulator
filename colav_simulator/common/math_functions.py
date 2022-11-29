@@ -164,6 +164,30 @@ def mps2knots(mps):
     return knots
 
 
+def ms2knots(ms: float) -> float:
+    """Converts from m/s to knots.
+
+    Args:
+        ms (float): m/s to convert.
+
+    Returns:
+        float: Resulting knots.
+    """
+    return ms * 1.94384
+
+
+def knots2ms(knots: float) -> float:
+    """Converts from knots to m/s.
+
+    Args:
+        knots (float): Knots to convert.
+
+    Returns:
+        float: Resulting m/s.
+    """
+    return knots * 0.514444
+
+
 def normalize_vec(v: np.ndarray):
     """Normalize vector v to length 1.
 

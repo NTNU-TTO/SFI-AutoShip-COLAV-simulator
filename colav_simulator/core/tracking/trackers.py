@@ -12,7 +12,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import colav_simulator.core.sensors as sensors
 import numpy as np
 import scipy.linalg as la
 
@@ -68,7 +67,7 @@ class KF(ITracker):
         Args:
             dt (float): Time since last update
             t (float): Current time (assumed >= 0)
-            true_do_states (list): List of true dynamic obstacle states. Used for simulating sensor measurements.
+            true_do_states (list): List of true dynamic obstacle states [x, y, Vx, Vy] x n_do. Used for simulating sensor measurements.
 
         Returns:
             Tuple[list, list]: List of updated dynamic obstacle estimates and covariances.
@@ -77,6 +76,7 @@ class KF(ITracker):
         if t < 0.00001:
             self.xs_upd = true_do_states
             self.P_upd = [self._pars.P_0 for _ in range(len(true_do_states))]
+            return self.xs_upd, self.P_upd
 
         sensor_measurements = []
         for sensor in self.sensors:
@@ -85,7 +85,7 @@ class KF(ITracker):
 
         n_do = len(true_do_states)
 
-        # Assume here that no track initiation is performed
+        # We assume here that no track initiation is performed, thus:
         # TODO: Implement track initiation, e.g. n out of m based initiation.
 
         for i in range(n_do):
