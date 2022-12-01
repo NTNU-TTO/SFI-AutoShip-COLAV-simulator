@@ -84,7 +84,7 @@ class Visualizer:
         ax_map.set_xlabel("East [m]")
         ax_map.set_ylabel("North [m]")
 
-        mapf.plot_background(ax_map, enc)
+        # mapf.plot_background(ax_map, enc)
 
         self.ship_plt_handles = []
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)

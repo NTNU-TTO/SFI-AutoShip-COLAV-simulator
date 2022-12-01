@@ -9,9 +9,10 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional, Tuple
 
+import colav_simulator.common.config_parsing as cp
 import numpy as np
 import scipy.linalg as la
 
@@ -30,12 +31,36 @@ class KFPars:
     P_0: np.ndarray = np.diag([20.0, 20.0, 0.1, 0.1])
     q: float = 0.01
 
+    def to_dict(self):
+        output_dict = {"P_0": self.P_0.diagonal().tolist(), "q": self.q}
+        return output_dict
+
+    @classmethod
+    def from_dict(cls, config_dict):
+        return KFPars(P_0=np.diag(config_dict["P_0"]), q=config_dict["q"])
+
 
 @dataclass
 class Config:
     """Class for holding tracker configuration parameters."""
 
     kf: Optional[KFPars] = KFPars()
+
+    def to_dict(self) -> dict:
+        output_dict = {}
+        if self.kf is not None:
+            output_dict["kf"] = self.kf.to_dict()
+
+        return output_dict
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = Config(None)
+
+        if "kf" in config_dict:
+            config.kf = cp.convert_settings_dict_to_dataclass(KFPars, config_dict["kf"])
+
+        return config
 
 
 class KF(ITracker):
@@ -48,7 +73,10 @@ class KF(ITracker):
     xs_upd: list = []
     P_upd: list = []
 
-    def __init__(self, sensor_list: list, config: Config) -> None:
+    def __init__(self, sensor_list: list, config: Optional[Config] = None) -> None:
+        if sensor_list is None:
+            raise ValueError("Sensor list must be provided.")
+
         if config and config.kf is not None:
             self._pars = config.kf
         else:
@@ -85,7 +113,6 @@ class KF(ITracker):
 
         n_do = len(true_do_states)
 
-        # We assume here that no track initiation is performed, thus:
         # TODO: Implement track initiation, e.g. n out of m based initiation.
 
         for i in range(n_do):

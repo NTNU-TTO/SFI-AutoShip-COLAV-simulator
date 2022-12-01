@@ -17,6 +17,8 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
+import colav_simulator.core.sensors as ssensors
+import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
 
 
@@ -29,6 +31,8 @@ class Config:
     model: models.Config = models.Config()
     controller: controllers.Config = controllers.Config()
     guidance: guidances.Config = guidances.Config()
+    sensors: ssensors.Config = ssensors.Config()
+    tracker: trackers.Config = trackers.Config()
     pose: Optional[np.ndarray] = None
     waypoints: Optional[np.ndarray] = None
     speed_plan: Optional[np.ndarray] = None
@@ -57,6 +61,10 @@ class Config:
 
         config.guidance = guidances.Config.from_dict(config_dict["guidance"])
 
+        config.sensors = ssensors.Config.from_dict(config_dict["sensors"])
+
+        config.tracker = trackers.Config.from_dict(config_dict["tracker"])
+
         return config
 
     def to_dict(self):
@@ -77,6 +85,10 @@ class Config:
         config_dict["controller"] = self.controller.to_dict()
 
         config_dict["guidance"] = self.guidance.to_dict()
+
+        config_dict["sensors"] = self.sensors.to_dict_list()
+
+        config_dict["tracker"] = self.tracker.to_dict()
 
         return config_dict
 
@@ -104,11 +116,29 @@ class ShipBuilder:
             model = cls.construct_model()
             controller = cls.construct_controller()
             guidance_system = cls.construct_guidance()
+            sensors = cls.construct_sensors()
+            tracker = cls.construct_tracker(sensors)
 
         return model, controller, guidance_system, sensors, tracker
 
     @classmethod
-    def construct_sensors(cls, config: Optional[Config] = None) -> list:
+    def construct_tracker(cls, sensors: list, config: Optional[trackers.Config] = None):
+        """Builds a tracker from the configuration
+
+        Args:
+            sensors (list): Sensors used by the tracker.
+            config (Optional[Config], optional): Tracker configuration. Defaults to None.
+
+        Returns:
+            Tracker: The tracker.
+        """
+        if config and config.kf:
+            return trackers.KF(sensors, config)
+        else:
+            return trackers.KF(sensors)
+
+    @classmethod
+    def construct_sensors(cls, config: Optional[ssensors.Config] = None) -> list:
         """Builds a list of sensors from the configuration
 
         Args:
@@ -119,10 +149,13 @@ class ShipBuilder:
         """
         if config:
             sensors = []
-            for sensor in config.sensors:
-                sensors.append(cls.construct_sensor(sensor_config))
+            for sensor_config in config.sensor_list:
+                if isinstance(sensor_config, ssensors.RadarPars):
+                    sensors.append(ssensors.Radar(sensor_config))
+                elif isinstance(sensor_config, ssensors.AISPars):
+                    sensors.append(ssensors.AIS(sensor_config))
         else:
-            sensors = [cls.construct_sensor()]
+            sensors = [ssensors.Radar()]
 
         return sensors
 
@@ -267,14 +300,19 @@ class Ship(IShip):
 
         return self._state, u, references
 
-    def track_obstacles(self) -> np.ndarray:
+    def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
         """Uses its target tracker to estimate the states of dynamic obstacles in the environment.
 
+        Args:
+            t (float): Current time (s).
+            dt (float): Time step (s) in the simulation. I.e. difference between t and the previous time.
+            true_do_states (list): List of true states of dynamic obstacles in the environment.
+
         Returns:
-            np.ndarray: Updated states on obstacles in the environment.
+            Tuple[list, list]: Updated list of estimates and covariances on obstacles in the environment.
         """
-        # tracks = self._tracker.track()
-        return np.zeros((2, 0))
+        tracks = self._tracker.track(t, dt, true_do_states)
+        return tracks
 
     def set_initial_state(self, pose: np.ndarray) -> None:
         """Sets the initial state of the ship based on the input pose.

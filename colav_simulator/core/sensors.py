@@ -7,12 +7,12 @@
 
     Author: Trym Tengesdal
 """
-import random
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import numpy as np
 
@@ -46,9 +46,10 @@ class RadarPars:
     def from_dict(self, config_dict: dict):
         return RadarPars(measurement_rate=config_dict["measurement_rate"], R=np.diag(config_dict["R"]))
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         output_dict = asdict(self)
-        output_dict["R"] = self.R.tolist()
+        output_dict["R"] = self.R.diagonal().tolist()
+        return output_dict
 
 
 class AISClass(Enum):
@@ -69,38 +70,47 @@ class AISPars:
     def from_dict(cls, config_dict: dict):
         return AISPars(ais_class=AISClass(config_dict["ais_class"]), R=np.diag(config_dict["R"]))
 
-    def to_dict(self):
-        output_dict = asdict(self)
-        output_dict["R"] = self.R.tolist()
+    def to_dict(self) -> dict:
+        output_dict = {"ais_class": self.ais_class.name, "R": self.R.diagonal().tolist()}
+        return output_dict
 
 
 @dataclass
 class Config:
     """Class for holding sensor(s) configuration parameters."""
 
-    sensor_list: list = field(default_factory=[RadarPars()])
+    sensor_list: list = field(default_factory=lambda: [RadarPars()])
 
-    def to_dict(self) -> dict:
-        config_dict: dict = {}
-        config_dict["sensor_list"] = []
+    def to_dict_list(self) -> list:
+        output_list: list = []
         for sensor in self.sensor_list:
-            sensor_dict = sensor.to_dict()
-            config_dict["sensor_list"].append(sensor_dict)
-        return config_dict
+            sensor_dict = {}
+            if isinstance(sensor, RadarPars):
+                sensor_dict["radar"] = sensor.to_dict()
+            elif isinstance(sensor, AISPars):
+                sensor_dict["ais"] = sensor.to_dict()
+            output_list.append(sensor_dict)
+
+        return output_list
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = Config(sensor_list=[])
-        for sensor_name, sensor_pars in config_dict["sensor_list"]:
-            if sensor_name == "radar":
-                config.sensor_list.append(RadarPars(**sensor_pars))
+        for sensor_dict in config_dict:
+            if "radar" in sensor_dict:
+                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(RadarPars, sensor_dict["radar"]))
+            elif "ais" in sensor_dict:
+                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(AISPars, sensor_dict["ais"]))
+
+        return config
 
 
 class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 
+    # TODO: Implement clutter measurements and detection probability
     _pars: RadarPars
-    _H: np.ndarray = np.array([1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0])
+    _H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
 
     def __init__(self, pars: RadarPars = RadarPars()) -> None:
         self._pars = pars

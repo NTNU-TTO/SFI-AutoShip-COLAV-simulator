@@ -144,15 +144,19 @@ class Simulator:
             if self._config.visualize:
                 self._visualizer.update_live_plot(ship_list)
 
+            true_do_states = []
+            for i, ship_obj in enumerate(ship_list):
+                true_do_states.append(ship_obj.pose)
+
             sim_data_dict = {}
             for i, ship_obj in enumerate(ship_list):
 
                 if dt_sim > 0:
-                    ship_obj.track_obstacles()
+                    ship_obj.track_obstacles(t, dt_sim, true_do_states)
 
                     ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_nav_data(t)
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t)
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:
                     ais_data_row = ship_obj.get_ais_data(int(t))

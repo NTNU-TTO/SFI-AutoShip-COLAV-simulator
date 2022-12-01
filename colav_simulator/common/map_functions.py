@@ -8,7 +8,7 @@
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
 import random
-from typing import Optional, Tuple
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np

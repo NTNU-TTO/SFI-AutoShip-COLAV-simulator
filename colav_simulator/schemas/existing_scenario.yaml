@@ -8,7 +8,7 @@ ship_list:
         required: False
         type: string
         empty: True
-        excludes: [colav, guidance, controller, model]
+        excludes: [colav, tracker, sensors, guidance, controller, model]
       pose:
         required: True
         type: list
@@ -26,10 +26,72 @@ ship_list:
         type: list
         schema:
           type: float
+
       colav:
         required: False
         type: dict
         excludes: [default]
+
+      tracker:
+        required: False
+        type: dict
+        excludes: [default]
+        schema:
+          kf:
+            type: dict
+            schema:
+              P_0:
+                required: True
+                type: list
+                minlength: 4
+                maxlength: 4
+                schema:
+                  type: float
+                  min: 0.001
+              q:
+                required: True
+                type: float
+                min: 0.00001
+                max: 1.0
+
+      sensors:
+        required: False
+        type: list
+        excludes: [default]
+        # schema:
+        #   oneof:
+        #     - radar:
+        #         type: dict
+        #         schema:
+        #           measurement_rate:
+        #             required: True
+        #             type: float
+        #             min: 0.2
+        #             max: 1
+        #           R:
+        #             required: True
+        #             type: list
+        #             minlength: 2
+        #             maxlength: 2
+        #             schema:
+        #               type: float
+        #               min: 0.0001
+        #     - ais:
+        #         type: dict
+        #         schema:
+        #           ais_class:
+        #             required: True
+        #             type: integer
+        #             allowed: [0, 1] # class A and B
+        #           R:
+        #             required: True
+        #             type: list
+        #             minlength: 2
+        #             maxlength: 2
+        #             schema:
+        #               type: float
+        #               min: 0.0001
+
       guidance:
         required: False
         type: dict
