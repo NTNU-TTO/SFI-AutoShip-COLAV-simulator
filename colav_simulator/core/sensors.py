@@ -131,7 +131,7 @@ class Radar(ISensor):
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self.R(xs))
                 measurements.append(z)
             else:
-                z = -1e6 * np.ones(2)
+                z = np.nan * np.ones(2)
         return measurements
 
 

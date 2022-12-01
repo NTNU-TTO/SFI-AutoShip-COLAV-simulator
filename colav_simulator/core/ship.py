@@ -340,27 +340,33 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
-    def get_ship_nav_data(self, timestamp: int) -> dict:
-        """Returns navigational++ related data for the ship
+    def get_ship_sim_data(self, timestamp: int) -> dict:
+        """Returns simulation related data for the ship.
 
         Args:
             timestamp (int): UTC referenced timestamp.
 
         Returns:
-            dict: Navigation data as dictionary
+            dict: Simulation data as dictionary
         """
         datetime_t = mf.utc_timestamp_to_datetime(timestamp)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        ship_nav_data = {
+        xs_i_upd, P_i_upd = self._tracker.get_tracks()
+        xs_i_upd = [xs.tolist() for xs in xs_i_upd]
+        P_i_upd = [P.tolist() for P in P_i_upd]
+
+        ship_sim_data = {
             "pose": self.pose,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "timestamp": datetime_str,
+            "do_states": xs_i_upd,
+            "do_covariances": P_i_upd,
             # predicted trajectory from COLAV/planner
             # "obstacles": self.track_obstacles(),
         }
 
-        return ship_nav_data
+        return ship_sim_data
 
     def get_ais_data(self, timestamp: int) -> dict:
         """Returns an AIS data message for the ship at the given timestamp.

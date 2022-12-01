@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import colav_simulator.common.config_parsing as config_parsing
+import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # default paths
 import colav_simulator.scenario_management as sm
 import numpy as np
@@ -146,14 +147,15 @@ class Simulator:
 
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
-                true_do_states.append(ship_obj.pose)
+                state = mf.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
+                true_do_states.append(state)
 
             sim_data_dict = {}
             for i, ship_obj in enumerate(ship_list):
 
-                if dt_sim > 0:
-                    ship_obj.track_obstacles(t, dt_sim, true_do_states)
+                ship_obj.track_obstacles(t, dt_sim, mf.get_list_except_element_idx(true_do_states, i))
 
+                if dt_sim > 0:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t)

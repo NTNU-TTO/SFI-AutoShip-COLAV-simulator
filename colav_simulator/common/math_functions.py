@@ -205,10 +205,56 @@ def normalize_vec(v: np.ndarray):
 
 
 def sat(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndarray) -> float | np.ndarray:
-    """
-    x = sat(x,x_min,x_max) saturates a signal x such that x_min <= x <= x_max
+    """x = sat(x, x_min, x_max) saturates a signal x such that x_min <= x <= x_max
+
+    Args:
+        x (float or np.ndarray): Signal to saturate
+        x_min (float or np.ndarray): Minimum value
+        x_max (float or np.ndarray): Maximum value
+
+    Returns:
+        float or np.ndarray: Saturated signal
     """
     return np.clip(x, x_min, x_max)
+
+
+def get_list_except_element_idx(input_list: list, idx: int) -> list:
+    """Returns a list with all elements of input_list except the element at idx.
+
+    Args:
+        input_list (list): List to get elements from
+        idx (int): Index of element to exclude
+
+    Returns:
+        list: List with all elements of input_list except the element at idx
+    """
+    output_list = input_list.copy()
+    output_list.pop(idx)
+    return output_list
+
+
+def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from a state [x, y, U, chi] to [x, y, Vx, Vy].
+
+    Args:
+        xs (np.ndarray): State to convert.
+
+    Returns:
+        np.ndarray: Converted state.
+    """
+    return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
+
+
+def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from a state [x, y, Vx, Vy] to [x, y, U, chi].
+
+    Args:
+        xs (np.ndarray): State to convert.
+
+    Returns:
+        np.ndarray: Converted state.
+    """
+    return np.array([xs[0], xs[1], np.sqrt(xs[2] ** 2 + xs[3] ** 2), np.arctan2(xs[3], xs[2])])
 
 
 def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:

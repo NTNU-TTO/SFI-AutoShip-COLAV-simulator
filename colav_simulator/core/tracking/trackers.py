@@ -23,6 +23,9 @@ class ITracker(ABC):
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
+    def get_tracks(self) -> Tuple[list, list]:
+        """Returns the current tracks (state estimates and covariances)."""
+
 
 @dataclass
 class KFPars:
@@ -104,6 +107,8 @@ class KF(ITracker):
         if t < 0.00001:
             self.xs_upd = true_do_states
             self.P_upd = [self._pars.P_0 for _ in range(len(true_do_states))]
+            self.xs_p = self.xs_upd
+            self.P_p = self.P_upd
             return self.xs_upd, self.P_upd
 
         sensor_measurements = []
@@ -146,6 +151,9 @@ class KF(ITracker):
         return v, S
 
     def update(self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int):
+        if z == np.nan * np.ones(z.shape):
+            return xs_p, P_p
+
         v, S = self.innovation(xs_p, P_p, z, sensor_id)
         H = self.sensors[sensor_id].H(xs_p)
 
@@ -154,6 +162,9 @@ class KF(ITracker):
         P_upd = P_p - K @ H @ P_p
 
         return x_upd, P_upd
+
+    def get_tracks(self) -> Tuple[list, list]:
+        return self.xs_upd, self.P_upd
 
 
 class CVModel:
