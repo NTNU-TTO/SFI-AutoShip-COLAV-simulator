@@ -1,12 +1,30 @@
-
-save_animation: False
+show_measurements: False
+show_tracks: True
 show_animation: True
 show_waypoints: True
+save_animation: False
 
 frame_delay: 10 # in milliseconds
 
 figsize: [14, 10]
-linewidth: 2.1
 margins: [0.00, 0.00]
-
+ship_linewidth: 0.9
 ship_colors: ["xkcd:black", "xkcd:red", "xkcd:green", "xkcd:cyan", "xkcd:orange", "xkcd:fuchsia", "xkcd:yellow", "xkcd:grey", "xkcd:reddish brown", "xkcd:bubblegum", "xkcd:baby shit brown", "xkcd:eggshell", "xkcd:cloudy blue", "xkcd:pale aqua", "xkcd:light lilac", "xkcd:dark forest green", "xkcd:powder blue"]
+do_linewidth: 1.4
+do_colors: ["xkcd:blue green",
+            "xkcd:light red",
+            "xkcd:aqua",
+            "xkcd:peach",
+            "xkcd:pale purple",
+            "xkcd:goldenrod",
+            "xkcd:light grey",
+            "xkcd:burnt sienna",
+            "xkcd:barbie pink",
+            "xkcd:ugly brown",
+            "xkcd:light tan",
+            "xkcd:stormy blue",
+            "xkcd:light aquamarine",
+            "xkcd:pale lilac",
+            "xkcd:very dark green",
+            "xkcd:pastel blue",
+        ]

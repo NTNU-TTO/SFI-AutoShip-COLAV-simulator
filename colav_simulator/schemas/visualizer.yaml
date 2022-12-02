@@ -1,12 +1,21 @@
-save_animation:
+
+show_measurements:
   required: True
   type: boolean
-show_animation:
+show_tracks:
   required: True
   type: boolean
 show_waypoints:
   required: True
   type: boolean
+show_animation:
+  required: True
+  type: boolean
+save_animation:
+  required: True
+  type: boolean
+
+
 frame_delay:
   required: True
   type: float
@@ -17,9 +26,6 @@ figsize:
   maxlength: 2
   schema:
     type: integer
-linewidth:
-  required: True
-  type: float
 margins:
   required: True
   type: list
@@ -28,7 +34,19 @@ margins:
   schema:
     type: float
 
+ship_linewidth:
+  required: True
+  type: float
 ship_colors:
+  required: True
+  type: list
+  minlength: 10
+  schema:
+    type: string
+do_linewidth:
+  required: True
+  type: float
+do_colors:
   required: True
   type: list
   minlength: 10

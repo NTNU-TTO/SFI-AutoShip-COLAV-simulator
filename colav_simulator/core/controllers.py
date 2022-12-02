@@ -178,8 +178,8 @@ class MIMOPID(IController):
         R_n_b = mf.Rpsi(eta[2])
         eta_dot = R_n_b @ nu
 
-        Mmtrx = model.pars.M_rb + model.pars.M_a
-        Dmtrx = mf.Dmtrx(model.pars.D_l, model.pars.D_q, model.pars.D_c, nu)
+        Mmtrx = model.params.M_rb + model.params.M_a
+        Dmtrx = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu)
 
         K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._pars.wn, self._pars.zeta)
 
@@ -264,22 +264,22 @@ class FLSH(IController):
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
 
-        u_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.pars.U_max)
+        u_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.params.U_max)
         psi_d = refs[2]
-        r_d = mf.sat(refs[5], -model.pars.r_max, model.pars.r_max)
+        r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
 
         eta = xs[0:3]
         nu = xs[3:]
 
-        Mmtrx = model.pars.M_rb + model.pars.M_a
+        Mmtrx = model.params.M_rb + model.params.M_a
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
-        Dvv = mf.Dmtrx(model.pars.D_l, model.pars.D_q, model.pars.D_c, nu) @ nu
+        Dvv = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu) @ nu
 
         psi_diff = mf.wrap_angle_diff_to_pmpi(psi_d, eta[2])
 
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * self._pars.K_p_u * (u_d - nu[0])
-        Fy = (Mmtrx[2, 2] / model.pars.l_r) * (self._pars.K_p_psi * psi_diff + self._pars.K_d_psi * (r_d - nu[2]))
+        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._pars.K_p_psi * psi_diff + self._pars.K_d_psi * (r_d - nu[2]))
 
-        tau = np.array([Fx, Fy, Fy * model.pars.l_r])
+        tau = np.array([Fx, Fy, Fy * model.params.l_r])
 
         return tau

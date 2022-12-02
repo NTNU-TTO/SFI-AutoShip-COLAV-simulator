@@ -19,7 +19,7 @@ from scipy.interpolate import CubicSpline, PchipInterpolator
 
 
 @dataclass
-class LOSGuidancePars:
+class LOSGuidanceParams:
     """Parameter class for the LOS guidance method.
 
     Parameters:
@@ -41,7 +41,7 @@ class LOSGuidancePars:
 
 
 @dataclass
-class KTPGuidancePars:
+class KTPGuidanceParams:
     """Parameter class for the Kinematic Trajectory Planner.
 
     Parameters:
@@ -60,18 +60,18 @@ class KTPGuidancePars:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    los: Optional[LOSGuidancePars] = LOSGuidancePars()
-    ktp: Optional[KTPGuidancePars] = None
+    los: Optional[LOSGuidanceParams] = LOSGuidanceParams()
+    ktp: Optional[KTPGuidanceParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = Config()
         if "los" in config_dict:
-            config.los = cp.convert_settings_dict_to_dataclass(LOSGuidancePars, config_dict["los"])
+            config.los = cp.convert_settings_dict_to_dataclass(LOSGuidanceParams, config_dict["los"])
             config.ktp = None
 
         if "ktp" in config_dict:
-            config.ktp = cp.convert_settings_dict_to_dataclass(KTPGuidancePars, config_dict["ktp"])
+            config.ktp = cp.convert_settings_dict_to_dataclass(KTPGuidanceParams, config_dict["ktp"])
             config.los = None
 
         return config
@@ -117,7 +117,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         speed_spline (PchipInterpolator): Spline for speed setpoint. Usage of piecewise cubic Hermite interpolator to reduce overshoot.
     """
 
-    _pars: KTPGuidancePars
+    _params: KTPGuidanceParams
     _s: float = 0.001
     _init: bool = False
     _x_spline: CubicSpline
@@ -127,9 +127,9 @@ class KinematicTrajectoryPlanner(IGuidance):
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.ktp is not None:
-            self._pars = config.ktp
+            self._params = config.ktp
         else:
-            self._pars = KTPGuidancePars()
+            self._params = KTPGuidanceParams()
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
@@ -177,7 +177,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         # self._y_spline = CubicSpline(new_s_vals, y_new)
 
         # Create reference heading values based on angle of extracted linear path segments in the x, y splines.
-        n_heading_samples = round(n_wps / self._pars.dt_seg)
+        n_heading_samples = round(n_wps / self._params.dt_seg)
         path_values = np.linspace(0.0, 1.0, n_heading_samples)
         heading_references = np.zeros(n_heading_samples)
         for i in range(n_heading_samples - 1):
@@ -279,13 +279,13 @@ class KinematicTrajectoryPlanner(IGuidance):
 
     def _compute_path_variable_derivatives(self) -> Tuple[float, float]:
         s_dot = self._speed_spline(self._s) / np.sqrt(
-            self._pars.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)
+            self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)
         )
 
         s_ddot = s_dot * (
             self._speed_spline(self._s, 1)
             / np.sqrt(
-                self._pars.epsilon
+                self._params.epsilon
                 + np.power(self._x_spline(self._s, 1), 2.0)
                 + np.power(self._y_spline(self._s, 1), 2.0)
             )
@@ -296,7 +296,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             )
             / np.power(
                 np.sqrt(
-                    self._pars.epsilon
+                    self._params.epsilon
                     + np.power(self._x_spline(self._s, 1), 2.0)
                     + np.power(self._y_spline(self._s, 1), 2.0)
                 ),
@@ -337,13 +337,13 @@ class LOSGuidance(IGuidance):
 
     _wp_counter: int = 0
     _e_int: float = 0.0
-    _pars: LOSGuidancePars
+    _params: LOSGuidanceParams
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.los is not None:
-            self._pars = config.los
+            self._params = config.los
         else:
-            self._pars = LOSGuidancePars()
+            self._params = LOSGuidanceParams()
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
@@ -377,10 +377,10 @@ class LOSGuidance(IGuidance):
             xs[1] - waypoints[1, self._wp_counter]
         ) * np.cos(alpha)
         self._e_int += e * dt
-        if self._e_int >= self._pars.e_int_max:
+        if self._e_int >= self._params.e_int_max:
             self._e_int -= e * dt
 
-        chi_r = np.arctan2(-(self._pars.K_p * e + self._pars.K_i * self._e_int), 1)
+        chi_r = np.arctan2(-(self._params.K_p * e + self._params.K_i * self._e_int), 1)
         chi_d = mf.wrap_angle_to_pmpi(alpha + chi_r)
 
         U_d = speed_plan[self._wp_counter]
@@ -426,8 +426,8 @@ class LOSGuidance(IGuidance):
         d_0wp_norm = np.linalg.norm(d_0wp)
         d_0wp = mf.normalize_vec(d_0wp)
 
-        segment_passed = wp_segment.dot(d_0wp) < np.cos(np.deg2rad(self._pars.pass_angle_threshold))
+        segment_passed = wp_segment.dot(d_0wp) < np.cos(np.deg2rad(self._params.pass_angle_threshold))
 
-        segment_passed = segment_passed or d_0wp_norm <= self._pars.R_a
+        segment_passed = segment_passed or d_0wp_norm <= self._params.R_a
 
         return segment_passed

@@ -150,9 +150,9 @@ class ShipBuilder:
         if config:
             sensors = []
             for sensor_config in config.sensor_list:
-                if isinstance(sensor_config, ssensors.RadarPars):
+                if isinstance(sensor_config, ssensors.RadarParams):
                     sensors.append(ssensors.Radar(sensor_config))
-                elif isinstance(sensor_config, ssensors.AISPars):
+                elif isinstance(sensor_config, ssensors.AISParams):
                     sensors.append(ssensors.AIS(sensor_config))
         else:
             sensors = [ssensors.Radar()]
@@ -250,7 +250,7 @@ class Ship(IShip):
 
         self._mmsi = mmsi
 
-        self._model, self._controller, self._guidance, self._sensors, self._tracker = ShipBuilder.construct_ship(config)
+        self._model, self._controller, self._guidance, self.sensors, self._tracker = ShipBuilder.construct_ship(config)
 
         if config and config.pose is not None:
             self.set_initial_state(config.pose)
@@ -351,7 +351,7 @@ class Ship(IShip):
         """
         datetime_t = mf.utc_timestamp_to_datetime(timestamp)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        xs_i_upd, P_i_upd = self._tracker.get_tracks()
+        xs_i_upd, P_i_upd = self.get_do_tracks()
         xs_i_upd = [xs.tolist() for xs in xs_i_upd]
         P_i_upd = [P.tolist() for P in P_i_upd]
 
@@ -393,6 +393,9 @@ class Ship(IShip):
         }
         return row
 
+    def get_do_tracks(self) -> Tuple[list, list]:
+        return self._tracker.get_tracks()
+
     @property
     def pose(self) -> np.ndarray:
         """Returns the ship pose as parameterized in an AIS message,
@@ -413,27 +416,27 @@ class Ship(IShip):
 
     @property
     def max_speed(self) -> float:
-        return self._model.pars.U_max
+        return self._model.params.U_max
 
     @property
     def min_speed(self) -> float:
-        return self._model.pars.U_min
+        return self._model.params.U_min
 
     @property
     def max_turn_rate(self) -> float:
-        return self._model.pars.r_max
+        return self._model.params.r_max
 
     @property
     def draft(self) -> float:
-        return self._model.pars.draft
+        return self._model.params.draft
 
     @property
     def length(self) -> float:
-        return self._model.pars.length
+        return self._model.params.length
 
     @property
     def width(self) -> float:
-        return self._model.pars.width
+        return self._model.params.width
 
     @property
     def mmsi(self) -> int:

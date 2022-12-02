@@ -36,15 +36,15 @@ class ISensor(ABC):
 
 
 @dataclass
-class RadarPars:
+class RadarParams:
     """Configuration parameters for a radar sensor."""
 
-    measurement_rate: float = 0.4
+    measurement_rate: float = 0.8
     R: np.ndarray = np.diag([5.0**2, 5.0**2])
 
     @classmethod
     def from_dict(self, config_dict: dict):
-        return RadarPars(measurement_rate=config_dict["measurement_rate"], R=np.diag(config_dict["R"]))
+        return RadarParams(measurement_rate=config_dict["measurement_rate"], R=np.diag(config_dict["R"]))
 
     def to_dict(self) -> dict:
         output_dict = asdict(self)
@@ -60,15 +60,15 @@ class AISClass(Enum):
 
 
 @dataclass
-class AISPars:
+class AISParams:
     """AIS parameter class."""
 
     ais_class: AISClass = AISClass.A
-    R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.1**2])  # meas cov for a state vector of [x, y, Vx, Vy]
+    R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov for a state vector of [x, y, Vx, Vy]
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        return AISPars(ais_class=AISClass(config_dict["ais_class"]), R=np.diag(config_dict["R"]))
+        return AISParams(ais_class=AISClass(config_dict["ais_class"]), R=np.diag(config_dict["R"]))
 
     def to_dict(self) -> dict:
         output_dict = {"ais_class": self.ais_class.name, "R": self.R.diagonal().tolist()}
@@ -79,15 +79,15 @@ class AISPars:
 class Config:
     """Class for holding sensor(s) configuration parameters."""
 
-    sensor_list: list = field(default_factory=lambda: [RadarPars()])
+    sensor_list: list = field(default_factory=lambda: [RadarParams()])
 
     def to_dict_list(self) -> list:
         output_list: list = []
         for sensor in self.sensor_list:
             sensor_dict = {}
-            if isinstance(sensor, RadarPars):
+            if isinstance(sensor, RadarParams):
                 sensor_dict["radar"] = sensor.to_dict()
-            elif isinstance(sensor, AISPars):
+            elif isinstance(sensor, AISParams):
                 sensor_dict["ais"] = sensor.to_dict()
             output_list.append(sensor_dict)
 
@@ -98,9 +98,9 @@ class Config:
         config = Config(sensor_list=[])
         for sensor_dict in config_dict:
             if "radar" in sensor_dict:
-                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(RadarPars, sensor_dict["radar"]))
+                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(RadarParams, sensor_dict["radar"]))
             elif "ais" in sensor_dict:
-                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(AISPars, sensor_dict["ais"]))
+                config.sensor_list.append(cp.convert_settings_dict_to_dataclass(AISParams, sensor_dict["ais"]))
 
         return config
 
@@ -109,14 +109,15 @@ class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 
     # TODO: Implement clutter measurements and detection probability
-    _pars: RadarPars
+    _params: RadarParams
+    type: str = "radar"
     _H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
 
-    def __init__(self, pars: RadarPars = RadarPars()) -> None:
-        self._pars = pars
+    def __init__(self, params: RadarParams = RadarParams()) -> None:
+        self._params = params
 
     def R(self, xs: np.ndarray) -> np.ndarray:
-        return self._pars.R
+        return self._params.R
 
     def H(self, xs: np.ndarray) -> np.ndarray:
         return self._H
@@ -127,11 +128,11 @@ class Radar(ISensor):
     def generate_measurements(self, t: float, true_do_states: list) -> Optional[list]:
         measurements = []
         for xs in true_do_states:
-            if t % self._pars.measurement_rate < 0.001:
+            if t % 1.0 / self._params.measurement_rate < 0.001:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self.R(xs))
-                measurements.append(z)
             else:
                 z = np.nan * np.ones(2)
+            measurements.append(z)
         return measurements
 
 
@@ -158,16 +159,17 @@ class AIS:
         self._R = R_GNSS + (1/12)*R_v
     """
 
-    _pars: AISPars
+    _params: AISParams
+    type: str = "ais"
     _previous_meas_time: float = 0.0
     _H: np.ndarray
 
-    def __init__(self, pars: AISPars = AISPars()) -> None:
-        self._pars = pars
+    def __init__(self, params: AISParams = AISParams()) -> None:
+        self._params = params
         self._H = np.eye(4)
 
     def R(self, xs: np.ndarray) -> np.ndarray:
-        return self._pars.R
+        return self._params.R
 
     def H(self, xs: np.ndarray) -> np.ndarray:
         return self._H
@@ -181,18 +183,19 @@ class AIS:
 
         Args:
             t (float): Current time.
-            true_do_states (list): List of true dynamic obstacle states.
+            true_do_states (list): List of true dynamic obstacle states [x, y, Vx, Vy].
 
         Returns:
             list: List of generated AIS measurements.
         """
         measurements = []
         for state in true_do_states:
-            if t % self.measurement_rate(state) < 0.001:
+            if t % 1.0 / self.measurement_rate(state) < 0.001:
                 z = self.h(state) + np.random.multivariate_normal(np.zeros(4), self.R(state))
-                measurements.append(z)
             else:
-                z = -1e6 * np.ones(4)
+                z = np.nan * np.ones(4)
+            measurements.append(z)
+
         return measurements
 
     def measurement_rate(self, xs: np.ndarray) -> float:
@@ -206,9 +209,9 @@ class AIS:
         Returns:
             float: The measurement rate in Hz.
         """
-        sog = mf.ms2knots(float(np.linalg.norm(xs[2:4])))
+        sog = mf.ms2knots(float(np.linalg.norm(xs[2:3])))
         rate = 1.0
-        if self._pars.ais_class == AISClass.A:
+        if self._params.ais_class == AISClass.A:
             if sog <= 0.001:
                 rate = 1.0 / 180.0
             elif sog > 0.001 and sog <= 14.0:
@@ -217,7 +220,7 @@ class AIS:
                 rate = 1.0 / 6.0
             elif sog > 23.0:
                 rate = 1.0 / 2.0
-        elif self._pars.ais_class == AISClass.B:
+        elif self._params.ais_class == AISClass.B:
             if sog <= 2.0:
                 rate = 1.0 / 180.0
             elif sog > 2.0:

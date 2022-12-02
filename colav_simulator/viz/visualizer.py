@@ -12,6 +12,7 @@ from typing import Any, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
+import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -24,13 +25,15 @@ from seacharts.enc import ENC
 class Config:
     """Configuration class for specifying the look of the visualization."""
 
+    show_measurements: bool = False
+    show_tracks: bool = True
     show_waypoints: bool = False
     show_animation: bool = True
     save_animation: bool = False
     frame_delay: float = 200.0
-    linewidth: float = 1.0
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.01, 0.01])
+    ship_linewidth: float = 0.9
     ship_colors: list = field(
         default_factory=lambda: [
             "xkcd:black",
@@ -52,6 +55,29 @@ class Config:
             "xkcd:powder blue",
         ]
     )
+    do_colors: list = field(
+        default_factory=lambda: [
+            "xkcd:light red",
+            "xkcd:blue green",
+            "xkcd:aqua",
+            "xkcd:peach",
+            "xkcd:pale purple",
+            "xkcd:goldenrod",
+            "xkcd:light grey",
+            "xkcd:burnt sienna",
+            "xkcd:barbie pink",
+            "xkcd:ugly brown",
+            "xkcd:light tan",
+            "xkcd:stormy blue",
+            "xkcd:light aquamarine",
+            "xkcd:pale lilac",
+            "xkcd:very dark green",
+            "xkcd:pastel blue",
+        ]
+    )
+    do_linewidth: float = 1.3
+    radar_color: str = "xkcd:grey"
+    ais_color: str = "xkcd:dark lavender"
 
 
 class Visualizer:
@@ -84,7 +110,7 @@ class Visualizer:
         ax_map.set_xlabel("East [m]")
         ax_map.set_ylabel("North [m]")
 
-        # mapf.plot_background(ax_map, enc)
+        mapf.plot_background(ax_map, enc)
 
         self.ship_plt_handles = []
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
@@ -107,6 +133,19 @@ class Visualizer:
             if "waypoints" in ship_i_handle:
                 ship_i_handle["waypoints"].remove()
 
+            if "do_tracks" in ship_i_handle:
+                for do_track in ship_i_handle["do_tracks"]:
+                    do_track.remove()
+
+                for do_covariance in ship_i_handle["do_covariances"]:
+                    do_covariance.remove()
+
+            if "radar" in ship_i_handle:
+                ship_i_handle["radar"].remove()
+
+            if "ais" in ship_i_handle:
+                ship_i_handle["ais"].remove()
+
         self.ship_plt_handles = []
 
     def init_live_plot(self, ship_list: list) -> None:
@@ -122,15 +161,57 @@ class Visualizer:
 
         self.fig.canvas.restore_region(self.background)
 
+        n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
 
             c = self._config.ship_colors[i]
-            lw = self._config.linewidth
+            lw = self._config.ship_linewidth
 
-            ship_i_handles = {}
+            ship_i_handles: dict = {}
 
             if i == 0:
                 ship_name = "OS"
+
+                c_do = self._config.do_colors
+                do_lw = self._config.do_linewidth
+
+                if self._config.show_tracks:
+                    ship_i_handles["do_tracks"] = []
+                    ship_i_handles["do_covariances"] = []
+                    for j in range(1, n_ships):
+                        ship_i_handles["do_tracks"].append(
+                            ax_map.plot([], [], linewidth=do_lw, color=c_do[j - 1], label=f"DO{j-1} track")[0]
+                        )
+
+                        ship_i_handles["do_covariances"].append(
+                            ax_map.fill([], [], linewidth=lw, color=c_do[j - 1], alpha=0.5, label=f"DO{j-1} cov.")[0]
+                        )
+
+                if self._config.show_measurements:
+                    for sensor in ship.sensors:
+                        if sensor.type == "radar":
+                            ship_i_handles["radar"] = ax_map.plot(
+                                [],
+                                [],
+                                color=self._config.radar_color,
+                                linewidth=lw,
+                                linestyle="None",
+                                marker="o",
+                                markersize=8,
+                                label=ship_name + "Radar meas.",
+                            )[0]
+                        elif sensor.type == "ais":
+                            ship_i_handles["ais"] = ax_map.plot(
+                                [],
+                                [],
+                                color=self._config.ais_color,
+                                linewidth=lw,
+                                linestyle="None",
+                                marker="*",
+                                markersize=8,
+                                label="AIS meas.",
+                            )[0]
+
             else:
                 ship_name = "DO " + str(i + 1)
 
@@ -142,32 +223,80 @@ class Visualizer:
                 [], [], color=c, linewidth=lw, marker="*", linestyle="-", label=ship_name + " pred. traj."
             )[0]
 
-            ship_i_handles["waypoints"] = ax_map.plot(
-                ship.waypoints[1, :],
-                ship.waypoints[0, :],
-                color=c,
-                marker="o",
-                markersize=13,
-                linestyle="--",
-                linewidth=lw,
-                alpha=0.3,
-                label=ship_name + " waypoints",
-            )[0]
+            if self._config.show_waypoints:
+                ship_i_handles["waypoints"] = ax_map.plot(
+                    ship.waypoints[1, :],
+                    ship.waypoints[0, :],
+                    color=c,
+                    marker="o",
+                    markersize=11,
+                    linestyle="--",
+                    linewidth=lw,
+                    alpha=0.3,
+                    label=ship_name + " waypoints",
+                )[0]
 
             self.ship_plt_handles.append(ship_i_handles)
 
-    def update_live_plot(self, ship_list: list) -> None:
+    def update_live_plot(self, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
 
         Args:
             ship_list (list): List of configured ships in the simulation.
+            sensor_measurements (list): List of sensor measurements generated from each ship at the current time.
         """
 
+        n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
             pose_i = ship.pose
 
+            if i == 0:
+                tracks = ship.get_do_tracks()
+                if self._config.show_tracks and tracks is not None:
+                    for j in range(1, n_ships):
+                        pose_j = ship_list[j].pose
+
+                        self.ship_plt_handles[i]["do_tracks"][j - 1].set_xdata(
+                            [*self.ship_plt_handles[i]["do_tracks"][j - 1].get_xdata(), tracks[0][j - 1][1]]
+                        )
+                        self.ship_plt_handles[i]["do_tracks"][j - 1].set_ydata(
+                            [*self.ship_plt_handles[i]["do_tracks"][j - 1].get_ydata(), tracks[0][j - 1][0]]
+                        )
+                        self.axes[0].draw_artist(self.ship_plt_handles[i]["do_tracks"][j - 1])
+
+                        ellipse_x, ellipse_y = mf.create_probability_ellipse(tracks[1][j - 1], 0.99)
+                        self.ship_plt_handles[i]["do_covariances"][j - 1].set_xy(
+                            np.vstack((ellipse_y + pose_j[1], ellipse_x + pose_j[0])).T
+                        )
+                        self.axes[0].draw_artist(self.ship_plt_handles[i]["do_covariances"][j - 1])
+
+                        if self._config.show_measurements and len(sensor_measurements[i]) > 0:
+                            for sensor_id, sensor in enumerate(ship.sensors):
+                                sensor_data = sensor_measurements[i][j - 1][sensor_id]
+
+                                if any(np.isnan(sensor_data)):
+                                    continue
+
+                                if sensor.type == "radar":
+                                    self.ship_plt_handles[i]["radar"].set_xdata(
+                                        [*self.ship_plt_handles[i]["radar"].get_xdata(), sensor_data[1]]
+                                    )
+                                    self.ship_plt_handles[i]["radar"].set_ydata(
+                                        [*self.ship_plt_handles[i]["radar"].get_ydata(), sensor_data[0]]
+                                    )
+                                    self.axes[0].draw_artist(self.ship_plt_handles[i]["radar"])
+
+                                elif sensor.type == "ais":
+                                    self.ship_plt_handles[i]["ais"].set_xdata(
+                                        [*self.ship_plt_handles[i]["ais"].get_xdata(), sensor_data[1]]
+                                    )
+                                    self.ship_plt_handles[i]["ais"].set_ydata(
+                                        [*self.ship_plt_handles[i]["ais"].get_ydata(), sensor_data[0]]
+                                    )
+                                    self.axes[0].draw_artist(self.ship_plt_handles[i]["ais"])
+
             # Update ship patch
-            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 2.0)
+            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 3.0)
             y_ship, x_ship = ship_poly.exterior.xy
             self.ship_plt_handles[i]["patch"].set_xy(np.array([y_ship, x_ship]).T)
 
@@ -182,15 +311,19 @@ class Visualizer:
             )
             self.axes[0].draw_artist(self.ship_plt_handles[i]["trajectory"])
 
-            self.ship_plt_handles[i]["waypoints"].set_xdata(ship.waypoints[1, :])
-            self.ship_plt_handles[i]["waypoints"].set_ydata(ship.waypoints[0, :])
-            self.axes[0].draw_artist(self.ship_plt_handles[i]["waypoints"])
+            if self._config.show_waypoints:
+                self.ship_plt_handles[i]["waypoints"].set_xdata(ship.waypoints[1, :])
+                self.ship_plt_handles[i]["waypoints"].set_ydata(ship.waypoints[0, :])
+                self.axes[0].draw_artist(self.ship_plt_handles[i]["waypoints"])
 
             # TODO: Update predicted ship trajectory
 
         self.fig.canvas.blit(self.axes[0].bbox)
 
-        plt.pause(self._config.frame_delay / 1000)
+        plt.legend()
+
+        self.fig.canvas.flush_events()
+        plt.pause(0.0000001)  # (self._config.frame_delay / 1000)
 
     def visualize(
         self,
@@ -220,7 +353,7 @@ class Visualizer:
         n_ships = len(data.columns)
         for i in range(n_ships):
             c = self._config.ship_colors[i]
-            lw = self._config.linewidth
+            lw = self._config.ship_linewidth
             if i == 0:
                 vessels.append(plt.fill([], [], color=c, linewidth=lw, label="OS")[0])
                 trajectories.append(plt.plot([], [], c, label="OS traj.")[0])

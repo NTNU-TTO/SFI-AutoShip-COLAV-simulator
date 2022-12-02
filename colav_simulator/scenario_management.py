@@ -15,7 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import colav_simulator.common.config_parsing as config_parsing
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.paths as dp  # Default paths
@@ -146,7 +146,7 @@ class ScenarioGenerator:
         """
         self.enc = senc.ENC(enc_config_file)
 
-        self._config = config_parsing.extract(Config, config_file, dp.scenario_generator_schema)
+        self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
 
     def generate(
         self,
@@ -163,7 +163,7 @@ class ScenarioGenerator:
                 and also the corresponding ship configuration objects.
         """
         print("Generating new scenario...")
-        config = config_parsing.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
+        config = cp.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
 
         n_ships = config.n_ships
         n_cfg_ships = len(config.ship_list)
@@ -428,7 +428,7 @@ def load_scenario_definition(scenario_file: Path):
     print("Loading existing scenario definition...")
     ship_list = []
 
-    config = config_parsing.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
+    config = cp.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
 
     for i, ship_config in enumerate(config.ship_list):
         ship_list.append(ship.Ship(mmsi=i + 1, config=ship_config))

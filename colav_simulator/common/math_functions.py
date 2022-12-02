@@ -1,9 +1,11 @@
 """Contains commonly used math functions."""
 import math
 from datetime import datetime
+from typing import Tuple
 from zoneinfo import ZoneInfo
 
 import numpy as np
+from scipy.stats import chi2
 
 
 def current_utc_timestamp() -> int:
@@ -345,17 +347,16 @@ def Rzyx(phi, theta, psi):
     return R
 
 
-def Rpsi(psi):
+def Rmtrx(psi):
     """
-    R = Rpsi(psi) computes the 3x3 rotation matrix of an angle psi about the z-axis
+    R = Rmtrx(psi) computes the 3x3 rotation matrix of an angle psi about the z-axis
     """
-    Rmtrx = np.array([[np.cos(psi), -np.sin(psi), 0], [np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
-    return Rmtrx
+    return np.array([[np.cos(psi), -np.sin(psi), 0], [np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
 
 
-def Rpsi2D(psi):
+def Rmtrx2D(psi):
     """
-    R = Rpsi2D(psi) computes the 2D rotation matrix.
+    R = Rmtrx2D(psi) computes the 2D rotation matrix.
     Rmtrx = np.array([[np.cos(psi), np.sin(psi), 0], [-np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
     """
     return np.array([[np.cos(psi), -np.sin(psi)], [np.sin(psi), np.cos(psi)]])
@@ -452,3 +453,52 @@ def m2c(M: np.ndarray, nu: np.ndarray) -> np.ndarray:
         Cmtrx[2, 1] = -Cmtrx[1, 2]
 
     return Cmtrx
+
+
+def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tuple[list, list]:
+    """Creates a probability ellipse for a covariance matrix P and a given
+    confidence level (default 0.99).
+
+    Args:
+        P (np.ndarray): Covariance matrix
+        probability (float, optional): Confidence level. Defaults to 0.99.
+
+    Returns:
+        np.ndarray: Ellipse data in x and y coordinates
+    """
+
+    # eigenvalues and eigenvectors of the covariance matrix
+    eigenval, eigenvec = np.linalg.eig(P[0:2, 0:2])
+
+    largest_eigenval = max(eigenval)
+    largest_eigenvec_idx = np.argwhere(eigenval == max(eigenval))[0][0]
+    largest_eigenvec = eigenvec[:, largest_eigenvec_idx]
+
+    smallest_eigenval = min(eigenval)
+    # if largest_eigenvec_idx == 0:
+    #     smallest_eigenvec = eigenvec[:, 1]
+    # else:
+    #     smallest_eigenvec = eigenvec[:, 0]
+
+    angle = np.arctan2(largest_eigenvec[1], largest_eigenvec[0])
+    angle = wrap_angle_to_02pi(angle)
+
+    #% Get the ellipse scaling factor based on the confidence level
+    chisquare_val = chi2.ppf(q=probability, df=2)
+
+    a = chisquare_val * math.sqrt(largest_eigenval)
+    b = chisquare_val * math.sqrt(smallest_eigenval)
+
+    # the ellipse in "body" x and y coordinates
+    t = np.linspace(0, 2.01 * np.pi, 100)
+    x = a * np.cos(t)
+    y = b * np.sin(t)
+
+    R = Rmtrx2D(angle)
+
+    # Rotate to NED by angle phi, N_ell_points x 2
+    ellipse_xy = np.array([x, y])
+    for i in range(len(ellipse_xy)):
+        ellipse_xy[:, i] = R @ ellipse_xy[:, i]
+
+    return ellipse_xy[0, :].tolist(), ellipse_xy[1, :].tolist()

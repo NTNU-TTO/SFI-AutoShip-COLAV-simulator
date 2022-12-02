@@ -1,12 +1,46 @@
 ship_list:
-  - default: ''
-    pose: [6957500.0, 39500.0, 15.0, 45.0]
+  - pose: [6957500.0, 39500.0, 15.0, 45.0]
     waypoints: [[6957500.0, 6959500.0], [39500.0, 41500.0]]
     speed_plan: [15.0, 15.0]
-
-  - pose: [6959500.0, 41500.0, 15.0, 225.0]
-    waypoints: [[6959500.0, 6957500.0], [41500.0, 39500.0]]
-    speed_plan: [15.0, 15.0]
+    tracker:
+      kf:
+        P_0: [25.1, 25.1, 0.11, 0.11]
+        q: 0.02
+    sensors:
+      - radar:
+          measurement_rate: 0.55
+          R: [25.3, 25.3]
+      # - ais:
+      #     ais_class: 0
+      #     R: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 15.0
+        K_p: 0.024
+        K_i: 0.0
+        e_int_max: 101.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 6.1
+        K_d_psi: 12.1
+    model:
+      telemetron: ''
+  - pose: [6958000.0, 40000.0, 7.0, 45.0]
+    waypoints: [[6958000.0, 6959500.0], [40000.0, 41500.0]]
+    speed_plan: [7.0, 7.0]
+    tracker:
+      kf:
+        P_0: [25.1, 25.1, 0.11, 0.11]
+        q: 0.02
+    sensors:
+      - radar:
+          measurement_rate: 0.55
+          R: [25.3, 25.3]
+      # - ais:
+      #     ais_class: 0
+      #     R: [26.3, 26.3, 0.1, 0.1]
     guidance:
       los:
         pass_angle_threshold: 80.0

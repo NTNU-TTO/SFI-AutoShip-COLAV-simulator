@@ -14,7 +14,7 @@ ship_list:
           R: [25.3, 25.3]
       - ais:
           ais_class: 0
-          R: [26.3, 26.3]
+          R: [26.3, 26.3, 0.1, 0.1]
     guidance:
       los:
         pass_angle_threshold: 80.0
@@ -39,7 +39,7 @@ ship_list:
           R: [25.3, 25.3]
       - ais:
           ais_class: 0
-          R: [26.3, 26.3]
+          R: [26.3, 26.3, 0.1, 0.1]
     guidance:
       los:
         pass_angle_threshold: 90.0
@@ -69,7 +69,7 @@ ship_list:
           R: [25.3, 25.3]
       - ais:
           ais_class: 0
-          R: [26.3, 26.3]
+          R: [26.3, 26.3, 0.1, 0.1]
     guidance:
       ktp:
         epsilon: 0.000001
@@ -91,7 +91,7 @@ ship_list:
           R: [25.3, 25.3]
       - ais:
           ais_class: 0
-          R: [26.3, 26.3]
+          R: [26.3, 26.3, 0.1, 0.1]
     guidance:
       ktp:
         epsilon: 0.000001

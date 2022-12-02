@@ -19,7 +19,7 @@ Are all outlined in setup.cfg, and listed below:
 - pyyaml
 - cerberus
 - dacite
-- seacharts: https://github.com/trymte/thecolavrepo
+- seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 - yaspin
 

@@ -19,7 +19,7 @@ import scipy.linalg as la
 
 class ITracker(ABC):
     @abstractmethod
-    def track(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
+    def track(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
@@ -28,11 +28,11 @@ class ITracker(ABC):
 
 
 @dataclass
-class KFPars:
+class KFParams:
     """Class for holding KF parameters."""
 
     P_0: np.ndarray = np.diag([20.0, 20.0, 0.1, 0.1])
-    q: float = 0.01
+    q: float = 0.05
 
     def to_dict(self):
         output_dict = {"P_0": self.P_0.diagonal().tolist(), "q": self.q}
@@ -40,14 +40,14 @@ class KFPars:
 
     @classmethod
     def from_dict(cls, config_dict):
-        return KFPars(P_0=np.diag(config_dict["P_0"]), q=config_dict["q"])
+        return KFParams(P_0=np.diag(config_dict["P_0"]), q=config_dict["q"])
 
 
 @dataclass
 class Config:
     """Class for holding tracker configuration parameters."""
 
-    kf: Optional[KFPars] = KFPars()
+    kf: Optional[KFParams] = KFParams()
 
     def to_dict(self) -> dict:
         output_dict = {}
@@ -61,7 +61,7 @@ class Config:
         config = Config(None)
 
         if "kf" in config_dict:
-            config.kf = cp.convert_settings_dict_to_dataclass(KFPars, config_dict["kf"])
+            config.kf = cp.convert_settings_dict_to_dataclass(KFParams, config_dict["kf"])
 
         return config
 
@@ -69,7 +69,7 @@ class Config:
 class KF(ITracker):
     """The KF class implements a linear Kalman filter based tracker."""
 
-    _pars: KFPars
+    _params: KFParams
     sensors: list
     xs_p: list = []
     P_p: list = []
@@ -81,15 +81,15 @@ class KF(ITracker):
             raise ValueError("Sensor list must be provided.")
 
         if config and config.kf is not None:
-            self._pars = config.kf
+            self._params = config.kf
         else:
-            self._pars = KFPars()
+            self._params = KFParams()
 
-        self._model = CVModel(self._pars.q)
+        self._model = CVModel(self._params.q)
 
         self.sensors = sensor_list
 
-    def track(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
+    def track(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states.
 
@@ -101,19 +101,19 @@ class KF(ITracker):
             true_do_states (list): List of true dynamic obstacle states [x, y, Vx, Vy] x n_do. Used for simulating sensor measurements.
 
         Returns:
-            Tuple[list, list]: List of updated dynamic obstacle estimates and covariances.
+            Tuple[list, list, list]: List of updated dynamic obstacle estimates and covariances. Also, a list of sensor measurements.
         """
 
         if t < 0.00001:
             self.xs_upd = true_do_states
-            self.P_upd = [self._pars.P_0 for _ in range(len(true_do_states))]
-            self.xs_p = self.xs_upd
-            self.P_p = self.P_upd
-            return self.xs_upd, self.P_upd
+            self.P_upd = [self._params.P_0 for _ in range(len(true_do_states))]
+            self.xs_p = self.xs_upd.copy()
+            self.P_p = self.P_upd.copy()
+            return self.xs_upd, self.P_upd, []
 
         sensor_measurements = []
         for sensor in self.sensors:
-            z = sensor.generate_measurements(dt, true_do_states)
+            z = sensor.generate_measurements(t, true_do_states)
             sensor_measurements.append(z)
 
         n_do = len(true_do_states)
@@ -126,10 +126,10 @@ class KF(ITracker):
 
             for sensor_id in range(len(self.sensors)):
                 self.xs_upd[i], self.P_upd[i] = self.update(
-                    self.xs_p[i], self.P_p[i], sensor_measurements[i], sensor_id
+                    self.xs_p[i], self.P_p[i], sensor_measurements[sensor_id][i], sensor_id
                 )
 
-        return self.xs_upd, self.P_upd
+        return self.xs_upd, self.P_upd, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
         F = self._model.F(dt)
@@ -151,7 +151,7 @@ class KF(ITracker):
         return v, S
 
     def update(self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int):
-        if z == np.nan * np.ones(z.shape):
+        if any(np.isnan(z)):
             return xs_p, P_p
 
         v, S = self.innovation(xs_p, P_p, z, sensor_id)
