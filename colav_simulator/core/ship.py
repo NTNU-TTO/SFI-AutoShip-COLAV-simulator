@@ -360,10 +360,9 @@ class Ship(IShip):
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "timestamp": datetime_str,
-            "do_states": xs_i_upd,
+            "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             # predicted trajectory from COLAV/planner
-            # "obstacles": self.track_obstacles(),
         }
 
         return ship_sim_data

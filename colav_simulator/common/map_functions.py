@@ -68,7 +68,9 @@ def create_ship_polygon(x: float, y: float, heading: float, length: float, width
     return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
-def plot_background(ax: plt.Axes, enc: ENC) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+def plot_background(
+    ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
     """Creates a static background based on the input seacharts
 
     Args:
@@ -84,9 +86,9 @@ def plot_background(ax: plt.Axes, enc: ENC) -> Tuple[Tuple[float, float], Tuple[
     # For every layer put in list and assign a color
     if enc.land:
         layers.append(enc.land)
-        colors.append(get_green_colors(1))
+        colors.append("#142c38")  # get_green_colors(1))
 
-    if enc.shore:
+    if show_shore and enc.shore:
         layers.append(enc.shore)
         if enc.land:
             del colors[0]
@@ -94,7 +96,7 @@ def plot_background(ax: plt.Axes, enc: ENC) -> Tuple[Tuple[float, float], Tuple[
         else:
             colors.append(get_green_colors(1))
 
-    if enc.seabed:
+    if show_seabed and enc.seabed:
         sea = enc.seabed
         sea_layer = list(sea.keys())
         for key in sea_layer:

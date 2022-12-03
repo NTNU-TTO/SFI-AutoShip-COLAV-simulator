@@ -29,7 +29,9 @@ class Config:
     show_tracks: bool = True
     show_waypoints: bool = False
     show_animation: bool = True
+    show_results: bool = True
     save_animation: bool = False
+    n_snapshots: int = 3 # number of scenario snapshots to show in trajectory result plotting
     frame_delay: float = 200.0
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.01, 0.01])
@@ -90,10 +92,10 @@ class Visualizer:
     """
 
     _config: Config
-    fig: plt.figure
-    axes: list
-    background: Any
-    ship_plt_handles: list
+    fig: plt.figure  # handle to figure for live plotting
+    axes: list  # handle to axes for live plotting
+    background: Any  # map background in live plotting fig
+    ship_plt_handles: list  # handles used for live plotting
 
     def __init__(self, enc: ENC, config_file: Path = dp.visualizer_config) -> None:
         self._config = cp.extract(Config, config_file, dp.visualizer_schema)
@@ -323,7 +325,7 @@ class Visualizer:
         plt.legend()
 
         self.fig.canvas.flush_events()
-        plt.pause(0.0000001)  # (self._config.frame_delay / 1000)
+        plt.pause(0.00001)  # plt.pause(self._config.frame_delay / 1000)
 
     def visualize(
         self,
@@ -336,15 +338,11 @@ class Visualizer:
 
         Args:
             enc (ENC): Electronic Navigational Chart object.
-            ship_list
+            ship_list: List of ships in the simulation.
             data (DataFrame): Pandas DataFrame containing the ship simulation data.
             times (List/np.ndarray): List/array of times to consider.
-            show_waypoints (Optional[bool]): _description_. Defaults to True.
-            show_animation (Optional[bool]): _description_. Defaults to True.
-            save_animation (Optional[bool]): Boolean flag for saving the animation. Defaults to True.
             save_path (Optional[pathlib.Path]): Path to file where the animation is saved. Defaults to None.
         """
-        self._clear_artists()
 
         vessels = []
         trajectories = []
@@ -384,7 +382,6 @@ class Visualizer:
             for j in range(n_ships):
                 x_i = data[f"Ship{j}"][i]["pose"][0]
                 y_i = data[f"Ship{j}"][i]["pose"][1]
-                U_i = data[f"Ship{j}"][i]["pose"][2]
                 chi_i = data[f"Ship{j}"][i]["pose"][3]
                 length = ship_list[j].length
                 width = ship_list[j].width
@@ -435,3 +432,163 @@ class Visualizer:
         else:
             plt.show(block=True)
         return
+
+    def visualize_results(
+        self, enc: ENC, ship_list: list, sim_data: DataFrame, sim_times: np.ndarray, t_snapshots: Optional[list] = None, save_figs: bool = True
+    ) -> Tuple[list, list]:
+        """Visualize the results of a scenario simulation.
+
+        Args:
+            ship_list (list): List of ships in the simulation.
+            sim_data (list): List of simulation data.
+
+        Returns:
+            Tuple[list, list]: List of figure and axes handles
+        """
+        n_samples = len(sim_times)
+        if t_snapshots is None:
+            t_snapshots = [sim_times[n_samples / 5], sim_times[3 * n_samples / 5], sim_times[4 * n_samples / 5]]
+        figs = []
+        axes = []
+        fig_map, ax_map = plt.subplots(1, 1, figsize=(10, 10))
+        ax_map.set_xlabel("East [m]")
+        ax_map.set_ylabel("North [m]")
+
+        mapf.plot_background(ax_map, enc)
+
+        ship_lw = self._config.ship_linewidth
+
+        xlimits = [1e10, -1e10]
+        ylimits = [1e10, -1e10]
+
+        n_ships = len(ship_list)
+
+        t_snapshots = []
+        for k in range(self._config.n_snapshots):
+            t_snapshots.append(sim_times[])
+
+
+        for i, ship in enumerate(ship_list):
+            ship_sim_data = sim_data[f"Ship{i}"]
+
+            ship_color = self._config.ship_colors[i]
+            ax_map.plot(
+                ship.waypoints[1, :],
+                ship.waypoints[0, :],
+                "o",
+                color=ship_color,
+                marker="o",
+                markersize=15,
+                linestyle="None",
+                linewidth=ship_lw,
+                alpha=0.3,
+            )
+
+            X = extract_trajectory_data_from_dataframe(ship_sim_data)
+
+            for k in range(self._config.n_snapshots):
+
+            ax_map.plot(X[1, :], X[0, :], color=ship_color, linewidth=ship_lw, label=f"Ship {i}")
+
+            do_estimates, do_covariances = extract_track_data_from_dataframe(ship_sim_data)
+            for j, do_estimates_j in enumerate(do_estimates):
+                do_color = self._config.do_colors[j]
+
+                ax_map.plot(
+                    do_estimates_j[1, :],
+                    do_estimates_j[0, :],
+                    color=do_color,
+                    linewidth=ship_lw,
+                    linestyle="--",
+                    alpha=0.3,
+                )
+
+            xlimits, ylimits = update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
+
+        ax_map.set_xlim(ylimits)
+        ax_map.set_ylim(xlimits)
+        figs.append(fig_map)
+        axes.append(ax_map)
+
+        # plot NE with vessel trajectories at multiple time steps
+
+        # plot own-ship DO tracking results (NIS, RMSE, etc.)
+
+        # plot own-ship trajectory tracking results ()
+
+        # save results in figs as .eps and .fig
+
+        return figs, axes
+
+
+def extract_trajectory_data_from_dataframe(ship_df: DataFrame) -> np.ndarray:
+    """Extract the trajectory data from a ship dataframe.
+
+    Args:
+        ship_df (Dataframe): Dataframe containing the ship simulation data.
+
+    Returns:
+        np.ndarray: Array containing the trajectory data.
+    """
+    X = np.zeros((4, len(ship_df)))
+    for k, ship_df_k in enumerate(ship_df):
+        X[:, k] = ship_df_k["pose"]
+    return X
+
+
+def extract_track_data_from_dataframe(ship_df: DataFrame) -> Tuple[list, list]:
+    """Extract the dynamic obstacle track data from a ship dataframe.
+
+    Args:
+        ship_df (Dataframe): Dataframe containing the ship simulation data.
+
+    Returns:
+        Tuple[list, list]: List of dynamic obstacle estimates and covariances
+    """
+    do_estimates = []
+    do_covariances = []
+
+    n_samples = len(ship_df)
+    n_do = len(ship_df[n_samples - 1]["do_states"])
+
+    for i in range(n_do):
+        do_estimates.append(np.zeros((4, n_samples)))
+        do_covariances.append(np.zeros((4, 4, n_samples)))
+
+        for k, ship_df in enumerate(ship_df):
+            do_estimates[i][:, k] = ship_df["do_states"][i]
+            do_covariances[i][:, :, k] = ship_df["do_covariances"][i]
+
+    return do_estimates, do_covariances
+
+
+def update_xy_limits_from_trajectory_data(X: np.ndarray, xlimits: list, ylimits: list) -> Tuple[np.ndarray, np.ndarray]:
+    """Update the x and y limits from the trajectory data.
+
+    Args:
+        X (np.ndarray): Trajectory data.
+        xlimits (list): List containing the x limits.
+        ylimits (list): List containing the y limits.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: x and y limits.
+    """
+
+    min_x = np.min(X[0, :])
+    max_x = np.max(X[0, :])
+    min_y = np.min(X[1, :])
+    max_y = np.max(X[1, :])
+
+    if min_x < xlimits[0]:
+        xlimits[0] = min_x
+
+    if max_x > xlimits[1]:
+        xlimits[1] = max_x
+
+    if min_y < ylimits[0]:
+        ylimits[0] = min_y
+
+    if max_y > ylimits[1]:
+        ylimits[1] = max_y
+
+    return xlimits, ylimits

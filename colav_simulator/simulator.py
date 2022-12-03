@@ -113,6 +113,9 @@ class Simulator:
                 print(f"Running scenario nr {i}: {scenario_file}...")
             sim_data, ais_data = self.run_scenario(ship_list, sim_times)
 
+            if self._config.visualize:
+                self._visualizer.visualize_results(self._scenario_generator.enc, ship_list, sim_data, sim_times)
+
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
 

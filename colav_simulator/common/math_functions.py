@@ -412,9 +412,6 @@ def attitudeEuler(eta: np.ndarray, nu: np.ndarray, sampleTime: float) -> np.ndar
     return eta
 
 
-# ------------------------------------------------------------------------------
-
-
 def m2c(M: np.ndarray, nu: np.ndarray) -> np.ndarray:
     """
     Cmtrx = m2c(M,nu) computes the Coriolis and centripetal matrix C from the
