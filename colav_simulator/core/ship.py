@@ -351,9 +351,10 @@ class Ship(IShip):
         """
         datetime_t = mf.utc_timestamp_to_datetime(timestamp)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        xs_i_upd, P_i_upd = self.get_do_tracks()
+        xs_i_upd, P_i_upd, NISes = self.get_do_track_information()
         xs_i_upd = [xs.tolist() for xs in xs_i_upd]
         P_i_upd = [P.tolist() for P in P_i_upd]
+        NISes = [float(NIS) for NIS in NISes]
 
         ship_sim_data = {
             "pose": self.pose,
@@ -362,6 +363,7 @@ class Ship(IShip):
             "timestamp": datetime_str,
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
+            "do_NISes": NISes,
             # predicted trajectory from COLAV/planner
         }
 
@@ -392,8 +394,15 @@ class Ship(IShip):
         }
         return row
 
-    def get_do_tracks(self) -> Tuple[list, list]:
-        return self._tracker.get_tracks()
+    def get_do_track_information(self) -> Tuple[list, list, list]:
+        """Returns the estimates and covariances of the dynamic obstacles tracked by the ship.
+        Also, it returns the associated Normalized Innovation error Squared (NIS) values for
+        the most recent update step for each track.
+
+        Returns:
+            Tuple[list, list, list]: List of estimates, list of covariances and list of NISes.
+        """
+        return self._tracker.get_track_information()
 
     @property
     def pose(self) -> np.ndarray:

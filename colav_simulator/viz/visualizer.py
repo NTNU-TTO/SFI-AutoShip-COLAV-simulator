@@ -18,6 +18,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame
+from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 
 
@@ -31,7 +32,7 @@ class Config:
     show_animation: bool = True
     show_results: bool = True
     save_animation: bool = False
-    n_snapshots: int = 3 # number of scenario snapshots to show in trajectory result plotting
+    n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
     frame_delay: float = 200.0
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.01, 0.01])
@@ -112,7 +113,7 @@ class Visualizer:
         ax_map.set_xlabel("East [m]")
         ax_map.set_ylabel("North [m]")
 
-        mapf.plot_background(ax_map, enc)
+        # mapf.plot_background(ax_map, enc)
 
         self.ship_plt_handles = []
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
@@ -122,6 +123,7 @@ class Visualizer:
         # TODO: Add more axes for plotting vessel speed, heading, vessel-vessel distances etc..
 
     def clear_ship_handles(self) -> None:
+        """Clears the handles for the ships in the live visualization."""
         for ship_i_handle in self.ship_plt_handles:
             if "patch" in ship_i_handle:
                 ship_i_handle["patch"].remove()
@@ -162,6 +164,8 @@ class Visualizer:
         self.clear_ship_handles()
 
         self.fig.canvas.restore_region(self.background)
+        xlimits = [1e10, -1e10]
+        ylimits = [1e10, -1e10]
 
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
@@ -170,6 +174,8 @@ class Visualizer:
             lw = self._config.ship_linewidth
 
             ship_i_handles: dict = {}
+
+            xlimits, ylimits = update_xy_limits_from_waypoint_data(ship.waypoints, xlimits, ylimits)
 
             if i == 0:
                 ship_name = "OS"
@@ -182,11 +188,13 @@ class Visualizer:
                     ship_i_handles["do_covariances"] = []
                     for j in range(1, n_ships):
                         ship_i_handles["do_tracks"].append(
-                            ax_map.plot([], [], linewidth=do_lw, color=c_do[j - 1], label=f"DO{j-1} track")[0]
+                            ax_map.plot([], [], linewidth=do_lw, color=c_do[j - 1], label=f"DO{j-1} est. traj.")[0]
                         )
 
                         ship_i_handles["do_covariances"].append(
-                            ax_map.fill([], [], linewidth=lw, color=c_do[j - 1], alpha=0.5, label=f"DO{j-1} cov.")[0]
+                            ax_map.fill([], [], linewidth=lw, color=c_do[j - 1], alpha=0.6, label=f"DO{j-1} est. cov.")[
+                                0
+                            ]
                         )
 
                 if self._config.show_measurements:
@@ -215,11 +223,13 @@ class Visualizer:
                             )[0]
 
             else:
-                ship_name = "DO " + str(i + 1)
+                ship_name = "DO " + str(i - 1)
 
-            ship_i_handles["patch"] = ax_map.fill([], [], color=c, linewidth=lw, label=ship_name)[0]
+            ship_i_handles["patch"] = ax_map.fill([], [], color=c, linewidth=lw, label="")[0]
 
-            ship_i_handles["trajectory"] = ax_map.plot([], [], color=c, linewidth=lw, label=ship_name + " traj.")[0]
+            ship_i_handles["trajectory"] = ax_map.plot([], [], color=c, linewidth=lw, label=ship_name + " true traj.")[
+                0
+            ]
 
             ship_i_handles["predicted_trajectory"] = ax_map.plot(
                 [], [], color=c, linewidth=lw, marker="*", linestyle="-", label=ship_name + " pred. traj."
@@ -240,6 +250,11 @@ class Visualizer:
 
             self.ship_plt_handles.append(ship_i_handles)
 
+        xlimits = [xlimits[0] - 500, xlimits[1] + 500]
+        ylimits = [ylimits[0] - 500, ylimits[1] + 500]
+        ax_map.set_xlim(ylimits)
+        ax_map.set_ylim(xlimits)
+
     def update_live_plot(self, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
 
@@ -253,7 +268,7 @@ class Visualizer:
             pose_i = ship.pose
 
             if i == 0:
-                tracks = ship.get_do_tracks()
+                tracks = ship.get_do_track_information()
                 if self._config.show_tracks and tracks is not None:
                     for j in range(1, n_ships):
                         pose_j = ship_list[j].pose
@@ -298,7 +313,7 @@ class Visualizer:
                                     self.axes[0].draw_artist(self.ship_plt_handles[i]["ais"])
 
             # Update ship patch
-            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 3.0)
+            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 2.0)
             y_ship, x_ship = ship_poly.exterior.xy
             self.ship_plt_handles[i]["patch"].set_xy(np.array([y_ship, x_ship]).T)
 
@@ -353,11 +368,11 @@ class Visualizer:
             c = self._config.ship_colors[i]
             lw = self._config.ship_linewidth
             if i == 0:
-                vessels.append(plt.fill([], [], color=c, linewidth=lw, label="OS")[0])
+                vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
                 trajectories.append(plt.plot([], [], c, label="OS traj.")[0])
             else:
-                vessels.append(plt.fill([], [], color=c, linewidth=lw, label=f"DO {i - 1}")[0])
-                trajectories.append(plt.plot([], [], color=c, linewidth=lw, label=f"DO {i - 1} traj.")[0])
+                vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
+                trajectories.append(plt.plot([], [], color=c, linewidth=lw, label=f"DO {i - 1} true traj.")[0])
             if self._config.show_waypoints:  # Nominal waypoints
                 waypoints = data[f"Ship{i}"][0]["waypoints"]
                 self.axes[0].plot(
@@ -434,7 +449,13 @@ class Visualizer:
         return
 
     def visualize_results(
-        self, enc: ENC, ship_list: list, sim_data: DataFrame, sim_times: np.ndarray, t_snapshots: Optional[list] = None, save_figs: bool = True
+        self,
+        enc: ENC,
+        ship_list: list,
+        sim_data: DataFrame,
+        sim_times: np.ndarray,
+        k_snapshots: Optional[list] = None,
+        save_figs: bool = True,
     ) -> Tuple[list, list]:
         """Visualize the results of a scenario simulation.
 
@@ -446,36 +467,43 @@ class Visualizer:
             Tuple[list, list]: List of figure and axes handles
         """
         n_samples = len(sim_times)
-        if t_snapshots is None:
-            t_snapshots = [sim_times[n_samples / 5], sim_times[3 * n_samples / 5], sim_times[4 * n_samples / 5]]
+        if k_snapshots is None:
+            k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(4 * n_samples / 5)]
+
+        t_snapshots = []
+        for k in k_snapshots:
+            t_snapshots.append(sim_times[k])
+
         figs = []
         axes = []
         fig_map, ax_map = plt.subplots(1, 1, figsize=(10, 10))
         ax_map.set_xlabel("East [m]")
         ax_map.set_ylabel("North [m]")
-
-        mapf.plot_background(ax_map, enc)
-
-        ship_lw = self._config.ship_linewidth
-
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
 
+        mapf.plot_background(ax_map, enc)
+
         n_ships = len(ship_list)
-
-        t_snapshots = []
-        for k in range(self._config.n_snapshots):
-            t_snapshots.append(sim_times[])
-
-
+        n_do = n_ships - 1
+        figs_tracking: list = []
+        axes_tracking: list = []
+        ship_lw = self._config.ship_linewidth
         for i, ship in enumerate(ship_list):
             ship_sim_data = sim_data[f"Ship{i}"]
-
             ship_color = self._config.ship_colors[i]
+            X = extract_trajectory_data_from_dataframe(ship_sim_data)
+            xlimits, ylimits = update_xy_limits_from_waypoint_data(ship.waypoints, xlimits, ylimits)
+
+            if i == 0:
+                ship_name = "OS"
+            else:
+                ship_name = "DO " + str(i - 1)
+
+            # Plot ship nominal waypoints
             ax_map.plot(
                 ship.waypoints[1, :],
                 ship.waypoints[0, :],
-                "o",
                 color=ship_color,
                 marker="o",
                 markersize=15,
@@ -484,33 +512,59 @@ class Visualizer:
                 alpha=0.3,
             )
 
-            X = extract_trajectory_data_from_dataframe(ship_sim_data)
+            # Plot ship trajectory and shape at all considered snapshots
+            ax_map.plot(
+                X[1, : k_snapshots[-1]],
+                X[0, : k_snapshots[-1]],
+                color=ship_color,
+                linewidth=ship_lw,
+                label=ship_name + " traj.",
+            )
+            for k in k_snapshots:
+                ship_poly = mapf.create_ship_polygon(X[0, k], X[1, k], X[3, k], ship.length, ship.width, 3.0)
+                y_ship, x_ship = ship_poly.exterior.xy
 
-            for k in range(self._config.n_snapshots):
+                ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="")
 
-            ax_map.plot(X[1, :], X[0, :], color=ship_color, linewidth=ship_lw, label=f"Ship {i}")
+            # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
+            if i == 0:
+                do_estimates, do_covariances, do_NISes = extract_track_data_from_dataframe(ship_sim_data)
+                for j, do_estimates_j in enumerate(do_estimates):
+                    do_color = self._config.do_colors[j]
+                    do_lw = self._config.do_linewidth
+                    do_true_states_j = extract_trajectory_data_from_dataframe(sim_data[f"Ship{j + 1}"])
+                    do_true_states_j = mf.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
 
-            do_estimates, do_covariances = extract_track_data_from_dataframe(ship_sim_data)
-            for j, do_estimates_j in enumerate(do_estimates):
-                do_color = self._config.do_colors[j]
+                    ax_map.plot(
+                        do_estimates_j[1, : k_snapshots[-1]],
+                        do_estimates_j[0, : k_snapshots[-1]],
+                        color=do_color,
+                        linewidth=ship_lw,
+                        linestyle="--",
+                        alpha=0.3,
+                    )
+                    for k in k_snapshots:
+                        ellipse_x, ellipse_y = mf.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
+                        ax_map.fill(ellipse_y, ellipse_x, color=do_color, alpha=0.3, linewidth=do_lw)
 
-                ax_map.plot(
-                    do_estimates_j[1, :],
-                    do_estimates_j[0, :],
-                    color=do_color,
-                    linewidth=ship_lw,
-                    linestyle="--",
-                    alpha=0.3,
-                )
+                    fig_do_j, axes_do_j = self._plot_do_tracking_results(
+                        sim_times,
+                        do_true_states_j,
+                        do_estimates_j,
+                        do_covariances[j],
+                        do_NISes[j],
+                        j,
+                        do_lw,
+                    )
+                    figs_tracking.append(fig_do_j)
+                    axes_tracking.append(axes_do_j)
 
-            xlimits, ylimits = update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
-
+        xlimits = [xlimits[0] - 100, xlimits[1] + 100]
+        ylimits = [ylimits[0] - 100, ylimits[1] + 100]
         ax_map.set_xlim(ylimits)
         ax_map.set_ylim(xlimits)
         figs.append(fig_map)
         axes.append(ax_map)
-
-        # plot NE with vessel trajectories at multiple time steps
 
         # plot own-ship DO tracking results (NIS, RMSE, etc.)
 
@@ -518,7 +572,135 @@ class Visualizer:
 
         # save results in figs as .eps and .fig
 
+        plt.show()
+
         return figs, axes
+
+    def _plot_do_tracking_results(
+        self,
+        sim_times: np.ndarray,
+        do_true_states: np.ndarray,
+        do_estimates: np.ndarray,
+        do_covariances: np.ndarray,
+        do_NIS: np.ndarray,
+        do_idx: int,
+        do_lw: float = 1.0,
+        confidence_level: float = 0.95,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Plot the tracking results of a specific dynamic obstacle (DO).
+
+        Args:
+            axes (plt.Axes): Axes handle.
+            sim_times (np.ndarray): Simulation times.
+            do_true_states (np.ndarray): True states of the DO
+            do_estimates (np.ndarray): Estimated states of the DO
+            do_covariances (np.ndarray): Covariances of the DO.
+            do_NIS (np.ndarray): Normalized Innovation error Squared (NIS) values of the DO.
+            do_idx (int): Index of the DO.
+            do_lw (float, optional): Line width of the DO. Defaults to 1.0.
+            confidence_level (float, optional): Confidence level considered for the uncertainty plotting. Defaults to 0.95.
+
+        Returns:
+            plt.Figure, plt.Axes: Figure and axes handles for the DO <do_idx> tracking results.
+        """
+        fig = plt.figure(num="Tracking results DO" + str(do_idx), figsize=(10, 10))
+        axes = fig.subplot_mosaic(
+            [
+                ["x", "y"],
+                ["Vx", "Vy"],
+                ["NIS", "errs"],
+            ]
+        )
+
+        z_val = norm.ppf(confidence_level)
+        axes["x"].plot(sim_times, do_estimates[0, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["x"].plot(sim_times, do_true_states[0, :], color="xkcd:red", linewidth=do_lw, label="true")
+        std_x = np.sqrt(do_covariances[0, 0, :])
+        axes["x"].fill_between(
+            sim_times,
+            do_estimates[0, :] - z_val * std_x,
+            do_estimates[0, :] + z_val * std_x,
+            color="xkcd:blue",
+            alpha=0.3,
+        )
+        axes["x"].set_xlabel("Time [s]")
+        axes["x"].set_ylabel("North [m]")
+        axes["x"].legend()
+
+        axes["y"].plot(sim_times, do_estimates[1, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["y"].plot(sim_times, do_true_states[1, :], color="xkcd:red", linewidth=do_lw, label="true")
+        std_y = np.sqrt(do_covariances[1, 1, :])
+        axes["y"].fill_between(
+            sim_times,
+            do_estimates[1, :] - z_val * std_y,
+            do_estimates[1, :] + z_val * std_y,
+            color="xkcd:blue",
+            alpha=0.3,
+        )
+        axes["y"].set_xlabel("Time [s]")
+        axes["y"].set_ylabel("East [m]")
+        axes["y"].legend()
+
+        axes["Vx"].plot(sim_times, do_estimates[2, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["Vx"].plot(sim_times, do_true_states[2, :], color="xkcd:red", linewidth=do_lw, label="true")
+        std_Vx = np.sqrt(do_covariances[2, 2, :])
+        axes["Vx"].fill_between(
+            sim_times,
+            do_estimates[2, :] - z_val * std_Vx,
+            do_estimates[2, :] + z_val * std_Vx,
+            color="xkcd:blue",
+            alpha=0.3,
+        )
+        axes["Vx"].set_xlabel("Time [s]")
+        axes["Vx"].set_ylabel("North speed [m/s]")
+        axes["Vx"].legend()
+
+        axes["Vy"].plot(sim_times, do_estimates[3, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["Vy"].plot(sim_times, do_true_states[3, :], color="xkcd:red", linewidth=do_lw, label="true")
+        std_Vy = np.sqrt(do_covariances[3, 3, :])
+        axes["Vy"].fill_between(
+            sim_times,
+            do_estimates[3, :] - z_val * std_Vy,
+            do_estimates[3, :] + z_val * std_Vy,
+            color="xkcd:blue",
+            alpha=0.3,
+        )
+        axes["Vy"].set_xlabel("Time [s]")
+        axes["Vy"].set_ylabel("East speed [m/s]")
+        axes["Vy"].legend()
+
+        alpha = 0.05
+        CI2 = np.array(chi2.ppf(q=[alpha / 2, 1 - alpha / 2], df=2))
+
+        inCIpos = np.mean(np.multiply(np.less_equal(do_NIS, CI2[1]), np.greater_equal(do_NIS, CI2[0])) * 100)
+        print(f"DO{do_idx}: {inCIpos}% of estimates inside {(1 - alpha) * 100} CI")
+        axes["NIS"].plot(
+            CI2[0] * np.ones(len(do_NIS)),
+            color="xkcd:red",
+            linewidth=do_lw,
+            linestyle="--",
+            label="Confidence bounds",
+        )
+        axes["NIS"].plot(
+            CI2[1] * np.ones(len(do_NIS)),
+            color="xkcd:red",
+            linewidth=do_lw,
+            linestyle="--",
+            label="",
+        )
+        axes["NIS"].plot(do_NIS, color="xkcd:blue", linewidth=do_lw, label="NIS")
+        axes["NIS"].set_ylabel("NIS")
+        axes["NIS"].legend()
+
+        error = do_true_states - do_estimates
+        pos_error = np.sqrt(error[0, :] ** 2 + error[1, :] ** 2)
+        vel_error = np.sqrt(error[2, :] ** 2 + error[3, :] ** 2)
+        axes["errs"].plot(sim_times, pos_error, color="xkcd:blue", linewidth=do_lw, label="pos. error")
+        axes["errs"].plot(sim_times, vel_error, color="xkcd:red", linewidth=do_lw, label="vel. error")
+        axes["errs"].set_xlabel("Time [s]")
+        axes["errs"].legend()
+
+        return fig, axes
 
 
 def extract_trajectory_data_from_dataframe(ship_df: DataFrame) -> np.ndarray:
@@ -536,7 +718,7 @@ def extract_trajectory_data_from_dataframe(ship_df: DataFrame) -> np.ndarray:
     return X
 
 
-def extract_track_data_from_dataframe(ship_df: DataFrame) -> Tuple[list, list]:
+def extract_track_data_from_dataframe(ship_df: DataFrame) -> Tuple[list, list, list]:
     """Extract the dynamic obstacle track data from a ship dataframe.
 
     Args:
@@ -547,26 +729,30 @@ def extract_track_data_from_dataframe(ship_df: DataFrame) -> Tuple[list, list]:
     """
     do_estimates = []
     do_covariances = []
+    do_NISes = []
 
     n_samples = len(ship_df)
-    n_do = len(ship_df[n_samples - 1]["do_states"])
+    n_do = len(ship_df[n_samples - 1]["do_estimates"])
 
     for i in range(n_do):
         do_estimates.append(np.zeros((4, n_samples)))
         do_covariances.append(np.zeros((4, 4, n_samples)))
+        do_NISes.append(np.zeros(n_samples))
 
         for k, ship_df in enumerate(ship_df):
-            do_estimates[i][:, k] = ship_df["do_states"][i]
+            do_estimates[i][:, k] = ship_df["do_estimates"][i]
             do_covariances[i][:, :, k] = ship_df["do_covariances"][i]
+            do_NISes[i][k] = ship_df["do_NISes"][i]
 
-    return do_estimates, do_covariances
+        do_NISes[i] = do_NISes[i][~np.isnan(do_NISes[i])]
+    return do_estimates, do_covariances, do_NISes
 
 
-def update_xy_limits_from_trajectory_data(X: np.ndarray, xlimits: list, ylimits: list) -> Tuple[np.ndarray, np.ndarray]:
-    """Update the x and y limits from the trajectory data.
+def update_xy_limits_from_waypoint_data(waypoints: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
+    """Update the x and y limits from the waypoint data.
 
     Args:
-        X (np.ndarray): Trajectory data.
+        X (np.ndarray): waypoint data.
         xlimits (list): List containing the x limits.
         ylimits (list): List containing the y limits.
 
@@ -574,10 +760,10 @@ def update_xy_limits_from_trajectory_data(X: np.ndarray, xlimits: list, ylimits:
         Tuple[np.ndarray, np.ndarray]: x and y limits.
     """
 
-    min_x = np.min(X[0, :])
-    max_x = np.max(X[0, :])
-    min_y = np.min(X[1, :])
-    max_y = np.max(X[1, :])
+    min_x = np.min(waypoints[0, :])
+    max_x = np.max(waypoints[0, :])
+    min_y = np.min(waypoints[1, :])
+    max_y = np.max(waypoints[1, :])
 
     if min_x < xlimits[0]:
         xlimits[0] = min_x

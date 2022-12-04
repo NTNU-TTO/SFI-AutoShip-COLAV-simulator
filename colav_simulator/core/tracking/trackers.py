@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -23,8 +23,14 @@ class ITracker(ABC):
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
-    def get_tracks(self) -> Tuple[list, list]:
-        """Returns the current tracks (state estimates and covariances)."""
+    def get_track_information(self) -> Tuple[list, list, list]:
+        """Returns the estimates and covariances of the tracked dynamic obstacles.
+        Also, it returns the associated Normalized Innovation error Squared (NIS) values for
+        the most recent update step for each track.
+
+        Returns:
+            Tuple[list, list, list]: List of estimates, list of covariances and list of NISes.
+        """
 
 
 @dataclass
@@ -75,6 +81,7 @@ class KF(ITracker):
     P_p: list = []
     xs_upd: list = []
     P_upd: list = []
+    NIS: list = []
 
     def __init__(self, sensor_list: list, config: Optional[Config] = None) -> None:
         if sensor_list is None:
@@ -109,6 +116,7 @@ class KF(ITracker):
             self.P_upd = [self._params.P_0 for _ in range(len(true_do_states))]
             self.xs_p = self.xs_upd.copy()
             self.P_p = self.P_upd.copy()
+            self.NIS = [np.nan for _ in range(len(true_do_states))]
             return self.xs_upd, self.P_upd, []
 
         sensor_measurements = []
@@ -125,9 +133,12 @@ class KF(ITracker):
             self.xs_p[i], self.P_p[i] = self.predict(self.xs_upd[i], self.P_upd[i], dt)
 
             for sensor_id in range(len(self.sensors)):
-                self.xs_upd[i], self.P_upd[i] = self.update(
+                self.xs_upd[i], self.P_upd[i], NIS_i = self.update(
                     self.xs_p[i], self.P_p[i], sensor_measurements[sensor_id][i], sensor_id
                 )
+
+                if not np.isnan(NIS_i):
+                    self.NIS[i] = NIS_i
 
         return self.xs_upd, self.P_upd, sensor_measurements
 
@@ -150,9 +161,11 @@ class KF(ITracker):
 
         return v, S
 
-    def update(self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int):
+    def update(
+        self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int
+    ) -> Tuple[np.ndarray, np.ndarray, float]:
         if any(np.isnan(z)):
-            return xs_p, P_p
+            return xs_p, P_p, np.nan
 
         v, S = self.innovation(xs_p, P_p, z, sensor_id)
         H = self.sensors[sensor_id].H(xs_p)
@@ -161,10 +174,14 @@ class KF(ITracker):
         x_upd = xs_p + K @ v
         P_upd = P_p - K @ H @ P_p
 
-        return x_upd, P_upd
+        return x_upd, P_upd, NIS(v, S)
 
-    def get_tracks(self) -> Tuple[list, list]:
-        return self.xs_upd, self.P_upd
+    def get_track_information(self) -> Tuple[list, list, list]:
+        return self.xs_upd, self.P_upd, self.NIS
+
+
+def NIS(v: np.ndarray, S: np.ndarray) -> float:
+    return v.T @ la.inv(S) @ v
 
 
 class CVModel:

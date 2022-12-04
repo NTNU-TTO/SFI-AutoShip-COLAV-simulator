@@ -236,27 +236,43 @@ def get_list_except_element_idx(input_list: list, idx: int) -> list:
 
 
 def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from a state [x, y, U, chi] to [x, y, Vx, Vy].
+    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N.
 
     Args:
-        xs (np.ndarray): State to convert.
+        xs (np.ndarray): State(s) to convert.
 
     Returns:
         np.ndarray: Converted state.
     """
-    return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
+
+    if xs.ndim == 1:
+        return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
+    else:
+        return np.array(
+            [xs[0, :], xs[1, :], np.multiply(xs[2, :], np.cos(xs[3, :])), np.multiply(xs[2, :], np.sin(xs[3, :]))]
+        )
 
 
 def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from a state [x, y, Vx, Vy] to [x, y, U, chi].
+    """Converts from a state [x, y, Vx, Vy] x N to [x, y, U, chi] x N.
 
     Args:
-        xs (np.ndarray): State to convert.
+        xs (np.ndarray): State(s) to convert.
 
     Returns:
         np.ndarray: Converted state.
     """
-    return np.array([xs[0], xs[1], np.sqrt(xs[2] ** 2 + xs[3] ** 2), np.arctan2(xs[3], xs[2])])
+    if xs.ndim == 1:
+        return np.array([xs[0], xs[1], np.sqrt(xs[2] ** 2 + xs[3] ** 2), np.arctan2(xs[3], xs[2])])
+    else:
+        return np.array(
+            [
+                xs[0, :],
+                xs[1, :],
+                np.sqrt(np.multiply(xs[2, :], xs[2, :]) + np.multiply(xs[3, :], xs[3, :])),
+                np.arctan2(xs[3, :], xs[2, :]),
+            ]
+        )
 
 
 def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
