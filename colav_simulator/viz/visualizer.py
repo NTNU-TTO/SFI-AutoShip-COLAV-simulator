@@ -61,7 +61,7 @@ class Config:
     do_colors: list = field(
         default_factory=lambda: [
             "xkcd:light red",
-            "xkcd:blue green",
+            "xkcd:pale lilac",
             "xkcd:aqua",
             "xkcd:peach",
             "xkcd:pale purple",
@@ -73,9 +73,9 @@ class Config:
             "xkcd:light tan",
             "xkcd:stormy blue",
             "xkcd:light aquamarine",
-            "xkcd:pale lilac",
             "xkcd:very dark green",
             "xkcd:pastel blue",
+            "xkcd:blue green",
         ]
     )
     do_linewidth: float = 1.3
@@ -180,7 +180,7 @@ class Visualizer:
             if i == 0:
                 ship_name = "OS"
 
-                c_do = self._config.do_colors
+                do_c = self._config.do_colors
                 do_lw = self._config.do_linewidth
 
                 if self._config.show_tracks:
@@ -188,11 +188,11 @@ class Visualizer:
                     ship_i_handles["do_covariances"] = []
                     for j in range(1, n_ships):
                         ship_i_handles["do_tracks"].append(
-                            ax_map.plot([], [], linewidth=do_lw, color=c_do[j - 1], label=f"DO{j-1} est. traj.")[0]
+                            ax_map.plot([], [], linewidth=do_lw, color=do_c[j - 1], label=f"DO{j-1} est. traj.")[0]
                         )
 
                         ship_i_handles["do_covariances"].append(
-                            ax_map.fill([], [], linewidth=lw, color=c_do[j - 1], alpha=0.6, label=f"DO{j-1} est. cov.")[
+                            ax_map.fill([], [], linewidth=lw, color=do_c[j - 1], alpha=0.6, label=f"DO{j-1} est. cov.")[
                                 0
                             ]
                         )
@@ -268,6 +268,8 @@ class Visualizer:
             pose_i = ship.pose
 
             if i == 0:
+                do_c = self._config.do_colors
+                do_lw = self._config.do_linewidth
                 tracks = ship.get_do_track_information()
                 if self._config.show_tracks and tracks is not None:
                     for j in range(1, n_ships):
@@ -279,13 +281,20 @@ class Visualizer:
                         self.ship_plt_handles[i]["do_tracks"][j - 1].set_ydata(
                             [*self.ship_plt_handles[i]["do_tracks"][j - 1].get_ydata(), tracks[0][j - 1][0]]
                         )
-                        self.axes[0].draw_artist(self.ship_plt_handles[i]["do_tracks"][j - 1])
 
                         ellipse_x, ellipse_y = mf.create_probability_ellipse(tracks[1][j - 1], 0.99)
                         self.ship_plt_handles[i]["do_covariances"][j - 1].set_xy(
                             np.vstack((ellipse_y + pose_j[1], ellipse_x + pose_j[0])).T
                         )
-                        self.axes[0].draw_artist(self.ship_plt_handles[i]["do_covariances"][j - 1])
+
+                        # self.ship_plt_handles[i]["do_covariances"][j - 1] = self.axes[0].fill(
+                        #     ellipse_y + pose_j[1],
+                        #     ellipse_x + pose_j[0],
+                        #     linewidth=1.0,
+                        #     color=do_c[j - 1],
+                        #     alpha=0.6,
+                        #     label=f"DO{j-1} est. cov.",
+                        # )[0]
 
                         if self._config.show_measurements and len(sensor_measurements[i]) > 0:
                             for sensor_id, sensor in enumerate(ship.sensors):
@@ -301,7 +310,6 @@ class Visualizer:
                                     self.ship_plt_handles[i]["radar"].set_ydata(
                                         [*self.ship_plt_handles[i]["radar"].get_ydata(), sensor_data[0]]
                                     )
-                                    self.axes[0].draw_artist(self.ship_plt_handles[i]["radar"])
 
                                 elif sensor.type == "ais":
                                     self.ship_plt_handles[i]["ais"].set_xdata(
@@ -310,14 +318,11 @@ class Visualizer:
                                     self.ship_plt_handles[i]["ais"].set_ydata(
                                         [*self.ship_plt_handles[i]["ais"].get_ydata(), sensor_data[0]]
                                     )
-                                    self.axes[0].draw_artist(self.ship_plt_handles[i]["ais"])
 
             # Update ship patch
-            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 2.0)
+            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 3.5)
             y_ship, x_ship = ship_poly.exterior.xy
             self.ship_plt_handles[i]["patch"].set_xy(np.array([y_ship, x_ship]).T)
-
-            self.axes[0].draw_artist(self.ship_plt_handles[i]["patch"])
 
             # Update ship trajectory
             self.ship_plt_handles[i]["trajectory"].set_xdata(
@@ -326,12 +331,10 @@ class Visualizer:
             self.ship_plt_handles[i]["trajectory"].set_ydata(
                 [*self.ship_plt_handles[i]["trajectory"].get_ydata(), pose_i[0]]
             )
-            self.axes[0].draw_artist(self.ship_plt_handles[i]["trajectory"])
 
             if self._config.show_waypoints:
                 self.ship_plt_handles[i]["waypoints"].set_xdata(ship.waypoints[1, :])
                 self.ship_plt_handles[i]["waypoints"].set_ydata(ship.waypoints[0, :])
-                self.axes[0].draw_artist(self.ship_plt_handles[i]["waypoints"])
 
             # TODO: Update predicted ship trajectory
 
@@ -456,12 +459,18 @@ class Visualizer:
         sim_times: np.ndarray,
         k_snapshots: Optional[list] = None,
         save_figs: bool = True,
+        save_file_path: Optional[Path] = None,
     ) -> Tuple[list, list]:
         """Visualize the results of a scenario simulation.
 
         Args:
+            enc (ENC): Electronic Navigational Chart object.
             ship_list (list): List of ships in the simulation.
             sim_data (list): List of simulation data.
+            sim_times (list): List of simulation times.
+            k_snapshots (Optional[list], optional): List of snapshots to visualize.
+            save_figs (bool, optional): Whether to save the figures.
+            save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
 
         Returns:
             Tuple[list, list]: List of figure and axes handles
@@ -469,10 +478,6 @@ class Visualizer:
         n_samples = len(sim_times)
         if k_snapshots is None:
             k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(4 * n_samples / 5)]
-
-        t_snapshots = []
-        for k in k_snapshots:
-            t_snapshots.append(sim_times[k])
 
         figs = []
         axes = []
@@ -520,11 +525,15 @@ class Visualizer:
                 linewidth=ship_lw,
                 label=ship_name + " traj.",
             )
+
+            count = 1
             for k in k_snapshots:
-                ship_poly = mapf.create_ship_polygon(X[0, k], X[1, k], X[3, k], ship.length, ship.width, 3.0)
+                ship_poly = mapf.create_ship_polygon(X[0, k], X[1, k], X[3, k], ship.length, ship.width, 5.0)
                 y_ship, x_ship = ship_poly.exterior.xy
 
                 ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="")
+
+                ax_map.text(X[1, k] - 30, X[0, k] + 40, f"$t_{count}$", fontsize=12)
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
             if i == 0:
@@ -545,7 +554,13 @@ class Visualizer:
                     )
                     for k in k_snapshots:
                         ellipse_x, ellipse_y = mf.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
-                        ax_map.fill(ellipse_y, ellipse_x, color=do_color, alpha=0.3, linewidth=do_lw)
+                        ax_map.fill(
+                            ellipse_y + do_estimates_j[1, k],
+                            ellipse_x + do_estimates_j[0, k],
+                            color=do_color,
+                            alpha=0.5,
+                            linewidth=do_lw,
+                        )
 
                     fig_do_j, axes_do_j = self._plot_do_tracking_results(
                         sim_times,
@@ -563,16 +578,16 @@ class Visualizer:
         ylimits = [ylimits[0] - 100, ylimits[1] + 100]
         ax_map.set_xlim(ylimits)
         ax_map.set_ylim(xlimits)
+
         figs.append(fig_map)
         axes.append(ax_map)
 
-        # plot own-ship DO tracking results (NIS, RMSE, etc.)
-
-        # plot own-ship trajectory tracking results ()
-
-        # save results in figs as .eps and .fig
-
         plt.show()
+
+        if save_figs:
+            if save_file_path is None:
+                save_file_path = dp.animation_output / ("scenario_ne" + "eps")
+            fig_map.savefig(save_file_path, format="eps", dpi=1000)
 
         return figs, axes
 

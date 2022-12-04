@@ -1,7 +1,7 @@
 t_start: 0.0
 dt_sim: 0.5
 t_end: 100.0
-scenario_files: ["overtaken.yaml", "overtaking.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "head_on.yaml"]
+scenario_files: ["overtaken", "overtaking", "crossing_give_way", "crossing_stand_on", "head_on"]
 save_animation: True
 save_new_scenarios: True
 visualize: True

@@ -496,7 +496,7 @@ def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tupl
     angle = np.arctan2(largest_eigenvec[1], largest_eigenvec[0])
     angle = wrap_angle_to_02pi(angle)
 
-    #% Get the ellipse scaling factor based on the confidence level
+    # Get the ellipse scaling factor based on the confidence level
     chisquare_val = chi2.ppf(q=probability, df=2)
 
     a = chisquare_val * math.sqrt(largest_eigenval)

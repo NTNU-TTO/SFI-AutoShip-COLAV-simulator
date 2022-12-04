@@ -5,7 +5,7 @@ ship_list:
     tracker:
       kf:
         P_0: [25.1, 25.1, 0.11, 0.11]
-        q: 0.02
+        q: 0.13
     sensors:
       - radar:
           measurement_rate: 0.55
@@ -33,7 +33,7 @@ ship_list:
     tracker:
       kf:
         P_0: [25.1, 25.1, 0.11, 0.11]
-        q: 0.02
+        q: 0.13
     sensors:
       - radar:
           measurement_rate: 0.55
