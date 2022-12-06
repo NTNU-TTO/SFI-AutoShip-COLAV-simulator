@@ -100,14 +100,13 @@ class Simulator:
 
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
-            if "new_scenario" in scenario_file:
-                ship_list, ship_config_list = self._scenario_generator.generate()
 
-                if save_new_scenarios:
-                    sm.save_scenario(ship_config_list, dp.scenarios / (scenario_file + str(i + 1) + ".yaml"))
+            ship_list, ship_config_list = self._scenario_generator.generate(dp.scenarios / scenario_file)
 
-            else:
-                ship_list = sm.load_scenario_definition(dp.scenarios / (scenario_file + ".yaml"))
+            if save_new_scenarios:
+                sm.save_scenario(ship_config_list, dp.scenarios / (scenario_file + str(i + 1) + ".yaml"))
+
+            #                ship_list = sm.load_scenario_definition(dp.scenarios / (scenario_file + ".yaml"))
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")

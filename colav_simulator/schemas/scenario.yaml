@@ -1,17 +1,45 @@
+name:
+  required: True
+  type: string
+is_new_scenario:
+  required: True
+  type: boolean
 type:
   required: True
   type: integer
-n_ships:
+map_origin:
   required: True
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: float
+map_data_files:
+  required: True
+  type: list
+  minlength: 1
+  schema:
+    type: string
+new_load_of_map_data:
+  required: True
+  type: boolean
+ais_data_path:
+  required: False
+  type: string
+coord_tf_str:
+  required: False
+  type: string
+n_ships:
+  required: False
   type: integer
 min_dist_between_ships:
-  required: True
+  required: False
   type: float
 max_dist_between_ships:
-  required: True
+  required: False
   type: float
 ship_list:
-  required: True
+  required: False
   type: list
   schema:
     type: dict

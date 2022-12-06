@@ -1,3 +1,9 @@
+name: "head_on1"
+is_new_scenario: False
+type: 1
+map_origin: [39000.0, 6956450.0]
+map_data_files: ["More_og_Romsdal.gdb"]
+new_load_of_map_data: True
 ship_list:
   - pose: [6957500.0, 39500.0, 15.0, 45.0]
     waypoints: [[6957500.0, 6959500.0], [39500.0, 41500.0]]

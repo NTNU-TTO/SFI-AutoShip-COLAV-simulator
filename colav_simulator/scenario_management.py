@@ -50,43 +50,65 @@ class ScenarioType(Enum):
 
 
 @dataclass
-class ExistingScenarioConfig:
-    """Configuration class for existing scenarios."""
+class ScenarioConfig:
+    """Configuration class for a ship scenario.
 
-    ship_list: list
+    If the scenario includes AIS data, one can specify the MMSI of vessels in the ship_list to
+    replace predefined AIS trajectories for ships with matching MMSI. This is useful if you
+    want to test a COLAV algorithm in an AIS scenario, and put the own-ship in place of a
+    predefined ship AIS trajectory in say a Head-on scenario.
 
-    @classmethod
-    def from_dict(cls, config_dict: dict):
-        config = ExistingScenarioConfig(
-            ship_list=[],
-        )
+    If len(ship_list) < n_ships, the remaining ships will be randomly generated.
 
-        for ship_config in config_dict["ship_list"]:
-            config.ship_list.append(ship.Config.from_dict(ship_config))
+    If n_ais_ships from the AIS data is less than n_ships, the remaining ships will be randomly generated.
+    """
 
-        return config
-
-
-@dataclass
-class NewScenarioConfig:
-    """Configuration class for specifying a new scenario."""
-
+    name: str
+    is_new_scenario: bool
     type: ScenarioType
-    n_ships: int
-    min_dist_between_ships: float
-    ship_list: List[ship.Config]
+    map_center: list  # Center of the map considered in the situation (in UTM coordinates per now)
+    map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
+    new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
+    ais_data_path: Optional[Path] = None  # Path to the AIS data file, if considered
+    coord_tf_str: Optional[
+        str
+    ] = None  # Coordinate transformation string to transform to/from the AIS data, as seacharts uses UTM coordinates (NED). Only required if ais_data_path is specified.
+    n_ships: Optional[int] = None  # Max number of ships in the scenario, if considered
+    min_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
+    max_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
+    ship_list: Optional[
+        list
+    ] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
+
+    def __post_init__(self):
+        if self.coord_tf_str == "LL_UTM32":
+            self.coord_tf_inv_str = "UTM32_LL"
+        elif self.coord_tf_str == "LL_UTM33":
+            self.coord_tf_inv_str = "UTM33_LL"
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = NewScenarioConfig(
+        config = ScenarioConfig(
+            name=config_dict["name"],
+            is_new_scenario=config_dict["is_new_scenario"],
             type=ScenarioType(config_dict["type"]),
-            n_ships=config_dict["n_ships"],
-            min_dist_between_ships=config_dict["min_dist_between_ships"],
-            ship_list=[],
+            coord_tf_str=config_dict["coord_tf_str"],
+            map_center=config_dict["map_center"],
+            map_data_files=config_dict["map_data_files"],
+            new_load_of_map_data=config_dict["new_load_of_map_data"],
+            ship_list=None,
         )
 
-        for ship_config in config_dict["ship_list"]:
-            config.ship_list.append(ship.Config.from_dict(ship_config))
+        if "ais_data_path" in config_dict:
+            config.ais_data_path = Path(config_dict["ais_data_path"])
+
+        if "n_ships" in config_dict:
+            config.n_ships = config_dict["n_ships"]
+
+        if "ship_list" in config_dict:
+            config.ship_list = []
+            for ship_config in config_dict["ship_list"]:
+                config.ship_list.append(ship.Config.from_dict(ship_config))
 
         return config
 
@@ -150,7 +172,7 @@ class ScenarioGenerator:
 
     def generate(
         self,
-        scenario_config_file: Path = dp.new_scenario_config,
+        scenario_config_file: Path,
     ) -> Tuple[list, list]:
         """Creates a maritime scenario based on the input config file, with random plans for each ship
         unless specified.
@@ -163,7 +185,10 @@ class ScenarioGenerator:
                 and also the corresponding ship configuration objects.
         """
         print("Generating new scenario...")
-        config = cp.extract(NewScenarioConfig, scenario_config_file, dp.new_scenario_schema)
+        config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
+
+        if config.ais_data_path is not None:
+            ais_ship_list = self.generate_from_ais_data(config.ais_data_path)
 
         n_ships = config.n_ships
         n_cfg_ships = len(config.ship_list)
