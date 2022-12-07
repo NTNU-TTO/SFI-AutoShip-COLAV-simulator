@@ -13,6 +13,7 @@ from typing import Any, Optional, Tuple
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -268,8 +269,6 @@ class Visualizer:
             pose_i = ship.pose
 
             if i == 0:
-                do_c = self._config.do_colors
-                do_lw = self._config.do_linewidth
                 tracks = ship.get_do_track_information()
                 if self._config.show_tracks and tracks is not None:
                     for j in range(1, n_ships):
@@ -282,19 +281,10 @@ class Visualizer:
                             [*self.ship_plt_handles[i]["do_tracks"][j - 1].get_ydata(), tracks[0][j - 1][0]]
                         )
 
-                        ellipse_x, ellipse_y = mf.create_probability_ellipse(tracks[1][j - 1], 0.99)
+                        ellipse_x, ellipse_y = mhm.create_probability_ellipse(tracks[1][j - 1], 0.99)
                         self.ship_plt_handles[i]["do_covariances"][j - 1].set_xy(
                             np.vstack((ellipse_y + pose_j[1], ellipse_x + pose_j[0])).T
                         )
-
-                        # self.ship_plt_handles[i]["do_covariances"][j - 1] = self.axes[0].fill(
-                        #     ellipse_y + pose_j[1],
-                        #     ellipse_x + pose_j[0],
-                        #     linewidth=1.0,
-                        #     color=do_c[j - 1],
-                        #     alpha=0.6,
-                        #     label=f"DO{j-1} est. cov.",
-                        # )[0]
 
                         if self._config.show_measurements and len(sensor_measurements[i]) > 0:
                             for sensor_id, sensor in enumerate(ship.sensors):
@@ -490,7 +480,6 @@ class Visualizer:
         mapf.plot_background(ax_map, enc)
 
         n_ships = len(ship_list)
-        n_do = n_ships - 1
         figs_tracking: list = []
         axes_tracking: list = []
         ship_lw = self._config.ship_linewidth

@@ -12,9 +12,115 @@ from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon
+
+
+def local2latlon(
+    x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int
+) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
+    """Transform coordinates from x (east), y (north) to latitude, longitude.
+
+    Args:
+        x (float | list): East coordinate(s) in a local UTM coordinate system.
+        y (float | list): North coordinate(s) in a local UTM coordinate system.
+        utm_zone (int): UTM zone.
+
+    Raises:
+        ValueError: If the input string is not correct.
+
+    Returns:
+        list: List of transformed coordinates.
+    """
+    to_zone = 4326  # Latitude Longitude
+    if utm_zone == 32:
+        from_zone = 6172  # ETRS89 / UTM zone 32 + NN54 height Møre og Romsdal
+    elif utm_zone == 33:
+        from_zone = 6173  # ETRS89 / UTM zone 33 + NN54 height
+    else:
+        raise ValueError('Input "utm_zone" is not correct. Supported zones sofar are 32 and 33.')
+
+    src = osr.SpatialReference()
+    src.ImportFromEPSG(from_zone)
+    tgt = osr.SpatialReference()
+    tgt.ImportFromEPSG(to_zone)
+    transform = osr.CoordinateTransformation(src, tgt)
+
+    if isinstance(x, (list, np.ndarray)) and isinstance(y, (list, np.ndarray)):
+        coordinates = transform.TransformPoints(list(zip(x, y)))
+        lat = [coord[0] for coord in coordinates]
+        lon = [coord[1] for coord in coordinates]
+    else:
+        lat, lon, _ = transform.TransformPoint(x, y)
+
+    return lat, lon
+
+
+def latlon2local(
+    lat: float | list | np.ndarray, lon: float | list | np.ndarray, utm_zone: int
+) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
+    """Transform coordinates from latitude, longitude to UTM32 or UTM33
+
+    Args:
+        lat (float | list): Latitude coordinate(s)
+        lon (float | list): Longitude coordinate(s)
+        utm_zone (str): UTM zone.
+
+    Raises:
+        ValueError: If the input string is not correct.
+
+    Returns:
+        list: List of transformed coordinates.
+    """
+    from_zone = 4326  # Latitude Longitude
+    if utm_zone == 32:
+        to_zone = 6172  # ETRS89 / UTM zone 32 + NN54 height Møre og Romsdal
+    elif utm_zone == 33:
+        to_zone = 6173  # ETRS89 / UTM zone 33 + NN54 height
+    else:
+        raise ValueError('Input "coord_tf_str" is not correct. Correct strings are e.g.: LL_UTM32, UTM32_LL')
+
+    src = osr.SpatialReference()
+    src.ImportFromEPSG(from_zone)
+    tgt = osr.SpatialReference()
+    tgt.ImportFromEPSG(to_zone)
+    transform = osr.CoordinateTransformation(src, tgt)
+
+    if isinstance(lat, (list, np.ndarray)) and isinstance(lon, (list, np.ndarray)):
+        coordinates = transform.TransformPoints(list(zip(lat, lon)))
+        x = [coord[0] for coord in coordinates]
+        y = [coord[1] for coord in coordinates]
+    else:
+        x, y, _ = transform.TransformPoint(lat, lon)
+
+    return x, y
+
+
+def dist_between_latlon_coords(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the distance between two lat, lon points in metres
+
+    Args:
+        lon1 (float): Latitude of point 1
+        lat1 (float): Longitude of point 1
+        lon2 (float): Latitude of point 2
+        lat2 (float): Longitude of point 2
+
+    Returns:
+        float: Distance in metres
+    """
+    if lon1 < 0 or lat1 < 0 or lon2 < 0 or lat2 < 0:
+        return 999999
+    r = 6362.132
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(a**0.5, (1 - a) ** 0.5)
+    d = r * c * 1000
+    return round(d, 1)
 
 
 def get_blue_colors(bins: int):

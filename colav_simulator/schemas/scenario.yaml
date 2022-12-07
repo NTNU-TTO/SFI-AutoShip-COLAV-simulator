@@ -58,9 +58,6 @@ ship_list:
       mmsi:
         required: False
         type: integer
-      is_ownship:
-        required: False
-        type: boolean
       pose:
         required: False
         type: list

@@ -192,7 +192,7 @@ class ScenarioGenerator:
 
         n_ais_ships = 0
         if config.ais_data_file is not None:
-            ais_vessel_data_list, config.map_origin_enu = colav_eval_fu.read_ais_data(
+            ais_vessel_data_list, mmsi_list, config.map_origin_enu = colav_eval_fu.read_ais_data(
                 config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu
             )
             n_ais_ships = len(ais_vessel_data_list)
@@ -204,15 +204,21 @@ class ScenarioGenerator:
         pose_list = []
         cfg_ship_idx = 0
         for i in range(n_ais_ships):
+            use_ais_ship_trajectory = True
             if cfg_ship_idx < n_cfg_ships:
                 ship_config = config.ship_list[i]
             else:
                 ship_config = ship.Config()
 
             ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
-            ship_obj.transfer_vessel_data(ais_vessel_data_list[i])
-            cfg_ship_idx += 1
 
+            # If the mmsi of a ship is specified in the config file,
+            # the ship will not use the AIS trajectory, but act
+            # on its own (using its onboard planner).
+            if ship_config.mmsi in mmsi_list:
+                use_ais_ship_trajectory = False
+
+            ship_obj.transfer_vessel_data(ais_vessel_data_list[i], use_ais_ship_trajectory)
             ship_list.append(ship_obj)
 
             ship_config_list.append(ship_config)
@@ -227,9 +233,9 @@ class ScenarioGenerator:
 
             ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
 
-            if ship_obj.is_ownship:
+            if cfg_ship_idx == 0:
                 pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
-            else:  # Target ships
+            else:
                 pose = self.generate_ts_pose(
                     config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
                 )
@@ -252,7 +258,7 @@ class ScenarioGenerator:
 
         if config.save_scenario:
             # append string of date and time for scenario creation
-            save_scenario(ship_config_list, dp.scenarios / (scenario_config_file + ".yaml"))
+            save_scenario(ship_config_list, scenario_config_file / ".yaml"))
 
         return ship_list, ship_config_list
 

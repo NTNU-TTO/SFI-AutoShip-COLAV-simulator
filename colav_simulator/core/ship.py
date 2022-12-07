@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_evaluation_tool.vessel as colav_eval_vessel_data
+import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
@@ -79,8 +81,8 @@ class Config:
         if self.waypoints is not None:
             config_dict["waypoints"] = self.waypoints.tolist()
 
-        if self.speed_plan is not None:
-            config_dict["speed_plan"] = self.speed_plan.tolist()
+        if self.sog_plan is not None:
+            config_dict["speed_plan"] = self.sog_plan.tolist()
 
         config_dict["model"] = self.model.to_dict()
 
@@ -235,7 +237,6 @@ class Ship(IShip):
                             in `Fossen2011`.
     """
 
-    _is_ownship: bool = False
     _mmsi: int = 0
     _ais_msg_nr: int = 18
     _state: np.ndarray = np.zeros(4)
@@ -252,7 +253,6 @@ class Ship(IShip):
     ) -> None:
 
         self._mmsi = mmsi
-
         self._model, self._controller, self._guidance, self.sensors, self._tracker = ShipBuilder.construct_ship(config)
 
         if config and config.pose is not None:
@@ -274,6 +274,9 @@ class Ship(IShip):
             self._ais_msg_nr = 18
         else:
             self._ais_msg_nr = random.randint(1, 3)
+
+        if config and config.mmsi:
+            self._mmsi = config.mmsi
 
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
@@ -352,7 +355,7 @@ class Ship(IShip):
         Returns:
             dict: Simulation data as dictionary
         """
-        datetime_t = mf.utc_timestamp_to_datetime(timestamp)
+        datetime_t = mhm.utc_timestamp_to_datetime(timestamp)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         xs_i_upd, P_i_upd, NISes = self.get_do_track_information()
         xs_i_upd = [xs.tolist() for xs in xs_i_upd]
@@ -372,8 +375,8 @@ class Ship(IShip):
 
         return ship_sim_data
 
-    def get_ais_data(self, timestamp: int) -> dict:
-        """Returns an AIS data message for the ship at the given timestamp.
+    def get_ais_data(self, timestamp: int, utm_zone: int) -> dict:
+        """Returns a simulated AIS data message for the ship at the given timestamp.
 
         Args:
             timestamp (int): UTC referenced timestamp.
@@ -381,12 +384,13 @@ class Ship(IShip):
         Returns:
             dict: AIS message as a dictionary.
         """
-        datetime_t = mf.utc_timestamp_to_datetime(timestamp)
+        datetime_t = mhm.utc_timestamp_to_datetime(timestamp)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
+        lat, lon = mapf.local2latlon(self.pose[1], self.pose[0], utm_zone)
         row = {
             "mmsi": self.mmsi,
-            "lon": self.pose[1] * 10 ** (-5),
-            "lat": self.pose[0] * 10 ** (-5),
+            "lon": lon,
+            "lat": lat,
             "date_time_utc": datetime_str,
             "sog": mf.mps2knots(self.pose[2]),
             "cog": int(np.rad2deg(self.pose[3])),
@@ -425,12 +429,27 @@ class Ship(IShip):
             speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
             return np.array([self._state[0], self._state[1], speed, cog])
 
-    def transfer_vessel_data(self, vessel: colav_eval_vessel_data.VesselData):
-        """Transfers vessel AIS data to a ship object. This includes
+    def transfer_vessel_ais_data(self, vessel: colav_eval_vessel_data.VesselData, use_ais_trajectory: bool = True):
+        """Transfers vessel AIS data to a ship object. This includes the ship pose,
+        length, width, draft etc..
+
+        If the `use_ais_trajectory` flag is set, the Ship will follow its historical
+        trajectory, and not the one provided by the COLAV planner.
 
         Args:
             vessel (VesselData): AIS data of the ship.
+            use_ais_trajectory (bool, optional): Use historical AIS trajectory or not.
         """
+
+        if use_ais_trajectory:
+            self._waypoints = np.zeros((2, len(vessel.sog)))
+            self._waypoints[0, :] = vessel.trajectory_xy[1, :]
+            self._waypoints[1, :] = vessel.trajectory_xy[0, :]
+
+            self._speed_plan = vessel.sog
+
+        self.length = vessel.length
+        self.width = vessel.width
 
     @property
     def max_speed(self) -> float:
