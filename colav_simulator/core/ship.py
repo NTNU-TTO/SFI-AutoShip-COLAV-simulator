@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+import colav_evaluation_tool.vessel as colav_eval_vessel_data
 import colav_simulator.common.math_functions as mf
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
@@ -33,6 +34,7 @@ class Config:
     guidance: guidances.Config = guidances.Config()
     sensors: ssensors.Config = ssensors.Config()
     tracker: trackers.Config = trackers.Config()
+    mmsi: int = -1
     pose: Optional[np.ndarray] = None
     waypoints: Optional[np.ndarray] = None
     speed_plan: Optional[np.ndarray] = None
@@ -233,6 +235,7 @@ class Ship(IShip):
                             in `Fossen2011`.
     """
 
+    _is_ownship: bool = False
     _mmsi: int = 0
     _ais_msg_nr: int = 18
     _state: np.ndarray = np.zeros(4)
@@ -421,6 +424,13 @@ class Ship(IShip):
             cog = heading + crab_angle
             speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
             return np.array([self._state[0], self._state[1], speed, cog])
+
+    def transfer_vessel_data(self, vessel: colav_eval_vessel_data.VesselData):
+        """Transfers vessel AIS data to a ship object. This includes
+
+        Args:
+            vessel (VesselData): AIS data of the ship.
+        """
 
     @property
     def max_speed(self) -> float:

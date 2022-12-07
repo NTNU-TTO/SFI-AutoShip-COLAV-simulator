@@ -15,6 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import colav_evaluation_tool.common.file_utils as colav_eval_fu
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
@@ -65,42 +66,45 @@ class ScenarioConfig:
 
     name: str
     is_new_scenario: bool
+    save_scenario: bool
     type: ScenarioType
-    map_center: list  # Center of the map considered in the situation (in UTM coordinates per now)
+    utm_zone: int
     map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
     new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
-    ais_data_path: Optional[Path] = None  # Path to the AIS data file, if considered
-    coord_tf_str: Optional[
-        str
-    ] = None  # Coordinate transformation string to transform to/from the AIS data, as seacharts uses UTM coordinates (NED). Only required if ais_data_path is specified.
-    n_ships: Optional[int] = None  # Max number of ships in the scenario, if considered
+
+    map_origin_enu: Optional[
+        Tuple[float, float]
+    ] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
+    ais_data_file: Optional[Path] = None  # Path to the AIS data file, if considered
+    ship_data_file: Optional[
+        Path
+    ] = None  # Path to the ship information data file associated with AIS data, if considered
+    n_random_ships: Optional[int] = 1  # Number of random ships in the scenario, excluding the own-ship, if considered
     min_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     max_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     ship_list: Optional[
         list
     ] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
 
-    def __post_init__(self):
-        if self.coord_tf_str == "LL_UTM32":
-            self.coord_tf_inv_str = "UTM32_LL"
-        elif self.coord_tf_str == "LL_UTM33":
-            self.coord_tf_inv_str = "UTM33_LL"
-
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = ScenarioConfig(
             name=config_dict["name"],
             is_new_scenario=config_dict["is_new_scenario"],
+            save_scenario=config_dict["save_scenario"],
             type=ScenarioType(config_dict["type"]),
-            coord_tf_str=config_dict["coord_tf_str"],
-            map_center=config_dict["map_center"],
+            utm_zone=config_dict["utm_zone"],
             map_data_files=config_dict["map_data_files"],
             new_load_of_map_data=config_dict["new_load_of_map_data"],
             ship_list=None,
         )
 
-        if "ais_data_path" in config_dict:
-            config.ais_data_path = Path(config_dict["ais_data_path"])
+        if "map_origin_enu" in config_dict:
+            config.map_origin_enu = tuple(config_dict["map_origin_enu"])
+
+        if "ais_data_file" in config_dict:
+            config.ais_data_file = Path(config_dict["ais_data_file"])
+            config.ship_data_file = Path(config_dict["ship_data_file"])
 
         if "n_ships" in config_dict:
             config.n_ships = config_dict["n_ships"]
@@ -119,7 +123,7 @@ class Config:
     All angle ranges are in degrees, and all distances are in meters.
     """
 
-    n_ship_range: List[int]  # Range of number of ships to be generated
+    n_ship_range: List[int]  # Range of number of random ships to be generated
     n_wps_range: List[int]  # Range of number of waypoints to be generated
     speed_plan_variation_range: List[float]  # Determines maximal +- change in speed plan from one segment to the next
     waypoint_dist_range: List[float]  # Range of [min, max] change in distance between randomly created waypoints
@@ -174,8 +178,7 @@ class ScenarioGenerator:
         self,
         scenario_config_file: Path,
     ) -> Tuple[list, list]:
-        """Creates a maritime scenario based on the input config file, with random plans for each ship
-        unless specified.
+        """Creates a maritime scenario based on the input config file, with random plans for each ship unless specified or loaded from AIS data.
 
         Args:
             scenario_config_file (Path): Path to the scenario config file.
@@ -187,24 +190,44 @@ class ScenarioGenerator:
         print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
-        if config.ais_data_path is not None:
-            ais_ship_list = self.generate_from_ais_data(config.ais_data_path)
+        n_ais_ships = 0
+        if config.ais_data_file is not None:
+            ais_vessel_data_list, config.map_origin_enu = colav_eval_fu.read_ais_data(
+                config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu
+            )
+            n_ais_ships = len(ais_vessel_data_list)
 
-        n_ships = config.n_ships
         n_cfg_ships = len(config.ship_list)
 
         ship_list = []
         ship_config_list = []
         pose_list = []
-        for i in range(n_ships):
-            if i < n_cfg_ships:
+        cfg_ship_idx = 0
+        for i in range(n_ais_ships):
+            if cfg_ship_idx < n_cfg_ships:
+                ship_config = config.ship_list[i]
+            else:
+                ship_config = ship.Config()
+
+            ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
+            ship_obj.transfer_vessel_data(ais_vessel_data_list[i])
+            cfg_ship_idx += 1
+
+            ship_list.append(ship_obj)
+
+            ship_config_list.append(ship_config)
+
+            cfg_ship_idx += 1
+
+        for i in range(config.n_random_ships):
+            if cfg_ship_idx < n_cfg_ships:
                 ship_config = config.ship_list[i]
             else:
                 ship_config = ship.Config()
 
             ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
 
-            if i == 0:  # Own-ship
+            if ship_obj.is_ownship:
                 pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
             else:  # Target ships
                 pose = self.generate_ts_pose(
@@ -226,6 +249,10 @@ class ScenarioGenerator:
             ship_config.waypoints = waypoints
             ship_config.speed_plan = speed_plan
             ship_config_list.append(ship_config)
+
+        if config.save_scenario:
+            # append string of date and time for scenario creation
+            save_scenario(ship_config_list, dp.scenarios / (scenario_config_file + ".yaml"))
 
         return ship_list, ship_config_list
 

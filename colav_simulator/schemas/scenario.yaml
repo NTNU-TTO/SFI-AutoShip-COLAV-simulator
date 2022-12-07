@@ -4,32 +4,38 @@ name:
 is_new_scenario:
   required: True
   type: boolean
+save_scenario:
+  required: True
+  type: boolean
 type:
   required: True
   type: integer
-map_origin:
+utm_zone:
   required: True
-  type: list
-  maxlength: 2
-  minlength: 2
-  schema:
-    type: float
+  type: integer
 map_data_files:
   required: True
   type: list
   minlength: 1
   schema:
     type: string
+map_origin_enu:
+  required: False
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: float
 new_load_of_map_data:
   required: True
   type: boolean
-ais_data_path:
+ais_data_file:
   required: False
   type: string
-coord_tf_str:
+ship_data_file:
   required: False
   type: string
-n_ships:
+n_random_ships:
   required: False
   type: integer
 min_dist_between_ships:
@@ -49,6 +55,12 @@ ship_list:
         type: string
         empty: True
         excludes: [colav, tracker, sensors, guidance, controller, model]
+      mmsi:
+        required: False
+        type: integer
+      is_ownship:
+        required: False
+        type: boolean
       pose:
         required: False
         type: list

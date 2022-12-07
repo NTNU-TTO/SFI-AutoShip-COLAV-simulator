@@ -29,6 +29,8 @@ scenario_generator_config = config / "scenario_generator.yaml"
 visualizer_config = config / "visualizer.yaml"
 
 enc_data = root / "data" / "external"
-ais_output = output / "ais"
+ais_data = root / "data" / "external" / "ais"
+
+simulated_ais_output = output / "ais"
 animation_output = output / "animation"
 figure_output = output / "figures"
