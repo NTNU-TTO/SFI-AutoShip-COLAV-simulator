@@ -21,9 +21,6 @@ scenario_files:
 save_animation:
   required: True
   type: boolean
-save_new_scenarios:
-  required: True
-  type: boolean
 visualize:
   required: True
   type: boolean

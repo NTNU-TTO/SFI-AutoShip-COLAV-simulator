@@ -31,7 +31,6 @@ class Config:
     t_end: float
     scenario_files: list
     save_animation: bool
-    save_new_scenarios: bool
     visualize: bool
     verbose: bool
     ais_data_column_format: list
@@ -67,7 +66,6 @@ class Simulator:
         t_start: Optional[float] = None,
         t_end: Optional[float] = None,
         dt_sim: Optional[float] = None,
-        save_new_scenarios: Optional[bool] = None,
     ):
         """Runs through all specified scenarios.
 
@@ -92,21 +90,13 @@ class Simulator:
         if dt_sim is None:
             dt_sim = self._config.dt_sim
 
-        if save_new_scenarios is None:
-            save_new_scenarios = self._config.save_new_scenarios
-
         sim_data_list = []
         ais_data_list = []
 
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
 
-            ship_list, ship_config_list = self._scenario_generator.generate(dp.scenarios / scenario_file)
-
-            if save_new_scenarios:
-                sm.save_scenario(ship_config_list, dp.scenarios / (scenario_file + str(i + 1) + ".yaml"))
-
-            #                ship_list = sm.load_scenario_definition(dp.scenarios / (scenario_file + ".yaml"))
+            ship_list, _ = self._scenario_generator.generate(dp.scenarios / scenario_file, sample_interval=dt_sim)
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")

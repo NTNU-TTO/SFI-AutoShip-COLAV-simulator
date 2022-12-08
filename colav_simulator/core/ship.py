@@ -224,7 +224,15 @@ class IShip(ABC):
 
 
 class Ship(IShip):
-    """The Ship class implements a variety of models and guidance methods for use in simulating the ship behaviour.
+    """The Ship class is the main COLAV simulator object. It can be configured with various subsystems.
+
+    Configurable subsystems include:
+        - colav: The collision avoidance (colav) planner used. Can be used with or without the guidance system.
+        - guidance: Guidance system, e.g. a LOS guidance.
+        - controller: The low-level motion control strategy used, e.g. a PID controller.
+        - tracker: The tracker used for estimating nearby dynamic obstacle states, e.g. a Kalman filter.
+        - sensors: Sensor suite of the ship, e.g. a radar and AIS.
+        - model: The ship model used for simulating its dynamics, e.g. a kinematic CSOG model.
 
     Internal variables:
         mmsi (float): Maritime Mobile Service Identity of the ship.
@@ -235,6 +243,7 @@ class Ship(IShip):
                             where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad),
                             `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model
                             in `Fossen2011`.
+        trajectory (np.ndarray): Predefined trajectory of the ship in case AIS data is used.
     """
 
     _mmsi: int = 0
@@ -242,6 +251,8 @@ class Ship(IShip):
     _state: np.ndarray = np.zeros(4)
     _waypoints: np.ndarray = np.zeros((2, 0))
     _speed_plan: np.ndarray = np.zeros(0)
+    _trajectory: np.ndarray = np.empty(0)
+    _trajectory_sample: int = -1
 
     def __init__(
         self,
@@ -281,6 +292,10 @@ class Ship(IShip):
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
 
+        If the ship is following a predefined trajectory,
+        the state is updated to the (possibly interpolated) next state
+        in the trajectory.
+
         Args:
             dt (float): Time step (s) in the prediction.
 
@@ -288,6 +303,12 @@ class Ship(IShip):
             Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,
             inputs to get there and the references used.
         """
+
+        if self.trajectory.size > 0:
+            self._trajectory_sample += 1
+            self._state = self.trajectory[self._trajectory_sample]
+            return self._state, np.empty(3), np.empty(9)
+
         if self._waypoints.size < 2 or self._speed_plan.size < 2:
             raise ValueError("Insufficient waypoints for the ship to follow!")
 
@@ -298,11 +319,7 @@ class Ship(IShip):
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
 
-        psi_prev = self._state[2]
         self._state = self._state + dt * self._model.dynamics(self._state, u)
-        diff = mf.wrap_angle_diff_to_pmpi(self._state[2], psi_prev)
-        if abs(diff) > np.deg2rad(5):
-            print("psi_prev: {psi_prev} | psi_now: {self._state[2]}")
 
         return self._state, u, references
 
@@ -411,6 +428,34 @@ class Ship(IShip):
         """
         return self._tracker.get_track_information()
 
+    def transfer_vessel_ais_data(
+        self, vessel: colav_eval_vessel_data.VesselData, use_ais_trajectory: bool = True
+    ) -> None:
+        """Transfers vessel AIS data to a ship object. This includes the ship pose,
+        length, width, draft etc..
+
+        If the `use_ais_trajectory` flag is set, the Ship will follow its historical
+        trajectory, and not the one provided by the COLAV planner.
+
+        Args:
+            vessel (VesselData): AIS data of the ship.
+            use_ais_trajectory (bool, optional): Use historical AIS trajectory or not.
+        """
+
+        self.set_initial_state(np.array([vessel.xy[1, 0], vessel.xy[0, 0], vessel.sog[0], vessel.cog[0]]))
+
+        if use_ais_trajectory:
+            self._trajectory_sample = 0
+            self._trajectory = np.zeros((4, len(vessel.sog)))
+            self._trajectory[0, :] = vessel.xy[1, :]
+            self._trajectory[1, :] = vessel.xy[0, :]
+            self._trajectory[2, :] = vessel.sog
+            self._trajectory[3, :] = vessel.cog
+
+        self._model.params.length = vessel.length
+        self._model.params.width = vessel.width
+        self._model.params.draft = vessel.draft
+
     @property
     def pose(self) -> np.ndarray:
         """Returns the ship pose as parameterized in an AIS message,
@@ -428,28 +473,6 @@ class Ship(IShip):
             cog = heading + crab_angle
             speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
             return np.array([self._state[0], self._state[1], speed, cog])
-
-    def transfer_vessel_ais_data(self, vessel: colav_eval_vessel_data.VesselData, use_ais_trajectory: bool = True):
-        """Transfers vessel AIS data to a ship object. This includes the ship pose,
-        length, width, draft etc..
-
-        If the `use_ais_trajectory` flag is set, the Ship will follow its historical
-        trajectory, and not the one provided by the COLAV planner.
-
-        Args:
-            vessel (VesselData): AIS data of the ship.
-            use_ais_trajectory (bool, optional): Use historical AIS trajectory or not.
-        """
-
-        if use_ais_trajectory:
-            self._waypoints = np.zeros((2, len(vessel.sog)))
-            self._waypoints[0, :] = vessel.trajectory_xy[1, :]
-            self._waypoints[1, :] = vessel.trajectory_xy[0, :]
-
-            self._speed_plan = vessel.sog
-
-        self.length = vessel.length
-        self.width = vessel.width
 
     @property
     def max_speed(self) -> float:

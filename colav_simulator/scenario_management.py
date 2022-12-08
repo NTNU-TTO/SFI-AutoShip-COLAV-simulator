@@ -106,8 +106,8 @@ class ScenarioConfig:
             config.ais_data_file = Path(config_dict["ais_data_file"])
             config.ship_data_file = Path(config_dict["ship_data_file"])
 
-        if "n_ships" in config_dict:
-            config.n_ships = config_dict["n_ships"]
+        if "n_random_ships" in config_dict:
+            config.n_random_ships = config_dict["n_random_ships"]
 
         if "ship_list" in config_dict:
             config.ship_list = []
@@ -177,6 +177,7 @@ class ScenarioGenerator:
     def generate(
         self,
         scenario_config_file: Path,
+        sample_interval: float = 1.0,
     ) -> Tuple[list, list]:
         """Creates a maritime scenario based on the input config file, with random plans for each ship unless specified or loaded from AIS data.
 
@@ -193,7 +194,7 @@ class ScenarioGenerator:
         n_ais_ships = 0
         if config.ais_data_file is not None:
             ais_vessel_data_list, mmsi_list, config.map_origin_enu = colav_eval_fu.read_ais_data(
-                config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu
+                config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, sample_interval
             )
             n_ais_ships = len(ais_vessel_data_list)
 
@@ -215,16 +216,18 @@ class ScenarioGenerator:
             # If the mmsi of a ship is specified in the config file,
             # the ship will not use the AIS trajectory, but act
             # on its own (using its onboard planner).
-            if ship_config.mmsi in mmsi_list:
+            # Also, the own-ship (with index 0) will not use the predefined AIS trajectory.
+            if ship_config.mmsi in mmsi_list or cfg_ship_idx == 0:
                 use_ais_ship_trajectory = False
 
-            ship_obj.transfer_vessel_data(ais_vessel_data_list[i], use_ais_ship_trajectory)
+            ship_obj.transfer_vessel_ais_data(ais_vessel_data_list[i], use_ais_ship_trajectory)
             ship_list.append(ship_obj)
 
             ship_config_list.append(ship_config)
 
             cfg_ship_idx += 1
 
+        # The remaining ships are generated randomly
         for i in range(config.n_random_ships):
             if cfg_ship_idx < n_cfg_ships:
                 ship_config = config.ship_list[i]
@@ -233,32 +236,32 @@ class ScenarioGenerator:
 
             ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
 
-            if cfg_ship_idx == 0:
-                pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
-            else:
-                pose = self.generate_ts_pose(
-                    config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
+            if ship_config.pose is None:
+                if cfg_ship_idx == 0:
+                    pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
+                else:
+                    pose = self.generate_ts_pose(
+                        config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
+                    )
+                ship_config.pose = pose
+                ship_obj.set_initial_state(pose)
+
+            if ship_config.waypoints is None:
+                waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
+                speed_plan = self.generate_random_speed_plan(
+                    pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
                 )
-
-            waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
-            speed_plan = self.generate_random_speed_plan(
-                pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
-            )
-
-            ship_obj.set_initial_state(pose)
-            ship_obj.set_nominal_plan(waypoints, speed_plan)
+                ship_config.waypoints = waypoints
+                ship_config.speed_plan = speed_plan
+                ship_obj.set_nominal_plan(waypoints, speed_plan)
 
             pose_list.append(pose)
             ship_list.append(ship_obj)
-
-            ship_config.pose = pose
-            ship_config.waypoints = waypoints
-            ship_config.speed_plan = speed_plan
             ship_config_list.append(ship_config)
 
-        if config.save_scenario:
-            # append string of date and time for scenario creation
-            save_scenario(ship_config_list, scenario_config_file / ".yaml"))
+        # if config.save_scenario:
+        # append string of date and time for scenario creation
+        # save_scenario(ship_config_list, scenario_config_file / ".yaml")
 
         return ship_list, ship_config_list
 
