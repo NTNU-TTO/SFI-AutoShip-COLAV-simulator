@@ -167,61 +167,6 @@ def sat(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndar
     return np.clip(x, x_min, x_max)
 
 
-def get_list_except_element_idx(input_list: list, idx: int) -> list:
-    """Returns a list with all elements of input_list except the element at idx.
-
-    Args:
-        input_list (list): List to get elements from
-        idx (int): Index of element to exclude
-
-    Returns:
-        list: List with all elements of input_list except the element at idx
-    """
-    output_list = input_list.copy()
-    output_list.pop(idx)
-    return output_list
-
-
-def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N.
-
-    Args:
-        xs (np.ndarray): State(s) to convert.
-
-    Returns:
-        np.ndarray: Converted state.
-    """
-
-    if xs.ndim == 1:
-        return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
-    else:
-        return np.array(
-            [xs[0, :], xs[1, :], np.multiply(xs[2, :], np.cos(xs[3, :])), np.multiply(xs[2, :], np.sin(xs[3, :]))]
-        )
-
-
-def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from a state [x, y, Vx, Vy] x N to [x, y, U, chi] x N.
-
-    Args:
-        xs (np.ndarray): State(s) to convert.
-
-    Returns:
-        np.ndarray: Converted state.
-    """
-    if xs.ndim == 1:
-        return np.array([xs[0], xs[1], np.sqrt(xs[2] ** 2 + xs[3] ** 2), np.arctan2(xs[3], xs[2])])
-    else:
-        return np.array(
-            [
-                xs[0, :],
-                xs[1, :],
-                np.sqrt(np.multiply(xs[2, :], xs[2, :]) + np.multiply(xs[3, :], xs[3, :])),
-                np.arctan2(xs[3, :], xs[2, :]),
-            ]
-        )
-
-
 def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
     """Calculates coriolis matrix C(v)
 

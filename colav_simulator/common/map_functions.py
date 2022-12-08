@@ -149,18 +149,18 @@ def get_green_colors(bins: int):
 
 
 def create_ship_polygon(x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0) -> Polygon:
-    """Creates
+    """Creates a ship polygon from the ship`s position, heading, length and width.
 
     Args:
         x (float): The ship`s north position
         y (float): The ship`s east position
-        heading (float): _description_
-        length (float): _description_
-        width (float): _description_
-        scale (float, optional): _description_. Defaults to 1.0.
+        heading (float): The ship`s heading
+        length (float): Length of the ship
+        width (float): Width of the ship
+        scale (float, optional): Scale factor. Defaults to 1.0.
 
     Returns:
-        np.ndarray: _description_
+        np.ndarray: Ship polygon
     """
     eff_length = length * scale
     eff_width = width * scale
