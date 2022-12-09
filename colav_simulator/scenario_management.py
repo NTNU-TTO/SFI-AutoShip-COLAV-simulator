@@ -71,7 +71,9 @@ class ScenarioConfig:
     utm_zone: int
     map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
     new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
-
+    map_size: Optional[
+        Tuple[float, float]
+    ] = None  # Size of the map considered in the scenario (in meters) referenced to the origin.
     map_origin_enu: Optional[
         Tuple[float, float]
     ] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
@@ -96,8 +98,11 @@ class ScenarioConfig:
             utm_zone=config_dict["utm_zone"],
             map_data_files=config_dict["map_data_files"],
             new_load_of_map_data=config_dict["new_load_of_map_data"],
-            ship_list=None,
+            ship_list=[],
         )
+
+        if "map_size" in config_dict:
+            config.map_size = tuple(config_dict["map_size"])
 
         if "map_origin_enu" in config_dict:
             config.map_origin_enu = tuple(config_dict["map_origin_enu"])
@@ -159,27 +164,42 @@ class ScenarioGenerator:
     enc: senc.ENC
     _config: Config
 
-    def __init__(
-        self, enc_config_file: Path = dp.seacharts_config, config_file: Path = dp.scenario_generator_config
-    ) -> None:
+    def __init__(self, config_file: Path = dp.scenario_generator_config) -> None:
         """Constructor for the ScenarioGenerator.
 
         Args:
-            enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
             config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
             **kwargs: Keyword arguments for the ScenarioGenerator, can be any of the following:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-        self.enc = senc.ENC(enc_config_file)
 
         self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
+
+    def _configure_enc(self, scenario_config: ScenarioConfig):
+        """Configures the ENC object based on the scenario config file.
+
+        Args:
+            scenario_config (ScenarioConfig): Scenario config object.
+        """
+        print(f"ENC Map size: {scenario_config.map_size}")
+        print(f"ENC Map origin: {scenario_config.map_origin_enu}")
+
+        self.enc = senc.ENC(
+            config_file=dp.seacharts_config,
+            utm_zone=scenario_config.utm_zone,
+            size=scenario_config.map_size,
+            origin=scenario_config.map_origin_enu,
+            files=scenario_config.map_data_files,
+            new_data=scenario_config.new_load_of_map_data,
+        )
 
     def generate(
         self,
         scenario_config_file: Path,
         sample_interval: float = 1.0,
     ) -> Tuple[list, list]:
-        """Creates a maritime scenario based on the input config file, with random plans for each ship unless specified or loaded from AIS data.
+        """Main class function. Creates a maritime scenario based on the input config file,
+        with random plans for each ship unless specified in ship_list entries or loaded from AIS data.
 
         Args:
             scenario_config_file (Path): Path to the scenario config file.
@@ -191,12 +211,16 @@ class ScenarioGenerator:
         print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
-        n_ais_ships = 0
         if config.ais_data_file is not None:
-            ais_vessel_data_list, mmsi_list, config.map_origin_enu = colav_eval_fu.read_ais_data(
+            output = colav_eval_fu.read_ais_data(
                 config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, sample_interval
             )
-            n_ais_ships = len(ais_vessel_data_list)
+            ais_vessel_data_list = output["vessels"]
+            mmsi_list = output["mmsi_list"]
+            config.map_origin_enu = output["origin_enu"]
+            config.map_size = output["size"]
+
+        self._configure_enc(config)
 
         n_cfg_ships = len(config.ship_list)
 
@@ -204,31 +228,47 @@ class ScenarioGenerator:
         ship_config_list = []
         pose_list = []
         cfg_ship_idx = 0
-        for i in range(n_ais_ships):
+        while ais_vessel_data_list:
             use_ais_ship_trajectory = True
             if cfg_ship_idx < n_cfg_ships:
-                ship_config = config.ship_list[i]
+                ship_config = config.ship_list[cfg_ship_idx]
             else:
                 ship_config = ship.Config()
 
-            ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
+            ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, config=ship_config)
 
             # If the mmsi of a ship is specified in the config file,
             # the ship will not use the AIS trajectory, but act
             # on its own (using its onboard planner).
             # Also, the own-ship (with index 0) will not use the predefined AIS trajectory.
-            if ship_config.mmsi in mmsi_list or cfg_ship_idx == 0:
+            if ship_config.mmsi in mmsi_list:
                 use_ais_ship_trajectory = False
+                idx = mmsi_list.index(ship_config.mmsi)
+            elif cfg_ship_idx == 0:
+                use_ais_ship_trajectory = False
+                idx = 0
 
-            ship_obj.transfer_vessel_ais_data(ais_vessel_data_list[i], use_ais_ship_trajectory)
+            ship_obj.transfer_vessel_ais_data(ais_vessel_data_list.pop(idx), use_ais_ship_trajectory)
+
+            if not use_ais_ship_trajectory and ship_config.waypoints is None:
+                waypoints = self.generate_random_waypoints(
+                    ship_obj.pose[0], ship_obj.pose[1], ship_obj.pose[3], ship_obj.draft
+                )
+                speed_plan = self.generate_random_speed_plan(
+                    ship_obj.pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
+                )
+                ship_config.waypoints = waypoints
+                ship_config.speed_plan = speed_plan
+                ship_obj.set_nominal_plan(waypoints, speed_plan)
+
+            pose_list.append(ship_obj.pose)
             ship_list.append(ship_obj)
-
             ship_config_list.append(ship_config)
 
             cfg_ship_idx += 1
 
         # The remaining ships are generated randomly
-        for i in range(config.n_random_ships):
+        for i in range(cfg_ship_idx, cfg_ship_idx + config.n_random_ships):
             if cfg_ship_idx < n_cfg_ships:
                 ship_config = config.ship_list[i]
             else:
@@ -241,7 +281,11 @@ class ScenarioGenerator:
                     pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
                 else:
                     pose = self.generate_ts_pose(
-                        config.type, pose_list[0], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed
+                        config.type,
+                        pose_list[0],
+                        U_min=ship_obj.min_speed,
+                        U_max=ship_obj.max_speed,
+                        draft=ship_obj.draft,
                     )
                 ship_config.pose = pose
                 ship_obj.set_initial_state(pose)
@@ -271,6 +315,7 @@ class ScenarioGenerator:
         os_pose: np.ndarray,
         U_min: float = 1.0,
         U_max: float = 15.0,
+        draft: float = 2.0,
         min_dist_between_ships: float = 100.0,
         max_dist_between_ships: float = 1000.0,
         min_land_clearance: float = 100.0,
@@ -283,12 +328,17 @@ class ScenarioGenerator:
             os_pose (np.ndarray): Own-ship pose = [x, y, speed, heading].
             U_min (float, optional): Minimum speed. Defaults to 1.0.
             U_max (float, optional): Maximum speed. Defaults to 15.0.
+            draft (float, optional): Draft of target ship. Defaults to 2.0.
             min_dist_between_ships (float, optional): Minimum distance between own-ship and target ship. Defaults to 100.0.
+            max_dist_between_ships (float, optional): Maximum distance between own-ship and target ship. Defaults to 1000.0.
             min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
 
         Returns:
             Tuple[float, float]: Target ship position = [x, y].
         """
+
+        if any(np.isnan(os_pose)):
+            return self.generate_random_pose(max_speed=U_max, draft=draft)
 
         if scenario_type == ScenarioType.HO:
             bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])

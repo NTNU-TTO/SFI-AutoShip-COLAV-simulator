@@ -81,8 +81,8 @@ class Config:
         if self.waypoints is not None:
             config_dict["waypoints"] = self.waypoints.tolist()
 
-        if self.sog_plan is not None:
-            config_dict["speed_plan"] = self.sog_plan.tolist()
+        if self.speed_plan is not None:
+            config_dict["speed_plan"] = self.speed_plan.tolist()
 
         config_dict["model"] = self.model.to_dict()
 
@@ -234,25 +234,19 @@ class Ship(IShip):
         - sensors: Sensor suite of the ship, e.g. a radar and AIS.
         - model: The ship model used for simulating its dynamics, e.g. a kinematic CSOG model.
 
-    Internal variables:
-        mmsi (float): Maritime Mobile Service Identity of the ship.
-        ais_msg_nr (int): AIS message number (1, 2 or 3 for AIS Class A transponders, 18 for AIS Class B transponders).
-        waypoints (np.ndarray): Nominal waypoints the ship is following.
-        speed_plan (np.ndarray): Corresponding reference speeds the ship should follow between waypoint segments.
-        state (np.ndarray): State of the ship, either `xs = [x, y, chi, U]` or `xs = [x, y, psi, u, v, r]^T`
-                            where for the first case, `x` and `y` are planar coordinates (north-east), `chi` is course (rad),
-                            `U` the ship forward speed (m/s). For the latter case, see the typical 3DOF surface vessel model
-                            in `Fossen2011`.
-        trajectory (np.ndarray): Predefined trajectory of the ship in case AIS data is used.
     """
 
     _mmsi: int = 0
     _ais_msg_nr: int = 18
     _state: np.ndarray = np.zeros(4)
-    _waypoints: np.ndarray = np.zeros((2, 0))
+    _waypoints: np.ndarray = np.empty(0)
     _speed_plan: np.ndarray = np.zeros(0)
     _trajectory: np.ndarray = np.empty(0)
-    _trajectory_sample: int = -1
+    _trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation
+    _first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
+    _last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
+    t_start: float = 0.0  # The time when the ship appears in the simulation
+    t_end: float = -1.0  # The time when the ship disappears from the simulation
 
     def __init__(
         self,
@@ -304,9 +298,9 @@ class Ship(IShip):
             inputs to get there and the references used.
         """
 
-        if self.trajectory.size > 0:
+        if self._trajectory.size > 0:
             self._trajectory_sample += 1
-            self._state = self.trajectory[self._trajectory_sample]
+            self._state = self._trajectory[self._trajectory_sample]
             return self._state, np.empty(3), np.empty(9)
 
         if self._waypoints.size < 2 or self._speed_plan.size < 2:
@@ -363,47 +357,61 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
-    def get_ship_sim_data(self, timestamp: int) -> dict:
-        """Returns simulation related data for the ship.
+    def get_ship_sim_data(self, t: float, timestamp_0: int) -> dict:
+        """Returns simulation related data for the ship. Position are given in
+        the local planar coordinate system.
 
         Args:
-            timestamp (int): UTC referenced timestamp.
+            t (float): Current time (s) relative to the start of the simulation.
+            timestamp (int): UTC referenced timestamp at the start of the simulation.
 
         Returns:
             dict: Simulation data as dictionary
         """
-        datetime_t = mhm.utc_timestamp_to_datetime(timestamp)
+        datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         xs_i_upd, P_i_upd, NISes = self.get_do_track_information()
         xs_i_upd = [xs.tolist() for xs in xs_i_upd]
         P_i_upd = [P.tolist() for P in P_i_upd]
         NISes = [float(NIS) for NIS in NISes]
 
+        if self.t_start <= t:
+            pose = self.pose
+        else:
+            pose = np.ones(4) * np.nan
+
         ship_sim_data = {
-            "pose": self.pose,
+            "pose": pose,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "timestamp": datetime_str,
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
+            "active": False,
             # predicted trajectory from COLAV/planner
         }
 
         return ship_sim_data
 
-    def get_ais_data(self, timestamp: int, utm_zone: int) -> dict:
+    def get_ais_data(self, t: float, timestamp_0: int, utm_zone: int) -> dict:
         """Returns a simulated AIS data message for the ship at the given timestamp.
 
         Args:
-            timestamp (int): UTC referenced timestamp.
+            t (float): Current time (s) relative to the start of the simulation.
+            timestamp (int): UTC referenced timestamp at the start of the simulation.
+            utm_zone (int): UTM zone used for the local planar coordinate system.
 
         Returns:
             dict: AIS message as a dictionary.
         """
-        datetime_t = mhm.utc_timestamp_to_datetime(timestamp)
+        datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         lat, lon = mapf.local2latlon(self.pose[1], self.pose[0], utm_zone)
+
+        if self.t_start > t:
+            lon, lat, date_time_utc, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+
         row = {
             "mmsi": self.mmsi,
             "lon": lon,
@@ -442,16 +450,30 @@ class Ship(IShip):
             use_ais_trajectory (bool, optional): Use historical AIS trajectory or not.
         """
 
-        self.set_initial_state(np.array([vessel.xy[1, 0], vessel.xy[0, 0], vessel.sog[0], vessel.cog[0]]))
+        self.set_initial_state(
+            np.array(
+                [
+                    vessel.xy[1, vessel.first_valid_idx],
+                    vessel.xy[0, vessel.first_valid_idx],
+                    vessel.sog[vessel.first_valid_idx],
+                    vessel.cog[vessel.first_valid_idx],
+                ]
+            )
+        )
 
-        if use_ais_trajectory:
+        self.t_start = vessel.timestamps[vessel.first_valid_idx]
+
+        if use_ais_trajectory and self._speed_plan.size >= 2:
             self._trajectory_sample = 0
             self._trajectory = np.zeros((4, len(vessel.sog)))
             self._trajectory[0, :] = vessel.xy[1, :]
             self._trajectory[1, :] = vessel.xy[0, :]
             self._trajectory[2, :] = vessel.sog
             self._trajectory[3, :] = vessel.cog
+            self.t_end = vessel.timestamps[vessel.last_valid_idx]
 
+        self._first_valid_idx = vessel.first_valid_idx
+        self._last_valid_idx = vessel.last_valid_idx
         self._model.params.length = vessel.length
         self._model.params.width = vessel.width
         self._model.params.draft = vessel.draft
@@ -520,3 +542,10 @@ class Ship(IShip):
     @property
     def waypoints(self) -> np.ndarray:
         return self._waypoints
+
+    @property
+    def trajectory(self) -> np.ndarray:
+        if self._trajectory.size == 0:
+            return np.array([])
+        else:
+            return self._trajectory[:, self._first_valid_idx : self._last_valid_idx + 1]

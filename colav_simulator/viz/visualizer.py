@@ -12,15 +12,16 @@ from typing import Any, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
-import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+from cartopy.feature import ShapelyFeature
 from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
+from shapely.geometry import LineString, Point, Polygon
 
 
 @dataclass
@@ -99,28 +100,30 @@ class Visualizer:
     background: Any  # map background in live plotting fig
     ship_plt_handles: list  # handles used for live plotting
 
-    def __init__(self, enc: ENC, config_file: Path = dp.visualizer_config) -> None:
+    def __init__(self, enc: Optional[ENC] = None, config_file: Path = dp.visualizer_config) -> None:
         self._config = cp.extract(Config, config_file, dp.visualizer_schema)
 
-        self._init_figure(enc)
-        self.artists = []
+        if enc:
+            self.init_figure(enc)
 
-    def _init_figure(self, enc: ENC) -> None:
+    def init_figure(self, enc: ENC) -> None:
         plt.close()
 
-        self.fig, ax_map = plt.subplots(figsize=self._config.figsize)
+        self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
+
+        ax_map = self.fig.add_subplot(projection=enc.crs)
+        mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        ax_map.set_autoscale_on(True)
         ax_map.set_xlabel("East [m]")
         ax_map.set_ylabel("North [m]")
 
-        # mapf.plot_background(ax_map, enc)
+        # dark_mode_color = "#142c38"
+        # self.fig.set_facecolor(dark_mode_color)
 
         self.ship_plt_handles = []
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         self.axes = [ax_map]
-
         # TODO: Add more axes for plotting vessel speed, heading, vessel-vessel distances etc..
 
     def clear_ship_handles(self) -> None:
@@ -153,13 +156,15 @@ class Visualizer:
 
         self.ship_plt_handles = []
 
-    def init_live_plot(self, ship_list: list) -> None:
+    def init_live_plot(self, enc: ENC, ship_list: list) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
 
         Args:
+            enc (ENC): ENC object containing the map data.
             ship_list (list): List of configured ships in the simulation.
         """
+        self.init_figure(enc)
         ax_map = self.axes[0]
 
         self.clear_ship_handles()
@@ -171,32 +176,63 @@ class Visualizer:
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
 
-            c = self._config.ship_colors[i]
+            # If number of ships is greater than 16, use the same color for all target ships
+            if i > 0 and n_ships > 16:
+                c = self._config.ship_colors[1]
+            else:
+                c = self._config.ship_colors[i]
+
             lw = self._config.ship_linewidth
 
             ship_i_handles: dict = {}
 
-            xlimits, ylimits = update_xy_limits_from_waypoint_data(ship.waypoints, xlimits, ylimits)
+            if ship.trajectory.size > 0:
+                xlimits, ylimits = update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
+            elif ship.waypoints.size > 0:
+                xlimits, ylimits = update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
 
             if i == 0:
                 ship_name = "OS"
 
-                do_c = self._config.do_colors
                 do_lw = self._config.do_linewidth
 
                 if self._config.show_tracks:
                     ship_i_handles["do_tracks"] = []
                     ship_i_handles["do_covariances"] = []
                     for j in range(1, n_ships):
+
+                        # If number of ships is greater than 16, use the same color for all target ships
+                        if n_ships > 16:
+                            do_c = self._config.do_colors[1]
+                        else:
+                            do_c = self._config.do_colors[j]
+
                         ship_i_handles["do_tracks"].append(
-                            ax_map.plot([], [], linewidth=do_lw, color=do_c[j - 1], label=f"DO{j-1} est. traj.")[0]
+                            ax_map.plot(
+                                [],
+                                [],
+                                linewidth=do_lw,
+                                color=do_c,
+                                label=f"DO{j-1} est. traj.",
+                                transform=enc.crs,
+                            )[0]
                         )
 
-                        ship_i_handles["do_covariances"].append(
-                            ax_map.fill([], [], linewidth=lw, color=do_c[j - 1], alpha=0.6, label=f"DO{j-1} est. cov.")[
-                                0
-                            ]
-                        )
+                        try:
+                            ship_i_handles["do_covariances"].append(
+                                ax_map.add_feature(
+                                    ShapelyFeature(
+                                        [],
+                                        linewidth=lw,
+                                        color=do_c,
+                                        alpha=0.6,
+                                        label=f"DO{j-1} est. cov.",
+                                        crs=enc.crs,
+                                    )
+                                )
+                            )
+                        except ValueError:
+                            pass
 
                 if self._config.show_measurements:
                     for sensor in ship.sensors:
@@ -210,6 +246,7 @@ class Visualizer:
                                 marker="o",
                                 markersize=8,
                                 label=ship_name + "Radar meas.",
+                                transform=enc.crs,
                             )[0]
                         elif sensor.type == "ais":
                             ship_i_handles["ais"] = ax_map.plot(
@@ -221,22 +258,35 @@ class Visualizer:
                                 marker="*",
                                 markersize=8,
                                 label="AIS meas.",
+                                transform=enc.crs,
                             )[0]
 
             else:
                 ship_name = "DO " + str(i - 1)
 
-            ship_i_handles["patch"] = ax_map.fill([], [], color=c, linewidth=lw, label="")[0]
+            try:
+                ship_i_handles["patch"] = ax_map.add_feature(
+                    ShapelyFeature([], color=c, linewidth=lw, label="", crs=enc.crs)
+                )
+            except ValueError:
+                pass
 
-            ship_i_handles["trajectory"] = ax_map.plot([], [], color=c, linewidth=lw, label=ship_name + " true traj.")[
-                0
-            ]
-
-            ship_i_handles["predicted_trajectory"] = ax_map.plot(
-                [], [], color=c, linewidth=lw, marker="*", linestyle="-", label=ship_name + " pred. traj."
+            ship_i_handles["trajectory"] = ax_map.plot(
+                [], [], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs
             )[0]
 
-            if self._config.show_waypoints:
+            ship_i_handles["predicted_trajectory"] = ax_map.plot(
+                [],
+                [],
+                color=c,
+                linewidth=lw,
+                marker="*",
+                linestyle="-",
+                label=ship_name + " pred. traj.",
+                transform=enc.crs,
+            )[0]
+
+            if self._config.show_waypoints and ship.waypoints.size > 0:
                 ship_i_handles["waypoints"] = ax_map.plot(
                     ship.waypoints[1, :],
                     ship.waypoints[0, :],
@@ -247,16 +297,16 @@ class Visualizer:
                     linewidth=lw,
                     alpha=0.3,
                     label=ship_name + " waypoints",
+                    transform=enc.crs,
                 )[0]
 
             self.ship_plt_handles.append(ship_i_handles)
 
         xlimits = [xlimits[0] - 500, xlimits[1] + 500]
         ylimits = [ylimits[0] - 500, ylimits[1] + 500]
-        ax_map.set_xlim(ylimits)
-        ax_map.set_ylim(xlimits)
+        # ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
 
-    def update_live_plot(self, ship_list: list, sensor_measurements: list) -> None:
+    def update_live_plot(self, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
 
         Args:
@@ -264,15 +314,29 @@ class Visualizer:
             sensor_measurements (list): List of sensor measurements generated from each ship at the current time.
         """
 
+        ax_map = self.axes[0]
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
             pose_i = ship.pose
 
+            # If number of ships is greater than 16, use the same color for all target ships
+            if i > 0 and n_ships > 16:
+                c = self._config.ship_colors[1]
+            else:
+                c = self._config.ship_colors[i]
+
+            lw = self._config.ship_linewidth
+
             if i == 0:
                 tracks = ship.get_do_track_information()
                 if self._config.show_tracks and tracks is not None:
+                    lw = self._config.do_linewidth
                     for j in range(1, n_ships):
-                        pose_j = ship_list[j].pose
+                        # If number of ships is greater than 16, use the same color for all target ships
+                        if n_ships > 16:
+                            do_c = self._config.do_colors[1]
+                        else:
+                            do_c = self._config.do_colors[j]
 
                         self.ship_plt_handles[i]["do_tracks"][j - 1].set_xdata(
                             [*self.ship_plt_handles[i]["do_tracks"][j - 1].get_xdata(), tracks[0][j - 1][1]]
@@ -282,8 +346,16 @@ class Visualizer:
                         )
 
                         ellipse_x, ellipse_y = mhm.create_probability_ellipse(tracks[1][j - 1], 0.99)
-                        self.ship_plt_handles[i]["do_covariances"][j - 1].set_xy(
-                            np.vstack((ellipse_y + pose_j[1], ellipse_x + pose_j[0])).T
+                        ell_geometry = Polygon(zip(ellipse_y, ellipse_x))
+                        self.ship_plt_handles[i]["do_covariances"][j - 1] = ax_map.add_feature(
+                            ShapelyFeature(
+                                [ell_geometry],
+                                linewidth=lw,
+                                color=do_c,
+                                alpha=0.6,
+                                label=f"DO{j-1} est. cov.",
+                                crs=enc.crs,
+                            )
                         )
 
                         if self._config.show_measurements and len(sensor_measurements[i]) > 0:
@@ -311,8 +383,9 @@ class Visualizer:
 
             # Update ship patch
             ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship.length, ship.width, 3.5)
-            y_ship, x_ship = ship_poly.exterior.xy
-            self.ship_plt_handles[i]["patch"].set_xy(np.array([y_ship, x_ship]).T)
+            self.ship_plt_handles[i]["patch"] = ax_map.add_feature(
+                ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs)
+            )
 
             # Update ship trajectory
             self.ship_plt_handles[i]["trajectory"].set_xdata(
@@ -322,7 +395,7 @@ class Visualizer:
                 [*self.ship_plt_handles[i]["trajectory"].get_ydata(), pose_i[0]]
             )
 
-            if self._config.show_waypoints:
+            if self._config.show_waypoints and ship.waypoints.size > 0:
                 self.ship_plt_handles[i]["waypoints"].set_xdata(ship.waypoints[1, :])
                 self.ship_plt_handles[i]["waypoints"].set_ydata(ship.waypoints[0, :])
 
@@ -334,112 +407,6 @@ class Visualizer:
 
         self.fig.canvas.flush_events()
         plt.pause(0.00001)  # plt.pause(self._config.frame_delay / 1000)
-
-    def visualize(
-        self,
-        ship_list: list,
-        data: DataFrame,
-        times: np.ndarray,
-        save_path: Optional[Path] = None,
-    ) -> None:
-        """Visualize the ship trajectories.
-
-        Args:
-            enc (ENC): Electronic Navigational Chart object.
-            ship_list: List of ships in the simulation.
-            data (DataFrame): Pandas DataFrame containing the ship simulation data.
-            times (List/np.ndarray): List/array of times to consider.
-            save_path (Optional[pathlib.Path]): Path to file where the animation is saved. Defaults to None.
-        """
-
-        vessels = []
-        trajectories = []
-
-        # data: n_ships x 1 dataframe, where each ship entry contains n_samples x 1 dictionaries of pose, waypoints, speed plans etc..
-        n_ships = len(data.columns)
-        for i in range(n_ships):
-            c = self._config.ship_colors[i]
-            lw = self._config.ship_linewidth
-            if i == 0:
-                vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
-                trajectories.append(plt.plot([], [], c, label="OS traj.")[0])
-            else:
-                vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
-                trajectories.append(plt.plot([], [], color=c, linewidth=lw, label=f"DO {i - 1} true traj.")[0])
-            if self._config.show_waypoints:  # Nominal waypoints
-                waypoints = data[f"Ship{i}"][0]["waypoints"]
-                self.axes[0].plot(
-                    waypoints[1, :],
-                    waypoints[0, :],
-                    color=c,
-                    marker="o",
-                    markersize=15,
-                    linestyle="--",
-                    linewidth=lw,
-                    alpha=0.3,
-                )
-
-        self.artists = vessels + trajectories
-
-        def init():
-            # ax_map.set_xlim(x_lim[0], x_lim[1])
-            # ax_map.set_ylim(y_lim[0], y_lim[1])
-            return self.artists
-
-        def update(i):
-            for j in range(n_ships):
-                x_i = data[f"Ship{j}"][i]["pose"][0]
-                y_i = data[f"Ship{j}"][i]["pose"][1]
-                chi_i = data[f"Ship{j}"][i]["pose"][3]
-                length = ship_list[j].length
-                width = ship_list[j].width
-
-                # Update vessel visualization
-                ship_poly = mapf.create_ship_polygon(x_i, y_i, chi_i, length, width, 2.0)
-                y_ship, x_ship = ship_poly.exterior.xy
-                vessels[j].set_xy(np.array([y_ship, x_ship]).T)
-
-                # Update trajectory visualization
-                trajectories[j].set_xdata([*trajectories[j].get_xdata(), y_i])
-                trajectories[j].set_ydata([*trajectories[j].get_ydata(), x_i])
-
-                # TODO: Update predicted trajectory visualization
-
-                # TODO: Update own-ship safety zone visualization
-
-                # TODO: Update obstacle tracks visualization
-
-            self.artists = vessels + trajectories
-            return self.artists
-
-        plt.legend(loc="upper right")
-
-        anim = animation.FuncAnimation(
-            self.fig,
-            func=update,
-            init_func=init,
-            frames=len(times) - 1,
-            repeat=False,
-            interval=self._config.frame_delay,
-            blit=True,
-        )
-
-        if self._config.show_animation:
-            self.wait_fig()
-
-        if self._config.save_animation:
-            anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
-
-    def wait_fig(self) -> None:
-        # Block the execution of the code until the figure is closed.
-        # This works even with multiprocessing.
-        if plt.isinteractive():
-            plt.ioff()  # this is necessary in mutliprocessing
-            plt.show(block=True)
-            plt.ion()  # restitute the interractive state
-        else:
-            plt.show(block=True)
-        return
 
     def visualize_results(
         self,
@@ -479,7 +446,6 @@ class Visualizer:
 
         mapf.plot_background(ax_map, enc)
 
-        n_ships = len(ship_list)
         figs_tracking: list = []
         axes_tracking: list = []
         ship_lw = self._config.ship_linewidth
@@ -531,7 +497,7 @@ class Visualizer:
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j = extract_trajectory_data_from_dataframe(sim_data[f"Ship{j + 1}"])
-                    do_true_states_j = mf.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
+                    do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
 
                     ax_map.plot(
                         do_estimates_j[1, : k_snapshots[-1]],
@@ -542,7 +508,7 @@ class Visualizer:
                         alpha=0.3,
                     )
                     for k in k_snapshots:
-                        ellipse_x, ellipse_y = mf.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
+                        ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
                         ax_map.fill(
                             ellipse_y + do_estimates_j[1, k],
                             ellipse_x + do_estimates_j[0, k],
@@ -752,8 +718,8 @@ def extract_track_data_from_dataframe(ship_df: DataFrame) -> Tuple[list, list, l
     return do_estimates, do_covariances, do_NISes
 
 
-def update_xy_limits_from_waypoint_data(waypoints: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
-    """Update the x and y limits from the waypoint data.
+def update_xy_limits_from_trajectory_data(trajectory: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
+    """Update the x and y limits from the trajectory data (either predefined trajectory or nominal trajectory/waypoints for the ship).
 
     Args:
         X (np.ndarray): waypoint data.
@@ -764,10 +730,10 @@ def update_xy_limits_from_waypoint_data(waypoints: np.ndarray, xlimits: list, yl
         Tuple[np.ndarray, np.ndarray]: x and y limits.
     """
 
-    min_x = np.min(waypoints[0, :])
-    max_x = np.max(waypoints[0, :])
-    min_y = np.min(waypoints[1, :])
-    max_y = np.max(waypoints[1, :])
+    min_x = np.min(trajectory[0, :])
+    max_x = np.max(trajectory[0, :])
+    min_y = np.min(trajectory[1, :])
+    max_y = np.max(trajectory[1, :])
 
     if min_x < xlimits[0]:
         xlimits[0] = min_x
@@ -782,3 +748,102 @@ def update_xy_limits_from_waypoint_data(waypoints: np.ndarray, xlimits: list, yl
         ylimits[1] = max_y
 
     return xlimits, ylimits
+
+
+#     def visualize(
+#         self,
+#         ship_list: list,
+#         data: DataFrame,
+#         times: np.ndarray,
+#         save_path: Optional[Path] = None,
+#     ) -> None:
+#         """Visualize the ship trajectories.
+
+#         Args:
+#             enc (ENC): Electronic Navigational Chart object.
+#             ship_list: List of ships in the simulation.
+#             data (DataFrame): Pandas DataFrame containing the ship simulation data.
+#             times (List/np.ndarray): List/array of times to consider.
+#             save_path (Optional[pathlib.Path]): Path to file where the animation is saved. Defaults to None.
+#         """
+
+#         vessels = []
+#         trajectories = []
+
+#         # data: n_ships x 1 dataframe, where each ship entry contains n_samples x 1 dictionaries of pose, waypoints, speed plans etc..
+#         n_ships = len(data.columns)
+#         for i in range(n_ships):
+#             c = self._config.ship_colors[i]
+#             lw = self._config.ship_linewidth
+#             if i == 0:
+#                 vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
+#                 trajectories.append(plt.plot([], [], c, label="OS traj.")[0])
+#             else:
+#                 vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
+#                 trajectories.append(plt.plot([], [], color=c, linewidth=lw, label=f"DO {i - 1} true traj.")[0])
+#             if self._config.show_waypoints:  # Nominal waypoints
+#                 waypoints = data[f"Ship{i}"][0]["waypoints"]
+#                 self.axes[0].plot(
+#                     waypoints[1, :],
+#                     waypoints[0, :],
+#                     color=c,
+#                     marker="o",
+#                     markersize=15,
+#                     linestyle="--",
+#                     linewidth=lw,
+#                     alpha=0.3,
+#                 )
+
+#         self.artists = vessels + trajectories
+
+#         def init():
+#             # ax_map.set_xlim(x_lim[0], x_lim[1])
+#             # ax_map.set_ylim(y_lim[0], y_lim[1])
+#             return self.artists
+
+#         def update(i):
+#             for j in range(n_ships):
+#                 x_i = data[f"Ship{j}"][i]["pose"][0]
+#                 y_i = data[f"Ship{j}"][i]["pose"][1]
+#                 chi_i = data[f"Ship{j}"][i]["pose"][3]
+#                 length = ship_list[j].length
+#                 width = ship_list[j].width
+
+#                 # Update vessel visualization
+#                 ship_poly = mapf.create_ship_polygon(x_i, y_i, chi_i, length, width, 2.0)
+#                 y_ship, x_ship = ship_poly.exterior.xy
+#                 vessels[j].set_xy(np.array([y_ship, x_ship]).T)
+
+#                 # Update trajectory visualization
+#                 trajectories[j].set_xdata([*trajectories[j].get_xdata(), y_i])
+#                 trajectories[j].set_ydata([*trajectories[j].get_ydata(), x_i])
+
+#                 # TODO: Update predicted trajectory visualization
+
+#                 # TODO: Update own-ship safety zone visualization
+
+#                 # TODO: Update obstacle tracks visualization
+
+#             self.artists = vessels + trajectories
+#             return self.artists
+
+#         plt.legend(loc="upper right")
+
+#         anim = animation.FuncAnimation(
+#             self.fig,
+#             func=update,
+#             init_func=init,
+#             frames=len(times) - 1,
+#             repeat=False,
+#             interval=self._config.frame_delay,
+#             blit=True,
+#         )
+
+#         if self._config.show_animation:
+#             self.wait_fig()
+
+#         if self._config.save_animation:
+#             anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
+
+
+# #

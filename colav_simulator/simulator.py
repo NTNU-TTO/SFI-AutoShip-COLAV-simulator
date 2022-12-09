@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
-import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # default paths
 import colav_simulator.scenario_management as sm
 import numpy as np
@@ -59,7 +59,7 @@ class Simulator:
 
         self._scenario_generator = sm.ScenarioGenerator()
 
-        self._visualizer = Visualizer(enc=self._scenario_generator.enc)
+        self._visualizer = Visualizer()
 
     def run(
         self,
@@ -131,12 +131,12 @@ class Simulator:
             ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
         """
         if self._config.visualize:
-            self._visualizer.init_live_plot(ship_list)
+            self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)
 
         sim_data = []
         ais_data = []
-        t0 = sim_times[0]
-        t_prev = t0
+        timestamp_start = mhm.current_utc_timestamp()
+        t_prev = sim_times[0]
         for _, t in enumerate(sim_times):
             dt_sim = t - t_prev
             t_prev = t
@@ -145,29 +145,29 @@ class Simulator:
             sensor_measurements = []
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
-                state = mf.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
-                true_do_states.append(state)
+                if ship_obj.t_start <= t:
+                    state = mhm.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
+                    true_do_states.append(state)
 
             for i, ship_obj in enumerate(ship_list):
-
                 _, _, sensor_measurements_i = ship_obj.track_obstacles(
-                    t, dt_sim, mf.get_list_except_element_idx(true_do_states, i)
+                    t, dt_sim, mhm.get_list_except_element_idx(true_do_states, i)
                 )
                 sensor_measurements.append(sensor_measurements_i)
 
-                if dt_sim > 0:
+                if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t)
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(int(t), timestamp_start)
                 sim_data_dict[f"Ship{i}"]["sensor_measurements"] = sensor_measurements_i
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:
-                    ais_data_row = ship_obj.get_ais_data(int(t))
+                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, self._scenario_generator.enc.crs)
                     ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)
 
             if self._config.visualize and t % 2.0 < 0.0001:
-                self._visualizer.update_live_plot(ship_list, sensor_measurements)
+                self._visualizer.update_live_plot(self._scenario_generator.enc, ship_list, sensor_measurements)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)

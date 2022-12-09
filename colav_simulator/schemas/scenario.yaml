@@ -19,6 +19,13 @@ map_data_files:
   minlength: 1
   schema:
     type: string
+map_size:
+  required: False
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: float
 map_origin_enu:
   required: False
   type: list

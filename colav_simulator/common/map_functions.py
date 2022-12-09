@@ -10,8 +10,11 @@
 import random
 from typing import Tuple
 
+import geopy.distance
 import matplotlib.pyplot as plt
 import numpy as np
+import seacharts.display.colors as colors
+from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity
@@ -99,53 +102,18 @@ def latlon2local(
 
 
 def dist_between_latlon_coords(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate the distance between two lat, lon points in metres
+    """Computes the distance between two latitude, longitude coordinates.
 
     Args:
-        lon1 (float): Latitude of point 1
-        lat1 (float): Longitude of point 1
-        lon2 (float): Latitude of point 2
-        lat2 (float): Longitude of point 2
+        lat1 (float): Latitude of first coordinate.
+        lon1 (float): Longitude of first coordinate.
+        lat2 (float): Latitude of second coordinate.
+        lon2 (float): Longitude of second coordinate.
 
     Returns:
-        float: Distance in metres
+        float: Distance between the two coordinates in meters
     """
-    if lon1 < 0 or lat1 < 0 or lon2 < 0 or lat2 < 0:
-        return 999999
-    r = 6362.132
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    c = 2 * np.arctan2(a**0.5, (1 - a) ** 0.5)
-    d = r * c * 1000
-    return round(d, 1)
-
-
-def get_blue_colors(bins: int):
-    """Returns a blue color palette for the input number of bins.
-
-    Args:
-        bins (int): Number of colors to get.
-
-    Returns:
-        cmap: Color map/palette of length bins.
-    """
-    # blue color palette
-    return plt.get_cmap("Blues")(np.linspace(0.6, 0.9, bins))
-
-
-def get_green_colors(bins: int):
-    """Returns a green palette for the input number of bins.
-
-    Args:
-        bins (int): Number of colors to get.
-
-    Returns:
-        cmap: Color map/palette of length bins.
-    """
-    return plt.get_cmap("Greens")(np.linspace(0.6, 0.5, bins))
+    return geopy.distance.distance((lat1, lon1), (lat2, lon2)).m
 
 
 def create_ship_polygon(x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0) -> Polygon:
@@ -174,9 +142,7 @@ def create_ship_polygon(x: float, y: float, heading: float, length: float, width
     return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
-def plot_background(
-    ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True
-) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+def plot_background(ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True) -> None:
     """Creates a static background based on the input seacharts
 
     Args:
@@ -187,49 +153,26 @@ def plot_background(
     Returns:
         Tuple[]: Tuple of limits in x and y for the background extent
     """
-    layers = []
-    colors = []
     # For every layer put in list and assign a color
     if enc.land:
-        layers.append(enc.land)
-        colors.append("#142c38")  # get_green_colors(1))
+        color = colors.color_picker(enc.land.color)
+        ax.add_feature(ShapelyFeature([enc.land.geometry], color=color, zorder=enc.land.z_order, crs=enc.crs))
 
     if show_shore and enc.shore:
-        layers.append(enc.shore)
-        if enc.land:
-            del colors[0]
-            colors.append(get_green_colors(2))
-        else:
-            colors.append(get_green_colors(1))
+        color = colors.color_picker(enc.shore.color)
+        ax.add_feature(ShapelyFeature([enc.shore.geometry], color=color, zorder=enc.shore.z_order, crs=enc.crs))
 
     if show_seabed and enc.seabed:
-        sea = enc.seabed
-        sea_layer = list(sea.keys())
-        for key in sea_layer:
-            if len(sea[key].mapping["coordinates"]) == 0:
-                sea_layer.remove(key)
-            layers.append(enc.seabed[key])
-        colors.append(get_blue_colors(len(sea_layer)))
+        bins = len(enc.seabed.keys())
+        count = 0
+        for _, layer in enc.seabed.items():
+            rank = layer.z_order + count
+            color = colors.color_picker(count, bins)
+            ax.add_feature(ShapelyFeature([layer.geometry], color=color, zorder=rank, crs=enc.crs))
+            count += 1
 
-    # Flatten color list
-    colors_new = []
-    for sublist in colors:
-        for color in sublist:
-            colors_new.append(color)
-
-    # Plot the contour for every layer and assign color
-    for c, layer in enumerate(layers):
-        # ax.add_feature(layer, facecolor=colors_new[c], zorder=layer.z_order)
-        for i in range(len(layer.mapping["coordinates"])):
-            pol = list(layer.mapping["coordinates"][i][0])
-            if len(pol) >= 3:
-                poly = Polygon(pol)
-                x, y = poly.exterior.xy
-                ax.fill(x, y, c=colors_new[c], zorder=layer.z_order)
-
-    x_lim = ax.get_xlim()
-    y_lim = ax.get_ylim()
-    return x_lim, y_lim
+    x_min, y_min, x_max, y_max = enc.bbox
+    ax.set_extent((x_min, x_max, y_min, y_max), crs=enc.crs)
 
 
 def generate_random_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
@@ -293,15 +236,8 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
         float: Minimum distance to land in meters.
     """
     position = Point(y, x)
-    min_distance = 1e10
-    land = enc.land.mapping["coordinates"]
-    for i, _ in enumerate(land):
-        poly = list(land[i][0])
-        polygon = Polygon(poly)
-        distance = position.distance(polygon)
-        if distance < min_distance:
-            min_distance = distance
-    return min_distance
+    distance = enc.land.geometry.distance(position)
+    return distance
 
 
 def check_if_segment_crosses_grounding_hazards(

@@ -1,5 +1,5 @@
 t_start: 0.0
-dt_sim: 0.5
+dt_sim: 1.0
 t_end: 100.0
 scenario_files: ["head_on.yaml"]
 save_animation: True
