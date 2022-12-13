@@ -145,14 +145,15 @@ class Simulator:
             sensor_measurements = []
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
+                print(f"Ship {i} starts at {ship_obj.t_start} | t is now {t}")
                 if ship_obj.t_start <= t:
                     state = mhm.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
-                    true_do_states.append(state)
+                    true_do_states.append((i, state))
 
             for i, ship_obj in enumerate(ship_list):
-                _, _, sensor_measurements_i = ship_obj.track_obstacles(
-                    t, dt_sim, mhm.get_list_except_element_idx(true_do_states, i)
-                )
+
+                relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
+                _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
                 sensor_measurements.append(sensor_measurements_i)
 
                 if dt_sim > 0 and ship_obj.t_start <= t:

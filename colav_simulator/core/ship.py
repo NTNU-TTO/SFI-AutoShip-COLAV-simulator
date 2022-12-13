@@ -410,16 +410,22 @@ class Ship(IShip):
         lat, lon = mapf.local2latlon(self.pose[1], self.pose[0], utm_zone)
 
         if self.t_start > t:
-            lon, lat, date_time_utc, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+            lon, lat, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan
+        else:
+            sog, cog, true_heading = (
+                int(mf.mps2knots(self.pose[2])),
+                int(np.rad2deg(self.pose[3])),
+                np.rad2deg(self.heading),
+            )
 
         row = {
             "mmsi": self.mmsi,
             "lon": lon,
             "lat": lat,
             "date_time_utc": datetime_str,
-            "sog": mf.mps2knots(self.pose[2]),
-            "cog": int(np.rad2deg(self.pose[3])),
-            "true_heading": int(np.rad2deg(self.heading)),
+            "sog": sog,
+            "cog": cog,
+            "true_heading": true_heading,
             "nav_status": 0,
             "message_nr": self.ais_msg_nr,
             "source": "",

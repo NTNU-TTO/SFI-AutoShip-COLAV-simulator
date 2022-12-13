@@ -77,6 +77,8 @@ class KF(ITracker):
 
     _params: KFParams
     sensors: list
+    track_initialized: list = []
+    labels: list = []
     xs_p: list = []
     P_p: list = []
     xs_upd: list = []
@@ -105,10 +107,10 @@ class KF(ITracker):
         Args:
             dt (float): Time since last update
             t (float): Current time (assumed >= 0)
-            true_do_states (list): List of true dynamic obstacle states [x, y, Vx, Vy] x n_do. Used for simulating sensor measurements.
+            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy]) x n_do. Used for simulating sensor measurements.
 
         Returns:
-            Tuple[list, list, list]: List of updated dynamic obstacle estimates and covariances. Also, a list of sensor measurements.
+            Tuple[list, list, list]: List of updated dynamic obstacle estimates and covariances. Also, a list the sensor measurements used.
         """
 
         if t < 0.00001:
@@ -124,12 +126,22 @@ class KF(ITracker):
             z = sensor.generate_measurements(t, true_do_states)
             sensor_measurements.append(z)
 
-        n_do = len(true_do_states)
+        for do_idx, do_state in true_do_states:
 
-        # TODO: Implement track initiation, e.g. n out of m based initiation.
+            if do_idx not in self.labels:
+                # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
+                self.labels.append(do_idx)
+                self.track_initialized.append(False)
+                self.xs_upd.append(do_state)
+                self.P_upd.append(self._params.P_0)
+                self.xs_p.append(do_state)
+                self.P_p.append(self._params.P_0)
+                self.NIS.append(np.nan)
+            else:
+                self.track_initialized
 
-        for i in range(n_do):
-
+        n_tracked_do = len(self.xs_upd)
+        for i in range(n_tracked_do):
             self.xs_p[i], self.P_p[i] = self.predict(self.xs_upd[i], self.P_upd[i], dt)
 
             for sensor_id in range(len(self.sensors)):
