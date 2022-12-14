@@ -117,9 +117,6 @@ class KinematicTrajectoryPlanner(IGuidance):
         speed_spline (PchipInterpolator): Spline for speed setpoint. Usage of piecewise cubic Hermite interpolator to reduce overshoot.
     """
 
-    _params: KTPGuidanceParams
-    _s: float = 0.001
-    _init: bool = False
     _x_spline: CubicSpline
     _y_spline: CubicSpline
     _heading_spline: PchipInterpolator
@@ -127,9 +124,12 @@ class KinematicTrajectoryPlanner(IGuidance):
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.ktp is not None:
-            self._params = config.ktp
+            self._params: KTPGuidanceParams = config.ktp
         else:
             self._params = KTPGuidanceParams()
+
+        self._s: float = 0.001
+        self._init: bool = False
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
@@ -332,18 +332,18 @@ class LOSGuidance(IGuidance):
     """Class which implements the Line-of-Sight guidance strategy.
 
     Internal variables:
-        wp_counter (float): Keeps track of the current waypoint segment
+        _wp_counter (float): Keeps track of the current waypoint segment
+        _e_int (float): Integral of the cross-track error
     """
-
-    _wp_counter: int = 0
-    _e_int: float = 0.0
-    _params: LOSGuidanceParams
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.los is not None:
-            self._params = config.los
+            self._params: LOSGuidanceParams = config.los
         else:
             self._params = LOSGuidanceParams()
+
+        self._wp_counter: int = 0
+        self._e_int: float = 0.0
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float

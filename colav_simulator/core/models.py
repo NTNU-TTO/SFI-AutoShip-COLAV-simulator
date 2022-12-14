@@ -116,13 +116,12 @@ class KinematicCSOG(IModel):
     where x,y are the planar coordinates, U the vessel SOG and chi the vessel COG => xs = [x, y, chi, U, 0, 0]
     """
 
-    _params: KinematicCSOGParams
     _n_x: int = 4
     _n_u: int = 2
 
     def __init__(self, config: Optional[Config] = None) -> None:
         if config and config.csog is not None:
-            self._params = config.csog
+            self._params: KinematicCSOGParams = config.csog
         else:
             self._params = KinematicCSOGParams()
 
@@ -185,12 +184,11 @@ class Telemetron(IModel):
         D_nl: Nonlinear damping matrix
     """
 
-    _params: TelemetronParams
     _n_x: int = 6
     _n_u: int = 3
 
     def __init__(self) -> None:
-        self._params = TelemetronParams()
+        self._params: TelemetronParams = TelemetronParams()
 
     def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
         """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where

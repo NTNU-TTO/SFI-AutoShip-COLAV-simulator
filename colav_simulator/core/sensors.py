@@ -32,7 +32,7 @@ class ISensor(ABC):
 
     @abstractmethod
     def generate_measurements(self, t: float, true_do_states: list) -> Optional[list]:
-        """Generates sensor measurements from the input true dynamic obstacle states."""
+        """Generates sensor measurements from the input tuple list of true dynamic obstacle indices and states, (do_idx, do_state) x n_do."""
 
 
 @dataclass
@@ -109,12 +109,11 @@ class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 
     # TODO: Implement clutter measurements and detection probability
-    _params: RadarParams
     type: str = "radar"
     _H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
 
     def __init__(self, params: RadarParams = RadarParams()) -> None:
-        self._params = params
+        self._params: RadarParams = params
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -127,7 +126,7 @@ class Radar(ISensor):
 
     def generate_measurements(self, t: float, true_do_states: list) -> Optional[list]:
         measurements = []
-        for xs in true_do_states:
+        for _, xs in true_do_states:
             if t % 1.0 / self._params.measurement_rate < 0.001:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self.R(xs))
             else:
@@ -159,14 +158,12 @@ class AIS:
         self._R = R_GNSS + (1/12)*R_v
     """
 
-    _params: AISParams
     type: str = "ais"
-    _previous_meas_time: float = 0.0
-    _H: np.ndarray
+    _H: np.ndarray = np.eye(4)
 
     def __init__(self, params: AISParams = AISParams()) -> None:
-        self._params = params
-        self._H = np.eye(4)
+        self._params: AISParams = params
+        self._previous_meas_time = 0.0
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -179,19 +176,10 @@ class AIS:
         return z
 
     def generate_measurements(self, t: float, true_do_states: list) -> list:
-        """Generates AIS measurements from the input true dynamic obstacle states.
-
-        Args:
-            t (float): Current time.
-            true_do_states (list): List of true dynamic obstacle states [x, y, Vx, Vy].
-
-        Returns:
-            list: List of generated AIS measurements.
-        """
         measurements = []
-        for state in true_do_states:
-            if t % 1.0 / self.measurement_rate(state) < 0.001:
-                z = self.h(state) + np.random.multivariate_normal(np.zeros(4), self.R(state))
+        for _, xs in true_do_states:
+            if t % 1.0 / self.measurement_rate(xs) < 0.001:
+                z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self.R(xs))
             else:
                 z = np.nan * np.ones(4)
             measurements.append(z)

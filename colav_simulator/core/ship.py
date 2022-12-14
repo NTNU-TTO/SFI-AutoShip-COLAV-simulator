@@ -30,7 +30,6 @@ class Config:
     """Configuration class for managing ship parameters."""
 
     # colav: colav.Config
-    # tracker: tracker.config
     model: models.Config = models.Config()
     controller: controllers.Config = controllers.Config()
     guidance: guidances.Config = guidances.Config()
@@ -236,18 +235,6 @@ class Ship(IShip):
 
     """
 
-    _mmsi: int = 0
-    _ais_msg_nr: int = 18
-    _state: np.ndarray = np.zeros(4)
-    _waypoints: np.ndarray = np.empty(0)
-    _speed_plan: np.ndarray = np.zeros(0)
-    _trajectory: np.ndarray = np.empty(0)
-    _trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation
-    _first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
-    _last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
-    t_start: float = 0.0  # The time when the ship appears in the simulation
-    t_end: float = -1.0  # The time when the ship disappears from the simulation
-
     def __init__(
         self,
         mmsi: int,
@@ -256,6 +243,17 @@ class Ship(IShip):
         speed_plan: Optional[np.ndarray] = None,
         config: Optional[Config] = None,
     ) -> None:
+
+        self._ais_msg_nr: int = 18
+        self._state: np.ndarray = np.zeros(4)
+        self._waypoints: np.ndarray = np.empty(0)
+        self._speed_plan: np.ndarray = np.zeros(0)
+        self._trajectory: np.ndarray = np.empty(0)
+        self._trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation
+        self._first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
+        self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
+        self.t_start: float = 0.0  # The time when the ship appears in the simulation
+        self.t_end: float = -1.0  # The time when the ship disappears from the simulation
 
         self._mmsi = mmsi
         self._model, self._controller, self._guidance, self.sensors, self._tracker = ShipBuilder.construct_ship(config)
@@ -280,7 +278,7 @@ class Ship(IShip):
         else:
             self._ais_msg_nr = random.randint(1, 3)
 
-        if config and config.mmsi:
+        if config and config.mmsi != -1:
             self._mmsi = config.mmsi
 
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -300,7 +298,16 @@ class Ship(IShip):
 
         if self._trajectory.size > 0:
             self._trajectory_sample += 1
-            self._state = self._trajectory[self._trajectory_sample]
+            self._state = np.array(
+                [
+                    self._trajectory[0, self._trajectory_sample],
+                    self._trajectory[1, self._trajectory_sample],
+                    self._trajectory[3, self._trajectory_sample],
+                    self._trajectory[2, self._trajectory_sample],
+                    0.0,
+                    0.0,
+                ]
+            )
             return self._state, np.empty(3), np.empty(9)
 
         if self._waypoints.size < 2 or self._speed_plan.size < 2:
@@ -370,15 +377,17 @@ class Ship(IShip):
         """
         datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        xs_i_upd, P_i_upd, NISes = self.get_do_track_information()
+        xs_i_upd, P_i_upd, NISes, labels = self.get_do_track_information()
         xs_i_upd = [xs.tolist() for xs in xs_i_upd]
         P_i_upd = [P.tolist() for P in P_i_upd]
         NISes = [float(NIS) for NIS in NISes]
 
         if self.t_start <= t:
             pose = self.pose
+            active = True
         else:
             pose = np.ones(4) * np.nan
+            active = False
 
         ship_sim_data = {
             "pose": pose,
@@ -388,7 +397,8 @@ class Ship(IShip):
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
-            "active": False,
+            "do_labels": labels,
+            "active": active,
             # predicted trajectory from COLAV/planner
         }
 
@@ -432,14 +442,7 @@ class Ship(IShip):
         }
         return row
 
-    def get_do_track_information(self) -> Tuple[list, list, list]:
-        """Returns the estimates and covariances of the dynamic obstacles tracked by the ship.
-        Also, it returns the associated Normalized Innovation error Squared (NIS) values for
-        the most recent update step for each track.
-
-        Returns:
-            Tuple[list, list, list]: List of estimates, list of covariances and list of NISes.
-        """
+    def get_do_track_information(self) -> Tuple[list, list, list, list]:
         return self._tracker.get_track_information()
 
     def transfer_vessel_ais_data(
@@ -467,10 +470,11 @@ class Ship(IShip):
             )
         )
 
+        # print(f"Initial ship state: {self._state}")
         self.t_start = vessel.timestamps[vessel.first_valid_idx]
 
-        if use_ais_trajectory and self._speed_plan.size >= 2:
-            self._trajectory_sample = 0
+        if use_ais_trajectory:
+            self._trajectory_sample = vessel.first_valid_idx
             self._trajectory = np.zeros((4, len(vessel.sog)))
             self._trajectory[0, :] = vessel.xy[1, :]
             self._trajectory[1, :] = vessel.xy[0, :]
@@ -478,6 +482,7 @@ class Ship(IShip):
             self._trajectory[3, :] = vessel.cog
             self.t_end = vessel.timestamps[vessel.last_valid_idx]
 
+        self._mmsi = vessel.mmsi
         self._first_valid_idx = vessel.first_valid_idx
         self._last_valid_idx = vessel.last_valid_idx
         self._model.params.length = vessel.length

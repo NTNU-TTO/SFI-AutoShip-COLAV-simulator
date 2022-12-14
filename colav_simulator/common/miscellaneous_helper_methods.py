@@ -82,7 +82,7 @@ def get_list_except_element_idx(input_list: list, idx: int) -> list:
 
 
 def get_relevant_do_states(input_list: list, idx: int) -> list:
-    """Returns a tuple of lists, list of relevant dynamic obstacle states to use in tracking/sensor generation
+    """Returns a tuple list of relevant dynamic obstacle indices, states to use in tracking/sensor generation
     , with all elements of input_list except the element <idx>, if this index is in the tuple list.
 
     Args:
@@ -90,12 +90,12 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
         idx (int): Index of element to exclude
 
     Returns:
-        list: List with all do_states of input_list except the element idx if idx is in the tuple list
+        list: List with all (do_idx, do_state) tuples of input_list except the element idx, if idx is in the tuple list
     """
     output_list = []
     for do_idx, do_state in input_list:
         if do_idx != idx:
-            output_list.append(do_state)
+            output_list.append((do_idx, do_state))
 
     return output_list
 

@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -23,10 +23,10 @@ class ITracker(ABC):
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
-    def get_track_information(self) -> Tuple[list, list, list]:
+    def get_track_information(self) -> Tuple[list, list, list, list]:
         """Returns the estimates and covariances of the tracked dynamic obstacles.
         Also, it returns the associated Normalized Innovation error Squared (NIS) values for
-        the most recent update step for each track.
+        the most recent update step for each track, and the track labels.
 
         Returns:
             Tuple[list, list, list]: List of estimates, list of covariances and list of NISes.
@@ -75,28 +75,26 @@ class Config:
 class KF(ITracker):
     """The KF class implements a linear Kalman filter based tracker."""
 
-    _params: KFParams
-    sensors: list
-    track_initialized: list = []
-    labels: list = []
-    xs_p: list = []
-    P_p: list = []
-    xs_upd: list = []
-    P_upd: list = []
-    NIS: list = []
-
     def __init__(self, sensor_list: list, config: Optional[Config] = None) -> None:
         if sensor_list is None:
             raise ValueError("Sensor list must be provided.")
 
         if config and config.kf is not None:
-            self._params = config.kf
+            self._params: KFParams = config.kf
         else:
             self._params = KFParams()
 
         self._model = CVModel(self._params.q)
 
-        self.sensors = sensor_list
+        self.sensors: list = sensor_list
+
+        self._track_initialized: list = []
+        self._labels: list = []
+        self._xs_p: list = []
+        self._P_p: list = []
+        self._xs_upd: list = []
+        self._P_upd: list = []
+        self._NIS: list = []
 
     def track(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
@@ -112,47 +110,41 @@ class KF(ITracker):
         Returns:
             Tuple[list, list, list]: List of updated dynamic obstacle estimates and covariances. Also, a list the sensor measurements used.
         """
-
-        if t < 0.00001:
-            self.xs_upd = true_do_states
-            self.P_upd = [self._params.P_0 for _ in range(len(true_do_states))]
-            self.xs_p = self.xs_upd.copy()
-            self.P_p = self.P_upd.copy()
-            self.NIS = [np.nan for _ in range(len(true_do_states))]
-            return self.xs_upd, self.P_upd, []
+        i_count = 0
+        for do_idx, do_state in true_do_states:
+            if do_idx not in self._labels:
+                # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
+                self._labels.append(do_idx)
+                self._track_initialized.append(False)
+                self._xs_upd.append(do_state)
+                self._P_upd.append(self._params.P_0)
+                self._xs_p.append(do_state)
+                self._P_p.append(self._params.P_0)
+                self._NIS.append(np.nan)
+            else:
+                self._track_initialized[i_count] = True
+            i_count += 1
 
         sensor_measurements = []
         for sensor in self.sensors:
             z = sensor.generate_measurements(t, true_do_states)
             sensor_measurements.append(z)
 
-        for do_idx, do_state in true_do_states:
-
-            if do_idx not in self.labels:
-                # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
-                self.labels.append(do_idx)
-                self.track_initialized.append(False)
-                self.xs_upd.append(do_state)
-                self.P_upd.append(self._params.P_0)
-                self.xs_p.append(do_state)
-                self.P_p.append(self._params.P_0)
-                self.NIS.append(np.nan)
-            else:
-                self.track_initialized
-
-        n_tracked_do = len(self.xs_upd)
+        n_tracked_do = len(self._xs_upd)
         for i in range(n_tracked_do):
-            self.xs_p[i], self.P_p[i] = self.predict(self.xs_upd[i], self.P_upd[i], dt)
 
-            for sensor_id in range(len(self.sensors)):
-                self.xs_upd[i], self.P_upd[i], NIS_i = self.update(
-                    self.xs_p[i], self.P_p[i], sensor_measurements[sensor_id][i], sensor_id
-                )
+            if self._track_initialized[i]:
+                self._xs_p[i], self._P_p[i] = self.predict(self._xs_upd[i], self._P_upd[i], dt)
 
-                if not np.isnan(NIS_i):
-                    self.NIS[i] = NIS_i
+                for sensor_id in range(len(self.sensors)):
+                    self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
+                        self._xs_p[i], self._P_p[i], sensor_measurements[sensor_id][i], sensor_id
+                    )
 
-        return self.xs_upd, self.P_upd, sensor_measurements
+                    if not np.isnan(NIS_i):
+                        self._NIS[i] = NIS_i
+
+        return self._xs_upd, self._P_upd, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
         F = self._model.F(dt)
@@ -188,8 +180,8 @@ class KF(ITracker):
 
         return x_upd, P_upd, NIS(v, S)
 
-    def get_track_information(self) -> Tuple[list, list, list]:
-        return self.xs_upd, self.P_upd, self.NIS
+    def get_track_information(self) -> Tuple[list, list, list, list]:
+        return self._xs_upd, self._P_upd, self._NIS, self._labels
 
 
 def NIS(v: np.ndarray, S: np.ndarray) -> float:
@@ -199,10 +191,8 @@ def NIS(v: np.ndarray, S: np.ndarray) -> float:
 class CVModel:
     """The CVModel class implements a constant velocity model."""
 
-    _q: float
-
     def __init__(self, q: float) -> None:
-        self._q = q
+        self._q: float = q
 
     def f(self, xs: np.ndarray, dt: float) -> np.ndarray:
         """Returns the r.h.s of the prediction model state transition function.

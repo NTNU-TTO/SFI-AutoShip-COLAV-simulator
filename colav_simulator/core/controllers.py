@@ -142,15 +142,13 @@ class MIMOPID(IController):
     See Fossen 2011, Ch. 12.
     """
 
-    _eta_diff_int: np.ndarray
-    _pars: MIMOPIDPars
-
     def __init__(self, config: Optional[Config] = None) -> None:
-        self._eta_diff_int = np.zeros(3)
         if config and config.pid is not None:
-            self._pars = config.pid
+            self._pars: MIMOPIDPars = config.pid
         else:
             self._pars = MIMOPIDPars()
+
+        self._eta_diff_int: np.ndarray = np.zeros(3)
 
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)
@@ -175,7 +173,7 @@ class MIMOPID(IController):
         eta = xs[0:3]
         nu = xs[3:]
 
-        R_n_b = mf.Rpsi(eta[2])
+        R_n_b = mf.Rmtrx(eta[2])
         eta_dot = R_n_b @ nu
 
         Mmtrx = model.params.M_rb + model.params.M_a
@@ -232,15 +230,13 @@ class FLSH(IController):
     Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
     """
 
-    _eta_diff_int: np.ndarray
-    _pars: FLSHPars
-
     def __init__(self, config: Optional[Config] = None) -> None:
-        self._eta_diff_int = np.zeros(3)
         if config and config.flsh is not None:
-            self._pars = config.flsh
+            self._pars: FLSHPars = config.flsh
         else:
             self._pars = FLSHPars()
+
+        self._eta_diff_int: np.ndarray = np.zeros(3)
 
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)

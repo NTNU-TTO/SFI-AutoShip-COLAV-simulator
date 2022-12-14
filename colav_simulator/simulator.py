@@ -133,6 +133,8 @@ class Simulator:
         if self._config.visualize:
             self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)
 
+        utm_zone = int(self._scenario_generator.enc.crs.coordinate_operation.name[-4:-1])
+
         sim_data = []
         ais_data = []
         timestamp_start = mhm.current_utc_timestamp()
@@ -140,12 +142,14 @@ class Simulator:
         for _, t in enumerate(sim_times):
             dt_sim = t - t_prev
             t_prev = t
+            # print(f"t: {t:.2f} | dt: {dt_sim:.2f}")
 
             sim_data_dict = {}
             sensor_measurements = []
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
-                print(f"Ship {i} starts at {ship_obj.t_start} | t is now {t}")
+                if t == 0.0:
+                    print(f"Ship {i} starts at {ship_obj.t_start} | t is now {t}")
                 if ship_obj.t_start <= t:
                     state = mhm.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
                     true_do_states.append((i, state))
@@ -163,12 +167,12 @@ class Simulator:
                 sim_data_dict[f"Ship{i}"]["sensor_measurements"] = sensor_measurements_i
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:
-                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, self._scenario_generator.enc.crs)
+                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, utm_zone)
                     ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)
 
-            if self._config.visualize and t % 2.0 < 0.0001:
-                self._visualizer.update_live_plot(self._scenario_generator.enc, ship_list, sensor_measurements)
+            if self._config.visualize and t % 5.0 < 0.0001:
+                self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, sensor_measurements)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
