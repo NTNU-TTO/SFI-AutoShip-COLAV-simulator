@@ -1,4 +1,7 @@
 
+show_liveplot:
+  required: True
+  type: boolean
 show_measurements:
   required: True
   type: boolean

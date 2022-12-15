@@ -42,6 +42,12 @@ ais_data_file:
 ship_data_file:
   required: False
   type: string
+allowed_nav_statuses:
+  required: False
+  type: list
+  minlength: 1
+  schema:
+    type: integer
 n_random_ships:
   required: False
   type: integer
@@ -119,6 +125,10 @@ ship_list:
         #     - radar:
         #         type: dict
         #         schema:
+        #           max_range:
+        #             required: True
+        #             type: float
+        #              min: 100.0
         #           measurement_rate:
         #             required: True
         #             type: float
@@ -135,6 +145,10 @@ ship_list:
         #     - ais:
         #         type: dict
         #         schema:
+        #           max_range:
+        #             required: True
+        #             type: float
+        #              min: 100.0
         #           ais_class:
         #             required: True
         #             type: integer

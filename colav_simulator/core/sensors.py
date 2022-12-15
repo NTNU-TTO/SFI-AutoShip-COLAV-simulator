@@ -31,20 +31,26 @@ class ISensor(ABC):
         """Returns the measurement function for the input state."""
 
     @abstractmethod
-    def generate_measurements(self, t: float, true_do_states: list) -> Optional[list]:
-        """Generates sensor measurements from the input tuple list of true dynamic obstacle indices and states, (do_idx, do_state) x n_do."""
+    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
+        """Generates sensor measurements from the input tuple list of true dynamic obstacle indices and states, (do_idx, do_state) x n_do,
+        and own-ship state."""
 
 
 @dataclass
 class RadarParams:
     """Configuration parameters for a radar sensor."""
 
-    measurement_rate: float = 0.8
+    max_range: float = 500.0
+    measurement_rate: float = 1.0
     R: np.ndarray = np.diag([5.0**2, 5.0**2])
 
     @classmethod
     def from_dict(self, config_dict: dict):
-        return RadarParams(measurement_rate=config_dict["measurement_rate"], R=np.diag(config_dict["R"]))
+        return RadarParams(
+            max_range=config_dict["max_range"],
+            measurement_rate=config_dict["measurement_rate"],
+            R=np.diag(config_dict["R"]),
+        )
 
     def to_dict(self) -> dict:
         output_dict = asdict(self)
@@ -63,12 +69,17 @@ class AISClass(Enum):
 class AISParams:
     """AIS parameter class."""
 
+    max_range: float = 5000.0
     ais_class: AISClass = AISClass.A
     R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov for a state vector of [x, y, Vx, Vy]
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        return AISParams(ais_class=AISClass(config_dict["ais_class"]), R=np.diag(config_dict["R"]))
+        return AISParams(
+            max_range=config_dict["max_range"],
+            ais_class=AISClass(config_dict["ais_class"]),
+            R=np.diag(config_dict["R"]),
+        )
 
     def to_dict(self) -> dict:
         output_dict = {"ais_class": self.ais_class.name, "R": self.R.diagonal().tolist()}
@@ -124,15 +135,20 @@ class Radar(ISensor):
     def h(self, xs: np.ndarray) -> np.ndarray:
         return self._H @ xs
 
-    def generate_measurements(self, t: float, true_do_states: list) -> Optional[list]:
+    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
         measurements = []
         for _, xs in true_do_states:
-            if t % 1.0 / self._params.measurement_rate < 0.001:
+            dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
+            if t % 1.0 / self._params.measurement_rate < 0.01 and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self.R(xs))
             else:
                 z = np.nan * np.ones(2)
             measurements.append(z)
         return measurements
+
+    @property
+    def max_range(self) -> float:
+        return self._params.max_range
 
 
 class AIS:
@@ -175,10 +191,12 @@ class AIS:
         z = self._H @ xs
         return z
 
-    def generate_measurements(self, t: float, true_do_states: list) -> list:
+    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
         measurements = []
         for _, xs in true_do_states:
-            if t % 1.0 / self.measurement_rate(xs) < 0.001:
+            dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
+
+            if t % 1.0 / self.measurement_rate(xs) < 0.01 and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self.R(xs))
             else:
                 z = np.nan * np.ones(4)
@@ -214,3 +232,7 @@ class AIS:
             elif sog > 2.0:
                 rate = 1.0 / 30.0
         return rate
+
+    @property
+    def max_range(self) -> float:
+        return self._params.max_range

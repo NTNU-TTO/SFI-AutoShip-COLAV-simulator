@@ -335,7 +335,7 @@ class Ship(IShip):
         Returns:
             Tuple[list, list]: Updated list of estimates and covariances on obstacles in the environment.
         """
-        tracks = self._tracker.track(t, dt, true_do_states)
+        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_sog_cog_state_to_vxvy_state(self.pose))
         return tracks
 
     def set_initial_state(self, pose: np.ndarray) -> None:
@@ -397,7 +397,7 @@ class Ship(IShip):
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
-            "do_labels": labels,
+            "do_labels": labels.copy(),
             "active": active,
             # predicted trajectory from COLAV/planner
         }

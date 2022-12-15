@@ -81,6 +81,7 @@ class ScenarioConfig:
     ship_data_file: Optional[
         Path
     ] = None  # Path to the ship information data file associated with AIS data, if considered
+    allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
     n_random_ships: Optional[int] = 1  # Number of random ships in the scenario, excluding the own-ship, if considered
     min_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     max_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
@@ -110,6 +111,7 @@ class ScenarioConfig:
         if "ais_data_file" in config_dict:
             config.ais_data_file = Path(config_dict["ais_data_file"])
             config.ship_data_file = Path(config_dict["ship_data_file"])
+            config.allowed_nav_statuses = config_dict["allowed_nav_statuses"]
 
         if "n_random_ships" in config_dict:
             config.n_random_ships = config_dict["n_random_ships"]
@@ -248,7 +250,11 @@ class ScenarioGenerator:
                 use_ais_ship_trajectory = False
                 idx = 0
 
-            ship_obj.transfer_vessel_ais_data(ais_vessel_data_list.pop(idx), use_ais_ship_trajectory)
+            ais_vessel = ais_vessel_data_list.pop(idx)
+            if ais_vessel.status.value not in config.allowed_nav_statuses:
+                continue
+
+            ship_obj.transfer_vessel_ais_data(ais_vessel, use_ais_ship_trajectory)
 
             if not use_ais_ship_trajectory and ship_config.waypoints is None:
                 waypoints = self.generate_random_waypoints(

@@ -156,9 +156,10 @@ class Simulator:
 
             for i, ship_obj in enumerate(ship_list):
 
-                relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
-                _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
-                sensor_measurements.append(sensor_measurements_i)
+                if i == 0:
+                    relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
+                    _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
+                    sensor_measurements.append(sensor_measurements_i)
 
                 if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
@@ -172,7 +173,7 @@ class Simulator:
 
             sim_data.append(sim_data_dict)
 
-            if self._config.visualize and t % 5.0 < 0.0001:
+            if self._config.visualize and t % 10.0 < 0.0001:
                 self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, sensor_measurements)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
