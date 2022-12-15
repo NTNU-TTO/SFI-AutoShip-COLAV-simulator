@@ -41,6 +41,7 @@ class Config:
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.01, 0.01])
     ship_linewidth: float = 0.9
+    ship_scaling: float = 5.0
     ship_colors: list = field(
         default_factory=lambda: [
             "xkcd:black",
@@ -424,7 +425,9 @@ class Visualizer:
                                     )
 
             # Update ship patch
-            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, 10.0)
+            ship_poly = mapf.create_ship_polygon(
+                pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling
+            )
             if self.ship_plt_handles[i]["patch"] is not None:
                 self.ship_plt_handles[i]["patch"].remove()
             self.ship_plt_handles[i]["patch"] = ax_map.add_feature(
@@ -535,12 +538,13 @@ class Visualizer:
 
             count = 1
             for k in k_snapshots:
-                ship_poly = mapf.create_ship_polygon(X[0, k], X[1, k], X[3, k], ship.length, ship.width, 5.0)
+                ship_poly = mapf.create_ship_polygon(
+                    X[0, k], X[1, k], X[3, k], ship.length, ship.width, self._config.ship_scaling
+                )
                 y_ship, x_ship = ship_poly.exterior.xy
-
                 ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="")
-
                 ax_map.text(X[1, k] - 30, X[0, k] + 40, f"$t_{count}$", fontsize=12)
+                count += 1
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
             if i == 0:
@@ -551,8 +555,7 @@ class Visualizer:
                 do_labels = track_data["do_labels"]
 
                 for j, do_estimates_j in enumerate(do_estimates):
-                    first_valid_idx = np.isfinite(do_estimates_j[0, :])[0]
-                    last_valid_idx = do_estimates_j[0, :].isfinite()[-1]
+                    first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
@@ -568,6 +571,9 @@ class Visualizer:
                         alpha=0.3,
                     )
                     for k in k_snapshots:
+                        if k < first_valid_idx or k > last_valid_idx:
+                            continue
+
                         ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
                         ax_map.fill(
                             ellipse_y + do_estimates_j[1, k],

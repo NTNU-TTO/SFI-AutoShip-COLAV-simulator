@@ -140,6 +140,30 @@ def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
         )
 
 
+def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int, int]:
+    """Returns the index of the first and last non-NaN element in a list or numpy array."""
+
+    if isinstance(input_list, list):
+        input_list = np.array(input_list)
+
+    first_non_nan_idx = np.where(~np.isnan(input_list))[0][0]
+    last_non_nan_idx = np.where(~np.isnan(input_list))[0][-1]
+
+    return first_non_nan_idx, last_non_nan_idx
+
+
+def check_if_path_is_relative(path: str) -> bool:
+    """Checks if a path is relative.
+
+    Args:
+        path (str): Path to check.
+
+    Returns:
+        bool: True if path is relative, False otherwise.
+    """
+    return not os.path.isabs(path)
+
+
 def current_utc_timestamp() -> int:
     """
     Returns:

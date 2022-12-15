@@ -40,6 +40,9 @@ margins:
 ship_linewidth:
   required: True
   type: float
+ship_scaling:
+  required: True
+  type: float
 ship_colors:
   required: True
   type: list

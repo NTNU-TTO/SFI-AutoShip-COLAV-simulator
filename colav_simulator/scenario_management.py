@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import colav_evaluation_tool.common.file_utils as colav_eval_fu
+import colav_evaluation_tool.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
@@ -110,7 +111,13 @@ class ScenarioConfig:
 
         if "ais_data_file" in config_dict:
             config.ais_data_file = Path(config_dict["ais_data_file"])
+            if len(config.ais_data_file.parts) == 1:
+                config.ais_data_file = dp.ais_data / config.ais_data_file
+
             config.ship_data_file = Path(config_dict["ship_data_file"])
+            if len(config.ship_data_file.parts) == 1:
+                config.ship_data_file = dp.ais_data / config.ship_data_file
+
             config.allowed_nav_statuses = config_dict["allowed_nav_statuses"]
 
         if "n_random_ships" in config_dict:
