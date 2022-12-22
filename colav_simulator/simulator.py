@@ -142,7 +142,6 @@ class Simulator:
         for _, t in enumerate(sim_times):
             dt_sim = t - t_prev
             t_prev = t
-            # print(f"t: {t:.2f} | dt: {dt_sim:.2f}")
 
             sim_data_dict = {}
             sensor_measurements = []

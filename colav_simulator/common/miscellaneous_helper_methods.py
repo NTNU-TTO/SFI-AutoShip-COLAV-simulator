@@ -17,6 +17,38 @@ import numpy as np
 from scipy.stats import chi2
 
 
+def update_xy_limits_from_trajectory_data(trajectory: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
+    """Update the x and y limits from the trajectory data (either predefined trajectory or nominal trajectory/waypoints for the ship).
+
+    Args:
+        X (np.ndarray): waypoint data.
+        xlimits (list): List containing the x limits.
+        ylimits (list): List containing the y limits.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: x and y limits.
+    """
+
+    min_x = np.min(trajectory[0, :])
+    max_x = np.max(trajectory[0, :])
+    min_y = np.min(trajectory[1, :])
+    max_y = np.max(trajectory[1, :])
+
+    if min_x < xlimits[0]:
+        xlimits[0] = min_x
+
+    if max_x > xlimits[1]:
+        xlimits[1] = max_x
+
+    if min_y < ylimits[0]:
+        ylimits[0] = min_y
+
+    if max_y > ylimits[1]:
+        ylimits[1] = max_y
+
+    return xlimits, ylimits
+
+
 def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tuple[list, list]:
     """Creates a probability ellipse for a covariance matrix P and a given
     confidence level (default 0.99).
@@ -150,18 +182,6 @@ def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int,
     last_non_nan_idx = np.where(~np.isnan(input_list))[0][-1]
 
     return first_non_nan_idx, last_non_nan_idx
-
-
-def check_if_path_is_relative(path: str) -> bool:
-    """Checks if a path is relative.
-
-    Args:
-        path (str): Path to check.
-
-    Returns:
-        bool: True if path is relative, False otherwise.
-    """
-    return not os.path.isabs(path)
 
 
 def current_utc_timestamp() -> int:

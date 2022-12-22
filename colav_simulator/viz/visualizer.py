@@ -15,7 +15,6 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.feature import ShapelyFeature
@@ -39,7 +38,7 @@ class Config:
     n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
     frame_delay: float = 200.0
     figsize: list = field(default_factory=lambda: [12, 10])
-    margins: list = field(default_factory=lambda: [0.01, 0.01])
+    margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
     ship_scaling: float = 5.0
     ship_colors: list = field(
@@ -192,13 +191,15 @@ class Visualizer:
 
             ship_i_handles: dict = {}
 
-            if ship.trajectory.size > 0:
-                xlimits, ylimits = update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
-            elif ship.waypoints.size > 0:
-                xlimits, ylimits = update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
-
             if i == 0:
                 ship_name = "OS"
+
+                if ship.trajectory.size > 0:
+                    buffer = 500
+                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
+                elif ship.waypoints.size > 0:
+                    buffer = 1000
+                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
 
                 do_lw = self._config.do_linewidth
 
@@ -305,10 +306,10 @@ class Visualizer:
             ship_i_handles["started"] = False
             self.ship_plt_handles.append(ship_i_handles)
 
-        xlimits = [xlimits[0] - 500, xlimits[1] + 500]
-        ylimits = [ylimits[0] - 500, ylimits[1] + 500]
+        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
         # ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
-        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
+        # self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
     def update_live_plot(self, t: float, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
@@ -507,7 +508,9 @@ class Visualizer:
             ship_sim_data = sim_data[f"Ship{i}"]
             ship_color = self._config.ship_colors[i]
             X = extract_trajectory_data_from_dataframe(ship_sim_data)
-            xlimits, ylimits = update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
+            first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
+
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
 
             if i == 0:
                 ship_name = "OS"
@@ -528,9 +531,13 @@ class Visualizer:
                 )
 
             # Plot ship trajectory and shape at all considered snapshots
+
+            if last_valid_idx < k_snapshots[-1]:
+                end_idx = last_valid_idx
+
             ax_map.plot(
-                X[1, : k_snapshots[-1]],
-                X[0, : k_snapshots[-1]],
+                X[1, first_valid_idx:end_idx],
+                X[0, first_valid_idx:end_idx],
                 color=ship_color,
                 linewidth=ship_lw,
                 label=ship_name + " traj.",
@@ -538,6 +545,9 @@ class Visualizer:
 
             count = 1
             for k in k_snapshots:
+                if k < first_valid_idx or k > last_valid_idx:
+                    continue
+
                 ship_poly = mapf.create_ship_polygon(
                     X[0, k], X[1, k], X[3, k], ship.length, ship.width, self._config.ship_scaling
                 )
@@ -819,38 +829,6 @@ def extract_track_data_from_dataframe(ship_df: DataFrame) -> dict:
     output["do_NISes"] = do_NISes
     output["do_labels"] = do_labels
     return output
-
-
-def update_xy_limits_from_trajectory_data(trajectory: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
-    """Update the x and y limits from the trajectory data (either predefined trajectory or nominal trajectory/waypoints for the ship).
-
-    Args:
-        X (np.ndarray): waypoint data.
-        xlimits (list): List containing the x limits.
-        ylimits (list): List containing the y limits.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: x and y limits.
-    """
-
-    min_x = np.min(trajectory[0, :])
-    max_x = np.max(trajectory[0, :])
-    min_y = np.min(trajectory[1, :])
-    max_y = np.max(trajectory[1, :])
-
-    if min_x < xlimits[0]:
-        xlimits[0] = min_x
-
-    if max_x > xlimits[1]:
-        xlimits[1] = max_x
-
-    if min_y < ylimits[0]:
-        ylimits[0] = min_y
-
-    if max_y > ylimits[1]:
-        ylimits[1] = max_y
-
-    return xlimits, ylimits
 
 
 #     def visualize(

@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import colav_evaluation_tool.common.file_utils as colav_eval_fu
-import colav_evaluation_tool.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
 import numpy as np
@@ -232,7 +232,6 @@ class ScenarioGenerator:
         self._configure_enc(config)
 
         n_cfg_ships = len(config.ship_list)
-
         ship_list = []
         ship_config_list = []
         pose_list = []
@@ -536,28 +535,6 @@ class ScenarioGenerator:
     @property
     def enc_origin(self) -> np.ndarray:
         return np.array([self.enc.origin[1], self.enc.origin[0]])
-
-
-def load_scenario_definition(scenario_file: Path):
-    """
-    Loads a scenario definition from a yaml file and processes into a list ships with specified poses,
-    waypoints and speed plans (the definition). The ships are configured as specified in the scenario file.
-
-    Parameters:
-        scenario_file (Path): Absolute path to scenario file.
-
-    Returns:
-        list: List of configured ships with specified poses, waypoints and speed plans.
-    """
-    print("Loading existing scenario definition...")
-    ship_list = []
-
-    config = cp.extract(ExistingScenarioConfig, scenario_file, dp.existing_scenario_schema)
-
-    for i, ship_config in enumerate(config.ship_list):
-        ship_list.append(ship.Ship(mmsi=i + 1, config=ship_config))
-
-    return ship_list
 
 
 def save_scenario(ship_config_list: list, save_file: Path) -> None:
