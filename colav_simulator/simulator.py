@@ -109,7 +109,7 @@ class Simulator:
                     sim_data,
                     sim_times,
                     save_figs=True,
-                    save_file_path=dp.figure_output / scenario_file,
+                    save_file_path=dp.figure_output / scenario_file[0:-5],  # strip last 5 characters [.yaml]
                 )
 
             sim_data_list.append(sim_data)

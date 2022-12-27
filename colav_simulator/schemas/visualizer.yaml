@@ -43,6 +43,9 @@ ship_linewidth:
 ship_scaling:
   required: True
   type: float
+ship_info_fontsize:
+  required: True
+  type: integer
 ship_colors:
   required: True
   type: list

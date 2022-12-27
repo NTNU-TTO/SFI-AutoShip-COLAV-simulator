@@ -178,8 +178,13 @@ def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int,
     if isinstance(input_list, list):
         input_list = np.array(input_list)
 
-    first_non_nan_idx = np.where(~np.isnan(input_list))[0][0]
-    last_non_nan_idx = np.where(~np.isnan(input_list))[0][-1]
+    non_nan_indices = np.where(~np.isnan(input_list))[0]
+    if non_nan_indices.size > 0:
+        first_non_nan_idx = non_nan_indices[0]
+        last_non_nan_idx = non_nan_indices[-1]
+    else:
+        first_non_nan_idx = -1
+        last_non_nan_idx = -1
 
     return first_non_nan_idx, last_non_nan_idx
 

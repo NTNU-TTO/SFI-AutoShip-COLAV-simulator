@@ -253,7 +253,7 @@ class Ship(IShip):
         self._first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
         self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
-        self.t_end: float = -1.0  # The time when the ship disappears from the simulation
+        self.t_end: float = 1e12  # The time when the ship disappears from the simulation
 
         self._mmsi = mmsi
         self._model, self._controller, self._guidance, self.sensors, self._tracker = ShipBuilder.construct_ship(config)
@@ -297,7 +297,9 @@ class Ship(IShip):
         """
 
         if self._trajectory.size > 0:
-            self._trajectory_sample += 1
+            if self._trajectory_sample < self._last_valid_idx - 1:
+                self._trajectory_sample += 1
+
             self._state = np.array(
                 [
                     self._trajectory[0, self._trajectory_sample],
@@ -382,7 +384,7 @@ class Ship(IShip):
         P_i_upd = [P.tolist() for P in P_i_upd]
         NISes = [float(NIS) for NIS in NISes]
 
-        if self.t_start <= t:
+        if self.t_start <= t < self.t_end:
             pose = self.pose
             active = True
         else:
@@ -419,14 +421,14 @@ class Ship(IShip):
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         lat, lon = mapf.local2latlon(self.pose[1], self.pose[0], utm_zone)
 
-        if self.t_start > t:
-            lon, lat, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan
-        else:
+        if self.t_start <= t < self.t_end:
             sog, cog, true_heading = (
                 int(mf.mps2knots(self.pose[2])),
                 int(np.rad2deg(self.pose[3])),
                 np.rad2deg(self.heading),
             )
+        else:
+            lon, lat, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan
 
         row = {
             "mmsi": self.mmsi,

@@ -9,10 +9,11 @@ frame_delay: 10 # in milliseconds
 
 figsize: [14, 10]
 margins: [0.0, 0.0]
-ship_linewidth: 2.0
+ship_linewidth: 1.7
 ship_scaling: 7.0
+ship_info_fontsize: 10
 ship_colors: ["xkcd:black", "xkcd:red", "xkcd:green", "xkcd:cyan", "xkcd:orange", "xkcd:fuchsia", "xkcd:yellow", "xkcd:grey", "xkcd:reddish brown", "xkcd:bubblegum", "xkcd:baby shit brown", "xkcd:eggshell", "xkcd:cloudy blue", "xkcd:pale aqua", "xkcd:light lilac", "xkcd:dark forest green", "xkcd:powder blue"]
-do_linewidth: 2.5
+do_linewidth: 1.7
 do_colors: ["xkcd:blue green",
             "xkcd:light red",
             "xkcd:aqua",

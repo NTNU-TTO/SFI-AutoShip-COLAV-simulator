@@ -134,6 +134,8 @@ dmypy.json
 # Package main
 output/animation/
 output/ais/
+output/figures/
+
 main.py
 todo.txt
 .vscode/

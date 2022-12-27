@@ -41,6 +41,7 @@ class Config:
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
     ship_scaling: float = 5.0
+    ship_info_fontsize: int = 13
     ship_colors: list = field(
         default_factory=lambda: [
             "xkcd:black",
@@ -101,6 +102,7 @@ class Visualizer:
     axes: list  # handle to axes for live plotting
     background: Any  # map background in live plotting fig
     ship_plt_handles: list  # handles used for live plotting
+    misc_plt_handles: dict  # Extra handles used for live plotting
     t_start: float = 0.0  # start time of the visualization of one scenario
 
     def __init__(self, enc: Optional[ENC] = None, config_file: Path = dp.visualizer_config) -> None:
@@ -117,24 +119,31 @@ class Visualizer:
         ax_map = self.fig.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        ax_map.set_xlabel("East [m]")
-        ax_map.set_ylabel("North [m]")
-        ax_map.set_xticks(ax_map.get_xticks())
-        ax_map.set_yticks(ax_map.get_yticks())
+        # ax_map.set_xlabel("East [m]")
+        # ax_map.set_ylabel("North [m]")
+        # ax_map.set_xticks(ax_map.get_xticks())
+        # ax_map.set_yticks(ax_map.get_yticks())
         plt.ion()
 
         # dark_mode_color = "#142c38"
         # self.fig.set_facecolor(dark_mode_color)
-
+        self.misc_plt_handles = {}
         self.ship_plt_handles = []
         self.axes = [ax_map]
         plt.show(block=False)
 
     def clear_ship_handles(self) -> None:
         """Clears the handles for the ships in the live visualization."""
+
+        if "time" in self.misc_plt_handles:
+            self.misc_plt_handles["time"].remove()
+
         for ship_i_handle in self.ship_plt_handles:
             if "patch" in ship_i_handle:
                 ship_i_handle["patch"].remove()
+
+            if "info" in ship_i_handle:
+                ship_i_handle["info"].remove()
 
             if "trajectory" in ship_i_handle:
                 ship_i_handle["trajectory"].remove()
@@ -195,10 +204,10 @@ class Visualizer:
                 ship_name = "OS"
 
                 if ship.trajectory.size > 0:
-                    buffer = 500
+                    buffer = 1000
                     xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
                 elif ship.waypoints.size > 0:
-                    buffer = 1000
+                    buffer = 2000
                     xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
 
                 do_lw = self._config.do_linewidth
@@ -273,6 +282,17 @@ class Visualizer:
                 ShapelyFeature([], color=c, linewidth=lw, label="", crs=enc.crs)
             )
 
+            ship_i_handles["info"] = ax_map.text(
+                0.0,
+                0.0,
+                ship_name,  # + " | mmsi:" + str(ship.mmsi),
+                color=c,
+                transform=enc.crs,
+                fontsize=self._config.ship_info_fontsize,
+                verticalalignment="center",
+                horizontalalignment="center",
+            )
+
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
             ship_i_handles["trajectory"] = ax_map.plot(
                 [0.0], [0.0], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs
@@ -311,6 +331,17 @@ class Visualizer:
         # ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
         # self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
+        extent = ax_map.get_extent()
+        self.misc_plt_handles["time"] = ax_map.text(
+            extent[0] + 1000,
+            extent[3] - 500,
+            "t = 0.0 s",
+            transform=enc.crs,
+            fontsize=13,
+            verticalalignment="top",
+            horizontalalignment="left",
+        )
+
     def update_live_plot(self, t: float, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
 
@@ -325,11 +356,16 @@ class Visualizer:
 
         self.fig.canvas.restore_region(self.background)
 
+        self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
+
         ax_map = self.axes[0]
         n_ships = len(ship_list)
         for i, ship_obj in enumerate(ship_list):
-            if ship_obj.t_start > t:
+            if t < ship_obj.t_start or t > ship_obj.t_end:
                 continue
+
+            if i == 0:
+                print("hh")
 
             # Hack to avoid ValueError from matplotlib, see previous function for more info
             if self.ship_plt_handles[i]["started"]:
@@ -376,7 +412,7 @@ class Visualizer:
                         )
 
                         ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
-                        ell_geometry = Polygon(zip(ellipse_y, ellipse_x))
+                        ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
                         if self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1] is not None:
                             self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1].remove()
                         self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1] = ax_map.add_feature(
@@ -435,6 +471,9 @@ class Visualizer:
                 ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs)
             )
 
+            self.ship_plt_handles[i]["info"].set_x(pose_i[1] + 100)
+            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 100)
+
             self.ship_plt_handles[i]["trajectory"].set_xdata(
                 [*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_line_data:], pose_i[1]]
             )
@@ -492,10 +531,10 @@ class Visualizer:
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        ax_map.set_xlabel("East [m]")
-        ax_map.set_ylabel("North [m]")
-        ax_map.set_xticks(ax_map.get_xticks())
-        ax_map.set_yticks(ax_map.get_yticks())
+        # ax_map.set_xlabel("East [m]")
+        # ax_map.set_ylabel("North [m]")
+        # ax_map.set_xticks(ax_map.get_xticks())
+        # ax_map.set_yticks(ax_map.get_yticks())
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
 
@@ -504,11 +543,21 @@ class Visualizer:
         figs_tracking: list = []
         axes_tracking: list = []
         ship_lw = self._config.ship_linewidth
+        n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
             ship_sim_data = sim_data[f"Ship{i}"]
-            ship_color = self._config.ship_colors[i]
+
+            # If number of ships is greater than 16, use the same color for all target ships
+            if i > 0 and n_ships > 16:
+                ship_color = self._config.ship_colors[1]
+            else:
+                ship_color = self._config.ship_colors[i]
+
             X = extract_trajectory_data_from_dataframe(ship_sim_data)
+
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
+            if first_valid_idx == -1 and last_valid_idx == -1:
+                continue
 
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
 
@@ -528,11 +577,12 @@ class Visualizer:
                     linestyle="None",
                     linewidth=ship_lw,
                     alpha=0.3,
+                    transform=enc.crs,
                 )
 
             # Plot ship trajectory and shape at all considered snapshots
-
-            if last_valid_idx < k_snapshots[-1]:
+            end_idx = k_snapshots[-1]
+            if last_valid_idx < end_idx:
                 end_idx = last_valid_idx
 
             ax_map.plot(
@@ -541,6 +591,7 @@ class Visualizer:
                 color=ship_color,
                 linewidth=ship_lw,
                 label=ship_name + " traj.",
+                transform=enc.crs,
             )
 
             count = 1
@@ -579,18 +630,23 @@ class Visualizer:
                         linewidth=ship_lw,
                         linestyle="--",
                         alpha=0.3,
+                        transform=enc.crs,
                     )
                     for k in k_snapshots:
                         if k < first_valid_idx or k > last_valid_idx:
                             continue
 
                         ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
-                        ax_map.fill(
-                            ellipse_y + do_estimates_j[1, k],
-                            ellipse_x + do_estimates_j[0, k],
-                            color=do_color,
-                            alpha=0.5,
-                            linewidth=do_lw,
+                        ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
+                        ax_map.add_feature(
+                            ShapelyFeature(
+                                [ell_geometry],
+                                linewidth=do_lw,
+                                color=do_color,
+                                alpha=0.5,
+                                # label=f"DO{do_labels[j]} est. cov.",
+                                crs=enc.crs,
+                            )
                         )
 
                     fig_do_j, axes_do_j = self._plot_do_tracking_results(
@@ -607,7 +663,7 @@ class Visualizer:
 
         xlimits = [xlimits[0] - 100, xlimits[1] + 100]
         ylimits = [ylimits[0] - 100, ylimits[1] + 100]
-        ax_map.set_extent([xlimits[0], xlimits[1], ylimits[0], ylimits[1]])
+        ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
 
         figs.append(fig_map)
         axes.append(ax_map)
@@ -616,7 +672,9 @@ class Visualizer:
 
         if save_figs:
             if save_file_path is None:
-                save_file_path = dp.animation_output / ("scenario_ne" + "eps")
+                save_file_path = dp.figure_output / "scenario_ne.eps"
+            else:
+                save_file_path = Path(str(save_file_path) + ".eps")
             fig_map.savefig(save_file_path, format="eps", dpi=1000)
 
         return figs, axes

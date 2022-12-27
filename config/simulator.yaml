@@ -1,6 +1,6 @@
-t_start: 0.0
-dt_sim: 1.0
-t_end: 100.0
+t_start: 1000.0
+dt_sim: 2.0
+t_end: 2000.0
 scenario_files: ["head_on.yaml"]
 save_animation: True
 visualize: True
