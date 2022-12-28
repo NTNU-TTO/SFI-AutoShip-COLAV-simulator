@@ -1,3 +1,4 @@
+from colav_evaluation_tools.evaluation import Evaluation
 from colav_simulator.simulator import Simulator
 
 if __name__ == "__main__":

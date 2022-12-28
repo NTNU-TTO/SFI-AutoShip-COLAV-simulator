@@ -30,7 +30,7 @@ class Config:
     dt_sim: float
     t_end: float
     scenario_files: list
-    save_animation: bool
+    save_scenario_results: bool
     visualize: bool
     verbose: bool
     ais_data_column_format: list
@@ -96,7 +96,9 @@ class Simulator:
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
 
-            ship_list, _ = self._scenario_generator.generate(dp.scenarios / scenario_file, sample_interval=dt_sim)
+            ship_list, _, scenario_config = self._scenario_generator.generate(
+                dp.scenarios / scenario_file, sample_interval=dt_sim
+            )
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
@@ -109,7 +111,7 @@ class Simulator:
                     sim_data,
                     sim_times,
                     save_figs=True,
-                    save_file_path=dp.figure_output / scenario_file[0:-5],  # strip last 5 characters [.yaml]
+                    save_file_path=dp.figure_output / scenario_config.name,
                 )
 
             sim_data_list.append(sim_data)
@@ -160,7 +162,7 @@ class Simulator:
                     _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
                     sensor_measurements.append(sensor_measurements_i)
 
-                if dt_sim > 0 and ship_obj.t_start <= t:
+                if dt_sim > 0 and ship_obj.t_start <= t and i == 0:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(int(t), timestamp_start)

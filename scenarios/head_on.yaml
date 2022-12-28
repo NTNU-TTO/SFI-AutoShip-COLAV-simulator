@@ -7,7 +7,7 @@ map_data_files: ["More_og_Romsdal.gdb", "Trondheim.gdb"]
 new_load_of_map_data: False
 ais_data_file: "Case - 09-02-2019, 16-09-15 - 70YMX.csv"
 ship_data_file: "full_shipdata.csv"
-allowed_nav_statuses: [0, 9]
+allowed_nav_statuses: [0]
 type: 1
 n_random_ships: 0
 # ship_list: # first ship is always the own-ship
@@ -32,9 +32,9 @@ n_random_ships: 0
 #       los:
 #         pass_angle_threshold: 80.0
 #         R_a: 15.0
-#         K_p: 0.024
+#         K_p: 0.015
 #         K_i: 0.0
-#         e_int_max: 101.0
+#         e_int_max: 200.0
 #     controller:
 #       flsh:
 #         K_p_u: 5.1

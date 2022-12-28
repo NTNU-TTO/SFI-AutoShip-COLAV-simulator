@@ -182,6 +182,8 @@ class Telemetron(IModel):
         C: Coriolis matrix, computed from M = M_rb + M_a
         D_l: Linear damping matrix
         D_nl: Nonlinear damping matrix
+
+    NOTE: When using Euler`s method, keep the time step small enough to ensure numerical stability.
     """
 
     _n_x: int = 6

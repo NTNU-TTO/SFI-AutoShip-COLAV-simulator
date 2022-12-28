@@ -25,7 +25,7 @@ waypoint_dist_range:
   schema:
     type: float
     min: 50.0
-    max: 1000.0
+    max: 10000.0
 waypoint_ang_range:
   required: True
   type: list

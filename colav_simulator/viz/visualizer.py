@@ -364,9 +364,6 @@ class Visualizer:
             if t < ship_obj.t_start or t > ship_obj.t_end:
                 continue
 
-            if i == 0:
-                print("hh")
-
             # Hack to avoid ValueError from matplotlib, see previous function for more info
             if self.ship_plt_handles[i]["started"]:
                 start_idx_line_data = 0
@@ -523,7 +520,7 @@ class Visualizer:
         """
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(4 * n_samples / 5)]
+            k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(8 * n_samples / 10)]
 
         figs = []
         axes = []
@@ -531,14 +528,8 @@ class Visualizer:
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        # ax_map.set_xlabel("East [m]")
-        # ax_map.set_ylabel("North [m]")
-        # ax_map.set_xticks(ax_map.get_xticks())
-        # ax_map.set_yticks(ax_map.get_yticks())
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
-
-        plt.ion()
 
         figs_tracking: list = []
         axes_tracking: list = []
@@ -559,12 +550,21 @@ class Visualizer:
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
 
-            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X, xlimits, ylimits)
-
+            is_inside_map = True
             if i == 0:
                 ship_name = "OS"
+                xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(
+                    X[:, first_valid_idx : last_valid_idx + 1], xlimits, ylimits
+                )
+                xlimits = [xlimits[0] - 2000, xlimits[1] + 2000]
+                ylimits = [ylimits[0] - 2000, ylimits[1] + 2000]
             else:
                 ship_name = "DO " + str(i - 1)
+                is_inside_map = mhm.check_if_trajectory_is_within_xy_limits(
+                    X[:, first_valid_idx : last_valid_idx + 1], xlimits, ylimits
+                )
+                if not is_inside_map:
+                    continue
 
             # Plot ship nominal waypoints
             if ship.waypoints.size > 0:
@@ -573,17 +573,17 @@ class Visualizer:
                     ship.waypoints[0, :],
                     color=ship_color,
                     marker="o",
-                    markersize=12,
-                    linestyle="None",
+                    markersize=5,
+                    linestyle="--",
                     linewidth=ship_lw,
-                    alpha=0.3,
                     transform=enc.crs,
+                    label="",
                 )
 
             # Plot ship trajectory and shape at all considered snapshots
             end_idx = k_snapshots[-1]
             if last_valid_idx < end_idx:
-                end_idx = last_valid_idx
+                end_idx = last_valid_idx + 1
 
             ax_map.plot(
                 X[1, first_valid_idx:end_idx],
@@ -593,19 +593,6 @@ class Visualizer:
                 label=ship_name + " traj.",
                 transform=enc.crs,
             )
-
-            count = 1
-            for k in k_snapshots:
-                if k < first_valid_idx or k > last_valid_idx:
-                    continue
-
-                ship_poly = mapf.create_ship_polygon(
-                    X[0, k], X[1, k], X[3, k], ship.length, ship.width, self._config.ship_scaling
-                )
-                y_ship, x_ship = ship_poly.exterior.xy
-                ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="")
-                ax_map.text(X[1, k] - 30, X[0, k] + 40, f"$t_{count}$", fontsize=12)
-                count += 1
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
             if i == 0:
@@ -661,13 +648,23 @@ class Visualizer:
                     figs_tracking.append(fig_do_j)
                     axes_tracking.append(axes_do_j)
 
-        xlimits = [xlimits[0] - 100, xlimits[1] + 100]
-        ylimits = [ylimits[0] - 100, ylimits[1] + 100]
+            count = 1
+            for k in k_snapshots:
+                if k < first_valid_idx or k > last_valid_idx:
+                    continue
+
+                ship_poly = mapf.create_ship_polygon(
+                    X[0, k], X[1, k], X[3, k], ship.length, ship.width, self._config.ship_scaling
+                )
+                y_ship, x_ship = ship_poly.exterior.xy
+                ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="")
+                ax_map.text(X[1, k] - 300, X[0, k] + 300, f"$t_{count}$", fontsize=12)
+                count += 1
+
         ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
+        ax_map.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
 
-        figs.append(fig_map)
-        axes.append(ax_map)
-
+        plt.legend()
         plt.show()
 
         if save_figs:
@@ -677,6 +674,8 @@ class Visualizer:
                 save_file_path = Path(str(save_file_path) + ".eps")
             fig_map.savefig(save_file_path, format="eps", dpi=1000)
 
+        figs.append(fig_map)
+        axes.append(ax_map)
         return figs, axes
 
     def _plot_do_tracking_results(

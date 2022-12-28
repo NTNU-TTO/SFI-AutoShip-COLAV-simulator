@@ -17,6 +17,24 @@ import numpy as np
 from scipy.stats import chi2
 
 
+def check_if_trajectory_is_within_xy_limits(trajectory: np.ndarray, xlimits: list, ylimits: list) -> bool:
+    """Checks if the trajectory is within the x and y limits.
+
+    Args:
+        trajectory (np.ndarray): Trajectory data.
+        xlimits (list): List containing the x limits.
+        ylimits (list): List containing the y limits.
+
+    Returns:
+        bool: True if trajectory is within limits, False otherwise.
+    """
+    min_x = np.min(trajectory[0, :])
+    max_x = np.max(trajectory[0, :])
+    min_y = np.min(trajectory[1, :])
+    max_y = np.max(trajectory[1, :])
+    return min_x >= xlimits[0] and max_x <= xlimits[1] and min_y >= ylimits[0] and max_y <= ylimits[1]
+
+
 def update_xy_limits_from_trajectory_data(trajectory: np.ndarray, xlimits: list, ylimits: list) -> Tuple[list, list]:
     """Update the x and y limits from the trajectory data (either predefined trajectory or nominal trajectory/waypoints for the ship).
 

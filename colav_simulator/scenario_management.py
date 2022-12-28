@@ -206,7 +206,7 @@ class ScenarioGenerator:
         self,
         scenario_config_file: Path,
         sample_interval: float = 1.0,
-    ) -> Tuple[list, list]:
+    ) -> Tuple[list, list, ScenarioConfig]:
         """Main class function. Creates a maritime scenario based on the input config file,
         with random plans for each ship unless specified in ship_list entries or loaded from AIS data.
 
@@ -214,8 +214,8 @@ class ScenarioGenerator:
             scenario_config_file (Path): Path to the scenario config file.
 
         Returns:
-            Tuple[list, list]: List of ships in the scenario with initialized poses and plans,
-                and also the corresponding ship configuration objects.
+            Tuple[list, list, ScenarioConfig]: List of ships in the scenario with initialized poses and plans,
+                the corresponding ship configuration objects, and the scenario config object.
         """
         print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
@@ -319,7 +319,7 @@ class ScenarioGenerator:
         # append string of date and time for scenario creation
         # save_scenario(ship_config_list, scenario_config_file / ".yaml")
 
-        return ship_list, ship_config_list
+        return ship_list, ship_config_list, config
 
     def generate_ts_pose(
         self,

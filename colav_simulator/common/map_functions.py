@@ -83,7 +83,7 @@ def latlon2local(
     elif utm_zone == 33:
         to_zone = 6173  # ETRS89 / UTM zone 33 + NN54 height
     else:
-        raise ValueError('Input "coord_tf_str" is not correct. Correct strings are e.g.: LL_UTM32, UTM32_LL')
+        raise ValueError('Input "utm_zone" is not correct. Supported zones sofar are 32 and 33.')
 
     src = osr.SpatialReference()
     src.ImportFromEPSG(from_zone)

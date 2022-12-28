@@ -472,9 +472,7 @@ class Ship(IShip):
             )
         )
 
-        # print(f"Initial ship state: {self._state}")
         self.t_start = vessel.timestamps[vessel.first_valid_idx]
-
         if use_ais_trajectory:
             self._trajectory_sample = vessel.first_valid_idx
             self._trajectory = np.zeros((4, len(vessel.sog)))
