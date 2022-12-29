@@ -35,7 +35,7 @@ def local2latlon(
         ValueError: If the input string is not correct.
 
     Returns:
-        list: List of transformed coordinates.
+        Tuple[float | list | np.ndarray, float | list | np.ndarray]: Tuple of latitude and longitude coordinates.
     """
     to_zone = 4326  # Latitude Longitude
     if utm_zone == 32:
@@ -75,7 +75,7 @@ def latlon2local(
         ValueError: If the input string is not correct.
 
     Returns:
-        list: List of transformed coordinates.
+        Tuple[float | list | np.ndarray, float | list | np.ndarray]: Tuple of east and north coordinates.
     """
     from_zone = 4326  # Latitude Longitude
     if utm_zone == 32:

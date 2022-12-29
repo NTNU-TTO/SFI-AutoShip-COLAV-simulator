@@ -54,7 +54,6 @@ class Simulator:
                 scenario_files (List[str]): List of scenario files to run.
 
         """
-
         self._config = cp.extract(Config, config_file, dp.simulator_schema, **kwargs)
 
         self._scenario_generator = sm.ScenarioGenerator()
@@ -66,7 +65,7 @@ class Simulator:
         t_start: Optional[float] = None,
         t_end: Optional[float] = None,
         dt_sim: Optional[float] = None,
-    ):
+    ) -> dict:
         """Runs through all specified scenarios.
 
         Args:
@@ -76,7 +75,7 @@ class Simulator:
 
 
         Returns:
-            Tuple[list, list]: Lists of simulation data and AIS data for each scenario.
+            dict: Dictionary containing list of simulation data, simulated AIS data, ship info and vessel data (for evaluation) for each scenario.
         """
         if self._config.verbose:
             print("Running simulator...")
@@ -92,6 +91,8 @@ class Simulator:
 
         sim_data_list = []
         ais_data_list = []
+        ship_info_list = []
+        vessels_data_list = []
 
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
@@ -102,7 +103,7 @@ class Simulator:
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
-            sim_data, ais_data = self.run_scenario(ship_list, sim_times)
+            sim_data, ais_data, ship_info = self.run_scenario(ship_list, sim_times, scenario_config.utm_zone)
 
             if self._config.visualize:
                 self._visualizer.visualize_results(
@@ -114,12 +115,20 @@ class Simulator:
                     save_file_path=dp.figure_output / scenario_config.name,
                 )
 
+            vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, scenario_config.utm_zone)
+            vessels_data_list.append(vessel_data)
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
+            ship_info_list.append(ship_info)
 
-        return sim_data_list, ais_data_list
+        output = {}
+        output["sim_data_list"] = sim_data_list
+        output["ais_data_list"] = ais_data_list
+        output["ship_info_list"] = ship_info_list
+        output["vessels_data_list"] = vessels_data_list
+        return output
 
-    def run_scenario(self, ship_list: list, sim_times: np.ndarray):
+    def run_scenario(self, ship_list: list, sim_times: np.ndarray, utm_zone: int):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
@@ -127,6 +136,7 @@ class Simulator:
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
             sim_times (np.ndarray): 1 x n_samples array of sim_times to simulate the ships.
+            utm_zone (int): UTM zone used for the planar coordinate system.
 
         Returns:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
@@ -135,10 +145,12 @@ class Simulator:
         if self._config.visualize:
             self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)
 
-        utm_zone = int(self._scenario_generator.enc.crs.coordinate_operation.name[-4:-1])
-
         sim_data = []
         ais_data = []
+        ship_info = {}
+        for i, ship_obj in enumerate(ship_list):
+            ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
+
         timestamp_start = mhm.current_utc_timestamp()
         t_prev = sim_times[0]
         for _, t in enumerate(sim_times):
@@ -162,7 +174,7 @@ class Simulator:
                     _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
                     sensor_measurements.append(sensor_measurements_i)
 
-                if dt_sim > 0 and ship_obj.t_start <= t and i == 0:
+                if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(int(t), timestamp_start)
@@ -177,4 +189,4 @@ class Simulator:
             if self._config.visualize and t % 10.0 < 0.0001:
                 self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, sensor_measurements)
 
-        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format)
+        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info

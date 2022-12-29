@@ -19,9 +19,9 @@ import colav_evaluation_tool.common.file_utils as colav_eval_fu
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
-import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
+import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.enc as senc
 import yaml
@@ -201,6 +201,7 @@ class ScenarioGenerator:
             files=scenario_config.map_data_files,
             new_data=scenario_config.new_load_of_map_data,
         )
+        plt.close()
 
     def generate(
         self,

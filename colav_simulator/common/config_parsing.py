@@ -125,6 +125,8 @@ def parse(file_name: Path, schema: dict) -> dict:
 def override(settings: dict, schema: dict, **kwargs) -> dict:
     """Overrides settings with keyword arguments, and validates the new values.
 
+    NOTE: Assumes only one section in the provided configuration schema.
+
     Args:
         settings (dict): Configuration settings to override.
         schema (dict): Configuration schema to validate the new settings against.

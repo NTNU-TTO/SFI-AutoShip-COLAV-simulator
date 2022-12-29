@@ -6,7 +6,6 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -544,7 +543,7 @@ class Visualizer:
             else:
                 ship_color = self._config.ship_colors[i]
 
-            X = extract_trajectory_data_from_dataframe(ship_sim_data)
+            X, _ = mhm.extract_trajectory_data_from_ship_dataframe(ship_sim_data)
 
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
             if first_valid_idx == -1 and last_valid_idx == -1:
@@ -596,7 +595,7 @@ class Visualizer:
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
             if i == 0:
-                track_data = extract_track_data_from_dataframe(ship_sim_data)
+                track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
                 do_NISes = track_data["do_NISes"]
@@ -607,7 +606,9 @@ class Visualizer:
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
-                    do_true_states_j = extract_trajectory_data_from_dataframe(sim_data[f"Ship{do_labels[j]}"])
+                    do_true_states_j, _ = mhm.extract_trajectory_data_from_ship_dataframe(
+                        sim_data[f"Ship{do_labels[j]}"]
+                    )
                     do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
 
                     ax_map.plot(
@@ -834,58 +835,6 @@ class Visualizer:
 
             if "ais" in self.ship_plt_handles[idx]:
                 self.ship_plt_handles[idx]["ais"].set_visible(state)
-
-
-def extract_trajectory_data_from_dataframe(ship_df: DataFrame) -> np.ndarray:
-    """Extract the trajectory data from a ship dataframe.
-
-    Args:
-        ship_df (Dataframe): Dataframe containing the ship simulation data.
-
-    Returns:
-        np.ndarray: Array containing the trajectory data.
-    """
-    X = np.zeros((4, len(ship_df)))
-    for k, ship_df_k in enumerate(ship_df):
-        X[:, k] = ship_df_k["pose"]
-    return X
-
-
-def extract_track_data_from_dataframe(ship_df: DataFrame) -> dict:
-    """Extract the dynamic obstacle track data from a ship dataframe.
-
-    Args:
-        ship_df (Dataframe): Dataframe containing the ship simulation data.
-
-    Returns:
-        Tuple[list, list]: List of dynamic obstacle estimates and covariances
-    """
-    output = {}
-    do_estimates = []
-    do_covariances = []
-    do_NISes = []
-
-    n_samples = len(ship_df)
-    n_do = len(ship_df[n_samples - 1]["do_estimates"])
-    do_labels = ship_df[n_samples - 1]["do_labels"]
-
-    for i in range(n_do):
-        do_estimates.append(np.nan * np.ones((4, n_samples)))
-        do_covariances.append(np.nan * np.ones((4, 4, n_samples)))
-        do_NISes.append(np.nan * np.ones(n_samples))
-
-    for i in range(n_do):
-        for k, ship_df_k in enumerate(ship_df):
-            for idx, _ in enumerate(ship_df_k["do_labels"]):
-                do_estimates[idx][:, k] = ship_df_k["do_estimates"][idx]
-                do_covariances[idx][:, :, k] = ship_df_k["do_covariances"][idx]
-                do_NISes[idx][k] = ship_df_k["do_NISes"][idx]
-
-    output["do_estimates"] = do_estimates
-    output["do_covariances"] = do_covariances
-    output["do_NISes"] = do_NISes
-    output["do_labels"] = do_labels
-    return output
 
 
 #     def visualize(

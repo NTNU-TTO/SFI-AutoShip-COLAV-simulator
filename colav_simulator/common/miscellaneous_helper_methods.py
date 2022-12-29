@@ -12,9 +12,124 @@ from datetime import datetime
 from typing import Tuple
 from zoneinfo import ZoneInfo
 
+import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import numpy as np
+import pandas as pd
+from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelled
 from scipy.stats import chi2
+
+
+def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: dict, utm_zone: int) -> list:
+    """Converts simulation data to vessel data.
+
+    Args:
+        sim_data (pd.DataFrame): Simulation data.
+        ship_info (dict): Information on all ships in the simulation.
+        utm_zone (int): UTM zone used for the planar xy coordinate system.
+
+    Returns:
+        list: List of vessel data.
+    """
+    vessels = []
+    identifier = 0
+    for name, ship_i_info in ship_info.items():
+        vessel = VesselData(
+            id=identifier,
+            name=name,
+            mmsi=ship_i_info["mmsi"],
+            length=ship_i_info["length"],
+            width=ship_i_info["width"],
+            draft=ship_i_info["draft"],
+        )
+
+        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
+
+        vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
+
+        vessel.xy = np.zeros((2, len(X[0, :])))
+        vessel.xy[0, :] = X[1, :]  # ENU frame is used in the evaluator
+        vessel.xy[1, :] = X[0, :]
+        vessel.sog = X[2, :]
+        vessel.cog = X[3, :]
+
+        vessel.latlon = np.zeros(vessel.xy.shape) * np.nan
+        (
+            vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+            vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+        ) = mapf.local2latlon(
+            vessel.xy[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+            vessel.xy[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+            utm_zone,
+        )
+
+        vessel.travel_dist = compute_total_dist_travelled(
+            vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1]
+        )
+
+        vessels.append(vessel)
+
+        identifier += 1
+
+    return vessels
+
+
+def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
+    """Extract the trajectory related data from a ship dataframe.
+
+    Args:
+        ship_df (Dataframe): Dataframe containing the ship simulation data.
+
+    Returns:
+        Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
+    """
+    X = np.zeros((4, len(ship_df)))
+    timestamps = []
+    datetimes_utc = []
+    for k, ship_df_k in enumerate(ship_df):
+        X[:, k] = ship_df_k["pose"]
+        timestamps.append(float(ship_df_k["timestamp"]))
+        datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
+        datetimes_utc.append(datetime_utc)
+
+    return X, timestamps, datetimes_utc
+
+
+def extract_track_data_from_dataframe(ship_df: pd.DataFrame) -> dict:
+    """Extract the dynamic obstacle track data from a ship dataframe.
+
+    Args:
+        ship_df (Dataframe): Dataframe containing the ship simulation data.
+
+    Returns:
+        Tuple[list, list]: List of dynamic obstacle estimates and covariances
+    """
+    output = {}
+    do_estimates = []
+    do_covariances = []
+    do_NISes = []
+
+    n_samples = len(ship_df)
+    n_do = len(ship_df[n_samples - 1]["do_estimates"])
+    do_labels = ship_df[n_samples - 1]["do_labels"]
+
+    for i in range(n_do):
+        do_estimates.append(np.nan * np.ones((4, n_samples)))
+        do_covariances.append(np.nan * np.ones((4, 4, n_samples)))
+        do_NISes.append(np.nan * np.ones(n_samples))
+
+    for i in range(n_do):
+        for k, ship_df_k in enumerate(ship_df):
+            for idx, _ in enumerate(ship_df_k["do_labels"]):
+                do_estimates[idx][:, k] = ship_df_k["do_estimates"][idx]
+                do_covariances[idx][:, :, k] = ship_df_k["do_covariances"][idx]
+                do_NISes[idx][k] = ship_df_k["do_NISes"][idx]
+
+    output["do_estimates"] = do_estimates
+    output["do_covariances"] = do_covariances
+    output["do_NISes"] = do_NISes
+    output["do_labels"] = do_labels
+    return output
 
 
 def check_if_trajectory_is_within_xy_limits(trajectory: np.ndarray, xlimits: list, ylimits: list) -> bool:
@@ -198,8 +313,8 @@ def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int,
 
     non_nan_indices = np.where(~np.isnan(input_list))[0]
     if non_nan_indices.size > 0:
-        first_non_nan_idx = non_nan_indices[0]
-        last_non_nan_idx = non_nan_indices[-1]
+        first_non_nan_idx = int(non_nan_indices[0])
+        last_non_nan_idx = int(non_nan_indices[-1])
     else:
         first_non_nan_idx = -1
         last_non_nan_idx = -1
@@ -241,7 +356,7 @@ def utc_timestamp_to_datetime(timestamp: int) -> datetime:
     return datetime.fromtimestamp(timestamp)
 
 
-def local_timestamp_from_utc():
+def local_timestamp_from_utc() -> int:
     """
 
     Returns:
@@ -250,7 +365,7 @@ def local_timestamp_from_utc():
     return datetime.now().astimezone().timestamp()
 
 
-def utc_to_local(utc_dt) -> datetime:
+def utc_to_local(utc_dt: datetime) -> datetime:
     """
     Convert UTC datetime to local datetime.
 

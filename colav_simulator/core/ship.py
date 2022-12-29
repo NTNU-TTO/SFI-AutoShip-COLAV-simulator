@@ -395,7 +395,8 @@ class Ship(IShip):
             "pose": pose,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
-            "timestamp": datetime_str,
+            "date_time_utc": datetime_str,
+            "timestamp": int(t),
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
@@ -443,6 +444,18 @@ class Ship(IShip):
             "source": "",
         }
         return row
+
+    def get_ship_info(self) -> dict:
+        """Returns information about the ship contained in a dictionary."""
+        output: dict = {}
+        output["mmsi"] = self.mmsi
+        output["length"] = self.length
+        output["width"] = self.width
+        output["draft"] = self.draft
+        output["max_speed"] = self.max_speed
+        output["min_speed"] = self.min_speed
+        output["max_turn_rate"] = self.max_turn_rate
+        return output
 
     def get_do_track_information(self) -> Tuple[list, list, list, list]:
         return self._tracker.get_track_information()

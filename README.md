@@ -1,7 +1,7 @@
 # colav-simulator
 This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies.
 
-The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save visualizations/animations from the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
+The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
 
 [![platform](https://img.shields.io/badge/platform-linux-lightgrey)]()
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
@@ -32,8 +32,8 @@ If you're unfamiliar with git, check out <https://try.github.io/> to get familia
 ### Main branch
 The `main` branch shall always be working. This means that:
 
-- All of its features/modules shall be properly documented, preferably through quality code + descriptive text where appropriate.
-- The `Simulator` is successfully able to run through any number of scenarios, either generated or loaded from file. Furthermore, it should be problem free to save and load scenarios to/from file.
+- All of its features/modules shall be properly documented through quality code + descriptive text where appropriate. Use `type annotation` for increased readability.
+- The `Simulator` is successfully able to run through any number of scenarios, either generated or loaded from file. Furthermore, it should be problem free to save and load scenarios to/from (valid) scenario files.
 - The `Visualizer`is successfully able to visualize each of these scenarios live, if toggled on.
 - Subsystems added to the `Ship` class properly adheres to their interfaces (prefixed with `I` in front of the class name, e.g. interface `IModel` for the ship model interface).
 
@@ -51,7 +51,7 @@ It is also a good idea to keep the features small, so that they are easy to test
 
 ### Workflow
 
-When you're developing a feature (or beginning your thesis work) based on the simulator, the workflow begins with checking out the main branch, and creating a new branch from there.
+When you're developing a feature (or beginning your thesis work) based on the simulator, the workflow begins by checking out the main branch, and creating a new branch from there.
 
 #### Retrieving main branch
 
@@ -125,18 +125,19 @@ The simulator is configured using the `simulator.yaml` config file.
 
 ### Scenario Generator
 
-The scenario generator is used by the simulator to create new random scenarios involving 1+ ships, with random poses, waypoints and speed plans for the vessels. An Electronic Navigational Chart module (from Seacharts) is used to define the environment. The main method is the `generate()` function, which generates a random vessel scenario from an optional config file.
+The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment. The scenarios can be specified/created as follows:
 
-The new scenarios are configured through a config file as e.g. the `new_scenario.yaml` file. Here, one can configure:
+1) Fully random, with random poses, waypoints and speed plans for the vessels
+2) Fully specified from AIS data loaded from `.csv` files. The own-ship is here specified as one of the AIS vessels (default being the first AIS vessel), or with randomly generated pose, waypoints and speed plan. The target ships from AIS follow their historical trajectories, interpolated to the match the sample interval considered in the simulator.
+3) As a mix of randomly generated vessels and AIS vessels.
 
-- The `ScenarioType`, which includes e.g.  `Single Ship (SS)` to `Head-on (HO)`, `Crossing Give-way (CR_GW)`.
-- The number of ships in the scenario
-- Minimum and maximum distance between ships
-- A list containing configured ships in the scenario, with specific poses, waypoints, speed plans, models, controllers, guidance systems etc. If `n_ships` is greater than the number of elements in the `ship_list` variable, the remaining ships are configured from the default `Ship` constructor.
+Scenarios are configured through a scenario `.yaml` file as the example `head_on.yaml` file under `scenarios` in the root folder.
 
-Look at the `schemas` folder for further clues on how to write a new scenario config file.
+Look at the `ScenarioConfig` dataclass, example scenario files for information on how to specify the settings for a scenario.
 
-Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example `seacharts.yaml`config file for the module is found under `config/`.
+Look at the `schemas` folder under the package source code for further clues on how to write a new scenario config file.
+
+Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
 
 ### Visualizer
 
@@ -149,7 +150,7 @@ The Ship class simulates the behaviour of an individual ship and adheres to the 
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code for more information on how this is done.
 
-TODO: Implement interfaces for using arbitrary target tracking systems and collision avoidance algorithms.
+TODO: Implement interfaces for using arbitrary collision avoidance algorithms and planning hierarchys.
 
 The `Ship` object can be initialized with the following parameters
 
@@ -161,9 +162,4 @@ The `Ship` object can be initialized with the following parameters
 
 Except from the ship config, the other optional arguments must be specified afterwards through the `set_initial_pose` and `set_nominal_plan` for the ship object to be functionable.
 
-Main Functions: </p>
-
-- `forward(dt)`: Simulates the ship `dt` seconds forward in time.
-- `track_obstacles()`: (TODO): Implement function for tracking nearby vessels
-- `get_ais_data(t)`: Returns an AIS message dictionary for the ship information at the given UTC timestamp.
-- `get_ship_nav_data(t)`: Returns relevant simulation data as a dictionary for the ship at the given UTC timestamp. This includes its pose, waypoints, speed plan etc.
+See the source code for more in depth info on the `Ship` functionality.
