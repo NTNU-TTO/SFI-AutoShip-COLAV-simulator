@@ -46,7 +46,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
-
+        vessel.n_msgs = len(vessel.timestamps)
         vessel.xy = np.zeros((2, len(X[0, :])))
         vessel.xy[0, :] = X[1, :]  # ENU frame is used in the evaluator
         vessel.xy[1, :] = X[0, :]
