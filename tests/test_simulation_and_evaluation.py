@@ -13,3 +13,5 @@ if __name__ == "__main__":
     for vessels in vessels_data_list:
         evaluator.set_vessel_data(vessels)
         evaluator.evaluate()
+
+    print("done")
