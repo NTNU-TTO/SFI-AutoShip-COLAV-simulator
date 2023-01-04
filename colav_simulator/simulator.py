@@ -13,7 +13,7 @@ from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.paths as dp  # default paths
+import colav_simulator.common.paths as dp
 import colav_simulator.scenario_management as sm
 import numpy as np
 import pandas as pd

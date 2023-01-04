@@ -18,7 +18,9 @@ save_animation:
   required: True
   type: boolean
 
-
+n_snapshots:
+  required: False
+  type: integer
 frame_delay:
   required: True
   type: float
