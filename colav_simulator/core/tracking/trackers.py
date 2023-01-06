@@ -38,7 +38,7 @@ class KFParams:
     """Class for holding KF parameters."""
 
     P_0: np.ndarray = np.diag([20.0, 20.0, 0.1, 0.1])
-    q: float = 0.05
+    q: float = 0.1
 
     def to_dict(self):
         output_dict = {"P_0": self.P_0.diagonal().tolist(), "q": self.q}
@@ -128,25 +128,31 @@ class KF(ITracker):
                 self._track_initialized[self._labels.index(do_idx)] = True
                 relevant_do_states.append((do_idx, do_state))
 
+        n_tracked_do = len(self._xs_upd)
+        # TODO: Implement track termination for when covariance is too large.
+
         # Only generate measurements for initialized tracks
         sensor_measurements = []
         for sensor in self.sensors:
             z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
             sensor_measurements.append(z)
 
-        n_tracked_do = len(self._xs_upd)
         for i in range(n_tracked_do):
-
             if self._track_initialized[i]:
                 self._xs_p[i], self._P_p[i] = self.predict(self._xs_upd[i], self._P_upd[i], dt)
+                self._xs_upd[i] = self._xs_p[i]
+                self._P_upd[i] = self._P_p[i]
 
                 for sensor_id in range(len(self.sensors)):
                     z = sensor_measurements[sensor_id][i]
-                    self._xs_upd[i], self._P_upd[i], NIS_i = self.update(self._xs_p[i], self._P_p[i], z, sensor_id)
+                    self._xs_upd[i], self._P_upd[i], NIS_i = self.update(self._xs_upd[i], self._P_upd[i], z, sensor_id)
 
                     if not np.isnan(NIS_i):
                         self._NIS[i] = NIS_i
 
+        # print(f"xs_p: {self._xs_p}, xs_upd: {self._xs_upd}")
+        # print(f"P_p: {self._P_p}")
+        print(f"P_upd: {self._P_upd}")
         return self._xs_upd, self._P_upd, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
@@ -168,9 +174,7 @@ class KF(ITracker):
 
         return v, S
 
-    def update(
-        self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int
-    ) -> Tuple[np.ndarray, np.ndarray, float]:
+    def update(self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int) -> Tuple[np.ndarray, np.ndarray, float]:
         if any(np.isnan(z)):
             return xs_p, P_p, np.nan
 

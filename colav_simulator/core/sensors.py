@@ -42,7 +42,8 @@ class RadarParams:
 
     max_range: float = 500.0
     measurement_rate: float = 1.0
-    R: np.ndarray = np.diag([5.0**2, 5.0**2])
+    R: np.ndarray = np.diag([5.0**2, 5.0**2])  # meas cov used by the tracker
+    R_true: np.ndarray = np.diag([5.0**2, 5.0**2])  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(self, config_dict: dict):
@@ -50,11 +51,13 @@ class RadarParams:
             max_range=config_dict["max_range"],
             measurement_rate=config_dict["measurement_rate"],
             R=np.diag(config_dict["R"]),
+            R_true=np.diag(config_dict["R_true"]),
         )
 
     def to_dict(self) -> dict:
         output_dict = asdict(self)
         output_dict["R"] = self.R.diagonal().tolist()
+        output_dict["R_true"] = self.R_true.diagonal().tolist()
         return output_dict
 
 
@@ -71,7 +74,8 @@ class AISParams:
 
     max_range: float = 5000.0
     ais_class: AISClass = AISClass.A
-    R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov for a state vector of [x, y, Vx, Vy]
+    R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov for a state vector of [x, y, Vx, Vy], used by the tracker
+    R_true: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -79,10 +83,11 @@ class AISParams:
             max_range=config_dict["max_range"],
             ais_class=AISClass(config_dict["ais_class"]),
             R=np.diag(config_dict["R"]),
+            R_true=np.diag(config_dict["R_true"]),
         )
 
     def to_dict(self) -> dict:
-        output_dict = {"ais_class": self.ais_class.name, "R": self.R.diagonal().tolist()}
+        output_dict = {"max_range": self.max_range, "ais_class": self.ais_class.name, "R": self.R.diagonal().tolist(), "R_true": self.R_true.diagonal().tolist()}
         return output_dict
 
 
@@ -125,6 +130,7 @@ class Radar(ISensor):
 
     def __init__(self, params: RadarParams = RadarParams()) -> None:
         self._params: RadarParams = params
+        self._prev_meas_time: float = 0.0
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -139,8 +145,9 @@ class Radar(ISensor):
         measurements = []
         for _, xs in true_do_states:
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
-            if t % 1.0 / self._params.measurement_rate < 0.01 and dist_ownship_to_do <= self._params.max_range:
-                z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self.R(xs))
+            if (t - self._prev_meas_time) >= (1.0 / self._params.measurement_rate) and dist_ownship_to_do <= self._params.max_range:
+                z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
+                self._prev_meas_time = t
             else:
                 z = np.nan * np.ones(2)
             measurements.append(z)
@@ -179,7 +186,7 @@ class AIS:
 
     def __init__(self, params: AISParams = AISParams()) -> None:
         self._params: AISParams = params
-        self._previous_meas_time = 0.0
+        self._prev_meas_time: float = 0.0
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -196,8 +203,9 @@ class AIS:
         for _, xs in true_do_states:
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
 
-            if t % 1.0 / self.measurement_rate(xs) < 0.01 and dist_ownship_to_do <= self._params.max_range:
-                z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self.R(xs))
+            if (t - self._prev_meas_time) >= (1.0 / self.measurement_rate(xs)) and dist_ownship_to_do <= self._params.max_range:
+                z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self._params.R_true)
+                self._prev_meas_time = t
             else:
                 z = np.nan * np.ones(4)
             measurements.append(z)

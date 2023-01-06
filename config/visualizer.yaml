@@ -1,6 +1,6 @@
 show_liveplot: True
-show_measurements: False
-show_tracks: False
+show_measurements: True
+show_tracks: True
 show_animation: True
 show_waypoints: True
 save_animation: False

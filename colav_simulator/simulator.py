@@ -97,9 +97,7 @@ class Simulator:
         sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
 
-            ship_list, _, scenario_config = self._scenario_generator.generate(
-                dp.scenarios / scenario_file, sample_interval=dt_sim
-            )
+            ship_list, _, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file, sample_interval=dt_sim)
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
@@ -168,11 +166,13 @@ class Simulator:
                     true_do_states.append((i, state))
 
             for i, ship_obj in enumerate(ship_list):
-
                 if i == 0:
                     relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
                     _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
                     sensor_measurements.append(sensor_measurements_i)
+                    for sensor_idx, meas in enumerate(sensor_measurements_i):
+                        if len(meas) > 0 and ~np.isnan(meas).any():
+                            sensor_measurements[i][sensor_idx] = meas
 
                 if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)

@@ -183,7 +183,7 @@ class Telemetron(IModel):
         D_l: Linear damping matrix
         D_nl: Nonlinear damping matrix
 
-    NOTE: When using Euler`s method, keep the time step small enough to ensure numerical stability.
+    NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
     """
 
     _n_x: int = 6
@@ -229,8 +229,6 @@ class Telemetron(IModel):
         if np.abs(nu[0]) < 0.1:
             ode_fun[2] = 0.0
 
-        if nu[0] < 0.05:
-            print(f"psi = {eta[2]}, ddt_psi = {ode_fun[2]}")
         return ode_fun
 
     @property

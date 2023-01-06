@@ -54,18 +54,16 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         vessel.cog = X[3, :]
 
         vessel.latlon = np.zeros(vessel.xy.shape) * np.nan
-        (
-            vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
-            vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
-        ) = mapf.local2latlon(
+        (vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1], vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],) = mapf.local2latlon(
             vessel.xy[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
             vessel.xy[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
             utm_zone,
         )
 
-        vessel.travel_dist = compute_total_dist_travelled(
-            vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1]
-        )
+        vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
+
+        print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
+        print(f"Vessel status: {vessel.status}")
 
         vessels.append(vessel)
 
@@ -278,9 +276,7 @@ def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
     if xs.ndim == 1:
         return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
     else:
-        return np.array(
-            [xs[0, :], xs[1, :], np.multiply(xs[2, :], np.cos(xs[3, :])), np.multiply(xs[2, :], np.sin(xs[3, :]))]
-        )
+        return np.array([xs[0, :], xs[1, :], np.multiply(xs[2, :], np.cos(xs[3, :])), np.multiply(xs[2, :], np.sin(xs[3, :]))])
 
 
 def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:

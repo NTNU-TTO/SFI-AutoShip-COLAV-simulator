@@ -72,23 +72,15 @@ class ScenarioConfig:
     utm_zone: int
     map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
     new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
-    map_size: Optional[
-        Tuple[float, float]
-    ] = None  # Size of the map considered in the scenario (in meters) referenced to the origin.
-    map_origin_enu: Optional[
-        Tuple[float, float]
-    ] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
+    map_size: Optional[Tuple[float, float]] = None  # Size of the map considered in the scenario (in meters) referenced to the origin.
+    map_origin_enu: Optional[Tuple[float, float]] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
     ais_data_file: Optional[Path] = None  # Path to the AIS data file, if considered
-    ship_data_file: Optional[
-        Path
-    ] = None  # Path to the ship information data file associated with AIS data, if considered
+    ship_data_file: Optional[Path] = None  # Path to the ship information data file associated with AIS data, if considered
     allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
     n_random_ships: Optional[int] = 1  # Number of random ships in the scenario, excluding the own-ship, if considered
     min_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     max_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
-    ship_list: Optional[
-        list
-    ] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
+    ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -142,24 +134,12 @@ class Config:
     speed_plan_variation_range: List[float]  # Determines maximal +- change in speed plan from one segment to the next
     waypoint_dist_range: List[float]  # Range of [min, max] change in distance between randomly created waypoints
     waypoint_ang_range: List[float]  # Range of [min, max] change in angle between randomly created waypoints
-    ho_bearing_range: List[
-        float
-    ]  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
-    ho_heading_range: List[
-        float
-    ]  # Range of [min, max] heading variations of the target ship relative to completely reciprocal head-on scenarios
-    ot_bearing_range: List[
-        float
-    ]  # Range of [min, max] bearing from the own-ship to the target ship for overtaking scenarios
-    ot_heading_range: List[
-        float
-    ]  # Range of [min, max] heading variations of the target ship relative to completely parallel overtaking scenarios
-    cr_bearing_range: List[
-        float
-    ]  # Range of [min, max] bearing from the own-ship to the target ship for crossing scenarios
-    cr_heading_range: List[
-        float
-    ]  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
+    ho_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
+    ho_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely reciprocal head-on scenarios
+    ot_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for overtaking scenarios
+    ot_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely parallel overtaking scenarios
+    cr_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for crossing scenarios
+    cr_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
 
 
 class ScenarioGenerator:
@@ -221,10 +201,9 @@ class ScenarioGenerator:
         print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
+        ais_vessel_data_list = []
         if config.ais_data_file is not None:
-            output = colav_eval_fu.read_ais_data(
-                config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, sample_interval
-            )
+            output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, sample_interval)
             ais_vessel_data_list = output["vessels"]
             mmsi_list = output["mmsi_list"]
             config.map_origin_enu = output["origin_enu"]
@@ -237,6 +216,7 @@ class ScenarioGenerator:
         ship_config_list = []
         pose_list = []
         cfg_ship_idx = 0
+        ownship_configured = False
         while ais_vessel_data_list:
             use_ais_ship_trajectory = True
             if cfg_ship_idx < n_cfg_ships:
@@ -254,6 +234,7 @@ class ScenarioGenerator:
                 use_ais_ship_trajectory = False
                 idx = mmsi_list.index(ship_config.mmsi)
             elif cfg_ship_idx == 0:
+                ownship_configured = True
                 use_ais_ship_trajectory = False
                 idx = 0
 
@@ -264,12 +245,8 @@ class ScenarioGenerator:
             ship_obj.transfer_vessel_ais_data(ais_vessel, use_ais_ship_trajectory)
 
             if not use_ais_ship_trajectory and ship_config.waypoints is None:
-                waypoints = self.generate_random_waypoints(
-                    ship_obj.pose[0], ship_obj.pose[1], ship_obj.pose[3], ship_obj.draft
-                )
-                speed_plan = self.generate_random_speed_plan(
-                    ship_obj.pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
-                )
+                waypoints = self.generate_random_waypoints(ship_obj.pose[0], ship_obj.pose[1], ship_obj.pose[3], ship_obj.draft)
+                speed_plan = self.generate_random_speed_plan(ship_obj.pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
@@ -280,6 +257,10 @@ class ScenarioGenerator:
 
             cfg_ship_idx += 1
 
+        # If the own-ship is not configured, it will be generated randomly
+        if not ownship_configured:
+            config.n_random_ships += 1
+
         # The remaining ships are generated randomly
         for i in range(cfg_ship_idx, cfg_ship_idx + config.n_random_ships):
             if cfg_ship_idx < n_cfg_ships:
@@ -289,6 +270,7 @@ class ScenarioGenerator:
 
             ship_obj = ship.Ship(mmsi=i + 1, config=ship_config)
 
+            pose = ship_config.pose
             if ship_config.pose is None:
                 if cfg_ship_idx == 0:
                     pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
@@ -305,9 +287,7 @@ class ScenarioGenerator:
 
             if ship_config.waypoints is None:
                 waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
-                speed_plan = self.generate_random_speed_plan(
-                    pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1]
-                )
+                speed_plan = self.generate_random_speed_plan(pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
@@ -356,9 +336,7 @@ class ScenarioGenerator:
         if scenario_type == ScenarioType.HO:
             bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
             speed = random.uniform(U_min, U_max)
-            heading_modifier = 180.0 + random.uniform(
-                self._config.ho_heading_range[0], self._config.ho_heading_range[1]
-            )
+            heading_modifier = 180.0 + random.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
 
         elif scenario_type == ScenarioType.OT_ing:
             assert U_min < os_pose[2]  # Own-ship speed must be greater than the minimum target ship speed.
@@ -375,9 +353,7 @@ class ScenarioGenerator:
         elif scenario_type == ScenarioType.CR_GW:
             bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
             speed = random.uniform(U_min, U_max)
-            heading_modifier = -90.0 + random.uniform(
-                self._config.cr_heading_range[0], self._config.cr_heading_range[1]
-            )
+            heading_modifier = -90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
         elif scenario_type == ScenarioType.CR_SO:
             bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
@@ -431,9 +407,7 @@ class ScenarioGenerator:
 
         return np.array([x, y, speed, heading])
 
-    def generate_random_waypoints(
-        self, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None
-    ) -> np.ndarray:
+    def generate_random_waypoints(self, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None) -> np.ndarray:
         """Creates random waypoints starting from a ship position and heading.
 
         Args:
@@ -458,16 +432,12 @@ class ScenarioGenerator:
             while crosses_grounding_hazards:
                 cgh_count += 1
 
-                distance_wp_to_wp = random.uniform(
-                    self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
-                )
+                distance_wp_to_wp = random.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
                 distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
 
                 alpha = 0.0
                 if i > 1:
-                    alpha = np.deg2rad(
-                        random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
-                    )
+                    alpha = np.deg2rad(random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1]))
 
                 new_wp = np.array(
                     [
@@ -476,9 +446,7 @@ class ScenarioGenerator:
                     ],
                 )
 
-                crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
-                    self.enc, new_wp, waypoints[:, i - 1], draft
-                )
+                crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(self.enc, new_wp, waypoints[:, i - 1], draft)
 
                 if cgh_count >= 10:
                     break
@@ -491,9 +459,7 @@ class ScenarioGenerator:
 
         return waypoints
 
-    def generate_random_speed_plan(
-        self, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None
-    ) -> np.ndarray:
+    def generate_random_speed_plan(self, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None) -> np.ndarray:
         """Creates a random speed plan using the input speed and min/max speed of the ship.
 
         Args:
@@ -511,9 +477,7 @@ class ScenarioGenerator:
         speed_plan = np.zeros(n_wps)
         speed_plan[0] = U
         for i in range(1, n_wps):
-            U_mod = random.uniform(
-                self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1]
-            )
+            U_mod = random.uniform(self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1])
             speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
 
             if i == n_wps - 1:
