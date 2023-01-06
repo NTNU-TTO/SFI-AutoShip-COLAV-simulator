@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -152,7 +152,7 @@ class KF(ITracker):
 
         # print(f"xs_p: {self._xs_p}, xs_upd: {self._xs_upd}")
         # print(f"P_p: {self._P_p}")
-        print(f"P_upd: {self._P_upd}")
+        # print(f"P_upd: {self._P_upd}")
         return self._xs_upd, self._P_upd, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
