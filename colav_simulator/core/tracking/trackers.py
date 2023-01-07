@@ -37,8 +37,8 @@ class ITracker(ABC):
 class KFParams:
     """Class for holding KF parameters."""
 
-    P_0: np.ndarray = np.diag([20.0, 20.0, 0.1, 0.1])
-    q: float = 0.1
+    P_0: np.ndarray = np.diag([49.0, 49.0, 0.1, 0.1])
+    q: float = 0.15
 
     def to_dict(self):
         output_dict = {"P_0": self.P_0.diagonal().tolist(), "q": self.q}

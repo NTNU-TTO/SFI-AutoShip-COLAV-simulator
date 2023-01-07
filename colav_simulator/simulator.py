@@ -113,6 +113,8 @@ class Simulator:
                     save_file_path=dp.figure_output / scenario_config.name,
                 )
 
+            # TODO: Add saving of scenario results if specified in config
+
             vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, scenario_config.utm_zone)
             vessels_data_list.append(vessel_data)
             sim_data_list.append(sim_data)
@@ -133,12 +135,13 @@ class Simulator:
             ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
-            sim_times (np.ndarray): 1 x n_samples array of sim_times to simulate the ships.
+            sim_times (np.ndarray): Array of sim_times to simulate the ships.
             utm_zone (int): UTM zone used for the planar coordinate system.
 
         Returns:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
             ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
+            ship_info (dict): Dictionary containing the ship info for each ship.
         """
         if self._config.visualize:
             self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)

@@ -318,6 +318,15 @@ def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int,
     return first_non_nan_idx, last_non_nan_idx
 
 
+def current_utc_datetime_str(format_str: str) -> str:
+    """Returns the current date and time as a string with specified format.
+
+    Args:
+        format (str): Format of the datetime string, e.g. %Y%m%d_%H_%M_%S
+    """
+    return datetime.utcnow().strftime(format_str)
+
+
 def current_utc_timestamp() -> int:
     """
     Returns:

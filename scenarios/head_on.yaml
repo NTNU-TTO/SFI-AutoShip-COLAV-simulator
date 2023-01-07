@@ -1,14 +1,11 @@
 name: "head_on1"
-is_new_scenario: False
+is_new_scenario: True
 save_scenario: True
 utm_zone: 33
 map_size: [5000.0, 5000.0]
 map_origin_enu: [39000.0, 6956450.0]
 map_data_files: ["More_og_Romsdal.gdb", "Trondheim.gdb"]
 new_load_of_map_data: True
-#ais_data_file: "Case - 09-02-2019, 16-09-15 - 70YMX.csv"
-#ship_data_file: "full_shipdata.csv"
-#allowed_nav_statuses: [0]
 type: 1
 n_random_ships: 1
 ship_list: # first ship is always the own-ship

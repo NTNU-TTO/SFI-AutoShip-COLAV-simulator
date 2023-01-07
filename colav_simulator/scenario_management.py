@@ -19,6 +19,7 @@ import colav_evaluation_tool.common.file_utils as colav_eval_fu
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
 import matplotlib.pyplot as plt
@@ -39,6 +40,7 @@ class ScenarioType(Enum):
         OT_en: Overtaken scenario (own-ship is overtaken and should stand-on).
         CR_GW: Crossing scenario where own-ship has give-way duties.
         CR_SO: Crossing scenario where own-ship has stand-on duties.
+        MS: Multiple ships scenario without any specification of COLREGS situations.
         RANDOM: Random number of ships in the scenario.
     """
 
@@ -48,7 +50,8 @@ class ScenarioType(Enum):
     OT_en = 3
     CR_GW = 4
     CR_SO = 5
-    RANDOM = 6
+    MS = 6
+    RANDOM = 7
 
 
 @dataclass
@@ -77,10 +80,50 @@ class ScenarioConfig:
     ais_data_file: Optional[Path] = None  # Path to the AIS data file, if considered
     ship_data_file: Optional[Path] = None  # Path to the ship information data file associated with AIS data, if considered
     allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
-    n_random_ships: Optional[int] = 1  # Number of random ships in the scenario, excluding the own-ship, if considered
+    n_random_ships: Optional[int] = 0  # Number of random ships in the scenario, excluding the own-ship, if considered
     min_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     max_dist_between_ships: Optional[float] = None  # Used if parts of the scenario are new (randomly generated)
     ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
+
+    def to_dict(self) -> dict:
+        output = {
+            "name": self.name,
+            "is_new_scenario": self.is_new_scenario,
+            "save_scenario": self.save_scenario,
+            "type": self.type.value,
+            "utm_zone": self.utm_zone,
+            "map_data_files": self.map_data_files,
+            "new_load_of_map_data": self.new_load_of_map_data,
+            "n_random_ships": self.n_random_ships,
+            "ship_list": [],
+        }
+
+        if self.map_size is not None:
+            output["map_size"] = list(self.map_size)
+
+        if self.map_origin_enu is not None:
+            output["map_origin_enu"] = list(self.map_origin_enu)
+
+        if self.ais_data_file is not None:
+            output["ais_data_file"] = str(self.ais_data_file)
+
+        if self.ship_data_file is not None:
+            output["ship_data_file"] = str(self.ship_data_file)
+
+        if self.allowed_nav_statuses is not None:
+            output["allowed_nav_statuses"] = self.allowed_nav_statuses
+
+        if self.min_dist_between_ships is not None:
+            output["min_dist_between_ships"] = self.min_dist_between_ships
+
+        if self.max_dist_between_ships is not None:
+            output["max_dist_between_ships"] = self.max_dist_between_ships
+
+        if self.ship_list is not None:
+            for ship_config in self.ship_list:
+                output["ship_list"].append(ship_config.to_dict())
+
+        return output
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -257,12 +300,13 @@ class ScenarioGenerator:
 
             cfg_ship_idx += 1
 
+        n_random_ships = config.n_random_ships
         # If the own-ship is not configured, it will be generated randomly
         if not ownship_configured:
-            config.n_random_ships += 1
+            n_random_ships += 1
 
         # The remaining ships are generated randomly
-        for i in range(cfg_ship_idx, cfg_ship_idx + config.n_random_ships):
+        for i in range(cfg_ship_idx, cfg_ship_idx + n_random_ships):
             if cfg_ship_idx < n_cfg_ships:
                 ship_config = config.ship_list[i]
             else:
@@ -296,9 +340,9 @@ class ScenarioGenerator:
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
-        # if config.save_scenario:
-        # append string of date and time for scenario creation
-        # save_scenario(ship_config_list, scenario_config_file / ".yaml")
+        config.ship_list = ship_config_list
+        if config.save_scenario:
+            save_scenario_definition(config)
 
         return ship_list, ship_config_list, config
 
@@ -502,19 +546,16 @@ class ScenarioGenerator:
         return np.array([self.enc.origin[1], self.enc.origin[0]])
 
 
-def save_scenario(ship_config_list: list, save_file: Path) -> None:
-    """Saves the the scenario defined by the list of configured ships, to a json file as a dict at savefile
+def save_scenario_definition(scenario_config: ScenarioConfig) -> None:
+    """Saves the the scenario defined by the preliminary scenario configuration and list of configured ships,
+    to a json file as a dict at savefile.
 
     Args:
-        ship_config_list (list): List of ship configurations.
-        save_file (Path): Absolute path to save the scenario definition to.
+        scenario_config (ScenarioConfig): Scenario configuration
     """
-
-    scenario_data_dict: dict = {}
-    scenario_data_dict["ship_list"] = []
-    for ship_config in ship_config_list:
-        ship_data_dict = ship_config.to_dict()
-        scenario_data_dict["ship_list"].append(ship_data_dict)
-
+    scenario_config_dict: dict = scenario_config.to_dict()
+    current_datetime_str = mhm.current_utc_datetime_str("%d%m%Y_%H_%M_%S")
+    filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
+    save_file = dp.scenarios / filename
     with save_file.open(mode="w") as file:
-        yaml.dump(scenario_data_dict, file)
+        yaml.dump(scenario_config_dict, file)
