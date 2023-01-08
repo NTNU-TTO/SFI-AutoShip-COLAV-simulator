@@ -518,13 +518,18 @@ class Visualizer:
         Returns:
             Tuple[list, list]: List of figure and axes handles
         """
+        if save_file_path is None:
+            save_file_path = dp.figure_output / "scenario_ne.eps"
+        else:
+            save_file_path = Path(str(save_file_path) + ".eps")
+
         n_samples = len(sim_times)
         if k_snapshots is None:
             k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(8 * n_samples / 10)]
 
         figs = []
         axes = []
-        fig_map = plt.figure("Scenario", figsize=self._config.figsize)
+        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.figsize)
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
@@ -584,6 +589,9 @@ class Visualizer:
             end_idx = k_snapshots[-1]
             if last_valid_idx < end_idx:
                 end_idx = last_valid_idx + 1
+
+            if end_idx < first_valid_idx:
+                continue
 
             ax_map.plot(
                 X[1, first_valid_idx:end_idx],
@@ -660,8 +668,8 @@ class Visualizer:
                 y_ship, x_ship = ship_poly.exterior.xy
                 ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="", zorder=zorder_patch)
                 ax_map.text(
-                    X[1, k] - 300,
-                    X[0, k] + 300,
+                    X[1, k] - 500,
+                    X[0, k] + 500,
                     f"$t_{count}$",
                     fontsize=12,
                     zorder=zorder_patch + 1,
@@ -674,10 +682,6 @@ class Visualizer:
         plt.legend()
 
         if save_figs:
-            if save_file_path is None:
-                save_file_path = dp.figure_output / "scenario_ne.eps"
-            else:
-                save_file_path = Path(str(save_file_path) + ".eps")
             fig_map.savefig(save_file_path, format="eps", dpi=1000)
 
         figs.append(fig_map)

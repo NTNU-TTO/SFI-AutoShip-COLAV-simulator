@@ -113,7 +113,7 @@ class Simulator:
                     save_file_path=dp.figure_output / scenario_config.name,
                 )
 
-            # TODO: Add saving of scenario results if specified in config
+            # TODO: Add saving of scenario viz results if specified in config
 
             vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, scenario_config.utm_zone)
             vessels_data_list.append(vessel_data)
