@@ -1,25 +1,39 @@
+name: "crossing_stand_on1"
+is_new_scenario: True
+save_scenario: False
+utm_zone: 33
+map_size: [5000.0, 5000.0]
+map_origin_enu: [39000.0, 6956450.0]
+map_data_files: ["More_og_Romsdal.gdb", "Trondheim.gdb"]
+new_load_of_map_data: True
+type: 1
+n_random_ships: 1
 ship_list:
   - pose: [6958000.0, 40500.0, 15.0, 0.0]
     waypoints: [[6958000.0, 6960000.0], [40500.0, 40500.0]]
     speed_plan: [15.0, 15.0]
     tracker:
       kf:
-        P_0: [25.1, 25.1, 0.11, 0.11]
-        q: 0.13
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
     sensors:
       - radar:
-          measurement_rate: 0.55
-          R: [25.3, 25.3]
-      # - ais:
-      #     ais_class: 0
-      #     R: [26.3, 26.3, 0.1, 0.1]
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 5000.0
+          ais_class: 0
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
     guidance:
       los:
         pass_angle_threshold: 80.0
         R_a: 15.0
-        K_p: 0.024
+        K_p: 0.015
         K_i: 0.0
-        e_int_max: 101.0
+        e_int_max: 200.0
     controller:
       flsh:
         K_p_u: 5.1
@@ -32,22 +46,26 @@ ship_list:
     speed_plan: [15.0, 15.0]
     tracker:
       kf:
-        P_0: [25.1, 25.1, 0.11, 0.11]
-        q: 0.13
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
     sensors:
       - radar:
-          measurement_rate: 0.55
-          R: [25.3, 25.3]
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
       - ais:
+          max_range: 5000.0
           ais_class: 0
           R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
     guidance:
       los:
         pass_angle_threshold: 80.0
         R_a: 15.0
-        K_p: 0.024
+        K_p: 0.015
         K_i: 0.0
-        e_int_max: 101.0
+        e_int_max: 200.0
     controller:
       flsh:
         K_p_u: 5.1

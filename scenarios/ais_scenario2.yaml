@@ -1,0 +1,10 @@
+name: "ais1"
+is_new_scenario: False
+save_scenario: False
+type: 6
+utm_zone: 33
+map_data_files: ["More_og_Romsdal.gdb", "Trondheim.gdb"]
+new_load_of_map_data: True
+ais_data_file: "Case - 01-01-2020, 13-24-06 - E4BG1.csv"
+ship_data_file: "full_shipdata.csv"
+allowed_nav_statuses: [0]
