@@ -26,9 +26,6 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 class Config:
     """Simulation related configuration/parameter class."""
 
-    t_start: float
-    dt_sim: float
-    t_end: float
     scenario_files: list
     save_scenario_results: bool
     visualize: bool
@@ -60,12 +57,7 @@ class Simulator:
 
         self._visualizer = Visualizer()
 
-    def run(
-        self,
-        t_start: Optional[float] = None,
-        t_end: Optional[float] = None,
-        dt_sim: Optional[float] = None,
-    ) -> dict:
+    def run(self) -> dict:
         """Runs through all specified scenarios.
 
         Args:
@@ -80,28 +72,17 @@ class Simulator:
         if self._config.verbose:
             print("Running simulator...")
 
-        if t_start is None:
-            t_start = self._config.t_start
-
-        if t_end is None:
-            t_end = self._config.t_end
-
-        if dt_sim is None:
-            dt_sim = self._config.dt_sim
-
         sim_data_list = []
         ais_data_list = []
         ship_info_list = []
         vessels_data_list = []
 
-        sim_times = np.arange(t_start, t_end, dt_sim)
         for i, scenario_file in enumerate(self._config.scenario_files):
-
-            ship_list, _, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file, sample_interval=dt_sim)
+            ship_list, _, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file)
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
-            sim_data, ais_data, ship_info = self.run_scenario(ship_list, sim_times, scenario_config.utm_zone)
+            sim_data, ais_data, ship_info = self.run_scenario(ship_list, scenario_config)
 
             if self._config.visualize and False:
                 self._visualizer.visualize_results(
@@ -128,15 +109,14 @@ class Simulator:
         output["vessels_data_list"] = vessels_data_list
         return output
 
-    def run_scenario(self, ship_list: list, sim_times: np.ndarray, utm_zone: int):
+    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig):
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
             ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
-            sim_times (np.ndarray): Array of sim_times to simulate the ships.
-            utm_zone (int): UTM zone used for the planar coordinate system.
+
 
         Returns:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
@@ -153,6 +133,8 @@ class Simulator:
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
         timestamp_start = mhm.current_utc_timestamp()
+
+        sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
         t_prev = sim_times[0]
         for _, t in enumerate(sim_times):
             dt_sim = t - t_prev
@@ -184,7 +166,7 @@ class Simulator:
                 sim_data_dict[f"Ship{i}"]["sensor_measurements"] = sensor_measurements_i
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:
-                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, utm_zone)
+                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, scenario_config.utm_zone)
                     ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)

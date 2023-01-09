@@ -28,11 +28,11 @@ class Config:
     """Configuration class for specifying the look of the visualization."""
 
     show_liveplot: bool = True
+    show_results: bool = True
     show_measurements: bool = False
     show_tracks: bool = True
     show_waypoints: bool = False
     show_animation: bool = True
-    show_results: bool = True
     save_animation: bool = False
     n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
     frame_delay: float = 200.0
@@ -45,7 +45,7 @@ class Config:
         default_factory=lambda: [
             "xkcd:black",
             "xkcd:red",
-            "xkcd:green",
+            "xkcd:eggshell",
             "xkcd:cyan",
             "xkcd:orange",
             "xkcd:fuchsia",
@@ -54,7 +54,7 @@ class Config:
             "xkcd:reddish brown",
             "xkcd:bubblegum",
             "xkcd:baby shit brown",
-            "xkcd:eggshell",
+            "xkcd:khaki",
             "xkcd:cloudy blue",
             "xkcd:pale aqua",
             "xkcd:light lilac",
@@ -518,6 +518,9 @@ class Visualizer:
         Returns:
             Tuple[list, list]: List of figure and axes handles
         """
+        if not self._config.show_results:
+            return None, None
+
         if save_file_path is None:
             save_file_path = dp.figure_output / "scenario_ne.eps"
         else:

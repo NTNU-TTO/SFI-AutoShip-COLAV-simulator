@@ -1,6 +1,3 @@
-t_start: 0.0
-dt_sim: 0.1
-t_end: 300.0
 scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
 #scenario_files: ["ais_scenario1.yaml"]
 save_scenario_results: True

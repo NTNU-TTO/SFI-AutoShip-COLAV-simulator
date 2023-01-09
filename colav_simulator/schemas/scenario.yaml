@@ -7,6 +7,18 @@ is_new_scenario:
 save_scenario:
   required: True
   type: boolean
+t_start:
+  required: True
+  type: float
+  min: 0.0
+t_end:
+  required: True
+  type: float
+  min: 1.0
+dt_sim:
+  required: True
+  type: float
+  min: 0.1
 type:
   required: True
   type: integer

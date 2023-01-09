@@ -89,6 +89,7 @@ class KF(ITracker):
         self.sensors: list = sensor_list
 
         self._track_initialized: list = []
+        self._track_terminated: list = []
         self._labels: list = []
         self._xs_p: list = []
         self._P_p: list = []
@@ -119,6 +120,7 @@ class KF(ITracker):
                 # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
                 self._labels.append(do_idx)
                 self._track_initialized.append(False)
+                self._track_terminated.append(False)
                 self._xs_upd.append(do_state)
                 self._P_upd.append(self._params.P_0)
                 self._xs_p.append(do_state)
@@ -130,6 +132,9 @@ class KF(ITracker):
 
         n_tracked_do = len(self._xs_upd)
         # TODO: Implement track termination for when covariance is too large.
+        for i in range(n_tracked_do):
+            if np.sqrt(self._P_upd[i][0, 0]) > 15.0 or np.sqrt(self._P_upd[i][1, 1]) > 15.0:
+                self._track_terminated[i] = True
 
         # Only generate measurements for initialized tracks
         sensor_measurements = []
@@ -138,7 +143,7 @@ class KF(ITracker):
             sensor_measurements.append(z)
 
         for i in range(n_tracked_do):
-            if self._track_initialized[i]:
+            if self._track_initialized[i] and not self._track_terminated[i]:
                 self._xs_p[i], self._P_p[i] = self.predict(self._xs_upd[i], self._P_upd[i], dt)
                 self._xs_upd[i] = self._xs_p[i]
                 self._P_upd[i] = self._P_p[i]

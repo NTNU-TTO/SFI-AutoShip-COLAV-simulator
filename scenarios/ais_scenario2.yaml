@@ -1,6 +1,9 @@
 name: "ais1"
 is_new_scenario: False
 save_scenario: False
+t_start: 0.0
+t_end: 2500.0
+dt_sim: 1.0
 type: 6
 utm_zone: 33
 map_data_files: ["More_og_Romsdal.gdb", "Trondheim.gdb"]

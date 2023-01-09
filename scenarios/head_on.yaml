@@ -1,6 +1,9 @@
 name: "head_on1"
 is_new_scenario: True
 save_scenario: False
+t_start: 0.0
+t_end: 300.0
+dt_sim: 0.1
 utm_zone: 33
 map_size: [5000.0, 5000.0]
 map_origin_enu: [39000.0, 6956450.0]

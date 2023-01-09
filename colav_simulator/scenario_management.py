@@ -71,6 +71,9 @@ class ScenarioConfig:
     name: str
     is_new_scenario: bool
     save_scenario: bool
+    t_start: float
+    t_end: float
+    dt_sim: float
     type: ScenarioType
     utm_zone: int
     map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
@@ -90,6 +93,9 @@ class ScenarioConfig:
             "name": self.name,
             "is_new_scenario": self.is_new_scenario,
             "save_scenario": self.save_scenario,
+            "t_start": self.t_start,
+            "t_end": self.t_end,
+            "dt_sim": self.dt_sim,
             "type": self.type.value,
             "utm_zone": self.utm_zone,
             "map_data_files": self.map_data_files,
@@ -131,6 +137,9 @@ class ScenarioConfig:
             name=config_dict["name"],
             is_new_scenario=config_dict["is_new_scenario"],
             save_scenario=config_dict["save_scenario"],
+            t_start=config_dict["t_start"],
+            t_end=config_dict["t_end"],
+            dt_sim=config_dict["dt_sim"],
             type=ScenarioType(config_dict["type"]),
             utm_zone=config_dict["utm_zone"],
             map_data_files=config_dict["map_data_files"],
@@ -226,11 +235,7 @@ class ScenarioGenerator:
         )
         plt.close()
 
-    def generate(
-        self,
-        scenario_config_file: Path,
-        sample_interval: float = 1.0,
-    ) -> Tuple[list, list, ScenarioConfig]:
+    def generate(self, scenario_config_file: Path) -> Tuple[list, list, ScenarioConfig]:
         """Main class function. Creates a maritime scenario based on the input config file,
         with random plans for each ship unless specified in ship_list entries or loaded from AIS data.
 
@@ -246,7 +251,7 @@ class ScenarioGenerator:
 
         ais_vessel_data_list = []
         if config.ais_data_file is not None:
-            output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, sample_interval)
+            output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, config.dt_sim)
             ais_vessel_data_list = output["vessels"]
             mmsi_list = output["mmsi_list"]
             config.map_origin_enu = output["origin_enu"]
