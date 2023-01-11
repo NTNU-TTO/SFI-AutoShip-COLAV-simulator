@@ -519,7 +519,7 @@ class Visualizer:
             Tuple[list, list]: List of figure and axes handles
         """
         if not self._config.show_results:
-            return None, None
+            return [], []
 
         if save_file_path is None:
             save_file_path = dp.figure_output / "scenario_ne.eps"

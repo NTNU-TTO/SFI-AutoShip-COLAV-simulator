@@ -9,7 +9,7 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -82,9 +82,9 @@ class Simulator:
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
-            sim_data, ais_data, ship_info = self.run_scenario(ship_list, scenario_config)
+            sim_data, ais_data, ship_info, sim_times = self.run_scenario(ship_list, scenario_config)
 
-            if self._config.visualize and False:
+            if self._config.visualize:
                 self._visualizer.visualize_results(
                     self._scenario_generator.enc,
                     ship_list,
@@ -109,7 +109,7 @@ class Simulator:
         output["vessels_data_list"] = vessels_data_list
         return output
 
-    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig):
+    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
@@ -118,10 +118,11 @@ class Simulator:
             the scenario start (t0).
 
 
-        Returns:
+        Returns: a tuple containing:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
             ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
             ship_info (dict): Dictionary containing the ship info for each ship.
+            sim_times (np.array): Array containing the simulation times.
         """
         if self._config.visualize:
             self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)
@@ -174,4 +175,4 @@ class Simulator:
             if self._config.visualize and t % 10.0 < 0.0001:
                 self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, sensor_measurements)
 
-        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info
+        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info, sim_times
