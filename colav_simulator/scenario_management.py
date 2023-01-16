@@ -320,6 +320,7 @@ class ScenarioGenerator:
             else:
                 ship_config = ship.Config()
                 ship_config.id = cfg_ship_idx
+                ship_config.mmsi = ship_obj.mmsi
 
             ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
 
@@ -353,6 +354,7 @@ class ScenarioGenerator:
             ship_config_list.append(ship_config)
 
         ship_list.sort(key=lambda x: x.id)
+        ship_config_list.sort(key=lambda x: x.id)
 
         config.ship_list = ship_config_list
         if config.save_scenario:
