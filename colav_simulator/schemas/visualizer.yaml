@@ -47,7 +47,11 @@ ship_linewidth:
   type: float
 ship_scaling:
   required: True
-  type: float
+  type: list
+  minlength: 2
+  maxlength: 2
+  schema:
+    type: float
 ship_info_fontsize:
   required: True
   type: integer

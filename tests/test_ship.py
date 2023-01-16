@@ -11,7 +11,7 @@ dpi_value = 150  # figure dpi value
 if __name__ == "__main__":
 
     n_wps = 9
-    scenario_generator = ScenarioGenerator()
+    scenario_generator = ScenarioGenerator(init_enc=True)
     origin = scenario_generator.enc_origin
 
     # waypoints = np.zeros((2, n_wps))
@@ -28,12 +28,10 @@ if __name__ == "__main__":
     #         waypoints[:, i] = waypoints[:, i - 1] + np.array([50, -50])
     # speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]) / 6.0
 
-    ownship = ship.Ship(mmsi=1)
+    ownship = ship.Ship(mmsi=1, identifier=0)
 
     pose = scenario_generator.generate_random_pose(draft=ownship.draft, land_clearance=200.0)
-    waypoints = scenario_generator.generate_random_waypoints(
-        x=pose[0], y=pose[1], psi=pose[3], draft=ownship.draft, n_wps=n_wps
-    )
+    waypoints = scenario_generator.generate_random_waypoints(x=pose[0], y=pose[1], psi=pose[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
 
     ownship.set_initial_state(pose)

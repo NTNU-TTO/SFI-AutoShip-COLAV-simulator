@@ -1,9 +1,6 @@
 name:
   required: True
   type: string
-is_new_scenario:
-  required: True
-  type: boolean
 save_scenario:
   required: True
   type: boolean
@@ -83,6 +80,18 @@ ship_list:
       mmsi:
         required: False
         type: integer
+      id:
+        required: False
+        type: integer
+      t_start:
+        required: False
+        type: float
+      t_end:
+        required: False
+        type: float
+      random_generated:
+        required: False
+        type: boolean
       pose:
         required: False
         type: list

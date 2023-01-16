@@ -21,9 +21,7 @@ from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon
 
 
-def local2latlon(
-    x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int
-) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
+def local2latlon(x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
     """Transform coordinates from x (east), y (north) to latitude, longitude.
 
     Args:
@@ -61,9 +59,7 @@ def local2latlon(
     return lat, lon
 
 
-def latlon2local(
-    lat: float | list | np.ndarray, lon: float | list | np.ndarray, utm_zone: int
-) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
+def latlon2local(lat: float | list | np.ndarray, lon: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
     """Transform coordinates from latitude, longitude to UTM32 or UTM33
 
     Args:
@@ -116,7 +112,7 @@ def dist_between_latlon_coords(lat1: float, lon1: float, lat2: float, lon2: floa
     return geopy.distance.distance((lat1, lon1), (lat2, lon2)).m
 
 
-def create_ship_polygon(x: float, y: float, heading: float, length: float, width: float, scale: float = 1.0) -> Polygon:
+def create_ship_polygon(x: float, y: float, heading: float, length: float, width: float, length_scaling: float = 1.0, width_scaling: float = 1.0) -> Polygon:
     """Creates a ship polygon from the ship`s position, heading, length and width.
 
     Args:
@@ -125,13 +121,14 @@ def create_ship_polygon(x: float, y: float, heading: float, length: float, width
         heading (float): The ship`s heading
         length (float): Length of the ship
         width (float): Width of the ship
-        scale (float, optional): Scale factor. Defaults to 1.0.
+        length_scaling (float, optional): Length scale factor. Defaults to 1.0.
+        width_scaling (float, optional): Length scale factor. Defaults to 1.0.
 
     Returns:
         np.ndarray: Ship polygon
     """
-    eff_length = length * scale
-    eff_width = width * scale
+    eff_length = length * length_scaling
+    eff_width = width * width_scaling
 
     x_min, x_max = x - eff_length / 2.0, x + eff_length / 2.0 - eff_width
     y_min, y_max = y - eff_width / 2.0, y + eff_width / 2.0
@@ -193,9 +190,7 @@ def generate_random_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
     return feasible_depth_vals[index]
 
 
-def generate_random_start_position_from_draft(
-    enc: ENC, draft: float, land_clearance: float = 0.0
-) -> Tuple[float, float]:
+def generate_random_start_position_from_draft(enc: ENC, draft: float, land_clearance: float = 0.0) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
@@ -240,9 +235,7 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
     return distance
 
 
-def check_if_segment_crosses_grounding_hazards(
-    enc: ENC, next_wp: np.ndarray, prev_wp: np.ndarray, draft: float = 5.0
-) -> bool:
+def check_if_segment_crosses_grounding_hazards(enc: ENC, next_wp: np.ndarray, prev_wp: np.ndarray, draft: float = 5.0) -> bool:
     """Checks if a line segment between two waypoints crosses nearby grounding hazards (land, shore).
 
     Args:

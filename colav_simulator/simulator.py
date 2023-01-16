@@ -76,9 +76,10 @@ class Simulator:
         ais_data_list = []
         ship_info_list = []
         vessels_data_list = []
+        scenario_config_list = []
 
         for i, scenario_file in enumerate(self._config.scenario_files):
-            ship_list, _, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file)
+            ship_list, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file)
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
@@ -101,12 +102,14 @@ class Simulator:
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
             ship_info_list.append(ship_info)
+            scenario_config_list.append(scenario_config)
 
         output = {}
         output["sim_data_list"] = sim_data_list
         output["ais_data_list"] = ais_data_list
         output["ship_info_list"] = ship_info_list
         output["vessels_data_list"] = vessels_data_list
+        output["scenario_config_list"] = scenario_config_list
         return output
 
     def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:

@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 import colav_simulator.common.map_functions as map_functions
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 from seacharts.enc import ENC
 from shapely.geometry import Point
 
@@ -10,7 +11,7 @@ from shapely.geometry import Point
 def test_utc_timestamp_to_local_time():
     """Test UTC timestamp to local time."""
     timestamp = 1615450500
-    local_time = mf.utc_timestamp_to_local_time(timestamp)
+    local_time = mhm.utc_timestamp_to_local_time(timestamp)
     ground_truth = datetime(2021, 3, 11, 9, 15, 0, tzinfo=ZoneInfo("localtime"))
     assert local_time == ground_truth
 

@@ -80,3 +80,11 @@ cr_heading_range:
     type: float
     min: -15.0
     max: 15.0
+dist_between_ships_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: 50.0
+    max: 100000.0

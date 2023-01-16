@@ -1,5 +1,4 @@
 name: "head_on1"
-is_new_scenario: True
 save_scenario: False
 t_start: 0.0
 t_end: 300.0
@@ -12,10 +11,11 @@ new_load_of_map_data: True
 type: 1
 n_random_ships: 1
 ship_list:
-  - mmsi: 1000
-    pose: [6957500.0, 39500.0, 7.0, 45.0]
+  - pose: [6957500.0, 39500.0, 7.0, 45.0]
     waypoints: [[6957500.0, 6959500.0], [39500.0, 41500.0]]
     speed_plan: [7.0, 7.0]
+    id: 0
+    mmsi: 100
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -48,6 +48,8 @@ ship_list:
   - pose: [6959500.0, 41500.0, 7.0, 225.0]
     waypoints: [[6959500.0, 6957500.0], [41500.0, 39500.0]]
     speed_plan: [7.0, 7.0]
+    id: 1
+    mmsi: 101
     tracker:
       kf:
         P_0: [25.1, 25.1, 0.11, 0.11]

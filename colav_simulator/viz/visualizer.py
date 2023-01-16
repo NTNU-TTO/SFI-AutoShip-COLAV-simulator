@@ -39,7 +39,7 @@ class Config:
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
-    ship_scaling: float = 5.0
+    ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
     ship_info_fontsize: int = 13
     ship_colors: list = field(
         default_factory=lambda: [
@@ -279,6 +279,7 @@ class Visualizer:
                             )[0]
 
             else:
+                print("i = {}".format(i))
                 ship_name = "DO " + str(i - 1)
 
             ship_i_handles["info"] = ax_map.text(
@@ -467,7 +468,9 @@ class Visualizer:
                                     )
 
             # Update ship patch
-            ship_poly = mapf.create_ship_polygon(pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling)
+            ship_poly = mapf.create_ship_polygon(
+                pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
+            )
             if self.ship_plt_handles[i]["patch"] is not None:
                 self.ship_plt_handles[i]["patch"].remove()
             self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs))
@@ -503,6 +506,7 @@ class Visualizer:
         k_snapshots: Optional[list] = None,
         save_figs: bool = True,
         save_file_path: Optional[Path] = None,
+        show_tracking_results: bool = False,
     ) -> Tuple[list, list]:
         """Visualize the results of a scenario simulation.
 
@@ -514,6 +518,7 @@ class Visualizer:
             k_snapshots (Optional[list], optional): List of snapshots to visualize.
             save_figs (bool, optional): Whether to save the figures.
             save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
+            sh
 
         Returns:
             Tuple[list, list]: List of figure and axes handles
@@ -528,7 +533,7 @@ class Visualizer:
 
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(n_samples / 5), round(3 * n_samples / 5), round(8 * n_samples / 10)]
+            k_snapshots = [round(0.1 * n_samples), round(0.5 * n_samples), round(0.8 * n_samples)]
 
         figs = []
         axes = []
@@ -559,17 +564,25 @@ class Visualizer:
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
 
+            # Plot ship trajectory and shape at all considered snapshots
+            end_idx = k_snapshots[-1]
+            if last_valid_idx < end_idx:
+                end_idx = last_valid_idx + 1
+
+            if end_idx < first_valid_idx:
+                continue
+
             is_inside_map = True
             if i == 0:
                 ship_name = "OS"
-                xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X[:, first_valid_idx : last_valid_idx + 1], xlimits, ylimits)
+                xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X[:, first_valid_idx:end_idx], xlimits, ylimits)
                 xlimits = [xlimits[0] - 2000, xlimits[1] + 2000]
                 ylimits = [ylimits[0] - 2000, ylimits[1] + 2000]
                 zorder_patch = 4
             else:
                 ship_name = "DO " + str(i - 1)
                 zorder_patch = 3
-                is_inside_map = mhm.check_if_trajectory_is_within_xy_limits(X[:, first_valid_idx : last_valid_idx + 1], xlimits, ylimits)
+                is_inside_map = mhm.check_if_trajectory_is_within_xy_limits(X[:, first_valid_idx:end_idx], xlimits, ylimits)
                 if not is_inside_map:
                     continue
 
@@ -580,21 +593,13 @@ class Visualizer:
                     ship.waypoints[0, :],
                     color=ship_color,
                     marker="o",
-                    markersize=5,
+                    markersize=4,
                     linestyle="--",
                     linewidth=ship_lw,
                     transform=enc.crs,
                     label="",
                     zorder=zorder_patch - 5,
                 )
-
-            # Plot ship trajectory and shape at all considered snapshots
-            end_idx = k_snapshots[-1]
-            if last_valid_idx < end_idx:
-                end_idx = last_valid_idx + 1
-
-            if end_idx < first_valid_idx:
-                continue
 
             ax_map.plot(
                 X[1, first_valid_idx:end_idx],
@@ -607,7 +612,7 @@ class Visualizer:
             )
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
-            if i == 0:
+            if i == 0 and False:
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
@@ -617,14 +622,18 @@ class Visualizer:
                 for j, do_estimates_j in enumerate(do_estimates):
                     first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
 
+                    end_idx_j = k_snapshots[-1]
+                    if last_valid_idx < end_idx_j:
+                        end_idx_j = last_valid_idx + 1
+
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{do_labels[j]}"])
                     do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
 
                     ax_map.plot(
-                        do_estimates_j[1, first_valid_idx : k_snapshots[-1]],
-                        do_estimates_j[0, first_valid_idx : k_snapshots[-1]],
+                        do_estimates_j[1, first_valid_idx:end_idx_j],
+                        do_estimates_j[0, first_valid_idx:end_idx_j],
                         color=do_color,
                         linewidth=ship_lw,
                         linestyle="--",
@@ -633,7 +642,7 @@ class Visualizer:
                         zorder=zorder_patch - 1,
                     )
                     for k in k_snapshots:
-                        if k < first_valid_idx or k > last_valid_idx:
+                        if k < first_valid_idx or k > end_idx_j:
                             continue
 
                         ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
@@ -650,29 +659,46 @@ class Visualizer:
                             )
                         )
 
-                    fig_do_j, axes_do_j = self._plot_do_tracking_results(
-                        sim_times,
-                        do_true_states_j,
-                        do_estimates_j,
-                        do_covariances[j],
-                        do_NISes[j],
-                        j,
-                        do_lw,
-                    )
-                    figs_tracking.append(fig_do_j)
-                    axes_tracking.append(axes_do_j)
+                    if show_tracking_results:
+                        fig_do_j, axes_do_j = self._plot_do_tracking_results(
+                            sim_times[first_valid_idx:end_idx_j],
+                            do_true_states_j[:, first_valid_idx:end_idx_j],
+                            do_estimates_j[:, first_valid_idx:end_idx_j],
+                            do_covariances[j][:, :, first_valid_idx:end_idx_j],
+                            do_NISes[j],
+                            j,
+                            do_lw,
+                        )
+                        figs_tracking.append(fig_do_j)
+                        axes_tracking.append(axes_do_j)
 
             count = 1
             for k in k_snapshots:
-                if k < first_valid_idx or k > last_valid_idx:
+                if k < first_valid_idx or k > end_idx:
                     continue
 
-                ship_poly = mapf.create_ship_polygon(X[0, k], X[1, k], X[3, k], ship.length, ship.width, self._config.ship_scaling)
-                y_ship, x_ship = ship_poly.exterior.xy
-                ax_map.fill(y_ship, x_ship, color=ship_color, linewidth=ship_lw, label="", zorder=zorder_patch)
+                ship_poly = mapf.create_ship_polygon(
+                    x=X[0, k],
+                    y=X[1, k],
+                    heading=X[3, k],
+                    length=ship.length,
+                    width=ship.width,
+                    length_scaling=2 * self._config.ship_scaling[0],
+                    width_scaling=2 * self._config.ship_scaling[1],
+                )
+                ax_map.add_feature(
+                    ShapelyFeature(
+                        [ship_poly],
+                        linewidth=ship_lw,
+                        color=ship_color,
+                        # label=f"DO{do_labels[j]} est. cov.",
+                        crs=enc.crs,
+                        zorder=zorder_patch,
+                    )
+                )
                 ax_map.text(
-                    X[1, k] - 500,
-                    X[0, k] + 500,
+                    X[1, k] - 250,
+                    X[0, k] + 300,
                     f"$t_{count}$",
                     fontsize=12,
                     zorder=zorder_patch + 1,
@@ -847,102 +873,6 @@ class Visualizer:
 
             if "ais" in self.ship_plt_handles[idx]:
                 self.ship_plt_handles[idx]["ais"].set_visible(state)
-
-
-#     def visualize(
-#         self,
-#         ship_list: list,
-#         data: DataFrame,
-#         times: np.ndarray,
-#         save_path: Optional[Path] = None,
-#     ) -> None:
-#         """Visualize the ship trajectories.
-
-#         Args:
-#             enc (ENC): Electronic Navigational Chart object.
-#             ship_list: List of ships in the simulation.
-#             data (DataFrame): Pandas DataFrame containing the ship simulation data.
-#             times (List/np.ndarray): List/array of times to consider.
-#             save_path (Optional[pathlib.Path]): Path to file where the animation is saved. Defaults to None.
-#         """
-
-#         vessels = []
-#         trajectories = []
-
-#         # data: n_ships x 1 dataframe, where each ship entry contains n_samples x 1 dictionaries of pose, waypoints, speed plans etc..
-#         n_ships = len(data.columns)
-#         for i in range(n_ships):
-#             c = self._config.ship_colors[i]
-#             lw = self._config.ship_linewidth
-#             if i == 0:
-#                 vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
-#                 trajectories.append(plt.plot([], [], c, label="OS traj.")[0])
-#             else:
-#                 vessels.append(plt.fill([], [], color=c, linewidth=lw, label="")[0])
-#                 trajectories.append(plt.plot([], [], color=c, linewidth=lw, label=f"DO {i - 1} true traj.")[0])
-#             if self._config.show_waypoints:  # Nominal waypoints
-#                 waypoints = data[f"Ship{i}"][0]["waypoints"]
-#                 self.axes[0].plot(
-#                     waypoints[1, :],
-#                     waypoints[0, :],
-#                     color=c,
-#                     marker="o",
-#                     markersize=15,
-#                     linestyle="--",
-#                     linewidth=lw,
-#                     alpha=0.3,
-#                 )
-
-#         self.artists = vessels + trajectories
-
-#         def init():
-#             # ax_map.set_xlim(x_lim[0], x_lim[1])
-#             # ax_map.set_ylim(y_lim[0], y_lim[1])
-#             return self.artists
-
-#         def update(i):
-#             for j in range(n_ships):
-#                 x_i = data[f"Ship{j}"][i]["pose"][0]
-#                 y_i = data[f"Ship{j}"][i]["pose"][1]
-#                 chi_i = data[f"Ship{j}"][i]["pose"][3]
-#                 length = ship_list[j].length
-#                 width = ship_list[j].width
-
-#                 # Update vessel visualization
-#                 ship_poly = mapf.create_ship_polygon(x_i, y_i, chi_i, length, width, 2.0)
-#                 y_ship, x_ship = ship_poly.exterior.xy
-#                 vessels[j].set_xy(np.array([y_ship, x_ship]).T)
-
-#                 # Update trajectory visualization
-#                 trajectories[j].set_xdata([*trajectories[j].get_xdata(), y_i])
-#                 trajectories[j].set_ydata([*trajectories[j].get_ydata(), x_i])
-
-#                 # TODO: Update predicted trajectory visualization
-
-#                 # TODO: Update own-ship safety zone visualization
-
-#                 # TODO: Update obstacle tracks visualization
-
-#             self.artists = vessels + trajectories
-#             return self.artists
-
-#         plt.legend(loc="upper right")
-
-#         anim = animation.FuncAnimation(
-#             self.fig,
-#             func=update,
-#             init_func=init,
-#             frames=len(times) - 1,
-#             repeat=False,
-#             interval=self._config.frame_delay,
-#             blit=True,
-#         )
-
-#         if self._config.show_animation:
-#             self.wait_fig()
-
-#         if self._config.save_animation:
-#             anim.save(save_path, writer="ffmpeg", progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
 
 
 # #
