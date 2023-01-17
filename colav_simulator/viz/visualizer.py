@@ -17,6 +17,7 @@ import colav_simulator.common.paths as dp
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.feature import ShapelyFeature
+from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
@@ -110,7 +111,7 @@ class Visualizer:
         if enc:
             self.init_figure(enc)
 
-    def init_figure(self, enc: ENC) -> None:
+    def init_figure(self, enc: ENC, extent: Optional[list] = None) -> None:
         plt.close()
 
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
@@ -118,16 +119,16 @@ class Visualizer:
         ax_map = self.fig.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        # ax_map.set_xlabel("East [m]")
-        # ax_map.set_ylabel("North [m]")
-        # ax_map.set_xticks(ax_map.get_xticks())
-        # ax_map.set_yticks(ax_map.get_yticks())
+
+        if extent is not None:
+            ax_map.set_extent(extent, crs=enc.crs)
+        ax_map.gridlines(draw_labels=True, dms=True, color="gray", linewidth=1.5, linestyle="--", alpha=0.3, x_inline=False, y_inline=False)
         plt.ion()
 
-        # dark_mode_color = "#142c38"
-        # self.fig.set_facecolor(dark_mode_color)
         self.misc_plt_handles = {}
         self.ship_plt_handles = []
+
+        ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
         self.axes = [ax_map]
         plt.show(block=False)
 
@@ -179,12 +180,22 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        self.init_figure(enc)
-        ax_map = self.axes[0]
-        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
-
+        # Find the limits of the map, based on the own-ship trajectory
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
+        if ship_list[0].trajectory.size > 0:
+            buffer = 1000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].trajectory, xlimits, ylimits)
+        elif ship_list[0].waypoints.size > 0:
+            buffer = 2000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].waypoints, xlimits, ylimits)
+
+        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
+
+        self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
+        ax_map = self.axes[0]
+        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
@@ -201,13 +212,6 @@ class Visualizer:
 
             if i == 0:
                 ship_name = "OS"
-
-                if ship.trajectory.size > 0:
-                    buffer = 1000
-                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
-                elif ship.waypoints.size > 0:
-                    buffer = 2000
-                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
 
                 do_lw = self._config.do_linewidth
 
@@ -298,7 +302,7 @@ class Visualizer:
                 zorder_patch = 4
             else:
                 zorder_patch = 3
-            ship_i_handles["patch"] = ax_map.add_feature(ShapelyFeature([], color=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch))
+            ship_i_handles["patch"] = ax_map.add_feature(ShapelyFeature([], edgecolor="k", facecolor=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch))
 
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
             ship_i_handles["trajectory"] = ax_map.plot([0.0], [0.0], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs, zorder=zorder_patch - 1)[
@@ -312,7 +316,7 @@ class Visualizer:
                 linewidth=lw,
                 marker="*",
                 linestyle="-",
-                label=ship_name + " pred. traj.",
+                label="",  # ship_name + " pred. traj.",
                 transform=enc.crs,
                 zorder=zorder_patch - 1,
             )[0]
@@ -322,9 +326,9 @@ class Visualizer:
                     ship.waypoints[1, :],
                     ship.waypoints[0, :],
                     color=c,
-                    marker="o",
-                    markersize=11,
-                    linestyle="--",
+                    marker=".",
+                    markersize=8,
+                    linestyle="dashed",
                     linewidth=lw,
                     alpha=0.3,
                     label=ship_name + " waypoints",
@@ -334,11 +338,6 @@ class Visualizer:
 
             ship_i_handles["started"] = False
             self.ship_plt_handles.append(ship_i_handles)
-
-        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
-        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
-        # ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
-        # self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         extent = ax_map.get_extent()
         self.misc_plt_handles["time"] = ax_map.text(
@@ -475,8 +474,8 @@ class Visualizer:
                 self.ship_plt_handles[i]["patch"].remove()
             self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs))
 
-            self.ship_plt_handles[i]["info"].set_x(pose_i[1] + 100)
-            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 100)
+            self.ship_plt_handles[i]["info"].set_x(pose_i[1] - 200)
+            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 250)
 
             self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_line_data:], pose_i[1]])
             self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_line_data:], pose_i[0]])

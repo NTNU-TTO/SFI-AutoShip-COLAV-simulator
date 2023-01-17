@@ -280,7 +280,7 @@ class ScenarioGenerator:
             idx = 0
             if ship_config.mmsi in mmsi_list:
                 use_ais_ship_trajectory = False
-                idx = mmsi_list.index(ship_config.mmsi)
+                idx = [i for i in range(len(ais_vessel_data_list)) if ais_vessel_data_list[i].mmsi == ship_config.mmsi][0]
             elif cfg_ship_idx == 0:
                 use_ais_ship_trajectory = False
 
@@ -307,12 +307,17 @@ class ScenarioGenerator:
         n_ais_cfg_ships = len(ship_list)
         n_random_ships = config.n_random_ships
         # Ships still non-configured will be generated randomly
-        if non_cfged_ship_indices:
-            n_random_ships += len(non_cfged_ship_indices)
-            for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
-                non_cfged_ship_indices.append(i)
+        # Add own-ship (idx 0) if no AIS ships were configured
+        if n_ais_cfg_ships == 0 and len(non_cfged_ship_indices) == 0:
+            non_cfged_ship_indices.append(0)
+            cfg_ship_idx = 1
+
+        n_random_ships += len(non_cfged_ship_indices)
+        for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
+            non_cfged_ship_indices.append(i)
 
         # The remaining ships are generated randomly
+        os_pose = [x.pose for x in ship_list if x.id == 0]
         while non_cfged_ship_indices:
             cfg_ship_idx = non_cfged_ship_indices.pop(0)
             if cfg_ship_idx < n_cfg_ships and cfg_ship_idx == config.ship_list[cfg_ship_idx].id:
@@ -332,13 +337,16 @@ class ScenarioGenerator:
                 else:
                     pose = self.generate_ts_pose(
                         config.type,
-                        pose_list[0],
+                        os_pose,
                         U_min=ship_obj.min_speed,
                         U_max=ship_obj.max_speed,
                         draft=ship_obj.draft,
                     )
                 ship_config.pose = pose
                 ship_obj.set_initial_state(pose)
+
+            if cfg_ship_idx == 0:
+                os_pose = pose
 
             if ship_config.waypoints is None:
                 waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
@@ -470,8 +478,8 @@ class ScenarioGenerator:
             x (float): x position (north) of the ship.
             y (float): y position (east) of the ship.
             psi (float): heading of the ship in radians.
+            draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
             n_wps (Optional[int]): Number of waypoints to create.
-            no_enc (bool): If True, the waypoints will not be constrained by the ENC area.
 
         Returns:
             np.ndarray: 2 x n_wps array of waypoints.
@@ -484,9 +492,9 @@ class ScenarioGenerator:
         for i in range(1, n_wps):
             min_dist_to_land = mapf.min_distance_to_land(self.enc, waypoints[1, i - 1], waypoints[0, i - 1])
             crosses_grounding_hazards = True
-            cgh_count = -1
+            iter_count = -1
             while crosses_grounding_hazards:
-                cgh_count += 1
+                iter_count += 1
 
                 distance_wp_to_wp = random.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
                 distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
@@ -504,11 +512,13 @@ class ScenarioGenerator:
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(self.enc, new_wp, waypoints[:, i - 1], draft)
 
-                if cgh_count >= 10:
+                if iter_count >= 20:
                     break
 
-            if cgh_count >= 10:
+            if iter_count >= 20:
                 waypoints = waypoints[:, 0:i]
+                if i == 1:  # stand-still, no waypoints under given parameters that avoids grounding hazards
+                    waypoints = np.append(waypoints, waypoints, axis=1)
                 break
 
             waypoints[:, i] = new_wp

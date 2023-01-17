@@ -208,13 +208,19 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, land_clear
     ss_bounds = safe_sea.geometry.bounds
 
     is_safe = False
+    iter_count = 0
     while not is_safe:
         easting = random.uniform(ss_bounds[0], ss_bounds[2])
         northing = random.uniform(ss_bounds[1], ss_bounds[3])
 
+        # TODO: Fix when enc has wrong map data/no map data.
         is_ok_clearance = min_distance_to_land(enc, easting, northing) >= land_clearance
 
         is_safe = safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance
+
+        iter_count += 1
+        if iter_count > 1000:
+            raise Exception("Could not find a valid start position. Check the map data of your ENC object.")
 
     return northing, easting
 

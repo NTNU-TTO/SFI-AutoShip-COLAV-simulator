@@ -6,6 +6,9 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 [![platform](https://img.shields.io/badge/platform-linux-lightgrey)]()
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
 
+![Simulation example](./scenarios/example_img/aalesund_random.pdf)
+<img src="./scenarios/example_img/aalesund_random.pdf">
+
 
 ## Dependencies
 Are all outlined in setup.cfg, and listed below:
@@ -142,6 +145,8 @@ Look at the `ScenarioConfig` dataclass, example scenario files for information o
 Look at the `schemas` folder under the package source code for further clues on how to write a new scenario config file.
 
 Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
+
+Troubles with "freezing" when you generate a scenario? Check if you have specified `new_load_of_map_data=True`in the scenario configuration file. If this is false, and the map data is not loaded/wrong data is used, the `distance_to_land` function could spend a long time.
 
 ### Visualizer
 
