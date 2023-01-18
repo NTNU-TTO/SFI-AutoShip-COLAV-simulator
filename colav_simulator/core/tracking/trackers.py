@@ -133,7 +133,7 @@ class KF(ITracker):
         n_tracked_do = len(self._xs_upd)
         # TODO: Implement track termination for when covariance is too large.
         for i in range(n_tracked_do):
-            if np.sqrt(self._P_upd[i][0, 0]) > 15.0 or np.sqrt(self._P_upd[i][1, 1]) > 15.0:
+            if np.sqrt(self._P_upd[i][0, 0]) > 50.0 or np.sqrt(self._P_upd[i][1, 1]) > 50.0:
                 self._track_terminated[i] = True
 
         # Only generate measurements for initialized tracks

@@ -145,7 +145,6 @@ class Simulator:
             t_prev = t
 
             sim_data_dict = {}
-            sensor_measurements = []
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
                 if t == 0.0:
@@ -158,16 +157,21 @@ class Simulator:
                 if i == 0:
                     relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
                     _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
-                    sensor_measurements.append(sensor_measurements_i)
+                    if t == 0.0:
+                        most_recent_sensor_measurements = sensor_measurements_i
+
                     for sensor_idx, meas in enumerate(sensor_measurements_i):
-                        if len(meas) > 0 and ~np.isnan(meas).any():
-                            sensor_measurements[i][sensor_idx] = meas
+                        if not meas:
+                            continue
+                        if np.isnan(meas).any():
+                            continue
+                        most_recent_sensor_measurements[sensor_idx].append(meas)
 
                 if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(int(t), timestamp_start)
-                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = sensor_measurements_i
+                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:
                     ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, scenario_config.utm_zone)
@@ -176,6 +180,6 @@ class Simulator:
             sim_data.append(sim_data_dict)
 
             if self._config.visualize and t % 10.0 < 0.0001:
-                self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, sensor_measurements)
+                self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, most_recent_sensor_measurements)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info, sim_times

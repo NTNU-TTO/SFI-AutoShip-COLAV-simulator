@@ -15,6 +15,7 @@ Are all outlined in setup.cfg, and listed below:
 
 - numpy
 - matplotlib
+- matplotlib_scalebar
 - cartopy
 - scipy
 - pandas
