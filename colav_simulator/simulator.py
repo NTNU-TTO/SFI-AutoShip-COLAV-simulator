@@ -170,7 +170,7 @@ class Simulator:
                 if dt_sim > 0 and ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(int(t), timestamp_start)
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t, timestamp_start)
                 sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements
 
                 if t % 1.0 / ship_obj.ais_msg_freq == 0:

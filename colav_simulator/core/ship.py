@@ -427,7 +427,7 @@ class Ship(IShip):
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "date_time_utc": datetime_str,
-            "timestamp": int(t),
+            "timestamp": t,
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
