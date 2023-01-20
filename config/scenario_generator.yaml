@@ -1,6 +1,6 @@
 
 n_ship_range: [1, 10]
-n_wps_range: [6, 15]
+n_wps_range: [7, 15]
 speed_plan_variation_range: [-1.0, 1.0]
 waypoint_dist_range: [200.0, 10000.0]
 waypoint_ang_range: [-45.0, 45.0]
@@ -10,4 +10,4 @@ ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [15.1, 112.5]
 cr_heading_range: [-15.0, 15.0]
-dist_between_ships_range: [2000.0, 10000.0]
+dist_between_ships_range: [1000.0, 2000.0]

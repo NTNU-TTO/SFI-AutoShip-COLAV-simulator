@@ -72,6 +72,72 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
     return vessels
 
 
+def find_cpa_indices(trajectory_list: list) -> np.ndarray:
+    """Find the indices of the ships that are closest to each other.
+
+    Args:
+        trajectory_list (list): List of trajectories.
+
+    Returns:
+        np.ndarray: Array containing the indices of the ships that are closest to each other.
+    """
+    n_ships = len(trajectory_list)
+    cpa_indices = np.zeros((n_ships, n_ships), dtype=int) * np.nan
+
+    for i in range(n_ships):
+        for j in range(n_ships):
+            if i == j:
+                continue
+            cpa_indices[i, j] = find_cpa_index(trajectory_list[i], trajectory_list[j])
+
+    return cpa_indices
+
+
+def find_cpa_index(trajectory_i, trajectory_j) -> int | float:
+    """Find the index of the closest point of approach between two ships.
+
+    Args:
+        trajectory_i (np.ndarray): Trajectory of ship i.
+        trajectory_j (np.ndarray): Trajectory of ship j.
+
+    Returns:
+        int: Index of the closest point of approach for the trajectory pair.
+    """
+    min_dist_idx = np.nan
+
+    n_samples = len(trajectory_i[0, :])
+    ranges = np.zeros(n_samples)
+    for k in range(len(trajectory_i[0, :])):
+        ranges[k] = np.linalg.norm(trajectory_i[0:2, k] - trajectory_j[0:2, k])
+
+    finite = np.where(~np.isnan(ranges))[0]
+    if finite.size > 0:
+        min_dist_idx = np.argmin(ranges[finite])
+    return min_dist_idx
+
+
+def extract_ship_data_from_sim_dataframe(ship_list: list, sim_data: pd.DataFrame) -> dict:
+    """Extract the ship data from the simulation data.
+
+    Args:
+        ship_list (list): List of ship objects.
+        sim_data (pd.DataFrame): Simulation data from the ships.
+    Returns:
+        dict: Dictionary containing the ship data related to the simulation.
+    """
+    output = {}
+    trajectory_list = []
+    for i, ship in enumerate(ship_list):
+        X, timestamps, _ = extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{i}"])
+        trajectory_list.append(X)
+
+    output["trajectory_list"] = trajectory_list
+    output["timestamps"] = timestamps
+    cpa_indices = find_cpa_indices(trajectory_list)
+    output["cpa_indices"] = cpa_indices
+    return output
+
+
 def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
     """Extract the trajectory related data from a ship dataframe.
 

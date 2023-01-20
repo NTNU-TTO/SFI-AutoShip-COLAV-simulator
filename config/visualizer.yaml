@@ -1,4 +1,4 @@
-show_liveplot: True
+show_liveplot: False
 show_results: True
 show_measurements: False
 show_tracks: False

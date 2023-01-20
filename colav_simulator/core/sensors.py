@@ -239,7 +239,6 @@ class AIS:
                 rate = 1.0 / 180.0
             elif sog > 2.0:
                 rate = 1.0 / 30.0
-        rate = 1.0 / 15.0
         return rate
 
     @property

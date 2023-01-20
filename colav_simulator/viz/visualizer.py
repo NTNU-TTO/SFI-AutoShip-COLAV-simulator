@@ -539,9 +539,13 @@ class Visualizer:
         else:
             save_file_path = Path(str(save_file_path) + ".pdf")
 
+        ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
+        trajectory_list = ship_data["trajectory_list"]
+        cpa_indices = ship_data["cpa_indices"]
+
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(0.1 * n_samples), round(0.5 * n_samples), round(0.8 * n_samples)]
+            k_snapshots = [round(0.1 * n_samples), round(0.3 * n_samples), round(0.6 * n_samples)]
 
         figs = []
         axes = []
@@ -566,8 +570,7 @@ class Visualizer:
             else:
                 ship_color = self._config.ship_colors[i]
 
-            X, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(ship_sim_data)
-
+            X = trajectory_list[i]
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
@@ -634,37 +637,40 @@ class Visualizer:
                     if last_valid_idx_track < end_idx_j:
                         end_idx_j = last_valid_idx + 1
 
+                    if first_valid_idx_track >= end_idx_j:
+                        continue
+
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{do_labels[j]}"])
                     do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
 
-                    ax_map.plot(
-                        do_estimates_j[1, first_valid_idx_track:end_idx_j],
-                        do_estimates_j[0, first_valid_idx_track:end_idx_j],
-                        color=do_color,
-                        linewidth=ship_lw,
-                        transform=enc.crs,
-                        label=f"DO {do_labels[j] -1} est. traj.",
-                        zorder=zorder_patch - 2,
-                    )
+                    # ax_map.plot(
+                    #     do_estimates_j[1, first_valid_idx_track:end_idx_j],
+                    #     do_estimates_j[0, first_valid_idx_track:end_idx_j],
+                    #     color=do_color,
+                    #     linewidth=ship_lw,
+                    #     transform=enc.crs,
+                    #     label=f"DO {do_labels[j] -1} est. traj.",
+                    #     zorder=zorder_patch - 2,
+                    # )
                     for k in k_snapshots:
                         if k < first_valid_idx_track or k > end_idx_j:
                             continue
 
-                        ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
-                        ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
-                        ax_map.add_feature(
-                            ShapelyFeature(
-                                [ell_geometry],
-                                linewidth=do_lw,
-                                color=do_color,
-                                alpha=0.3,
-                                label=f"DO {do_labels[j] - 1} est. cov.",
-                                crs=enc.crs,
-                                zorder=zorder_patch - 2,
-                            )
-                        )
+                        # ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
+                        # ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
+                        # ax_map.add_feature(
+                        #     ShapelyFeature(
+                        #         [ell_geometry],
+                        #         linewidth=do_lw,
+                        #         color=do_color,
+                        #         alpha=0.3,
+                        #         label=f"DO {do_labels[j] - 1} est. cov.",
+                        #         crs=enc.crs,
+                        #         zorder=zorder_patch - 2,
+                        #     )
+                        # )
 
                     if show_tracking_results:
                         fig_do_j, axes_do_j = self._plot_do_tracking_results(
@@ -705,8 +711,8 @@ class Visualizer:
                     )
                 )
                 ax_map.text(
-                    X[1, k] - 250,
-                    X[0, k] + 300,
+                    X[1, k] - 150,
+                    X[0, k] + 200,
                     f"$t_{count}$",
                     fontsize=12,
                     zorder=zorder_patch + 1,

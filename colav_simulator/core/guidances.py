@@ -95,9 +95,7 @@ class IGuidance(ABC):
     """
 
     @abstractmethod
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         "Computes guidance reference states for the ship controller to track."
 
 
@@ -131,9 +129,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._s: float = 0.001
         self._init: bool = False
 
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
 
@@ -278,28 +274,14 @@ class KinematicTrajectoryPlanner(IGuidance):
         return np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
 
     def _compute_path_variable_derivatives(self) -> Tuple[float, float]:
-        s_dot = self._speed_spline(self._s) / np.sqrt(
-            self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)
-        )
+        s_dot = self._speed_spline(self._s) / np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0))
 
         s_ddot = s_dot * (
-            self._speed_spline(self._s, 1)
-            / np.sqrt(
-                self._params.epsilon
-                + np.power(self._x_spline(self._s, 1), 2.0)
-                + np.power(self._y_spline(self._s, 1), 2.0)
-            )
+            self._speed_spline(self._s, 1) / np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0))
             - self._speed_spline(self._s)
-            * (
-                self._x_spline(self._s, 1) * self._x_spline(self._s, 2)
-                + self._y_spline(self._s, 1) * self._y_spline(self._s, 2)
-            )
+            * (self._x_spline(self._s, 1) * self._x_spline(self._s, 2) + self._y_spline(self._s, 1) * self._y_spline(self._s, 2))
             / np.power(
-                np.sqrt(
-                    self._params.epsilon
-                    + np.power(self._x_spline(self._s, 1), 2.0)
-                    + np.power(self._y_spline(self._s, 1), 2.0)
-                ),
+                np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)),
                 3.0,
             )
         )
@@ -345,9 +327,7 @@ class LOSGuidance(IGuidance):
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes references in course and speed using the LOS guidance law.
 
         Args:
@@ -373,9 +353,7 @@ class LOSGuidance(IGuidance):
             L_wp_segment = waypoints[:, self._wp_counter + 1] - waypoints[:, self._wp_counter]
 
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
-        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
-            xs[1] - waypoints[1, self._wp_counter]
-        ) * np.cos(alpha)
+        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (xs[1] - waypoints[1, self._wp_counter]) * np.cos(alpha)
         self._e_int += e * dt
         if self._e_int >= self._params.e_int_max:
             self._e_int -= e * dt
@@ -407,7 +385,7 @@ class LOSGuidance(IGuidance):
             segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
             if segment_passed:
                 self._wp_counter += 1
-                print(f"Segment {i} passed!")
+                # print(f"Segment {i} passed!")
             else:
                 break
 

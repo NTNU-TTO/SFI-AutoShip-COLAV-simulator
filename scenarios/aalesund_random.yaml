@@ -1,7 +1,7 @@
 name: "aalesund_random"
 save_scenario: True
 t_start: 0.0
-t_end: 2000.0
+t_end: 500.0
 dt_sim: 1.0
 utm_zone: 33
 map_size: [30000.0, 40000.0]
@@ -9,7 +9,7 @@ map_origin_enu: [37000.0, 6950450.0]
 map_data_files: ["More_og_Romsdal.gdb"]
 new_load_of_map_data: False
 type: 6
-n_random_ships: 13
+n_random_ships: 5
 ship_list:
   - pose: [6959500.0, 40500.0, 7.0, 90.0]
     id: 0
@@ -20,12 +20,12 @@ ship_list:
         q: 0.15
     sensors:
       - radar:
-          max_range: 5000.0
+          max_range: 10000.0
           measurement_rate: 0.5
           R: [25.0, 25.0]
           R_true: [25.0, 25.0]
       - ais:
-          max_range: 5000.0
+          max_range: 10000.0
           ais_class: 0
           R: [26.3, 26.3, 0.1, 0.1]
           R_true: [26.3, 26.3, 0.1, 0.1]
@@ -33,7 +33,7 @@ ship_list:
       los:
         pass_angle_threshold: 80.0
         R_a: 40.0
-        K_p: 0.015
+        K_p: 0.025
         K_i: 0.0
         e_int_max: 200.0
     controller:
@@ -46,5 +46,5 @@ ship_list:
         T_chi: 3.0
         T_U: 5.0
         r_max: 4.0
-        U_min: 0.0
+        U_min: 4.0
         U_max: 15.0

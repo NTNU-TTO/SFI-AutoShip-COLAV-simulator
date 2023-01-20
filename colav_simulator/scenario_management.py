@@ -41,7 +41,6 @@ class ScenarioType(Enum):
         CR_GW: Crossing scenario where own-ship has give-way duties.
         CR_SO: Crossing scenario where own-ship has stand-on duties.
         MS: Multiple ships scenario without any specification of COLREGS situations.
-        RANDOM: Random number of ships in the scenario.
     """
 
     SS = 0
@@ -51,7 +50,6 @@ class ScenarioType(Enum):
     CR_GW = 4
     CR_SO = 5
     MS = 6
-    RANDOM = 7
 
 
 @dataclass
@@ -397,6 +395,9 @@ class ScenarioGenerator:
         if any(np.isnan(os_pose)):
             return self.generate_random_pose(max_speed=U_max, draft=draft)
 
+        if scenario_type == ScenarioType.MS:
+            scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
+
         is_safe_pose = False
         while not is_safe_pose:
             if scenario_type == ScenarioType.HO:
@@ -422,7 +423,7 @@ class ScenarioGenerator:
                 heading_modifier = -90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
             elif scenario_type == ScenarioType.CR_SO:
-                bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
+                bearing = random.uniform(-self._config.cr_bearing_range[1], -self._config.cr_bearing_range[0])
                 speed = random.uniform(U_min, U_max)
                 heading_modifier = 90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
@@ -576,7 +577,9 @@ def save_scenario_definition(scenario_config: ScenarioConfig) -> None:
         scenario_config (ScenarioConfig): Scenario configuration
     """
     scenario_config_dict: dict = scenario_config.to_dict()
+    scenario_config_dict["save_scenario"] = False
     current_datetime_str = mhm.current_utc_datetime_str("%d%m%Y_%H_%M_%S")
+    scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
     save_file = dp.scenarios / filename
     with save_file.open(mode="w") as file:
