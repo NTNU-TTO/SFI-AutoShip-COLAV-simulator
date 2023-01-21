@@ -545,7 +545,7 @@ class Visualizer:
 
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(0.1 * n_samples), round(0.3 * n_samples), round(0.6 * n_samples)]
+            k_snapshots = [round(0.09 * n_samples), round(0.25 * n_samples), round(0.6 * n_samples)]
 
         figs = []
         axes = []
@@ -587,8 +587,9 @@ class Visualizer:
             if i == 0:
                 ship_name = "OS"
                 xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X[:, first_valid_idx:end_idx], xlimits, ylimits)
-                xlimits = [xlimits[0] - 2000, xlimits[1] + 2000]
-                ylimits = [ylimits[0] - 2000, ylimits[1] + 2000]
+                buffer = 1500
+                xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+                ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
                 zorder_patch = 4
             else:
                 ship_name = "DO " + str(i - 1)
@@ -697,8 +698,8 @@ class Visualizer:
                     heading=X[3, k],
                     length=ship.length,
                     width=ship.width,
-                    length_scaling=2 * self._config.ship_scaling[0],
-                    width_scaling=2 * self._config.ship_scaling[1],
+                    length_scaling=self._config.ship_scaling[0],
+                    width_scaling=self._config.ship_scaling[1],
                 )
                 ax_map.add_feature(
                     ShapelyFeature(
@@ -710,13 +711,13 @@ class Visualizer:
                         zorder=zorder_patch,
                     )
                 )
-                ax_map.text(
-                    X[1, k] - 150,
-                    X[0, k] + 200,
-                    f"$t_{count}$",
-                    fontsize=12,
-                    zorder=zorder_patch + 1,
-                )
+                # ax_map.text(
+                #     X[1, k] - 100,
+                #     X[0, k] + 200,
+                #     f"$t_{count}$",
+                #     fontsize=12,
+                #     zorder=zorder_patch + 1,
+                # )
                 count += 1
 
         ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)

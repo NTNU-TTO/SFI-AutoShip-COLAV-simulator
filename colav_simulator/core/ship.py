@@ -303,13 +303,13 @@ class Ship(IShip):
 
     def _set_variables_from_config(self, config: Config) -> None:
         self._id = config.id
-        if config and config.pose is not None:
+        if config.pose is not None:
             self.set_initial_state(config.pose)
 
-        if config and config.waypoints is not None and config.speed_plan is not None:
+        if config.waypoints is not None and config.speed_plan is not None:
             self.set_nominal_plan(config.waypoints, config.speed_plan)
 
-        if config and config.mmsi != -1:
+        if config.mmsi != -1:
             self._mmsi = config.mmsi
 
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
