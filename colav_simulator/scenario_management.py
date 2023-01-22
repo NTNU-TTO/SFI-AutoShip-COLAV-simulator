@@ -54,17 +54,7 @@ class ScenarioType(Enum):
 
 @dataclass
 class ScenarioConfig:
-    """Configuration class for a ship scenario.
-
-    If the scenario includes AIS data, one can specify the MMSI of vessels in the ship_list to
-    replace predefined AIS trajectories for ships with matching MMSI. This is useful if you
-    want to test a COLAV algorithm in an AIS scenario, and put the own-ship in place of a
-    predefined ship AIS trajectory in say a Head-on scenario.
-
-    If len(ship_list) < n_ships, the remaining ships will be randomly generated.
-
-    If the n_cfg_ais_ships from the AIS data is less than n_ships, the remaining ships will be randomly generated.
-    """
+    """Configuration class for a ship scenario."""
 
     name: str
     save_scenario: bool
