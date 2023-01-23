@@ -158,18 +158,6 @@ The class can, as most other main modules, be configured from the example config
 #### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a `forward(dt) -> np.ndarray` function that allows simple simulation of the vessel.
 
-It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code for more information on how this is done.
+It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
 TODO: Implement interfaces for using arbitrary collision avoidance algorithms and planning hierarchys.
-
-The `Ship` object can be initialized with the following parameters
-
-- `mmsi` (mandatory): Integer containing the Maritime Mobile Service Identity number of the ship.
-- `waypoints` (optional): 2 x n_wps array containing the ship route plan.
-- `speed_plan` (optional): 1 x n_wps array containing the corresponding reference speeds for the ship.
-- `pose` (optional): Initial pose of the ship `xs = [x, y, U, chi]` where `x` and `y` are planar coordinates (north-east), `chi` is course (rad), `U` the ship forward speed (m/s). Note that the internal `state` of the vessel can be either 4-dimensional or 6-dimensional, depending on the ship model used.
-- `config` (optional): Contains configuration settings for the ship subsystems.
-
-Except from the ship config, the other optional arguments must be specified afterwards through the `set_initial_pose` and `set_nominal_plan` for the ship object to be functionable.
-
-See the source code for more in depth info on the `Ship` functionality.

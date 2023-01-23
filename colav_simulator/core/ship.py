@@ -349,6 +349,8 @@ class Ship(IShip):
         if dt <= 0.0:
             raise ValueError("Time step must be strictly positive!")
 
+        # Plan a collision free trajectory
+
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 
         u = self._controller.compute_inputs(references, self._state, dt, self._model)
