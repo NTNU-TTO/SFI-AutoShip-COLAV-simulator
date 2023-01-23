@@ -9,6 +9,7 @@
     Author: Trym Tengesdal, Joachim Miller, Melih Akdag
 """
 
+import copy
 import random
 from dataclasses import dataclass
 from enum import Enum
@@ -22,7 +23,6 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
-import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.enc as senc
 import yaml
@@ -197,7 +197,7 @@ class ScenarioGenerator:
         if init_enc:
             self.enc = senc.ENC(**kwargs)
 
-    def _configure_enc(self, scenario_config: ScenarioConfig):
+    def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.
 
         Args:
@@ -214,9 +214,10 @@ class ScenarioGenerator:
             files=scenario_config.map_data_files,
             new_data=scenario_config.new_load_of_map_data,
         )
-        plt.close()
 
-    def generate(self, scenario_config_file: Path) -> Tuple[list, ScenarioConfig]:
+        return copy.deepcopy(self.enc)
+
+    def generate(self, scenario_config_file: Path) -> Tuple[list, ScenarioConfig, senc.ENC]:
         """Main class function. Creates a maritime scenario based on the input config file,
         with random plans for each ship unless specified in ship_list entries or loaded from AIS data.
 
@@ -224,20 +225,21 @@ class ScenarioGenerator:
             scenario_config_file (Path): Path to the scenario config file.
 
         Returns:
-            Tuple[list, ScenarioConfig]: List of ships in the scenario with initialized poses and plans, and the scenario config object.
+            Tuple[list, ScenarioConfig, senc.ENC]: List of ships in the scenario with initialized poses and plans, the scenario config object and configured ENC object for the scenario.
         """
         print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
         ais_vessel_data_list = []
-        if config.ais_data_file is not None:
-            output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, config.map_size, config.dt_sim)
-            ais_vessel_data_list = output["vessels"]
-            mmsi_list = output["mmsi_list"]
-            config.map_origin_enu = output["map_origin_enu"]
-            config.map_size = output["map_size"]
+        ais_data_output = process_ais_data(config)
+        if ais_data_output:
+            ais_vessel_data_list = ais_data_output["vessels"]
+            mmsi_list = ais_data_output["mmsi_list"]
+            config.map_origin_enu = ais_data_output["map_origin_enu"]
+            config.map_size = ais_data_output["map_size"]
 
-        self._configure_enc(config)
+        config.map_origin_enu, config.map_size = find_global_map_origin_and_size(config)
+        enc_copy = self._configure_enc(config)
 
         n_cfg_ships = len(config.ship_list)
         ship_list = []
@@ -356,7 +358,7 @@ class ScenarioGenerator:
         if config.save_scenario:
             save_scenario_definition(config)
 
-        return ship_list, config
+        return ship_list, config, enc_copy
 
     def generate_ts_pose(
         self,
@@ -389,6 +391,7 @@ class ScenarioGenerator:
             scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
         is_safe_pose = False
+        iter_count = 1
         while not is_safe_pose:
             if scenario_type == ScenarioType.HO:
                 bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
@@ -433,6 +436,10 @@ class ScenarioGenerator:
 
             if distance_to_land >= min_land_clearance:
                 is_safe_pose = True
+
+            iter_count += 1
+            if iter_count >= 100000:
+                raise ValueError("Could not find a safe pose for the target ship. Have you remembered new load of map data?")
 
         return np.array([x, y, speed, heading])
 
@@ -574,3 +581,64 @@ def save_scenario_definition(scenario_config: ScenarioConfig) -> None:
     save_file = dp.scenarios / filename
     with save_file.open(mode="w") as file:
         yaml.dump(scenario_config_dict, file)
+
+
+def find_global_map_origin_and_size(config: ScenarioConfig) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    """Finds the global map origin and size encompassing all ships in the scenario.
+
+    Args:
+        config (ScenarioConfig): Scenario configuration
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Global map origin and size
+    """
+    assert config.map_origin_enu is not None and config.map_size is not None
+    assert config.ship_list is not None
+    map_origin_enu = config.map_origin_enu
+    map_size = config.map_size
+
+    min_east = map_origin_enu[0]
+    min_north = map_origin_enu[1]
+    max_east = map_origin_enu[0] + map_size[0]
+    max_north = map_origin_enu[1] + map_size[1]
+    for ship_config in config.ship_list:
+        if ship_config.pose is not None:
+            pose = ship_config.pose
+            if pose[0] < min_north:
+                min_north = pose[0]
+            if pose[0] > max_north:
+                max_north = pose[0]
+            if pose[1] < min_east:
+                min_east = pose[1]
+            if pose[1] > max_east:
+                max_east = pose[1]
+
+        if ship_config.waypoints is not None:
+            waypoints = ship_config.waypoints
+            if np.min(waypoints[0, :]) < min_north:
+                min_north = np.min(waypoints[0, :])
+            if np.max(waypoints[0, :]) > max_north:
+                max_north = np.max(waypoints[0, :])
+            if np.min(waypoints[1, :]) < min_east:
+                min_east = np.min(waypoints[1, :])
+            if np.max(waypoints[1, :]) > max_east:
+                max_east = np.max(waypoints[1, :])
+
+    map_origin_enu = min_east, min_north
+    map_size = max_east - min_east, max_north - min_north
+    return map_origin_enu, map_size
+
+
+def process_ais_data(config: ScenarioConfig) -> dict:
+    """Processes AIS data from a list of AIS data files, returns a dict containing AIS VesselData, ship MMSIs and the coordinate frame origin and size.
+
+    Args:
+        config (ScenarioConfig): Configuration object containing all parameters/settings related to the creation of a scenario.
+
+    Returns:
+        dict: Dict containing AIS VesselData, ship MMSIs, and the coordinate frame origin and size.
+    """
+    output = {}
+    if config.ais_data_file is not None:
+        output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, config.map_size, config.dt_sim)
+    return output

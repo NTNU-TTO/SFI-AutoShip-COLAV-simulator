@@ -17,6 +17,7 @@ import colav_simulator.common.paths as dp
 import colav_simulator.scenario_management as sm
 import numpy as np
 import pandas as pd
+import seacharts.enc as senc
 from colav_simulator.viz.visualizer import Visualizer
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
@@ -77,13 +78,14 @@ class Simulator:
         ship_info_list = []
         vessels_data_list = []
         scenario_config_list = []
+        scenario_enc_list = []
 
         for i, scenario_file in enumerate(self._config.scenario_files):
-            ship_list, scenario_config = self._scenario_generator.generate(dp.scenarios / scenario_file)
+            ship_list, scenario_config, scenario_enc = self._scenario_generator.generate(dp.scenarios / scenario_file)
 
             if self._config.verbose:
                 print(f"Running scenario nr {i}: {scenario_file}...")
-            sim_data, ais_data, ship_info, sim_times = self.run_scenario(ship_list, scenario_config)
+            sim_data, ais_data, ship_info, sim_times = self.run_scenario(ship_list, scenario_config, scenario_enc)
 
             if self._config.visualize:
                 self._visualizer.visualize_results(
@@ -95,14 +97,13 @@ class Simulator:
                     save_file_path=dp.figure_output / scenario_config.name,
                 )
 
-            # TODO: Add saving of scenario viz results if specified in config
-
             vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, scenario_config.utm_zone)
             vessels_data_list.append(vessel_data)
             sim_data_list.append(sim_data)
             ais_data_list.append(ais_data)
             ship_info_list.append(ship_info)
             scenario_config_list.append(scenario_config)
+            scenario_enc_list.append(scenario_enc)
 
         output = {}
         output["sim_data_list"] = sim_data_list
@@ -110,15 +111,18 @@ class Simulator:
         output["ship_info_list"] = ship_info_list
         output["vessels_data_list"] = vessels_data_list
         output["scenario_config_list"] = scenario_config_list
+        output["scenario_enc_list"] = scenario_enc_list
         return output
 
-    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
+    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
 
         Args:
             ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
+            scenario_config (ScenarioConfig): Scenario configuration object.
+            scenario_enc (senc.ENC): ENC object relevant the scenario.
 
 
         Returns: a tuple containing:
@@ -128,7 +132,7 @@ class Simulator:
             sim_times (np.array): Array containing the simulation times.
         """
         if self._config.visualize:
-            self._visualizer.init_live_plot(self._scenario_generator.enc, ship_list)
+            self._visualizer.init_live_plot(scenario_enc, ship_list)
 
         sim_data = []
         ais_data = []
@@ -148,7 +152,7 @@ class Simulator:
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
                 if t == 0.0:
-                    print(f"Ship {i} starts at {ship_obj.t_start} | t is now {t}")
+                    print(f"Ship {i} starts at {ship_obj.t_start}")
                 if ship_obj.t_start <= t:
                     state = mhm.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
                     true_do_states.append((i, state))

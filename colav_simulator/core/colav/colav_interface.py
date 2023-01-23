@@ -22,7 +22,7 @@ class ICOLAV(ABC):
 
         Args:
             ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r].
-            do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, shape).
+            do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
             t (float): The current time.
 
