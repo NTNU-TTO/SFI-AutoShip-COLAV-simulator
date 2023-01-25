@@ -97,6 +97,27 @@ class IController(ABC):
         """
 
 
+class ControllerBuilder:
+    @classmethod
+    def construct_controller(cls, config: Optional[Config] = None) -> IController:
+        """Builds a controller from the configuration
+
+        Args:
+            config (Optional[controllers.Config], optional): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a MIMOPID controller.
+        """
+        if config and config.pid:
+            return MIMOPID(config)
+        elif config and config.flsh:
+            return FLSH(config)
+        elif config and config.pass_through_cs:
+            return PassThroughCS()
+        else:
+            return PassThroughCS()
+
+
 @dataclass
 class PassThroughCS(IController):
     """This controller just feeds through the course (heading) and forward speed references."""
@@ -196,9 +217,7 @@ class MIMOPID(IController):
         return tau
 
 
-def pole_placement(
-    Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def pole_placement(Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Dynamic positioning controller pole placement based on Ex. 12.7 in Fossen 2011.
 
     Args:

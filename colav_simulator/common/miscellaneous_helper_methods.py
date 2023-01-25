@@ -20,7 +20,9 @@ from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelle
 from scipy.stats import chi2
 
 
-def check_if_vessel_is_passed_by(p_os: np.ndarray, psi_os: np.ndarray, p_do: np.ndarray, psi_do: np.ndarray, threshold_angle: float = 100.0, threshold_distance: float = 50.0) -> bool:
+def check_if_vessel_is_passed_by(
+    p_os: np.ndarray, v_os: np.ndarray, p_do: np.ndarray, v_do: np.ndarray, threshold_angle: float = 100.0, threshold_distance: float = 50.0
+) -> bool:
     """Checks if a vessel is passed by another vessel.
 
     Args:
@@ -35,28 +37,21 @@ def check_if_vessel_is_passed_by(p_os: np.ndarray, psi_os: np.ndarray, p_do: np.
     is_passed_by = False
 
     dist_os_do = p_do - p_os
-    dist_os_do_norm = np.linalg.norm(dist_os_do)
-    np.no
+    L_os_do = dist_os_do / np.linalg.norm(dist_os_do)
+    U_os = np.linalg.norm(v_os)
+    U_do = np.linalg.norm(v_do)
 
-    L_0i = xs_i.get_block<2, 1>(0, 0, 2, 1) - xs_0.get_block<2, 1>(0, 0, 2, 1);
-			d_0i = L_0i.norm();
-			L_0i.normalize();
+    os_is_overtaken = np.dot(v_os, v_do) > np.cos(np.deg2rad(68.5)) * U_os * U_do and U_os < U_do and U_os > 0.25
+    do_is_overtaken = np.dot(v_do, v_os) > np.cos(np.deg2rad(68.5)) * U_do * U_os and U_do < U_os and U_do > 0.25
 
-	# os_is_overtaken = np.dot(v_os, v_do) > np.cos(68.5) * np.linalg.norm(v_os) * np.linalg.norm(v_i) and
-	# 							  np.linalg.norm(v_os) <np.linalg.norm(v_do) and
-	# 		# 					  v_0.norm() > 0.25;
+    vessel_is_passed = (
+        (np.dot(v_os, L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_os and not os_is_overtaken)
+        or (np.dot(v_do, -L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_do and not do_is_overtaken)
+        and np.linalg.norm(dist_os_do) > threshold_distance
+    )
 
-			# bool B_is_overtaken = v_i.dot(v_0) > cos(68.5 * DEG2RAD) * v_i.norm() * v_0.norm() &&
-			# 					  v_i.norm() < v_0.norm() &&
-			# 					  v_i.norm() > 0.25;
+    return vessel_is_passed
 
-			# bool is_passed = ((v_0.dot(L_0i) < cos(112.5 * DEG2RAD) * v_0.norm() && // Vessel A's perspective
-			# 				   !A_is_overtaken) ||
-			# 				  (v_i.dot(-L_0i) < cos(112.5 * DEG2RAD) * v_i.norm() && // Vessel B's perspective
-			# 				   !B_is_overtaken)) &&
-			# 				 d_0i > d_safe;
-
-    return is_passed_by
 
 def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray) -> Tuple[float, float, np.ndarray]:
     """Computes the closest point of approach (CPA) between two vessel when assumed to travel with constant velocity.
@@ -75,11 +70,11 @@ def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: 
     v = v2 - v1
 
     if np.dot(v, v) < 0.0001:
-        return 0, r
+        return 0.0, float(np.linalg.norm(r)), p2 - p1
 
     t_cpa = -np.dot(r, v) / np.dot(v, v)
-    d_cpa_vec = r + t_cpa * v
-    d_cpa = np.linalg.norm(d_cpa_vec)
+    d_cpa_vec = p1 + t_cpa * v1
+    d_cpa = float(np.linalg.norm(d_cpa_vec))
     return t_cpa, d_cpa, d_cpa_vec
 
 

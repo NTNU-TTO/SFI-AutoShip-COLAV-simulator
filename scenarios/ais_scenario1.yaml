@@ -5,11 +5,11 @@ t_end: 2500.0
 dt_sim: 1.0
 type: 6
 utm_zone: 33
-# map_size: [38390.0, 22000.0]
-map_data_files: ["Norge_utm33.gdb"]
-new_load_of_map_data: True
-#ais_data_file: "Case - 09-02-2019, 16-09-15 - 70YMX.csv"
-ais_data_file: "Case - 01-01-2020, 09-38-04 - 5RY1K.csv"
+map_size: [38390.0, 22000.0]
+map_data_files: ["More_og_Romsdal_utm33.gdb"]
+new_load_of_map_data: False
+ais_data_file: "Case - 09-02-2019, 16-09-15 - 70YMX.csv"
+#ais_data_file: "Case - 01-01-2020, 09-38-04 - 5RY1K.csv"
 ship_data_file: "full_shipdata.csv"
 allowed_nav_statuses: [0]
 n_random_ships: 0
@@ -19,7 +19,7 @@ ship_list:
     t_start: 0.0
     t_end: 2000.0
     random_generated: True
-    #pose: [7011099.0, 101413.0, 8.42, 70.0]
+    pose: [7011099.0, 101413.0, 8.42, 70.0]
     #waypoints: [[6957500.0, 6959500.0], [39500.0, 41500.0]]
     #speed_plan: [7.0, 7.0]
     tracker:

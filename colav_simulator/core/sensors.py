@@ -121,6 +121,29 @@ class Config:
         return config
 
 
+class SensorSuiteBuilder:
+    @classmethod
+    def construct_sensors(cls, config: Optional[Config] = None) -> list:
+        """Builds a list of sensors from the configuration
+
+        Args:
+            config (Optional[Config]): Configuration of ship sensors
+
+        Returns:
+            List[Sensor]: List of sensors.
+        """
+        if config:
+            sensors: list = []
+            for sensor_config in config.sensor_list:
+                if isinstance(sensor_config, RadarParams):
+                    sensors.append(Radar(sensor_config))
+                elif isinstance(sensor_config, AISParams):
+                    sensors.append(AIS(sensor_config))
+        else:
+            sensors = [Radar()]
+        return sensors
+
+
 class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 

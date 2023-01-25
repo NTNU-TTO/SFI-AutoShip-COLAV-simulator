@@ -22,6 +22,8 @@ import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensors as ssensors
 import colav_simulator.core.tracking.trackers as trackers
+import colav_simulator.core.colav.colav_interface as ci
+from colav_simulator.core.colav.colav_builder import COLAVBuilder
 import numpy as np
 
 
@@ -29,7 +31,7 @@ import numpy as np
 class Config:
     """Configuration class for managing ship parameters."""
 
-    # colav: colav.Config
+    colav: ci.Config = ci.Config()
     model: models.Config = models.Config()
     controller: controllers.Config = controllers.Config()
     guidance: guidances.Config = guidances.Config()
@@ -82,6 +84,8 @@ class Config:
 
         config.tracker = trackers.Config.from_dict(config_dict["tracker"])
 
+        config.colav = ci.Config.from_dict(config_dict["colav"])
+
         return config
 
     def to_dict(self):
@@ -119,6 +123,8 @@ class Config:
 
         config_dict["tracker"] = self.tracker.to_dict()
 
+        config_dict["colav"] = self.colav.to_dict()
+
         return config_dict
 
 
@@ -130,116 +136,51 @@ class ShipBuilder:
         """Builds a ship from the configuration
 
         Args:
-            config (Optional[Config], optional): Ship configuration. Defaults to None.
+            config (Optional[Config]): Ship configuration. Defaults to None.
 
         Returns:
-            Tuple[Model, Controller, Guidance, list[Sensor], Tracker]: The subsystems comprising the ship: model, controller, guidance.
+            Tuple[IModel, IController, IGuidance, list, ITracker, ICOLAV]: The subsystems comprising the ship: model, controller, guidance.
         """
         if config:
             model = cls.construct_model(config.model)
             controller = cls.construct_controller(config.controller)
-            guidance_system = cls.construct_guidance(config.guidance)
+            guidance_alg = cls.construct_guidance(config.guidance)
             sensors = cls.construct_sensors(config.sensors)
             tracker = cls.construct_tracker(sensors, config.tracker)
+            colav_alg = cls.construct_colav(config.colav)
         else:
             model = cls.construct_model()
             controller = cls.construct_controller()
-            guidance_system = cls.construct_guidance()
+            guidance_alg = cls.construct_guidance()
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
+            colav_alg = cls.construct_colav(config.colav)
 
-        return model, controller, guidance_system, sensors, tracker
+        return model, controller, guidance_alg, sensors, tracker, colav_alg
 
     @classmethod
-    def construct_tracker(cls, sensors: list, config: Optional[trackers.Config] = None):
-        """Builds a tracker from the configuration
+    def construct_colav(cls, config: Optional[ci.Config] = None) -> ci.ICOLAV:
+        return ci.COLAVBuilder.construct_colav(config)
 
-        Args:
-            sensors (list): Sensors used by the tracker.
-            config (Optional[Config], optional): Tracker configuration. Defaults to None.
-
-        Returns:
-            Tracker: The tracker.
-        """
-        if config and config.kf:
-            return trackers.KF(sensors, config)
-        else:
-            return trackers.KF(sensors)
+    @classmethod
+    def construct_tracker(cls, sensors: list, config: Optional[trackers.Config] = None) -> trackers.ITracker:
+        return trackers.TrackerBuilder.construct_tracker(sensors, config)
 
     @classmethod
     def construct_sensors(cls, config: Optional[ssensors.Config] = None) -> list:
-        """Builds a list of sensors from the configuration
-
-        Args:
-            config (Optional[Config]): Configuration of ship sensors
-
-        Returns:
-            List[Sensor]: List of sensors.
-        """
-        if config:
-            sensors = []
-            for sensor_config in config.sensor_list:
-                if isinstance(sensor_config, ssensors.RadarParams):
-                    sensors.append(ssensors.Radar(sensor_config))
-                elif isinstance(sensor_config, ssensors.AISParams):
-                    sensors.append(ssensors.AIS(sensor_config))
-        else:
-            sensors = [ssensors.Radar()]
-
-        return sensors
+        return ssensors.SensorSuiteBuilder.construct_sensors(config)
 
     @classmethod
-    def construct_guidance(cls, config: Optional[guidances.Config] = None):
-        """Builds a ship guidance method from the configuration
-
-        Args:
-            config (Optional[guidance.Config], optional): Guidance configuration. Defaults to None.
-
-        Returns:
-            Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
-        """
-        if config and config.los:
-            return guidances.LOSGuidance(config)
-        elif config and config.ktp:
-            return guidances.KinematicTrajectoryPlanner(config)
-        else:
-            return guidances.LOSGuidance()
+    def construct_guidance(cls, config: Optional[guidances.Config] = None) -> guidances.IGuidance:
+        return guidances.GuidanceBuilder.construct_guidance(config)
 
     @classmethod
-    def construct_controller(cls, config: Optional[controllers.Config] = None):
-        """Builds a ship model from the configuration
-
-        Args:
-            config (Optional[controllers.Config], optional): Model configuration. Defaults to None.
-
-        Returns:
-            Model: Model as specified by the configuration, e.g. a MIMOPID controller.
-        """
-        if config and config.pid:
-            return controllers.MIMOPID(config)
-        elif config and config.flsh:
-            return controllers.FLSH(config)
-        elif config and config.pass_through_cs:
-            return controllers.PassThroughCS()
-        else:
-            return controllers.PassThroughCS()
+    def construct_controller(cls, config: Optional[controllers.Config] = None) -> controllers.IController:
+        return controllers.ControllerBuilder.construct_controller(config)
 
     @classmethod
-    def construct_model(cls, config: Optional[models.Config] = None):
-        """Builds a ship model from the configuration
-
-        Args:
-            config (Optional[models.Config], optional): Model configuration. Defaults to None.
-
-        Returns:
-            Model: Model as specified by the configuration, e.g. a KinematicCSOG model.
-        """
-        if config and config.csog:
-            return models.KinematicCSOG(config)
-        elif config and config.telemetron:
-            return models.Telemetron()
-        else:
-            return models.KinematicCSOG()
+    def construct_model(cls, config: Optional[models.Config] = None) -> models.IModel:
+        return models.ModelBuilder.construct_model(config)
 
 
 class IShip(ABC):
@@ -282,7 +223,7 @@ class Ship(IShip):
         self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
-        self._model, self._controller, self._guidance, self.sensors, self._tracker = ShipBuilder.construct_ship(config)
+        self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
 
         if config:
             self._set_variables_from_config(config)
@@ -311,6 +252,8 @@ class Ship(IShip):
 
         if config.mmsi != -1:
             self._mmsi = config.mmsi
+
+    def plan(self, )
 
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.

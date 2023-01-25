@@ -72,6 +72,24 @@ class Config:
         return config
 
 
+class TrackerBuilder:
+    @classmethod
+    def construct_tracker(cls, sensors: list, config: Optional[Config] = None) -> ITracker:
+        """Builds a tracker from the configuration
+
+        Args:
+            sensors (list): Sensors used by the tracker.
+            config (Optional[Config]): Tracker configuration. Defaults to None.
+
+        Returns:
+            ITracker: The tracker.
+        """
+        if config and config.kf:
+            return KF(sensors, config)
+        else:
+            return KF(sensors)
+
+
 class KF(ITracker):
     """The KF class implements a linear Kalman filter based tracker."""
 

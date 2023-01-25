@@ -1,7 +1,7 @@
 #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
 #scenario_files: ["crossing_stand_on.yaml"]
-scenario_files: ["ais_scenario1.yaml"]
-#scenario_files: ["aalesund_random_20012023_13_00_55.yaml"]
+#scenario_files: ["ais_scenario1.yaml"]
+scenario_files: ["ais1_24012023_13_48_55.yaml"]
 #scenario_files: ["aalesund_random_18012023_13_48_46.yaml"]
 save_scenario_results: True
 visualize: True

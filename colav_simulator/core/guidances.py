@@ -99,6 +99,25 @@ class IGuidance(ABC):
         "Computes guidance reference states for the ship controller to track."
 
 
+class GuidanceBuilder:
+    @classmethod
+    def construct_guidance(cls, config: Optional[Config] = None) -> IGuidance:
+        """Builds a guidance method from the configuration
+
+        Args:
+            config (Optional[guidance.Config]): Guidance configuration. Defaults to None.
+
+        Returns:
+            Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
+        """
+        if config and config.los:
+            return LOSGuidance(config)
+        elif config and config.ktp:
+            return KinematicTrajectoryPlanner(config)
+        else:
+            return LOSGuidance()
+
+
 class KinematicTrajectoryPlanner(IGuidance):
     """Class which implements a simple kinematic trajectory planner.
 

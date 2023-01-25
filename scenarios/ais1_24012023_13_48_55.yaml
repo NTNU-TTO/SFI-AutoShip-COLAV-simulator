@@ -1,0 +1,644 @@
+ais_data_file: /home/doctor/Desktop/autotuning/autotuning/colav_simulator/data/ais/Case
+  - 09-02-2019, 16-09-15 - 70YMX.csv
+allowed_nav_statuses:
+- 0
+dt_sim: 1.0
+map_data_files:
+- More_og_Romsdal_utm33.gdb
+map_origin_enu:
+- 96713.34796384064
+- 7004652.7401969535
+map_size:
+- 38390.0
+- 22000.0
+n_random_ships: 0
+name: ais1_24012023_13_48_55
+new_load_of_map_data: false
+save_scenario: false
+ship_data_file: /home/doctor/Desktop/autotuning/autotuning/colav_simulator/data/ais/full_shipdata.csv
+ship_list:
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.015
+      R_a: 40.0
+      e_int_max: 200.0
+      pass_angle_threshold: 80.0
+  id: 0
+  mmsi: 1000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 0.0
+      draft: 3.0
+      length: 50.0
+      r_max: 4.0
+      width: 10.0
+  pose:
+  - 7011099.0
+  - 101413.0
+  - 8.42
+  - 70.0
+  random_generated: true
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 5000.0
+      measurement_rate: 0.5
+  - ais:
+      R:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      R_true:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      ais_class: 0
+      max_range: 5000.0
+  speed_plan:
+  - 8.42
+  - 9.30142320658673
+  - 9.842038199985607
+  - 9.927090595305344
+  - 10.798246996706512
+  - 11.56460759957225
+  - 11.720603809736675
+  - 11.728005677800667
+  - 12.69944893206985
+  - 12.33440064175325
+  - 12.261098616019419
+  - 11.94829972263086
+  - 0.0
+  t_end: 2000.0
+  t_start: 0.0
+  tracker:
+    kf:
+      P_0:
+      - 49.1
+      - 49.1
+      - 0.11
+      - 0.11
+      q: 0.15
+  waypoints:
+  - - 7011099.0
+    - 7011773.801390085
+    - 7012346.790533415
+    - 7013003.125933505
+    - 7014243.067413669
+    - 7014621.305565405
+    - 7016505.766458696
+    - 7017977.377645171
+    - 7018867.769948284
+    - 7020180.436900849
+    - 7021065.896303992
+    - 7020542.39447306
+    - 7021309.55232951
+  - - 101413.0
+    - 103267.00158187718
+    - 103672.63302882088
+    - 104496.92127805893
+    - 105722.97282798133
+    - 108245.55879849453
+    - 110134.67479721353
+    - 111864.67128601631
+    - 113928.93770289364
+    - 116230.23840812457
+    - 117694.5922261617
+    - 118913.29908952251
+    - 120494.00362330207
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 1
+  mmsi: 231103000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 2
+  mmsi: 246655000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 3
+  mmsi: 257346900
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 4
+  mmsi: 257589600
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 5
+  mmsi: 257700800
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 6
+  mmsi: 257860800
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 7
+  mmsi: 258310000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 8
+  mmsi: 258729000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 9
+  mmsi: 258824000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 10
+  mmsi: 259221000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 11
+  mmsi: 259330000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 12
+  mmsi: 259496000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+- controller:
+    pass_through_cs: ''
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.025
+      R_a: 10.0
+      e_int_max: 100.0
+      pass_angle_threshold: 90.0
+  id: 13
+  mmsi: 311257000
+  model:
+    csog:
+      T_U: 5.0
+      T_chi: 3.0
+      U_max: 15.0
+      U_min: 4.0
+      draft: 3.0
+      length: 82.0
+      r_max: 4.0
+      width: 11.0
+  random_generated: false
+  sensors:
+  - radar:
+      R:
+      - 25.0
+      - 25.0
+      R_true:
+      - 25.0
+      - 25.0
+      max_range: 500.0
+      measurement_rate: 1.0
+  tracker:
+    kf:
+      P_0:
+      - 49.0
+      - 49.0
+      - 0.1
+      - 0.1
+      q: 0.15
+t_end: 2500.0
+t_start: 0.0
+type: 6
+utm_zone: 33

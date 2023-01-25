@@ -262,17 +262,14 @@ class ScenarioGenerator:
 
             ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
 
-            # If the mmsi of a ship is specified in the config file
-            # the ship will be initialized with the AIS vessel pose etc..,
-            # but not use the AIS trajectory. It will act
-            # on its own (using its onboard planner).
-            # Also, the own-ship (with index 0) will not use the predefined AIS trajectory.
+            # The own-ship (with index 0) will not use the predefined AIS trajectory.
             idx = 0
+            if cfg_ship_idx == 0:
+                use_ais_ship_trajectory = False
+
             if ship_config.mmsi in mmsi_list:
-                use_ais_ship_trajectory = False
+                # use_ais_ship_trajectory = False
                 idx = [i for i in range(len(ais_vessel_data_list)) if ais_vessel_data_list[i].mmsi == ship_config.mmsi][0]
-            elif cfg_ship_idx == 0:
-                use_ais_ship_trajectory = False
 
             ais_vessel = ais_vessel_data_list.pop(idx)
             if ais_vessel.status.value not in config.allowed_nav_statuses:

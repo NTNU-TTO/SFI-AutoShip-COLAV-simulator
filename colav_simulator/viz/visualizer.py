@@ -14,6 +14,7 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.feature import ShapelyFeature
@@ -22,6 +23,9 @@ from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
+
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 
 
 @dataclass
@@ -484,8 +488,8 @@ class Visualizer:
                 self.ship_plt_handles[i]["patch"].remove()
             self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
 
-            self.ship_plt_handles[i]["info"].set_x(pose_i[1] - 200)
-            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 250)
+            self.ship_plt_handles[i]["info"].set_x(pose_i[1] - 300)
+            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 350)
 
             self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_ship_line_data:], pose_i[1]])
             self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_ship_line_data:], pose_i[0]])

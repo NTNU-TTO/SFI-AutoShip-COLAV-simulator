@@ -103,6 +103,25 @@ class IModel(ABC):
         """
 
 
+class ModelBuilder:
+    @classmethod
+    def construct_model(cls, config: Optional[Config] = None) -> IModel:
+        """Builds a ship model from the configuration
+
+        Args:
+            config (Optional[models.Config]): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a KinematicCSOG model.
+        """
+        if config and config.csog:
+            return KinematicCSOG(config)
+        elif config and config.telemetron:
+            return Telemetron()
+        else:
+            return KinematicCSOG()
+
+
 @dataclass
 class KinematicCSOG(IModel):
     """Implements a planar kinematic model using Course over ground (COG) and Speed over ground (SOG):
