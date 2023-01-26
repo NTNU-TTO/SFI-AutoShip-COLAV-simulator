@@ -2,7 +2,9 @@
     kuwata_vo.py
 
     Summary:
-        A COLAV planning algorithm based on the paper "Safe Maritime Autonomous Navigation With COLREGS, Using Velocity Obstacles" by Kuwata et al.
+        A reactive COLAV planning algorithm based on the paper
+        "Safe Maritime Autonomous Navigation With COLREGS, Using Velocity Obstacles"
+        by Kuwata et al.
 
     Author: Trym Tengesdal
 """
@@ -23,10 +25,11 @@ from seacharts.enc import ENC
 class VOCOLREGSSituation(Enum):
     """Enum for the different COLREGS rules considered in VO."""
 
-    HO = 0
-    OT = 1
-    CR_left = 2
-    CR_right = 3
+    HO = 0  # Head-on
+    OT_ing = 1  # Overtaking
+    OT_en = 2  # Overtaken
+    CR_PS = 3  # Crossing with obstacle on the left/port side
+    CR_SS = 4  # Crossing with obstacle on the rigght/starboard side
 
 
 # @dataclass
@@ -74,6 +77,9 @@ class VOCOLREGSSituation(Enum):
 class VOParams:
     """Parameters for the velocity obstacle algorithm."""
 
+    length_os: float = 10.0  # The length of the ownship [m]
+    width_os: float = 5.0  # The width of the ownship [m]
+    draft_os: float = 2.0  # The draft of the ownship [m]
     planning_frequency: float = 1.0  # The planning frequency.
     t_max: float = 10.0  # Precollision check maximum time.
     d_min: float = 100.0  # Precollision check minimum distance.
@@ -92,13 +98,16 @@ class VOParams:
 
     def to_dict(self):
         output = {
+            "length_os": self.length_os,
+            "width_os": self.width_os,
+            "draft_os": self.draft_os,
             "planning_frequency": self.planning_frequency,
             "t_max": self.t_max,
             "d_min": self.d_min,
             "t_grounding_max": self.t_grounding_max,
             "t_colregs_update_interval": self.t_colregs_update_interval,
-            "head_on_width": self.head_on_width,
-            "overtaking_angle": self.overtaking_angle,
+            "head_on_width": float(np.rad2deg(self.head_on_width)),
+            "overtaking_angle": float(np.rad2deg(self.overtaking_angle)),
             "heading_set_limits": self.heading_set_limits,
             "heading_set_spacing": self.heading_set_spacing,
             "speed_set_limits": self.speed_set_limits,
@@ -111,13 +120,16 @@ class VOParams:
     @classmethod
     def from_dict(cls, data: dict):
         output = VOParams(
+            length_os=data["length_os"],
+            width_os=data["width_os"],
+            draft_os=data["draft_os"],
             planning_frequency=data["planning_frequency"],
             t_max=data["t_max"],
             d_min=data["d_min"],
             t_grounding_max=data["t_grounding_max"],
             t_colregs_update_interval=data["t_colregs_update_interval"],
-            head_on_width=data["head_on_width"],
-            overtaking_angle=data["overtaking_angle"],
+            head_on_width=float(np.deg2rad(data["head_on_width"])),
+            overtaking_angle=float(np.deg2rad(data["overtaking_angle"])),
             heading_set_limits=data["heading_set_limits"],
             heading_set_spacing=data["heading_set_spacing"],
             speed_set_limits=data["speed_set_limits"],
@@ -129,25 +141,16 @@ class VOParams:
 
 
 class VO:
-    def __init__(self, params: Optional[VOParams] = None, **kwargs) -> None:
-        if params:
-            self._params = params
+    def __init__(self, config: Optional[VOParams] = None) -> None:
+        if config:
+            self._params = config
         else:
             self._params = VOParams()
 
         self._initialized: bool = False
         self._t_prev: float = 0.0
 
-        if kwargs and "length_os" in kwargs and "width_os" in kwargs and "draft_os" in kwargs:
-            length_os = kwargs["length_os"]
-            width_os = kwargs["width_os"]
-            self._draft_os = kwargs["draft_os"]
-        else:
-            length_os = 15.0
-            width_os = 5.0
-            self._draft_os = 2.0
-
-        self._poly_os = geometry.Polygon([(-length_os / 2, -width_os / 2), (length_os / 2, -width_os / 2), (length_os / 2, width_os / 2), (-length_os / 2, width_os / 2)])
+        self._poly_os = geometry.Polygon([(-self._params.length_os / 2, -self._params.width_os / 2), (self._params.length_os / 2, -self._params.width_os / 2), (self._params.length_os / 2, self._params.width_os / 2), (-self._params.length_os / 2, self._params.width_os / 2)])
         self._speed_uncertainty_poly = geometry.Polygon(
             [
                 (-self._params.max_speed_uncertainty[0], -self._params.max_speed_uncertainty[1]),
@@ -282,7 +285,7 @@ class VO:
                 if not in_v3 and (p_do[0] - p_os[0]) * (v_os[1] - v_do[1]) - (p_do[1] - p_os[1]) * (v_os[0] - v_do[0]) < 0:
                     in_v1 = True
 
-                if in_v1 and (situation == VOCOLREGSSituation.HO or situation == VOCOLREGSSituation.OT or situation == VOCOLREGSSituation.CR_right):
+                if in_v1 and (situation == VOCOLREGSSituation.HO or situation == VOCOLREGSSituation.OT_ing or situation == VOCOLREGSSituation.CR_SS):
                     self._admissible_speed_headings[i, j] = 0
 
                 # Check if velocity leads to collision with grounding hazard within t_max
@@ -301,7 +304,7 @@ class VO:
             bool: True if the candidate velocity leads to a grounding hazard within t_max, False otherwise.
         """
         p2 = p_os + v_os * self._params.t_max
-        return mapf.check_if_segment_crosses_grounding_hazards(enc, p2, p_os, self._draft_os)
+        return mapf.check_if_segment_crosses_grounding_hazards(enc, p2, p_os, self._params.draft_os)
 
     def _update_colregs_situation(self, t: float, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float, id_do: int):
         """Updates the COLREGS situation of the ownship and the dynamic obstacle, if a time threshold is exceeded.
@@ -332,13 +335,23 @@ class VO:
         Returns:
             VOCOLREGSSituation: The COLREGS situation of the ownship and the dynamic obstacle.
         """
-        situation = VOCOLREGSSituation.HO
-        for idx, constraint in self._params.colregs_constraints:
-            satisfied = constraint.check_if_satisfied(p_os, psi_os, p_do, psi_do)
-            if satisfied:
-                situation = VOCOLREGSSituation(idx)
-                break
-        return situation
+        bearing_do_os = mf.compute_bearing(psi_os, p_do, p_os)
+        bearing_os_do = mf.compute_bearing(psi_do, p_os, p_do)
+        heading_diff = mf.wrap_angle_diff_to_pmpi(psi_do, psi_os)
+
+        if (heading_diff < -np.pi + self._params.head_on_width / 2.0) or (heading_diff > np.pi - self._params.head_on_width / 2.0):
+            return VOCOLREGSSituation.HO
+
+        if bearing_os_do > self._params.overtaking_angle or bearing_os_do < -self._params.overtaking_angle:
+            return VOCOLREGSSituation.OT_en
+
+        if bearing_do_os > self._params.overtaking_angle or bearing_do_os < -self._params.overtaking_angle:
+            return VOCOLREGSSituation.OT_ing
+
+        if bearing_do_os < 0:
+            return VOCOLREGSSituation.CR_PS
+
+        return VOCOLREGSSituation.CR_SS
 
     def _precollision_check(self, p_os: np.ndarray, v_os: np.ndarray, p_do: np.ndarray, v_do: np.ndarray) -> bool:
         """Checks if the ownship and the dynamic obstacle are in a dangerous situation.

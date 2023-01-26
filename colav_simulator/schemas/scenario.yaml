@@ -114,7 +114,16 @@ ship_list:
         required: False
         type: dict
         excludes: [default]
-
+        schema:
+          layer1: # First COLAV algorithm, necessary if provided
+            required: True
+            type: dict
+          layer2: # Second COLAV algorithm on a layer above
+            required: False
+            type: dict
+          layer3: # Third COLAV algorithm, again on a layer above
+            required: False
+            type: dict
       tracker:
         required: False
         type: dict

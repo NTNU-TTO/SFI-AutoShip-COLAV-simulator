@@ -17,12 +17,12 @@ import colav_evaluation_tool.vessel as colav_eval_vessel_data
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensors as ssensors
 import colav_simulator.core.tracking.trackers as trackers
-import colav_simulator.core.colav.colav_interface as ci
 import numpy as np
 
 
@@ -252,8 +252,6 @@ class Ship(IShip):
         if config.mmsi != -1:
             self._mmsi = config.mmsi
 
-    def plan(self, )
-
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
 
@@ -290,8 +288,6 @@ class Ship(IShip):
 
         if dt <= 0.0:
             raise ValueError("Time step must be strictly positive!")
-
-        # Plan a collision free trajectory
 
         references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
 

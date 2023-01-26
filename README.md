@@ -160,4 +160,4 @@ The Ship class simulates the behaviour of an individual ship and adheres to the 
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-TODO: Implement interfaces for using arbitrary collision avoidance algorithms and planning hierarchys.
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface.

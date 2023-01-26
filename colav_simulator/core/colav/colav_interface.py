@@ -5,30 +5,46 @@
         Contains the interface used by all COLAV planning algorithms that
         wants to be run with the COLAV simulator.
 
-        To add a new COLAV planning algorithm, create a new wrapper class for your
-        COLAV algorithm which implements this interface. See an example for the Kuwata VO below.
+        To add a new COLAV planning algorithm:
+
+        1: Import the algorithm in this file.
+        2: Add the algorithm name as a type to the COLAVType enum.
+        3: Add the algorithm as an optional entry to the LayerConfig class.
+        4: Create a new wrapper class for your COLAV algorithm,
+        which implements (inherits as this is python) this interface. It should take in a Config object as input.
+        5: Add an entry in the COLAVBuilder class, which builds it from config if the type matches.
+        See an example for the Kuwata VO below.
 
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
-import colav_simulator.core.colav.kuwata_vo.kuwata_vo as kuwata_vo
+import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kuwata_vo
+import colav_simulator.core.guidances as guidance
 import numpy as np
 from seacharts.enc import ENC
 
 
+class COLAVType(Enum):
+    """Enum for the different COLAV algorithms currently compatible with the simulator."""
+
+    VO = 0  # Kuwata VO, with LOS guidance to provide velocity references.
+
+
 @dataclass
-class Config:
-    """Configuration class for managing COLAV method parameters."""
+class LayerConfig:
+    """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
     kuwata_vo: Optional[kuwata_vo.VOParams] = kuwata_vo.VOParams()
+    los: Optional[guidance.LOSGuidanceParams] = guidance.LOSGuidanceParams()
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config()
+        config = LayerConfig()
         if "kuwata_vo" in config_dict:
             config.kuwata_vo = cp.convert_settings_dict_to_dataclass(kuwata_vo.VOParams, config_dict["kuwata_vo"])
 
@@ -39,6 +55,39 @@ class Config:
 
         if self.kuwata_vo is not None:
             config_dict["kuwata_vo"] = self.kuwata_vo.to_dict()
+
+        return config_dict
+
+
+@dataclass
+class Config:
+    """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
+
+    name: COLAVType = COLAVType.VO
+    layer1: LayerConfig = LayerConfig()
+    layer2: Optional[LayerConfig] = None
+    layer3: Optional[LayerConfig] = None
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = Config(layer1=LayerConfig.from_dict(config_dict["layer1"]))
+
+        if "layer2" in config_dict:
+            config.layer2 = LayerConfig.from_dict(config_dict["layer2"])
+
+        if "layer3" in config_dict:
+            config.layer3 = LayerConfig.from_dict(config_dict["layer3"])
+
+        return config
+
+    def to_dict(self) -> dict:
+        config_dict = {"layer1": self.layer1.to_dict()}
+
+        if self.layer2 is not None:
+            config_dict["layer2"] = self.layer2.to_dict()
+
+        if self.layer3 is not None:
+            config_dict["layer3"] = self.layer3.to_dict()
 
         return config_dict
 
@@ -82,8 +131,15 @@ class ICOLAV(ABC):
 class VOWrapper(ICOLAV):
     """The VO wrapper is a Kuwata VO-based reactive COLAV planning system, where LOS-guidance is used to provide velocity references."""
 
-    def __init__(self, config: kuwata_vo.VOParams, **kwargs) -> None:
-        self._vo = kuwata_vo.VO(params=config, **kwargs)
+    def __init__(self, config: Config, **kwargs) -> None:
+        assert config.layer1.kuwata_vo is not None, "Kuwata VO must be on the first layer for the VO wrapper."
+        self._vo = kuwata_vo.VO(params=config.layer1.kuwata_vo, **kwargs)
+
+        assert config.layer2.los is not None, "LOS guidance must be on the second layer for the VO wrapper."
+        self._los = guidance.LOSGuidance(config=config.layer2.los, **kwargs)
+
+        self._t_prev = 0.0
+        self._initialized = False
 
     def plan(
         self,
@@ -95,10 +151,16 @@ class VOWrapper(ICOLAV):
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if not self._initialized:
+            self._t_prev = t
+            self._initialized = True
 
-        # Provide velocity reference to VO
-
-        return self._vo.plan(t, ownship_state, do_list, enc)
+        references = self._los.compute_references(waypoints, speed_plan, None, ownship_state, t - self._t_prev)
+        self._t_prev = t
+        course_ref = references[2]
+        speed_ref = references[3]
+        vel_ref = np.array([speed_ref * np.cos(course_ref), speed_ref * np.sin(course_ref)])
+        return self._vo.plan(t, vel_ref, ownship_state, do_list, enc)
 
     def get_current_plan(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         return self._vo.get_current_plan()
@@ -115,10 +177,7 @@ class COLAVBuilder:
         Returns:
             ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
-        if config is None:
-            return None
-
-        if config.kuwata_vo:
-            colav = VOWrapper(config.kuwata_vo)
-
+        colav: Optional[ICOLAV] = None
+        if config and config.type == COLAVType.VO:
+            colav = VOWrapper(config)
         return colav
