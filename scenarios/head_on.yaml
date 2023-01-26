@@ -16,6 +16,30 @@ ship_list:
     speed_plan: [7.0, 7.0]
     id: 0
     mmsi: 100
+    colav:
+      layer1:
+        los:
+          pass_angle_threshold: 80.0
+          R_a: 15.0
+          K_p: 0.015
+          K_i: 0.0
+          e_int_max: 200.0
+      layer2:
+        vo:
+          planning_frequency: 1.0
+          t_max: 20.0
+          d_min: 50.0
+          t_grounding_max: 40.0
+          t_colregs_update_interval: 5.0
+          head_on_width: 30.0
+          overtaking_angle: 112.0
+          heading_set_limits: [-180.0, 179.0]
+          heading_set_spacing: 5.0
+          speed_set_limits: [0.0, 10.0]
+          speed_set_spacing: 0.5
+          max_speed_uncertainty: [1.0, 1.0]
+          Q: [1.0, 1.0]
+
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]

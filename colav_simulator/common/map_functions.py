@@ -241,13 +241,13 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
     return distance
 
 
-def check_if_segment_crosses_grounding_hazards(enc: ENC, next_wp: np.ndarray, prev_wp: np.ndarray, draft: float = 5.0) -> bool:
-    """Checks if a line segment between two waypoints crosses nearby grounding hazards (land, shore).
+def check_if_segment_crosses_grounding_hazards(enc: ENC, p2: np.ndarray, p1: np.ndarray, draft: float = 5.0) -> bool:
+    """Checks if a line segment between two positions/points crosses nearby grounding hazards (land, shore).
 
     Args:
         enc (ENC): Electronic Navigational Chart object
-        next_wp (np.ndarray): Next waypoint position.
-        prev_wp (np.ndarray): Previous waypoint position.
+        p2 (np.ndarray): Second position.
+        p1 (np.ndarray): First position.
         draft (float): Ship's draft in meters.
 
     Returns:
@@ -255,9 +255,9 @@ def check_if_segment_crosses_grounding_hazards(enc: ENC, next_wp: np.ndarray, pr
 
     """
     # Create linestring with east as the x value and north as the y value
-    p1 = (next_wp[1], next_wp[0])
-    p2 = (prev_wp[1], prev_wp[0])
-    wp_line = LineString([p1, p2])
+    p2_reverse = (p2[1], p2[0])
+    p1_reverse = (p1[1], p1[0])
+    wp_line = LineString([p1_reverse, p2_reverse])
 
     entire_seabed = enc.seabed[0].geometry
     depths = list(enc.seabed.keys())

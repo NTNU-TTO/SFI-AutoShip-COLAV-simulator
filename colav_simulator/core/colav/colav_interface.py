@@ -45,17 +45,29 @@ class Config:
 
 class ICOLAV(ABC):
     @abstractmethod
-    def plan(self, t: float, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def plan(
+        self,
+        t: float,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        ownship_state: np.ndarray,
+        do_list: list,
+        enc: Optional[ENC] = None,
+        goal_state: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Plans a (hopefully) collision free trajectory for the ship to follow.
 
         Args:
-            ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r].
+            t (float): The current time.
+            waypoints (np.ndarray): The waypoints to follow, typically used for COLAV planners assuming a nominal path/trajectory as input.
+            speed_plan (np.ndarray): The speed plan to follow. typically used for COLAV planners assuming a nominal path/trajectory as input.
+            ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r]. Used as start state in case of high level planners.
             do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
-            t (float): The current time.
+            goal_state (Optional[np.ndarray]): The goal state [x, y, psi, u, v, r], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: The planned poses, velocities and accelerations over the COLAV planning horizon (if any).
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: The planned poses, velocities and accelerations from the COLAV planning algorithm.
         """
 
     @abstractmethod
@@ -68,10 +80,24 @@ class ICOLAV(ABC):
 
 
 class VOWrapper(ICOLAV):
+    """The VO wrapper is a Kuwata VO-based reactive COLAV planning system, where LOS-guidance is used to provide velocity references."""
+
     def __init__(self, config: kuwata_vo.VOParams, **kwargs) -> None:
         self._vo = kuwata_vo.VO(params=config, **kwargs)
 
-    def plan(self, t: float, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def plan(
+        self,
+        t: float,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        ownship_state: np.ndarray,
+        do_list: list,
+        enc: Optional[ENC] = None,
+        goal_state: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+        # Provide velocity reference to VO
+
         return self._vo.plan(t, ownship_state, do_list, enc)
 
     def get_current_plan(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -80,16 +106,19 @@ class VOWrapper(ICOLAV):
 
 class COLAVBuilder:
     @classmethod
-    def construct_colav(cls, config: Optional[Config] = None) -> ICOLAV:
-        """Builds a colav system from the configuration
+    def construct_colav(cls, config: Optional[Config] = None) -> Optional[ICOLAV]:
+        """Builds a colav system from the configuration, if it is specified.
 
         Args:
             config (Optional[models.Config]): COLAV configuration. Defaults to None.
 
         Returns:
-            ICOLAV: The COLAV system, e.g. Kuwata VO.
+            ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
-        if config and config.kuwata_vo:
-            return VOWrapper(config.kuwata_vo)
-        else:
-            return VOWrapper()
+        if config is None:
+            return None
+
+        if config.kuwata_vo:
+            colav = VOWrapper(config.kuwata_vo)
+
+        return colav

@@ -23,7 +23,6 @@ import colav_simulator.core.models as models
 import colav_simulator.core.sensors as ssensors
 import colav_simulator.core.tracking.trackers as trackers
 import colav_simulator.core.colav.colav_interface as ci
-from colav_simulator.core.colav.colav_builder import COLAVBuilder
 import numpy as np
 
 
@@ -154,7 +153,7 @@ class ShipBuilder:
             guidance_alg = cls.construct_guidance()
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
-            colav_alg = cls.construct_colav(config.colav)
+            colav_alg = cls.construct_colav()
 
         return model, controller, guidance_alg, sensors, tracker, colav_alg
 
