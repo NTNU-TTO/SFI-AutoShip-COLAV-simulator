@@ -20,10 +20,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
-import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kuwata_vo
+import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.guidances as guidance
 import numpy as np
 from seacharts.enc import ENC
@@ -39,22 +39,28 @@ class COLAVType(Enum):
 class LayerConfig:
     """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
-    kuwata_vo: Optional[kuwata_vo.VOParams] = kuwata_vo.VOParams()
-    los: Optional[guidance.LOSGuidanceParams] = guidance.LOSGuidanceParams()
+    vo: Optional[kvo.VOParams] = None
+    los: Optional[guidance.LOSGuidanceParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = LayerConfig()
-        if "kuwata_vo" in config_dict:
-            config.kuwata_vo = cp.convert_settings_dict_to_dataclass(kuwata_vo.VOParams, config_dict["kuwata_vo"])
+        if "vo" in config_dict:
+            config.vo = cp.convert_settings_dict_to_dataclass(kvo.VOParams, config_dict["vo"])
+
+        if "los" in config_dict:
+            config.los = cp.convert_settings_dict_to_dataclass(guidance.LOSGuidanceParams, config_dict["los"])
 
         return config
 
     def to_dict(self) -> dict:
         config_dict = {}
 
-        if self.kuwata_vo is not None:
-            config_dict["kuwata_vo"] = self.kuwata_vo.to_dict()
+        if self.vo is not None:
+            config_dict["vo"] = self.vo.to_dict()
+
+        if self.los is not None:
+            config_dict["los"] = self.los.to_dict()
 
         return config_dict
 
@@ -70,7 +76,7 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config(layer1=LayerConfig.from_dict(config_dict["layer1"]))
+        config = Config(name=COLAVType[config_dict["name"]], layer1=LayerConfig.from_dict(config_dict["layer1"]))
 
         if "layer2" in config_dict:
             config.layer2 = LayerConfig.from_dict(config_dict["layer2"])
@@ -81,7 +87,7 @@ class Config:
         return config
 
     def to_dict(self) -> dict:
-        config_dict = {"layer1": self.layer1.to_dict()}
+        config_dict = {"name": self.name.name, "layer1": self.layer1.to_dict()}
 
         if self.layer2 is not None:
             config_dict["layer2"] = self.layer2.to_dict()
@@ -102,8 +108,8 @@ class ICOLAV(ABC):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_state: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        goal_pose: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         """Plans a (hopefully) collision free trajectory for the ship to follow.
 
         Args:
@@ -113,18 +119,18 @@ class ICOLAV(ABC):
             ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r]. Used as start state in case of high level planners.
             do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
-            goal_state (Optional[np.ndarray]): The goal state [x, y, psi, u, v, r], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
+            goal_pose (Optional[np.ndarray]): The goal pose [x, y, psi], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: The planned poses, velocities and accelerations from the COLAV planning algorithm.
+            np.ndarray: The planned poses, velocities and accelerations (vstacked) from the COLAV planning algorithm. Must be compatible with the control system you are using.
         """
 
     @abstractmethod
-    def get_current_plan(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_current_plan(self) -> np.ndarray:
         """Returns the current planned trajectory.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: The most recent planned poses, velocities and accelerations over the COLAV planning horizon (if any).
+            np.ndarray: The most recent planned poses, velocities and accelerations (vstacked) over the COLAV planning horizon (if any). Must be compatible with the control system you are using.
         """
 
 
@@ -132,11 +138,11 @@ class VOWrapper(ICOLAV):
     """The VO wrapper is a Kuwata VO-based reactive COLAV planning system, where LOS-guidance is used to provide velocity references."""
 
     def __init__(self, config: Config, **kwargs) -> None:
-        assert config.layer1.kuwata_vo is not None, "Kuwata VO must be on the first layer for the VO wrapper."
-        self._vo = kuwata_vo.VO(params=config.layer1.kuwata_vo, **kwargs)
+        assert config.layer1.vo is not None, "Kuwata VO must be on the first layer for the VO wrapper."
+        self._vo = kvo.VO(config.layer1.vo)
 
         assert config.layer2.los is not None, "LOS guidance must be on the second layer for the VO wrapper."
-        self._los = guidance.LOSGuidance(config=config.layer2.los, **kwargs)
+        self._los = guidance.LOSGuidance(config.layer2.los)
 
         self._t_prev = 0.0
         self._initialized = False
@@ -149,8 +155,8 @@ class VOWrapper(ICOLAV):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_state: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        goal_pose: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
         if not self._initialized:
             self._t_prev = t
             self._initialized = True
@@ -162,7 +168,7 @@ class VOWrapper(ICOLAV):
         vel_ref = np.array([speed_ref * np.cos(course_ref), speed_ref * np.sin(course_ref)])
         return self._vo.plan(t, vel_ref, ownship_state, do_list, enc)
 
-    def get_current_plan(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_current_plan(self) -> np.ndarray:
         return self._vo.get_current_plan()
 
 
@@ -178,6 +184,6 @@ class COLAVBuilder:
             ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
         colav: Optional[ICOLAV] = None
-        if config and config.type == COLAVType.VO:
+        if config and config.name == COLAVType.VO:
             colav = VOWrapper(config)
         return colav

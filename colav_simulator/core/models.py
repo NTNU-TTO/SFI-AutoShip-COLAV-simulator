@@ -115,7 +115,7 @@ class ModelBuilder:
             Model: Model as specified by the configuration, e.g. a KinematicCSOG model.
         """
         if config and config.csog:
-            return KinematicCSOG(config)
+            return KinematicCSOG(config.csog)
         elif config and config.telemetron:
             return Telemetron()
         else:
@@ -138,9 +138,9 @@ class KinematicCSOG(IModel):
     _n_x: int = 4
     _n_u: int = 2
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.csog is not None:
-            self._params: KinematicCSOGParams = config.csog
+    def __init__(self, params: Optional[KinematicCSOGParams] = None) -> None:
+        if params is not None:
+            self._params: KinematicCSOGParams = params
         else:
             self._params = KinematicCSOGParams()
 

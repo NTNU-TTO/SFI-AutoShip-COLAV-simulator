@@ -141,7 +141,7 @@ class Simulator:
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
         timestamp_start = mhm.current_utc_timestamp()
-
+        most_recent_sensor_measurements = []
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
         t_prev = sim_times[0]
         for _, t in enumerate(sim_times):
@@ -154,24 +154,24 @@ class Simulator:
                 if t == 0.0:
                     print(f"Ship {i} starts at {ship_obj.t_start}")
                 if ship_obj.t_start <= t:
-                    state = mhm.convert_sog_cog_state_to_vxvy_state(ship_obj.pose)
-                    true_do_states.append((i, state))
+                    vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
+                    true_do_states.append((i, vxvy_state))
 
             for i, ship_obj in enumerate(ship_list):
                 if i == 0:
                     relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
-                    _, _, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
-                    if t == 0.0:
-                        most_recent_sensor_measurements = sensor_measurements_i
+                    tracks, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
 
-                    for sensor_idx, meas in enumerate(sensor_measurements_i):
-                        if not meas:
-                            continue
-                        if np.isnan(meas).any():
-                            continue
-                        most_recent_sensor_measurements[sensor_idx].append(meas)
+                    most_recent_sensor_measurements = extract_valid_sensor_measurements(t, most_recent_sensor_measurements, sensor_measurements_i)
 
+                # DELT REF TIL COLAV: FIX!
                 if dt_sim > 0 and ship_obj.t_start <= t:
+                    ship_obj.plan(
+                        t=t,
+                        dt=dt_sim,
+                        do_list=tracks,
+                        enc=scenario_enc,
+                    )
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t, timestamp_start)
@@ -187,3 +187,15 @@ class Simulator:
                 self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, most_recent_sensor_measurements)
 
         return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info, sim_times
+
+
+def extract_valid_sensor_measurements(t: float, most_recent_sensor_measurements: list, sensor_measurements_i: list) -> list:
+    if t == 0.0:
+        most_recent_sensor_measurements = sensor_measurements_i
+    for _, meas in enumerate(sensor_measurements_i):
+        if not meas:
+            continue
+        if np.isnan(meas).any():
+            continue
+        most_recent_sensor_measurements.append(meas)
+    return most_recent_sensor_measurements

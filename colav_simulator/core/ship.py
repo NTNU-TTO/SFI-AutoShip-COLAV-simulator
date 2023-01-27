@@ -24,33 +24,34 @@ import colav_simulator.core.models as models
 import colav_simulator.core.sensors as ssensors
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
+import seacharts.enc as senc
 
 
 @dataclass
 class Config:
     """Configuration class for managing ship parameters."""
 
-    colav: ci.Config = ci.Config()
+    colav: Optional[ci.Config] = None
+    guidance: Optional[guidances.Config] = guidances.Config()
     model: models.Config = models.Config()
     controller: controllers.Config = controllers.Config()
-    guidance: guidances.Config = guidances.Config()
     sensors: ssensors.Config = ssensors.Config()
     tracker: trackers.Config = trackers.Config()
     mmsi: int = -1  # MMSI number of the ship, if configured equal to the MMSI of a ship in AIS data, the ship will be initialized with the data from the AIS data.
     id: int = -1  # Ship identifier
     t_start: Optional[float] = None  # Determines when the ship should start in the simulation
     t_end: Optional[float] = None  # Determines when the ship ends its part in the simulation
-    random_generated: Optional[bool] = False  # True if the ship should have randomly generated pose, wps and speed plan. Takes priority over mmsi.
-    pose: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]]
+    random_generated: Optional[bool] = False  # True if the ship should have randomly generated COG-SOG-state, wps and speed plan. Takes priority over mmsi.
+    csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
     waypoints: Optional[np.ndarray] = None
     speed_plan: Optional[np.ndarray] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = Config()
-        if "pose" in config_dict:
-            config.pose = np.array(config_dict["pose"])
-            config.pose[3] = np.deg2rad(config.pose[3])
+        if "csog_state" in config_dict:
+            config.csog_state = np.array(config_dict["csog_state"])
+            config.csog_state[3] = np.deg2rad(config.csog_state[3])
 
         if "waypoints" in config_dict:
             config.waypoints = np.array(config_dict["waypoints"])
@@ -77,22 +78,30 @@ class Config:
 
         config.controller = controllers.Config.from_dict(config_dict["controller"])
 
-        config.guidance = guidances.Config.from_dict(config_dict["guidance"])
-
         config.sensors = ssensors.Config.from_dict(config_dict["sensors"])
 
         config.tracker = trackers.Config.from_dict(config_dict["tracker"])
 
-        config.colav = ci.Config.from_dict(config_dict["colav"])
+        if "guidance" in config_dict:
+            config.guidance = guidances.Config.from_dict(config_dict["guidance"])
+
+        if "colav" in config_dict:
+            config.colav = ci.Config.from_dict(config_dict["colav"])
+
+        # COLAV take priority over guidance, if both are specified.
+        if config.colav and config.guidance:
+            config.guidance = None
+
+        assert config.colav is not None or config.guidance is not None, "Ship must have either a guidance or a colav system."
 
         return config
 
     def to_dict(self):
         config_dict = {}
 
-        if self.pose is not None:
-            config_dict["pose"] = self.pose.tolist()
-            config_dict["pose"][3] = float(np.rad2deg(self.pose[3]))
+        if self.csog_state is not None:
+            config_dict["csog_state"] = self.csog_state.tolist()
+            config_dict["csog_state"][3] = float(np.rad2deg(self.csog_state[3]))
 
         if self.waypoints is not None:
             config_dict["waypoints"] = self.waypoints.tolist()
@@ -116,13 +125,15 @@ class Config:
 
         config_dict["controller"] = self.controller.to_dict()
 
-        config_dict["guidance"] = self.guidance.to_dict()
-
         config_dict["sensors"] = self.sensors.to_dict_list()
 
         config_dict["tracker"] = self.tracker.to_dict()
 
-        config_dict["colav"] = self.colav.to_dict()
+        if self.guidance is not None:
+            config_dict["guidance"] = self.guidance.to_dict()
+
+        if self.colav is not None:
+            config_dict["colav"] = self.colav.to_dict()
 
         return config_dict
 
@@ -143,9 +154,9 @@ class ShipBuilder:
         if config:
             model = cls.construct_model(config.model)
             controller = cls.construct_controller(config.controller)
-            guidance_alg = cls.construct_guidance(config.guidance)
             sensors = cls.construct_sensors(config.sensors)
             tracker = cls.construct_tracker(sensors, config.tracker)
+            guidance_alg = cls.construct_guidance(config.guidance)
             colav_alg = cls.construct_colav(config.colav)
         else:
             model = cls.construct_model()
@@ -192,7 +203,7 @@ class Ship(IShip):
     """The Ship class is the main COLAV simulator object. It can be configured with various subsystems.
 
     Configurable subsystems include:
-        - TODO: colav: The collision avoidance (colav) planner used. Can be used with or without the guidance system.
+        - colav: The collision avoidance (colav) planner used.
         - guidance: Guidance system, e.g. a LOS guidance.
         - controller: The low-level motion control strategy used, e.g. a PID controller.
         - tracker: The tracker used for estimating nearby dynamic obstacle states, e.g. a Kalman filter.
@@ -204,7 +215,8 @@ class Ship(IShip):
         self,
         mmsi: int,
         identifier: int,
-        pose: Optional[np.ndarray] = None,
+        csog_state: Optional[np.ndarray] = None,
+        goal_pose: Optional[np.ndarray] = None,
         waypoints: Optional[np.ndarray] = None,
         speed_plan: Optional[np.ndarray] = None,
         config: Optional[Config] = None,
@@ -213,9 +225,11 @@ class Ship(IShip):
         self._mmsi = mmsi
         self._id = identifier
         self._ais_msg_nr: int = 18
-        self._state: np.ndarray = np.zeros(4)
+        self._state: np.ndarray = np.zeros(6)
+        self._goal_pose: np.ndarray = np.zeros(4)
         self._waypoints: np.ndarray = np.empty(0)
         self._speed_plan: np.ndarray = np.zeros(0)
+        self._references: np.ndarray = np.zeros(0)
         self._trajectory: np.ndarray = np.empty(0)
         self._trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation (for AIS trajectories)
         self._first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
@@ -227,9 +241,12 @@ class Ship(IShip):
         if config:
             self._set_variables_from_config(config)
 
-        # Input pose, waypoints and speed plans take precedence over config specified ones
-        if pose is not None:
-            self.set_initial_state(pose)
+        # Input COG-SOG state, waypoints and speed plans take precedence over config specified ones
+        if csog_state is not None:
+            self.set_initial_state(csog_state)
+
+        if goal_pose is not None:
+            self._goal_pose = goal_pose
 
         if waypoints is not None and speed_plan is not None:
             self.set_nominal_plan(waypoints, speed_plan)
@@ -243,14 +260,32 @@ class Ship(IShip):
 
     def _set_variables_from_config(self, config: Config) -> None:
         self._id = config.id
-        if config.pose is not None:
-            self.set_initial_state(config.pose)
+        if config.csog_state is not None:
+            self.set_initial_state(config.csog_state)
 
         if config.waypoints is not None and config.speed_plan is not None:
             self.set_nominal_plan(config.waypoints, config.speed_plan)
 
         if config.mmsi != -1:
             self._mmsi = config.mmsi
+
+    def plan(
+        self,
+        t: float,
+        dt: float,
+        do_list: list,
+        enc: Optional[senc.ENC] = None,
+    ) -> np.ndarray:
+
+        if self._goal_pose is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
+            raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
+
+        if self._colav is not None:
+            self._references = self._colav.plan(t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_pose)
+            return self._references
+
+        self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
+        return self._references
 
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
@@ -283,41 +318,27 @@ class Ship(IShip):
             )
             return self._state, np.empty(3), np.empty(9)
 
-        if self._waypoints.size < 2 or self._speed_plan.size < 2:
-            raise ValueError("Insufficient waypoints for the ship to follow!")
-
         if dt <= 0.0:
             raise ValueError("Time step must be strictly positive!")
 
-        references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
-
-        u = self._controller.compute_inputs(references, self._state, dt, self._model)
+        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
 
         self._state = self._state + dt * self._model.dynamics(self._state, u)
 
-        return self._state, u, references
+        return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
-        """Uses its target tracker to estimate the states of dynamic obstacles in the environment.
-
-        Args:
-            t (float): Current time (s).
-            dt (float): Time step (s) in the simulation. I.e. difference between t and the previous time.
-            true_do_states (list): List of true states of dynamic obstacles in the environment.
-
-        Returns:
-            Tuple[list, list]: Updated list of estimates and covariances on obstacles in the environment.
-        """
-        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_sog_cog_state_to_vxvy_state(self.pose))
+        """Tracks obstacles in the vicinity of the ship."""
+        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_csog_state_to_vxvy_state(self.csog_state))
         return tracks
 
-    def set_initial_state(self, pose: np.ndarray) -> None:
-        """Sets the initial state of the ship based on the input pose.
+    def set_initial_state(self, csog_state: np.ndarray) -> None:
+        """Sets the initial state of the ship based on the input kinematic state.
 
         Args:
-            pose (np.ndarray): Initial pose = [x, y, U, chi] of the ship.
+            csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
         """
-        self._state = np.array([pose[0], pose[1], pose[3], pose[2], 0.0, 0.0])
+        self._state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
@@ -350,20 +371,21 @@ class Ship(IShip):
         """
         datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        xs_i_upd, P_i_upd, NISes, labels = self.get_do_track_information()
-        xs_i_upd = [xs.tolist() for xs in xs_i_upd]
-        P_i_upd = [P.tolist() for P in P_i_upd]
+        tracks, NISes = self.get_do_track_information()
+        labels = [track[0] for track in tracks]
+        xs_i_upd = [track[1].tolist() for track in tracks]
+        P_i_upd = [track[2].tolist() for track in tracks]
         NISes = [float(NIS) for NIS in NISes]
 
         if self.t_start <= t < self.t_end:
-            pose = self.pose
+            csog_state = self.csog_state
             active = True
         else:
-            pose = np.ones(4) * np.nan
+            csog_state = np.ones(4) * np.nan
             active = False
 
         ship_sim_data = {
-            "pose": pose,
+            "csog_state": csog_state,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "date_time_utc": datetime_str,
@@ -371,7 +393,7 @@ class Ship(IShip):
             "do_estimates": xs_i_upd,
             "do_covariances": P_i_upd,
             "do_NISes": NISes,
-            "do_labels": labels.copy(),
+            "do_labels": labels,
             "active": active,
             # predicted trajectory from COLAV/planner
         }
@@ -391,12 +413,12 @@ class Ship(IShip):
         """
         datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        lat, lon = mapf.local2latlon(self.pose[1], self.pose[0], utm_zone)
+        lat, lon = mapf.local2latlon(self.csog_state[1], self.csog_state[0], utm_zone)
 
         if self.t_start <= t < self.t_end:
             sog, cog, true_heading = (
-                int(mf.mps2knots(self.pose[2])),
-                int(np.rad2deg(self.pose[3])),
+                int(mf.mps2knots(self.csog_state[2])),
+                int(np.rad2deg(self.csog_state[3])),
                 np.rad2deg(self.heading),
             )
         else:
@@ -434,7 +456,7 @@ class Ship(IShip):
     def transfer_vessel_ais_data(
         self, vessel: colav_eval_vessel_data.VesselData, use_ais_trajectory: bool = True, t_start: Optional[float] = None, t_end: Optional[float] = None
     ) -> None:
-        """Transfers vessel AIS data to a ship object. This includes the ship pose,
+        """Transfers vessel AIS data to a ship object. This includes the ship COG-SOG-state,
         length, width, draft etc..
 
         If the `use_ais_trajectory` flag is set, the Ship will follow its historical
@@ -483,13 +505,13 @@ class Ship(IShip):
         self._model.params.draft = vessel.draft
 
     @property
-    def pose(self) -> np.ndarray:
-        """Returns the ship pose as parameterized in an AIS message,
+    def csog_state(self) -> np.ndarray:
+        """Returns the ship COG/SOG state as parameterized in an AIS message,
         i.e. `xs = [x, y, U, chi]` where `x` and `y` are planar coordinates (north-east),
-        `U` the ship forward speed (m/s) and `chi` the course over ground (rad).
+        `U` the ship speed over ground (m/s) and `chi` the course over ground (rad).
 
         Returns:
-            np.ndarray: Ship pose.
+            np.ndarray: Ship csog-state.
         """
         if self._model.dims[0] == 4:
             return np.array([self._state[0], self._state[1], self._state[3], self._state[2]])

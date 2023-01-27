@@ -244,7 +244,7 @@ class ScenarioGenerator:
         n_cfg_ships = len(config.ship_list)
         ship_list = []
         ship_config_list = []
-        pose_list = []
+        csog_state_list = []
         cfg_ship_idx = 0
         non_cfged_ship_indices = []
         while ais_vessel_data_list:
@@ -279,13 +279,13 @@ class ScenarioGenerator:
             ship_config.mmsi = ship_obj.mmsi
 
             if not use_ais_ship_trajectory and ship_config.waypoints is None:
-                waypoints = self.generate_random_waypoints(ship_obj.pose[0], ship_obj.pose[1], ship_obj.pose[3], ship_obj.draft)
-                speed_plan = self.generate_random_speed_plan(ship_obj.pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
+                waypoints = self.generate_random_waypoints(ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
+                speed_plan = self.generate_random_speed_plan(ship_obj.csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
 
-            pose_list.append(ship_obj.pose)
+            csog_state_list.append(ship_obj.csog_state)
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
@@ -304,7 +304,7 @@ class ScenarioGenerator:
             non_cfged_ship_indices.append(i)
 
         # The remaining ships are generated randomly
-        os_pose = [x.pose for x in ship_list if x.id == 0]
+        os_csog_state = [x.csog_state for x in ship_list if x.id == 0]
         while non_cfged_ship_indices:
             cfg_ship_idx = non_cfged_ship_indices.pop(0)
             if cfg_ship_idx < n_cfg_ships and cfg_ship_idx == config.ship_list[cfg_ship_idx].id:
@@ -317,34 +317,34 @@ class ScenarioGenerator:
             ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
 
             # Target ship poses are created relative to the own-ship (idx 0).
-            pose = ship_config.pose
-            if ship_config.pose is None:
+            csog_state = ship_config.csog_state
+            if ship_config.csog_state is None:
                 if cfg_ship_idx == 0:
-                    pose = self.generate_random_pose(ship_obj.max_speed, ship_obj.draft)
+                    csog_state = self.generate_random_csog_state(ship_obj.max_speed, ship_obj.draft)
                 else:
-                    pose = self.generate_ts_pose(
+                    csog_state = self.generate_ts_csog_state(
                         config.type,
-                        os_pose,
+                        os_csog_state,
                         U_min=ship_obj.min_speed,
                         U_max=ship_obj.max_speed,
                         draft=ship_obj.draft,
                     )
-                ship_config.pose = pose
-                ship_obj.set_initial_state(pose)
+                ship_config.csog_state = csog_state
+                ship_obj.set_initial_state(csog_state)
 
             if cfg_ship_idx == 0:
-                os_pose = pose
+                os_csog_state = csog_state
 
             if ship_config.waypoints is None:
-                waypoints = self.generate_random_waypoints(pose[0], pose[1], pose[3], ship_obj.draft)
-                speed_plan = self.generate_random_speed_plan(pose[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
+                waypoints = self.generate_random_waypoints(csog_state[0], csog_state[1], csog_state[3], ship_obj.draft)
+                speed_plan = self.generate_random_speed_plan(csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
 
             ship_config.random_generated = True
 
-            pose_list.append(pose)
+            csog_state_list.append(csog_state)
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
@@ -357,21 +357,21 @@ class ScenarioGenerator:
 
         return ship_list, config, enc_copy
 
-    def generate_ts_pose(
+    def generate_ts_csog_state(
         self,
         scenario_type: ScenarioType,
-        os_pose: np.ndarray,
+        os_csog_state: np.ndarray,
         U_min: float = 1.0,
         U_max: float = 15.0,
         draft: float = 2.0,
         min_land_clearance: float = 100.0,
     ) -> np.ndarray:
-        """Generates a position for the target ship based on the perspective/pose of the first ship/own-ship,
+        """Generates a position for the target ship based on the perspective of the first ship/own-ship,
         such that the scenario is of the input type.
 
         Args:
             scenario_type (ScenarioType): Type of scenario.
-            os_pose (np.ndarray): Own-ship pose = [x, y, speed, heading].
+            os_csog_state (np.ndarray): Own-ship COG-SOG state = [x, y, speed, heading].
             U_min (float, optional): Minimum speed. Defaults to 1.0.
             U_max (float, optional): Maximum speed. Defaults to 15.0.
             draft (float, optional): Draft of target ship. Defaults to 2.0.
@@ -381,8 +381,8 @@ class ScenarioGenerator:
             np.ndarray: Target ship position = [x, y].
         """
 
-        if any(np.isnan(os_pose)):
-            return self.generate_random_pose(max_speed=U_max, draft=draft)
+        if any(np.isnan(os_csog_state)):
+            return self.generate_random_csog_state(max_speed=U_max, draft=draft)
 
         if scenario_type == ScenarioType.MS:
             scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
@@ -396,15 +396,15 @@ class ScenarioGenerator:
                 heading_modifier = 180.0 + random.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
 
             elif scenario_type == ScenarioType.OT_ing:
-                assert U_min < os_pose[2]  # Own-ship speed must be greater than the minimum target ship speed.
+                assert U_min < os_csog_state[2]  # Own-ship speed must be greater than the minimum target ship speed.
                 bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
-                speed = random.uniform(U_min, os_pose[2])
+                speed = random.uniform(U_min, os_csog_state[2])
                 heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
             elif scenario_type == ScenarioType.OT_en:
-                assert U_max > os_pose[2]  # Own-ship speed must be less than the maximum target ship speed.
+                assert U_max > os_csog_state[2]  # Own-ship speed must be less than the maximum target ship speed.
                 bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
-                speed = random.uniform(os_pose[2], U_max)
+                speed = random.uniform(os_csog_state[2], U_max)
                 heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
             elif scenario_type == ScenarioType.CR_GW:
@@ -423,11 +423,11 @@ class ScenarioGenerator:
                 heading_modifier = random.uniform(0.0, 359.999)
 
             bearing = np.deg2rad(bearing)
-            heading = os_pose[3] + np.deg2rad(heading_modifier)
+            heading = os_csog_state[3] + np.deg2rad(heading_modifier)
 
             distance_os_ts = random.uniform(self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1])
-            x = os_pose[0] + distance_os_ts * np.cos(os_pose[3] + bearing)
-            y = os_pose[1] + distance_os_ts * np.sin(os_pose[3] + bearing)
+            x = os_csog_state[0] + distance_os_ts * np.cos(os_csog_state[3] + bearing)
+            y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + bearing)
 
             distance_to_land = mapf.min_distance_to_land(self.enc, y, x)
 
@@ -436,18 +436,18 @@ class ScenarioGenerator:
 
             iter_count += 1
             if iter_count >= 100000:
-                raise ValueError("Could not find a safe pose for the target ship. Have you remembered new load of map data?")
+                raise ValueError("Could not find a safe COG-SOG state for the target ship. Have you remembered new load of map data?")
 
         return np.array([x, y, speed, heading])
 
-    def generate_random_pose(
+    def generate_random_csog_state(
         self,
         max_speed: float = 15.0,
         draft: float = 5.0,
         heading: Optional[float] = None,
         land_clearance: float = 100.0,
     ) -> np.ndarray:
-        """Creates a random pose which adheres to the ship's draft and maximum speed.
+        """Creates a random COG-SOG state which adheres to the ship's draft and maximum speed.
 
         Args:
             max_speed (float): Vessel's maximum speed
@@ -455,7 +455,7 @@ class ScenarioGenerator:
             heading (Optional[float], optional): Heading of the ship in radians. Defaults to None.
 
         Returns:
-            np.ndarray: Array containing the vessel pose = [x, y, speed, heading]
+            np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
         x, y = mapf.generate_random_start_position_from_draft(self.enc, draft, land_clearance)
 
@@ -599,16 +599,16 @@ def find_global_map_origin_and_size(config: ScenarioConfig) -> Tuple[Tuple[float
     max_east = map_origin_enu[0] + map_size[0]
     max_north = map_origin_enu[1] + map_size[1]
     for ship_config in config.ship_list:
-        if ship_config.pose is not None:
-            pose = ship_config.pose
-            if pose[0] < min_north:
-                min_north = pose[0]
-            if pose[0] > max_north:
-                max_north = pose[0]
-            if pose[1] < min_east:
-                min_east = pose[1]
-            if pose[1] > max_east:
-                max_east = pose[1]
+        if ship_config.csog_state is not None:
+            csog_state = ship_config.csog_state
+            if csog_state[0] < min_north:
+                min_north = csog_state[0]
+            if csog_state[0] > max_north:
+                max_north = csog_state[0]
+            if csog_state[1] < min_east:
+                min_east = csog_state[1]
+            if csog_state[1] > max_east:
+                max_east = csog_state[1]
 
         if ship_config.waypoints is not None:
             waypoints = ship_config.waypoints

@@ -87,7 +87,7 @@ class AISParams:
         )
 
     def to_dict(self) -> dict:
-        output_dict = {"max_range": self.max_range, "ais_class": self.ais_class.value, "R": self.R.diagonal().tolist(), "R_true": self.R_true.diagonal().tolist()}
+        output_dict = {"max_range": self.max_range, "ais_class": self.ais_class.name, "R": self.R.diagonal().tolist(), "R_true": self.R_true.diagonal().tolist()}
         return output_dict
 
 

@@ -111,9 +111,9 @@ class GuidanceBuilder:
             Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
         """
         if config and config.los:
-            return LOSGuidance(config)
+            return LOSGuidance(config.los)
         elif config and config.ktp:
-            return KinematicTrajectoryPlanner(config)
+            return KinematicTrajectoryPlanner(config.ktp)
         else:
             return LOSGuidance()
 
@@ -139,9 +139,9 @@ class KinematicTrajectoryPlanner(IGuidance):
     _heading_spline: PchipInterpolator
     _speed_spline: PchipInterpolator
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.ktp is not None:
-            self._params: KTPGuidanceParams = config.ktp
+    def __init__(self, params: Optional[KTPGuidanceParams] = None) -> None:
+        if params:
+            self._params: KTPGuidanceParams = params
         else:
             self._params = KTPGuidanceParams()
 
@@ -337,9 +337,9 @@ class LOSGuidance(IGuidance):
         _e_int (float): Integral of the cross-track error
     """
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.los is not None:
-            self._params: LOSGuidanceParams = config.los
+    def __init__(self, params: Optional[LOSGuidanceParams] = None) -> None:
+        if params is not None:
+            self._params: LOSGuidanceParams = params
         else:
             self._params = LOSGuidanceParams()
 

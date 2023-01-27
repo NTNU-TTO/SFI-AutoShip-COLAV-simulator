@@ -34,8 +34,6 @@ def check_if_vessel_is_passed_by(
     Returns:
         bool: True if ownship is passed by dynamic obstacle, False otherwise.
     """
-    is_passed_by = False
-
     dist_os_do = p_do - p_os
     L_os_do = dist_os_do / np.linalg.norm(dist_os_do)
     U_os = np.linalg.norm(v_os)
@@ -73,7 +71,7 @@ def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: 
         return 0.0, float(np.linalg.norm(r)), p2 - p1
 
     t_cpa = -np.dot(r, v) / np.dot(v, v)
-    d_cpa_vec = p1 + t_cpa * v1
+    d_cpa_vec = r + t_cpa * v
     d_cpa = float(np.linalg.norm(d_cpa_vec))
     return t_cpa, d_cpa, d_cpa_vec
 
@@ -209,7 +207,7 @@ def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[
     timestamps = []
     datetimes_utc = []
     for k, ship_df_k in enumerate(ship_df):
-        X[:, k] = ship_df_k["pose"]
+        X[:, k] = ship_df_k["csog_state"]
         timestamps.append(float(ship_df_k["timestamp"]))
         datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
         datetimes_utc.append(datetime_utc)
@@ -387,14 +385,15 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
     return output_list
 
 
-def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N.
+def convert_csog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N,
+    where U is the speed over ground and chi is the course over ground.
 
     Args:
         xs (np.ndarray): State(s) to convert.
 
     Returns:
-        np.ndarray: Converted state.
+        np.ndarray: Converted state(s).
     """
 
     if xs.ndim == 1:

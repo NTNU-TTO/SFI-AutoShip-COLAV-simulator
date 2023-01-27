@@ -403,7 +403,7 @@ class Visualizer:
             else:
                 zorder_patch = 3
 
-            pose_i = ship_obj.pose
+            csog_state_i = ship_obj.csog_state
 
             # If number of ships is greater than 16, use the same color for all target ships
             if i > 0 and n_ships > len(self._config.ship_colors):
@@ -414,7 +414,11 @@ class Visualizer:
             lw = self._config.ship_linewidth
 
             if i == 0:
-                do_estimates, do_covariances, _, do_labels = ship_obj.get_do_track_information()
+                tracks, _ = ship_obj.get_do_track_information()
+                do_labels = [track[0] for track in tracks]
+                do_estimates = [track[1] for track in tracks]
+                do_covariances = [track[2] for track in tracks]
+
                 if self._config.show_tracks and len(do_estimates) > 0:
                     lw = self._config.do_linewidth
                     for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
@@ -482,17 +486,17 @@ class Visualizer:
 
             # Update ship patch
             ship_poly = mapf.create_ship_polygon(
-                pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
+                csog_state_i[0], csog_state_i[1], csog_state_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
             )
             if self.ship_plt_handles[i]["patch"] is not None:
                 self.ship_plt_handles[i]["patch"].remove()
             self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
 
-            self.ship_plt_handles[i]["info"].set_x(pose_i[1] - 300)
-            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 350)
+            self.ship_plt_handles[i]["info"].set_x(csog_state_i[1] - 300)
+            self.ship_plt_handles[i]["info"].set_y(csog_state_i[0] + 350)
 
-            self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_ship_line_data:], pose_i[1]])
-            self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_ship_line_data:], pose_i[0]])
+            self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state_i[1]])
+            self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state_i[0]])
 
             if self._config.show_waypoints and ship_obj.waypoints.size > 0:
                 self.ship_plt_handles[i]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
@@ -648,7 +652,7 @@ class Visualizer:
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{do_labels[j]}"])
-                    do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
+                    do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
 
                     # ax_map.plot(
                     #     do_estimates_j[1, first_valid_idx_track:end_idx_j],

@@ -172,7 +172,7 @@ class VO:
         """Get the current plan."""
         return np.array([0.0, 0.0, self._heading_opt_prev]), np.array([self._speed_opt_prev, 0.0, 0.0]), np.zeros(3)
 
-    def plan(self, t: float, v_ref: np.ndarray, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def plan(self, t: float, v_ref: np.ndarray, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None) -> np.ndarray:
 
         if not self._initialized:
             self._t_prev = t
@@ -184,7 +184,7 @@ class VO:
         p_os = ownship_state[0:2]
         psi_os = ownship_state[2]
         Rmtrx = mf.Rmtrx2D(psi_os)
-        v_os = Rmtrx * ownship_state[3:5]
+        v_os = Rmtrx @ ownship_state[3:5]
         poly_os: geometry.Polygon = affinity.rotate(self._poly_os, psi_os)
         # poly_os = affinity.translate(self._poly_os, p_os[0], p_os[1])
 
@@ -206,11 +206,13 @@ class VO:
             if id_do not in self._relevant_do_list:
                 situation_started = self._precollision_check(p_os, v_os, p_do, v_do)
 
-            if situation_started:
-                self._relevant_do_list.append(id)
-                self._colregs_situations.append((id_do, t, self._determine_colregs_situation(p_os, v_os, p_do, v_do)))
-            else:
-                self._update_colregs_situation(t, p_os, psi_os, p_do, psi_do, id_do)
+                if situation_started:
+                    self._relevant_do_list.append(id)
+                    self._colregs_situations.append((id_do, t, self._determine_colregs_situation(p_os, v_os, p_do, v_do)))
+                else:
+                    continue
+
+            self._update_colregs_situation(t, p_os, psi_os, p_do, psi_do, id_do)
 
             _, _, situation = [x for x in self._colregs_situations if x[0] == id_do][0]
 
@@ -225,6 +227,28 @@ class VO:
 
             plot_vo_situation(expanded_poly_do, poly_os, poly_do, v_os, v_do)
 
+        if self._relevant_do_list:
+            heading_opt, speed_opt = self._compute_optimal_controls(v_ref, v_os)
+        else:
+            heading_opt = np.arctan2(v_ref[1], v_ref[0])
+            speed_opt = np.linalg.norm(v_ref)
+
+        self._heading_opt_prev = heading_opt
+        self._speed_opt_prev = speed_opt
+
+        references = np.zeros((9, 1))
+        references[:, 0] = np.array([0.0, 0.0, heading_opt, speed_opt, 0.0, 0.0, 0.0, 0.0, 0.0])
+        return references
+
+    def _compute_optimal_controls(self, v_ref: np.ndarray, v_os: np.ndarray) -> Tuple[float, float]:
+        """Computes the optimal controls based on the current admissible controls and the VO cost function
+        Args:
+            v_ref (np.ndarray): The reference velocity.
+            v_os (np.ndarray): The ownship velocity.
+
+        Returns:
+            Tuple[float, float]: The optimal heading and speed.
+        """
         for i, speed in enumerate(self._speed_set):
             for j, heading in enumerate(self._heading_set):
                 if self._admissible_speed_headings[i, j] == 0:
@@ -237,12 +261,9 @@ class VO:
         min_indices = np.nanargmin(self._speed_heading_costs)
         min_speed_idx: int = min_indices[0]
         min_heading_idx: int = min_indices[1]
-        self._heading_opt_prev = self._heading_set[min_heading_idx]
-        self._speed_opt_prev = self._speed_set[min_speed_idx]
-        poses = np.array([0.0, 0.0, self._heading_opt_prev])
-        velocities = np.array([self._speed_opt_prev, 0.0, 0.0])
-        accelerations = np.zeros(3)
-        return poses, velocities, accelerations
+        heading_opt = self._heading_set[min_heading_idx]
+        speed_opt = self._speed_set[min_speed_idx]
+        return heading_opt, speed_opt
 
     def _update_admissible_controls(
         self,
