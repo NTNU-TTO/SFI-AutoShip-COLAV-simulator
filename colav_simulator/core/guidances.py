@@ -96,7 +96,7 @@ class IGuidance(ABC):
 
     @abstractmethod
     def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
-        "Computes guidance reference states for the ship controller to track."
+        "Computes guidance reference states for the ship controller to track. 9 x n_samples (typically n_samples = 1) array of reference states are returned, consisting of reference pose, velocity and acceleration."
 
 
 class GuidanceBuilder:
@@ -164,7 +164,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             dt (float): Time step between the previous and current run of this function.
 
         Returns:
-            np.ndarray: 2-element array containing desired course and desired speed.
+            np.ndarray: 9 x 1 dimensional reference state vector.
         """
         _, n_wps = waypoints.shape
 
@@ -290,7 +290,9 @@ class KinematicTrajectoryPlanner(IGuidance):
             plt.show()
             plt.close()
 
-        return np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
+        references = np.zeros((9, 1))
+        references[:, 0] = np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
+        return references
 
     def _compute_path_variable_derivatives(self) -> Tuple[float, float]:
         s_dot = self._speed_spline(self._s) / np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0))
@@ -357,7 +359,7 @@ class LOSGuidance(IGuidance):
             dt (float): Time step between the previous and current run of this function.
 
         Returns:
-            np.ndarray: 2-element array containing desired course and desired speed.
+            np.ndarray: 9 x 1 dimensional reference vector.
         """
         self._find_active_wp_segment(waypoints, xs)
 
@@ -382,7 +384,9 @@ class LOSGuidance(IGuidance):
 
         U_d = speed_plan[self._wp_counter]
 
-        return np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])
+        references = np.zeros((9, 1))
+        references[:, 0] = np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])
+        return references
 
     def _find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
         """Finds the active line segment between waypoints to follow.

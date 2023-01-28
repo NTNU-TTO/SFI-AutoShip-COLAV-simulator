@@ -209,7 +209,7 @@ class Visualizer:
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
 
-        self.init_figure(enc)  # , [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
+        self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
         ax_map = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 

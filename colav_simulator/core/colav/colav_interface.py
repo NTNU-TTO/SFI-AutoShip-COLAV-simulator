@@ -163,8 +163,8 @@ class VOWrapper(ICOLAV):
 
         references = self._los.compute_references(waypoints, speed_plan, None, ownship_state, t - self._t_prev)
         self._t_prev = t
-        course_ref = references[2]
-        speed_ref = references[3]
+        course_ref = references[2, 0]
+        speed_ref = references[3, 0]
         vel_ref = np.array([speed_ref * np.cos(course_ref), speed_ref * np.sin(course_ref)])
         return self._vo.plan(t, vel_ref, ownship_state, do_list, enc)
 

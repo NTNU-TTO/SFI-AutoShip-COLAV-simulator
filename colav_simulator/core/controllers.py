@@ -103,7 +103,7 @@ class ControllerBuilder:
         """Builds a controller from the configuration
 
         Args:
-            config (Optional[controllers.Config], optional): Model configuration. Defaults to None.
+            config (Optional[controllers.Config]): Model configuration. Defaults to None.
 
         Returns:
             Model: Model as specified by the configuration, e.g. a MIMOPID controller.
