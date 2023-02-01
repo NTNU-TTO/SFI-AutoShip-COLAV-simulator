@@ -167,3 +167,50 @@ The `Ship` object can be initialized with the following parameters
 Except from the ship config, the other optional arguments must be specified afterwards through the `set_initial_pose` and `set_nominal_plan` for the ship object to be functionable.
 
 See the source code for more in depth info on the `Ship` functionality.
+
+## Mac OS Apple Slicon Installation
+
+Install Conda Miniforge from https://github.com/conda-forge/miniforge
+
+Create a conda virtual environment. Python version 3.10 is recommended since the version 3.11 results in error.
+```bash
+conda create --name ENV_NAME python=3.10
+conda activate ENV_NAME
+```
+
+Go to your projects directory and clone the simulator repository with
+`git clone https://github.com/NTNU-Autoship-Internal/colav_simulator.git`
+
+Install dependencies to the virtual environment with
+`conda install -n ENV_NAME -c conda-forge fiona cartopy matplotlib`
+
+Clone the Seacharts and Colav-Evaluation-Tool packages inside colav_simulator directory 
+`git clone https://github.com/trymte/seacharts.git`
+
+Go to Seacharts directory and run
+`pip install -e . `
+
+Inside colav_simulator directory run to clone colav evaluation tool
+`git clone https://github.com/trymte/colav_evaluation_tool.git`
+
+Install dependencies with
+```bash
+cd colav_evaluation_tool 
+pip install -e .
+```
+
+Inside dependencies for the simulator. Go to colav_simulator directory run 
+`pip install -e .`
+
+Install the latest gdal version with
+`conda install -n ENV_NAME gdal`
+
+Create external directory inside the Seacharts package
+```bash
+cd seacharts/data
+mkdir external
+```
+And download the .gdb files into this folder.
+
+Inside the colav_simulator directory test the installation with
+`python tests/test_ship.py`
