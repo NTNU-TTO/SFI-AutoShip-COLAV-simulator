@@ -42,7 +42,7 @@ def check_if_vessel_is_passed_by(
     os_is_overtaken = np.dot(v_os, v_do) > np.cos(np.deg2rad(68.5)) * U_os * U_do and U_os < U_do and U_os > 0.25
     do_is_overtaken = np.dot(v_do, v_os) > np.cos(np.deg2rad(68.5)) * U_do * U_os and U_do < U_os and U_do > 0.25
 
-    vessel_is_passed = (
+    vessel_is_passed: bool = (
         (np.dot(v_os, L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_os and not os_is_overtaken)
         or (np.dot(v_do, -L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_do and not do_is_overtaken)
         and np.linalg.norm(dist_os_do) > threshold_distance

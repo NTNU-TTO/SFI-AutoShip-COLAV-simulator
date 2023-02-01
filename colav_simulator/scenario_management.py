@@ -11,7 +11,7 @@
 
 import copy
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -158,18 +158,44 @@ class Config:
     All angle ranges are in degrees, and all distances are in meters.
     """
 
-    n_ship_range: List[int]  # Range of number of random ships to be generated
-    n_wps_range: List[int]  # Range of number of waypoints to be generated
-    speed_plan_variation_range: List[float]  # Determines maximal +- change in speed plan from one segment to the next
-    waypoint_dist_range: List[float]  # Range of [min, max] change in distance between randomly created waypoints
-    waypoint_ang_range: List[float]  # Range of [min, max] change in angle between randomly created waypoints
-    ho_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
-    ho_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely reciprocal head-on scenarios
-    ot_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for overtaking scenarios
-    ot_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely parallel overtaking scenarios
-    cr_bearing_range: List[float]  # Range of [min, max] bearing from the own-ship to the target ship for crossing scenarios
-    cr_heading_range: List[float]  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
-    dist_between_ships_range: List[float]  # Range of [min, max] distance variations possible between ships.
+    n_wps_range: list = field(default_factory=lambda: [2, 4])  # Range of number of waypoints to be generated
+    speed_plan_variation_range: list = field(default_factory=lambda: [-1.0, 1.0])  # Determines maximal +- change in speed plan from one segment to the next
+    waypoint_dist_range: list = field(default_factory=lambda: [200.0, 1000.0])  # Range of [min, max] change in distance between randomly created waypoints
+    waypoint_ang_range: list = field(default_factory=lambda: [-45.0, 45.0])  # Range of [min, max] change in angle between randomly created waypoints
+    ho_bearing_range: list = field(default_factory=lambda: [-20.0, 20.0])  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
+    ho_heading_range: list = field(
+        default_factory=lambda: [-15.0, 15.0]
+    )  # Range of [min, max] heading variations of the target ship relative to completely reciprocal head-on scenarios
+    ot_bearing_range: list = field(default_factory=lambda: [-20.0, 20.0])  # Range of [min, max] bearing from the own-ship to the target ship for overtaking scenarios
+    ot_heading_range: list = field(
+        default_factory=lambda: [-15.0, 15.0]
+    )  # Range of [min, max] heading variations of the target ship relative to completely parallel overtaking scenarios
+    cr_bearing_range: list = field(default_factory=lambda: [15.1, 112.5])  # Range of [min, max] bearing from the own-ship to the target ship for crossing scenarios
+    cr_heading_range: list = field(
+        default_factory=lambda: [-15.0, 15.0]
+    )  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
+    dist_between_ships_range: list = field(default_factory=lambda: [200, 10000])  # Range of [min, max] distance variations possible between ships.
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        # config = Config(
+        #     n_wps_range=config_dict["n_wps_range"],
+        #     speed_plan_variation_range=config_dict["speed_plan_variation_range"],
+        #     waypoint_dist_range=config_dict["waypoint_dist_range"],
+        #     waypoint_ang_range=config_dict["waypoint_ang_range"],
+        #     ho_bearing_range=config_dict["ho_bearing_range"],
+        #     ho_heading_range=config_dict["ho_heading_range"],
+        #     ot_bearing_range=config_dict["ot_bearing_range"],
+        #     ot_heading_range=config_dict["ot_heading_range"],
+        #     cr_bearing_range=config_dict["cr_bearing_range"],
+        #     cr_heading_range=config_dict["cr_heading_range"],
+        #     dist_between_ships_range=config_dict["dist_between_ships_range"],
+        # )
+        return cls(**config_dict)
+
+    def to_dict(self):
+        output = asdict(self)
+        return output
 
 
 class ScenarioGenerator:
@@ -183,16 +209,19 @@ class ScenarioGenerator:
     enc: senc.ENC
     _config: Config
 
-    def __init__(self, config_file: Path = dp.scenario_generator_config, init_enc: bool = False, **kwargs) -> None:
+    def __init__(self, config: Optional[Config], init_enc: bool = False, **kwargs) -> None:
         """Constructor for the ScenarioGenerator.
 
         Args:
+            config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
             config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
             **kwargs: Keyword arguments for the ScenarioGenerator, can be e.g.:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-
-        self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
+        if config:
+            self._config = config
+        else:
+            self._config = Config()
 
         if init_enc:
             self.enc = senc.ENC(**kwargs)
@@ -227,7 +256,6 @@ class ScenarioGenerator:
         Returns:
             Tuple[list, ScenarioConfig, senc.ENC]: List of ships in the scenario with initialized poses and plans, the scenario config object and configured ENC object for the scenario.
         """
-        print("Generating new scenario...")
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
         ais_vessel_data_list = []
@@ -355,6 +383,7 @@ class ScenarioGenerator:
         if config.save_scenario:
             save_scenario_definition(config)
 
+        print("Scenario generator: Finished creating scenario...")
         return ship_list, config, enc_copy
 
     def generate_ts_csog_state(

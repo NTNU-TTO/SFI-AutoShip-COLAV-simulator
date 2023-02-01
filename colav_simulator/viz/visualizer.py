@@ -6,7 +6,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
@@ -40,7 +40,6 @@ class Config:
     show_animation: bool = True
     save_animation: bool = False
     n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
-    frame_delay: float = 200.0
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
@@ -103,6 +102,14 @@ class Config:
     radar_color: str = "xkcd:grey"
     ais_color: str = "xkcd:dark lavender"
 
+    @classmethod
+    def from_dict(cls, d: dict):
+        return cls(**d)
+
+    def to_dict(self):
+        output = asdict(self)
+        return output
+
 
 class Visualizer:
     """Class with functionality for visualizing/animating ship scenarios, and plotting/saving the simulation results.
@@ -121,8 +128,11 @@ class Visualizer:
     misc_plt_handles: dict  # Extra handles used for live plotting
     t_start: float = 0.0  # start time of the visualization of one scenario
 
-    def __init__(self, enc: Optional[ENC] = None, config_file: Path = dp.visualizer_config) -> None:
-        self._config = cp.extract(Config, config_file, dp.visualizer_schema)
+    def __init__(self, config: Optional[Config], enc: Optional[ENC] = None) -> None:
+        if config:
+            self._config = config
+        else:
+            self._config = Config()
 
         if enc:
             self.init_figure(enc)
