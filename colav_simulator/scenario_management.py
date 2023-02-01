@@ -209,7 +209,7 @@ class ScenarioGenerator:
     enc: senc.ENC
     _config: Config
 
-    def __init__(self, config: Optional[Config], init_enc: bool = False, **kwargs) -> None:
+    def __init__(self, config: Optional[Config] = None, enc_config_file: Optional[Path] = dp.seacharts_config, init_enc: bool = False, **kwargs) -> None:
         """Constructor for the ScenarioGenerator.
 
         Args:
@@ -224,7 +224,7 @@ class ScenarioGenerator:
             self._config = Config()
 
         if init_enc:
-            self.enc = senc.ENC(**kwargs)
+            self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
     def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.

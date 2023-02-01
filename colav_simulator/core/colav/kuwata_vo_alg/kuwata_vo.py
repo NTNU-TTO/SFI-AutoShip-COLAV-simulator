@@ -240,7 +240,7 @@ class VO:
             heading_opt, speed_opt = self._compute_optimal_controls(v_ref, v_os, psi_os)
 
         self._t_prev = t
-        self._references[2, 0] = heading_opt
+        self._references[2, 0] = mf.wrap_angle_to_pmpi(heading_opt)
         self._references[3, 0] = speed_opt
         return self._references
 

@@ -4,4 +4,4 @@ if __name__ == "__main__":
 
     simulator = Simulator()
 
-    sim_data_list, ais_data_list = simulator.run()
+    output = simulator.run()

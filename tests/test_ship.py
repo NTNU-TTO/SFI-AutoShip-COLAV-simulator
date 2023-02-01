@@ -12,6 +12,7 @@ if __name__ == "__main__":
 
     n_wps = 9
     scenario_generator = ScenarioGenerator(init_enc=True)
+    assert scenario_generator.enc.figure_active is True, "check if ENC has the seacharts display enabled"
     origin = scenario_generator.enc_origin
 
     # waypoints = np.zeros((2, n_wps))
@@ -30,7 +31,7 @@ if __name__ == "__main__":
 
     ownship = ship.Ship(mmsi=1, identifier=0)
 
-    pose = scenario_generator.generate_random_pose(draft=ownship.draft, land_clearance=200.0)
+    pose = scenario_generator.generate_random_csog_state(draft=ownship.draft, land_clearance=200.0)
     waypoints = scenario_generator.generate_random_waypoints(x=pose[0], y=pose[1], psi=pose[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
 
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     time = np.zeros(n_samples)
     for k in range(n_samples):
         time[k] = k * dt
+        ownship.plan(time[k], dt, [], None)
         trajectory[:, k], tau[:, k], refs[:, k] = ownship.forward(dt)
 
     # Plots

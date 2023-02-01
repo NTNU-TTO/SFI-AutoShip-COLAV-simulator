@@ -10,7 +10,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
@@ -128,7 +127,7 @@ class Visualizer:
     misc_plt_handles: dict  # Extra handles used for live plotting
     t_start: float = 0.0  # start time of the visualization of one scenario
 
-    def __init__(self, config: Optional[Config], enc: Optional[ENC] = None) -> None:
+    def __init__(self, config: Optional[Config] = None, enc: Optional[ENC] = None) -> None:
         if config:
             self._config = config
         else:
