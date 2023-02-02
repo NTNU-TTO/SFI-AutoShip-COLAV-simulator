@@ -66,6 +66,9 @@ min_dist_between_ships:
 max_dist_between_ships:
   required: False
   type: float
+filename:
+  required: False
+  type: string
 ship_list:
   required: False
   type: list

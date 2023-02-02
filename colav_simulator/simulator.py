@@ -9,7 +9,7 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -74,8 +74,33 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
-    def run(self) -> dict:
-        """Runs through all specified scenarios.
+    def generate_scenarios_from_config(self) -> list:
+        """Generates scenarios listed in the simulator config.
+
+        Returns:
+            dict: Dictionary containing list of ship objects, scenario configuration objects and relevant ENC objects for each scenario.
+        """
+
+        scenario_list = []
+        for i, scenario_file in enumerate(self._config.scenario_files):
+            scenario_data = {}
+            if self._config.verbose:
+                print("\rScenario generator: Creating scenario nr {i}: {scenario_file}...")
+            ship_list, scenario_config, scenario_enc = self._scenario_generator.generate(dp.scenarios / scenario_file)
+            if self._config.verbose:
+                print("\rScenario generator: Finished creating scenario nr {i}: {scenario_file}.")
+
+            scenario_data["ship_list"] = ship_list
+            scenario_data["scenario_config"] = scenario_config
+            scenario_data["scenario_enc"] = scenario_enc
+            scenario_list.append(scenario_data)
+        return scenario_list
+
+    def run(self, scenario_list: Optional[list] = None) -> dict:
+        """Runs through all specified scenarios. If none are specified, the scenarios are generated from the config file and run through.
+
+        Args:
+            input_scenarios (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
 
         Returns:
             dict: Dictionary containing list of simulation data, simulated AIS data, ship info and vessel data (for evaluation) for each scenario.
@@ -90,18 +115,20 @@ class Simulator:
         scenario_config_list = []
         scenario_enc_list = []
 
-        for i, scenario_file in enumerate(self._config.scenario_files):
-            if self._config.verbose:
-                print("\rScenario generator: Creating scenario nr {i}: {scenario_file}...")
-            ship_list, scenario_config, scenario_enc = self._scenario_generator.generate(dp.scenarios / scenario_file)
-            if self._config.verbose:
-                print("\rScenario generator: Finished creating scenario nr {i}: {scenario_file}.")
+        if scenario_list is None:
+            scenario_list = self.generate_scenarios_from_config()
+
+        for i, scenario_data in enumerate(scenario_list):
+            ship_list = scenario_data["ship_list"]
+            scenario_config = scenario_data["scenario_config"]
+            scenario_enc = scenario_data["scenario_enc"]
+            scenario_file = scenario_config.filename
 
             if self._config.verbose:
                 print(f"\rSimulator: Running scenario nr {i}: {scenario_file}...")
             sim_data, ais_data, ship_info, sim_times = self.run_scenario(ship_list, scenario_config, scenario_enc)
             if self._config.verbose:
-                print("\rSimulator: Finished running scenario nr {i}: {scenario_file}.")
+                print("\rSimulator: Finished running through scenario nr {i}: {scenario_file}.")
 
             self._visualizer.visualize_results(
                 self._scenario_generator.enc,
@@ -139,7 +166,7 @@ class Simulator:
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
             scenario_config (ScenarioConfig): Scenario configuration object.
-            scenario_enc (senc.ENC): ENC object relevant the scenario.
+            scenario_enc (senc.ENC): ENC object relevant for the scenario.
 
 
         Returns: a tuple containing:

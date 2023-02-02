@@ -14,7 +14,7 @@ import random
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import colav_evaluation_tool.common.file_utils as colav_eval_fu
 import colav_simulator.common.config_parsing as cp
@@ -72,6 +72,7 @@ class ScenarioConfig:
     allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
     n_random_ships: Optional[int] = 0  # Number of random ships in the scenario, excluding the own-ship, if considered
     ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
+    filename: Optional[str] = None  # Filename of the scenario, stored after creation
 
     def to_dict(self) -> dict:
         output = {
@@ -102,6 +103,9 @@ class ScenarioConfig:
 
         if self.allowed_nav_statuses is not None:
             output["allowed_nav_statuses"] = self.allowed_nav_statuses
+
+        if self.filename is not None:
+            output["filename"] = self.filename
 
         if self.ship_list is not None:
             for ship_config in self.ship_list:
@@ -144,6 +148,9 @@ class ScenarioConfig:
         if "n_random_ships" in config_dict:
             config.n_random_ships = config_dict["n_random_ships"]
 
+        if "filename" in config_dict:
+            config.filename = config_dict["filename"]
+
         if "ship_list" in config_dict:
             config.ship_list = []
             for ship_config in config_dict["ship_list"]:
@@ -178,19 +185,6 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        # config = Config(
-        #     n_wps_range=config_dict["n_wps_range"],
-        #     speed_plan_variation_range=config_dict["speed_plan_variation_range"],
-        #     waypoint_dist_range=config_dict["waypoint_dist_range"],
-        #     waypoint_ang_range=config_dict["waypoint_ang_range"],
-        #     ho_bearing_range=config_dict["ho_bearing_range"],
-        #     ho_heading_range=config_dict["ho_heading_range"],
-        #     ot_bearing_range=config_dict["ot_bearing_range"],
-        #     ot_heading_range=config_dict["ot_heading_range"],
-        #     cr_bearing_range=config_dict["cr_bearing_range"],
-        #     cr_heading_range=config_dict["cr_heading_range"],
-        #     dist_between_ships_range=config_dict["dist_between_ships_range"],
-        # )
         return cls(**config_dict)
 
     def to_dict(self):
@@ -257,6 +251,7 @@ class ScenarioGenerator:
             Tuple[list, ScenarioConfig, senc.ENC]: List of ships in the scenario with initialized poses and plans, the scenario config object and configured ENC object for the scenario.
         """
         config = cp.extract(ScenarioConfig, scenario_config_file, dp.scenario_schema)
+        config.filename = scenario_config_file.name
 
         ais_vessel_data_list = []
         ais_data_output = process_ais_data(config)
@@ -604,6 +599,7 @@ def save_scenario_definition(scenario_config: ScenarioConfig) -> None:
     current_datetime_str = mhm.current_utc_datetime_str("%d%m%Y_%H_%M_%S")
     scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
+    scenario_config_dict["filename"] = filename
     save_file = dp.scenarios / filename
     with save_file.open(mode="w") as file:
         yaml.dump(scenario_config_dict, file)

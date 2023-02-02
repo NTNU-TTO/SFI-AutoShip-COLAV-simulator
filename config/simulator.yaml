@@ -23,7 +23,7 @@ scenario_generator:
 
 visualizer:
   show_liveplot: True
-  show_results: True
+  show_results: False
   show_measurements: False
   show_tracks: False
   show_animation: False

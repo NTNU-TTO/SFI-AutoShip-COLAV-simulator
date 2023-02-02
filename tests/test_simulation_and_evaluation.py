@@ -7,6 +7,8 @@ if __name__ == "__main__":
 
     output = simulator.run()
     vessels_data_list = output["vessels_data_list"]
+    scenario_config_list = output["scenario_config_list"]
+    scenario_enc_list = output["scenario_enc_list"]
 
     evaluator = Evaluator()
 
@@ -14,6 +16,9 @@ if __name__ == "__main__":
     for vessels in vessels_data_list:
         print("Evaluating scenario " + str(count) + " with " + str(len(vessels)) + " vessels...")
 
+        situation =
+
+        evaluator.set_enc(scenario_enc_list[count])
         evaluator.set_vessel_data(vessels)
         results = evaluator.evaluate()
 
