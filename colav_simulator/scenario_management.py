@@ -378,7 +378,6 @@ class ScenarioGenerator:
         if config.save_scenario:
             save_scenario_definition(config)
 
-        print("Scenario generator: Finished creating scenario...")
         return ship_list, config, enc_copy
 
     def generate_ts_csog_state(

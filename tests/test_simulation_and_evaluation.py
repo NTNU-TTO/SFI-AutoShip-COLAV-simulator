@@ -16,8 +16,6 @@ if __name__ == "__main__":
     for vessels in vessels_data_list:
         print("Evaluating scenario " + str(count) + " with " + str(len(vessels)) + " vessels...")
 
-        situation =
-
         evaluator.set_enc(scenario_enc_list[count])
         evaluator.set_vessel_data(vessels)
         results = evaluator.evaluate()
