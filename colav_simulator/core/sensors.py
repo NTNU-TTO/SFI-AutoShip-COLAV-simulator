@@ -81,7 +81,7 @@ class AISParams:
     def from_dict(cls, config_dict: dict):
         return AISParams(
             max_range=config_dict["max_range"],
-            ais_class=AISClass(config_dict["ais_class"]),
+            ais_class=AISClass[config_dict["ais_class"]],
             R=np.diag(config_dict["R"]),
             R_true=np.diag(config_dict["R_true"]),
         )

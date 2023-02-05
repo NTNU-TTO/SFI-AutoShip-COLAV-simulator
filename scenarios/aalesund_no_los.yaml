@@ -1,0 +1,87 @@
+name: "aalesund_random"
+save_scenario: True
+t_start: 0.0
+t_end: 500.0
+dt_sim: 1.0
+utm_zone: 33
+map_size: [30000.0, 40000.0]
+map_origin_enu: [37000.0, 6950450.0]
+map_data_files: ["More_og_Romsdal_utm33.gdb"]
+new_load_of_map_data: False
+n_random_ships: 1
+type: 6
+ship_list:
+  - csog_state: [6959500.0, 49500.0, 7.0, -90.0]
+    id: 0
+    mmsi: 100
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
+    sensors:
+      - radar:
+          max_range: 10000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 10000.0
+          ais_class: 0
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 40.0
+        K_p: 0.025
+        K_i: 0.0
+        e_int_max: 200.0
+    controller:
+      pass_through_cs: ''
+    model:
+      csog:
+        draft: 3.0
+        length: 12.0
+        width: 4.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 4.0
+        U_min: 4.0
+        U_max: 15.0
+  - csog_state: [6961500.0, 49000.0, 7.0, -90.0]
+    id: 1
+    mmsi: 101
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
+    sensors:
+      - radar:
+          max_range: 10000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 10000.0
+          ais_class: 0
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 40.0
+        K_p: 0.025
+        K_i: 0.0
+        e_int_max: 200.0
+    controller:
+      pass_through_cs: ''
+    model:
+      csog:
+        draft: 3.0
+        length: 12.0
+        width: 4.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 4.0
+        U_min: 4.0
+        U_max: 15.0

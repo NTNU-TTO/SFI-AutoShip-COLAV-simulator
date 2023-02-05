@@ -33,7 +33,7 @@ ship_list:
       length: 12.0
       r_max: 4.0
       width: 4.0
-  pose:
+  csog_state:
   - 6966500.0
   - 48500.0
   - 7.0
@@ -111,7 +111,7 @@ ship_list:
       length: 10.0
       r_max: 4.0
       width: 3.0
-  pose:
+  csog_state:
   - 6970735.675286861
   - 49157.451097653306
   - 4.420651085928151
