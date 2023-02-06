@@ -102,7 +102,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
-        vessel.n_msgs = len(vessel.timestamps)
+        n_msgs = len(vessel.timestamps)
         vessel.xy = np.zeros((2, len(X[0, :])))
         vessel.xy[0, :] = X[1, :]  # ENU frame is used in the evaluator
         vessel.xy[1, :] = X[0, :]
@@ -115,6 +115,16 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
             vessel.xy[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
             utm_zone,
         )
+
+        vessel.forward_heading_estimate = np.zeros(n_msgs) * np.nan
+        vessel.backward_heading_estimate = np.zeros(n_msgs) * np.nan
+        for k in range(vessel.first_valid_idx, vessel.last_valid_idx):
+            vessel.forward_heading_estimate[k] = np.arctan2(vessel.xy[1, k + 1] - vessel.xy[1, k], vessel.xy[0, k + 1] - vessel.xy[0, k])
+        vessel.forward_heading_estimate[vessel.last_valid_idx] = vessel.forward_heading_estimate[vessel.last_valid_idx - 1]
+
+        for k in range(vessel.first_valid_idx + 1, vessel.last_valid_idx):
+            vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[1, k] - vessel.xy[1, k - 1], vessel.xy[0, k] - vessel.xy[0, k - 1])
+        vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[vessel.first_valid_idx]
 
         vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
 

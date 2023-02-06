@@ -1,9 +1,9 @@
 simulator:
   #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  #scenario_files: ["head_on.yaml"]
+  scenario_files: ["head_on.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
   #scenario_files: ["ais1_24012023_13_48_55.yaml"]
-  scenario_files: ["aalesund_random_05022023_17_21_30.yaml"]
+  #scenario_files: ["aalesund_random_05022023_17_21_30.yaml"]
   save_scenario_results: True
   verbose: True
   ais_data_column_format: ["mmsi", "lon", "lat", "date_time_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]

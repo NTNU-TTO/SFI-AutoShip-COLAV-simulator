@@ -60,7 +60,7 @@ ship_list:
       - 26.3
       - 0.1
       - 0.1
-      ais_class: 0
+      ais_class: A
       max_range: 10000.0
   speed_plan:
   - 7.0
