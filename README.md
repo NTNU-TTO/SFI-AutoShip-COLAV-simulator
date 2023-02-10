@@ -27,9 +27,57 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 - yaspin
 
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders.
+## Generic Install Instructions
+`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
 
 To use `seacharts`, you must copy the `.gdb` files under `colav_simulator/data/map/` or files you have downloaded yourself (see <https://github.com/trymte/seacharts>), into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
+
+## Mac OS Apple Slicon Installation
+
+Install Conda Miniforge from https://github.com/conda-forge/miniforge
+
+Create a conda virtual environment. Python version 3.10 is recommended since the version 3.11 results in error.
+```bash
+conda create --name ENV_NAME python=3.10
+conda activate ENV_NAME
+```
+
+Go to your projects directory and clone the simulator repository with
+`git clone https://github.com/NTNU-Autoship-Internal/colav_simulator.git`
+
+Install dependencies to the virtual environment with
+`conda install -n ENV_NAME -c conda-forge fiona cartopy matplotlib`
+
+Clone the Seacharts and Colav-Evaluation-Tool packages inside colav_simulator directory
+`git clone https://github.com/trymte/seacharts.git`
+
+Go to Seacharts directory and run
+`pip install -e . `
+
+Inside colav_simulator directory run to clone colav evaluation tool
+`git clone https://github.com/trymte/colav_evaluation_tool.git`
+
+Install dependencies with
+```bash
+cd colav_evaluation_tool
+pip install -e .
+```
+
+Inside dependencies for the simulator. Go to colav_simulator directory run
+`pip install -e .`
+
+Install the latest gdal version with
+`conda install -n ENV_NAME gdal`
+
+Create external directory inside the Seacharts package
+```bash
+cd seacharts/data
+mkdir external
+```
+And download the .gdb files into this folder.
+
+Inside the colav_simulator directory test the installation with
+`python tests/test_ship.py`
 
 ## Git Workflow
 
@@ -41,6 +89,7 @@ If you're unfamiliar with git, check out <https://try.github.io/> to get familia
 The `main` branch shall always be working. This means that:
 
 - All of its features/modules shall be properly documented through quality code + descriptive text where appropriate. Use `type annotation` for increased readability.
+- The `ScenarioGenerator` is successfully able to generate any scenario from valid config files.
 - The `Simulator` is successfully able to run through any number of scenarios, either generated or loaded from file. Furthermore, it should be problem free to save and load scenarios to/from (valid) scenario files.
 - The `Visualizer`is successfully able to visualize each of these scenarios live, if toggled on.
 - Subsystems added to the `Ship` class properly adheres to their interfaces (prefixed with `I` in front of the class name, e.g. interface `IModel` for the ship model interface).
@@ -133,17 +182,13 @@ The simulator is configured using the `simulator.yaml` config file.
 
 ### Scenario Generator
 
-The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment. The scenarios can be specified/created as follows:
-
-1) Fully random, with random poses, waypoints and speed plans for the vessels
-2) Fully specified from AIS data loaded from `.csv` files. The own-ship is here specified as one of the AIS vessels (default being the first AIS vessel), or with randomly generated pose, waypoints and speed plan. The target ships from AIS follow their historical trajectories, interpolated to the match the sample interval considered in the simulator.
-3) As a mix of randomly generated vessels and AIS vessels.
+The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment.
 
 Scenarios are configured through a scenario `.yaml` file as the example `head_on.yaml` file under `scenarios` in the root folder.
 
 Look at the `ScenarioConfig` dataclass, example scenario files for information on how to specify the settings for a scenario.
 
-Look at the `schemas` folder under the package source code for further clues on how to write a new scenario config file.
+Look at the `schemas` folder under the package source code for further clues constraints/tips on how to write a new scenario config file.
 
 Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
 
@@ -153,10 +198,16 @@ Troubles with "freezing" when you generate a scenario? Check if you have specifi
 
 Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. A basic live plotting feature when simulating scenarios is available.
 
-The class can, as most other main modules, be configured from the example config files under `config/`.
+The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
 #### Ship
-The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a `forward(dt) -> np.ndarray` function that allows simple simulation of the vessel.
+The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
+
+- `forward(dt: float) -> np.ndarray` function that allows simple forward simulation of the vessel.
+- `plan(t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system.
+- `track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]` function that tracks nearby dynamic obstacles.
+
+Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out.
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 

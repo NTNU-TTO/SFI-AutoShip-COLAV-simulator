@@ -198,6 +198,20 @@ class IShip(ABC):
     def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         "Predict the ship dt seconds forward in time. Returns new state, inputs to get there and references used."
 
+    @abstractmethod
+    def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
+        "Track obstacles using the sensor suite, taking the obstacle states as inputs at the current time."
+
+    @abstractmethod
+    def plan(
+        self,
+        t: float,
+        dt: float,
+        do_list: list,
+        enc: Optional[senc.ENC] = None,
+    ) -> np.ndarray:
+        "Plan a new trajectory for the ship, either using the onboard guidance system or COLAV system employed."
+
 
 class Ship(IShip):
     """The Ship class is the main COLAV simulator object. It can be configured with various subsystems.
