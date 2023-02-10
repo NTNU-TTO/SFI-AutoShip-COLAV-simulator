@@ -1,8 +1,0 @@
-name: "stand_on_grounding_case"
-save_scenario: True
-t_start: 0.0
-t_end: 1000.0
-dt_sim: 1.0
-utm_zone: 33
-map_data_files: ["More_og_Romsdal_utm33.gdb", "Vestland_utm33.gdb"]
-new_load_of_map_data: True

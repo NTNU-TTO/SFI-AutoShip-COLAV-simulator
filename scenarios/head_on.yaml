@@ -30,7 +30,7 @@ ship_list:
           length_os: 15.0
           width_os: 5.0
           draft_os: 2.0
-          planning_frequency: 2.0
+          planning_frequency: 1.0
           t_max: 60.0
           d_min: 50.0
           t_grounding_max: 40.0
@@ -43,7 +43,7 @@ ship_list:
           speed_set_spacing: 0.5
           safety_buffer: 50.0
           vo_violation_cost: 1000.0
-          grounding_cost: 1e4
+          grounding_cost: 10000.0
           colregs_violation_cost: 100.0
           Q: [1.0, 1.0]
     # guidance:
@@ -98,7 +98,7 @@ ship_list:
           t_max: 60.0
           d_min: 50.0
           t_grounding_max: 40.0
-          t_colregs_update_interval: 5.0
+          t_colregs_update_interval: 20.0
           head_on_width: 30.0
           overtaking_angle: 112.0
           heading_set_limits: [-120.0, 120.0]

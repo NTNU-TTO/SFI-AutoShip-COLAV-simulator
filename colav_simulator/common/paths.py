@@ -20,10 +20,10 @@ scenario_schema = schemas / "scenario.yaml"
 
 simulator_config = config / "simulator.yaml"
 seacharts_config = config / "seacharts.yaml"
-scenario_config = config / "scenario.yaml"
 
 enc_data = root / "data" / "map"
 ais_data = root / "data" / "ais"
+saved_scenarios = scenarios / "saved"
 
 simulated_ais_output = output / "ais"
 animation_output = output / "animation"

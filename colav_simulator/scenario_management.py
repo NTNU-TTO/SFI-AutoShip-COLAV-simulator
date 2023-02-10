@@ -599,7 +599,7 @@ def save_scenario_definition(scenario_config: ScenarioConfig) -> None:
     scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
     scenario_config_dict["filename"] = filename
-    save_file = dp.scenarios / filename
+    save_file = dp.saved_scenarios / filename
     with save_file.open(mode="w") as file:
         yaml.dump(scenario_config_dict, file)
 

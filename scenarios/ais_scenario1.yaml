@@ -34,7 +34,7 @@ ship_list:
           R_true: [25.0, 25.0]
       - ais:
           max_range: 5000.0
-          ais_class: 0
+          ais_class: A
           R: [26.3, 26.3, 0.1, 0.1]
           R_true: [26.3, 26.3, 0.1, 0.1]
     guidance:

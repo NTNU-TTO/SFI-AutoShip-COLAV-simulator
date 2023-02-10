@@ -119,11 +119,11 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         vessel.forward_heading_estimate = np.zeros(n_msgs) * np.nan
         vessel.backward_heading_estimate = np.zeros(n_msgs) * np.nan
         for k in range(vessel.first_valid_idx, vessel.last_valid_idx):
-            vessel.forward_heading_estimate[k] = np.arctan2(vessel.xy[1, k + 1] - vessel.xy[1, k], vessel.xy[0, k + 1] - vessel.xy[0, k])
+            vessel.forward_heading_estimate[k] = np.arctan2(vessel.xy[0, k + 1] - vessel.xy[0, k], vessel.xy[1, k + 1] - vessel.xy[1, k])
         vessel.forward_heading_estimate[vessel.last_valid_idx] = vessel.forward_heading_estimate[vessel.last_valid_idx - 1]
 
         for k in range(vessel.first_valid_idx + 1, vessel.last_valid_idx):
-            vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[1, k] - vessel.xy[1, k - 1], vessel.xy[0, k] - vessel.xy[0, k - 1])
+            vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[0, k] - vessel.xy[0, k - 1], vessel.xy[1, k] - vessel.xy[1, k - 1])
         vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[vessel.first_valid_idx]
 
         vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
