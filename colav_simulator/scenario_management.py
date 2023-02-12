@@ -264,12 +264,78 @@ class ScenarioGenerator:
         config.map_origin_enu, config.map_size = find_global_map_origin_and_size(config)
         enc_copy = self._configure_enc(config)
 
-        n_cfg_ships = len(config.ship_list)
+        cfg_ship_idx = 0
+        non_cfged_ship_indices = []
         ship_list = []
         ship_config_list = []
         csog_state_list = []
-        cfg_ship_idx = 0
-        non_cfged_ship_indices = []
+        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_ais_data(
+            ais_vessel_data_list,
+            mmsi_list,
+            cfg_ship_idx,
+            non_cfged_ship_indices,
+            ship_list,
+            ship_config_list,
+            csog_state_list,
+            config,
+        )
+
+        if config.n_random_ships is None:
+            n_random_ships = 0
+        else:
+            n_random_ships = config.n_random_ships
+
+        # Ships still non-configured will be generated randomly
+        # Add own-ship (idx 0) if no AIS ships were configured
+        n_ais_cfg_ships = len(ship_list)
+        if n_ais_cfg_ships == 0 and len(non_cfged_ship_indices) == 0:
+            non_cfged_ship_indices.append(0)
+            cfg_ship_idx = 1
+
+        n_random_ships += len(non_cfged_ship_indices)
+        for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
+            non_cfged_ship_indices.append(i)
+
+        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_random_plans(
+            cfg_ship_idx, non_cfged_ship_indices, ship_list, ship_config_list, csog_state_list, config, n_random_ships
+        )
+        ship_list.sort(key=lambda x: x.id)
+        ship_config_list.sort(key=lambda x: x.id)
+
+        # Overwrite the preliminary ship config list with the final one
+        config.ship_list = ship_config_list
+        if config.save_scenario:
+            save_scenario_definition(config)
+
+        return ship_list, config, enc_copy
+
+    def generate_ships_with_ais_data(
+        self,
+        ais_vessel_data_list: list,
+        mmsi_list: list,
+        cfg_ship_idx: int,
+        non_cfged_ship_indices: list,
+        ship_list: list,
+        ship_config_list: list,
+        csog_state_list: list,
+        config: ScenarioConfig,
+    ) -> Tuple[list, list, list]:
+        """Generates ships from AIS data. Their plans can be fully or partially be specified by the AIS trajectory data.
+
+        Args:
+            ais_vessel_data_list (list): List of AIS vessel data objects.
+            mmsi_list (list): List of corresponding MMSI numbers for the AIS vessels.
+            cfg_ship_idx (int): The index of the current ship being configured.
+            non_cfged_ship_indices (list): List of indices of ships that are not yet configured.
+            ship_list (list): List of already configured ships, to which the AIS ships will be added.
+            ship_config_list (list): List of final ship configurations, to which the AIS ships will be added.
+            csog_state_list (list): List of CSOG states of the already configured ships, to which the AIS ship initial CSOG states will be added.
+            config (ScenarioConfig): The scenario configuration.
+
+        Returns:
+            Tuple[list, list, list]: The list of ships, the list of ship configurations, and the list of CSOG states.
+        """
+        n_cfg_ships = len(config.ship_list)
         while ais_vessel_data_list:
             use_ais_ship_trajectory = True
             if cfg_ship_idx < n_cfg_ships and cfg_ship_idx == config.ship_list[cfg_ship_idx].id:
@@ -311,22 +377,33 @@ class ScenarioGenerator:
             csog_state_list.append(ship_obj.csog_state)
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
-
             cfg_ship_idx += 1
+        return ship_list, ship_config_list, csog_state_list
 
-        n_ais_cfg_ships = len(ship_list)
-        n_random_ships = config.n_random_ships
-        # Ships still non-configured will be generated randomly
-        # Add own-ship (idx 0) if no AIS ships were configured
-        if n_ais_cfg_ships == 0 and len(non_cfged_ship_indices) == 0:
-            non_cfged_ship_indices.append(0)
-            cfg_ship_idx = 1
+    def generate_ships_with_random_plans(
+        self,
+        cfg_ship_idx: int,
+        non_cfged_ship_indices: list,
+        ship_list: list,
+        ship_config_list: list,
+        csog_state_list: list,
+        config: ScenarioConfig,
+    ) -> Tuple[list, list, list]:
+        """Generates ships with random plans.
 
-        n_random_ships += len(non_cfged_ship_indices)
-        for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
-            non_cfged_ship_indices.append(i)
+        Args:
+            cfg_ship_idx (int): The index of the current ship being configured.
+            non_cfged_ship_indices (list): List of indices of ships that are not yet configured.
+            ship_list (list): List of already configured ships, to which the random ships will be added.
+            ship_config_list (list): List of final ship configurations, to which the random ships will be added.
+            csog_state_list (list): List of CSOG states of the already configured ships, to which the random ship initial CSOG states will be added.
+            config (ScenarioConfig): The scenario configuration.
 
-        # The remaining ships are generated randomly
+        Returns:
+            Tuple[list, list, list]: The list of ships, the list of ship configurations, and the list of CSOG states.
+        """
+        # Number of ships that are configured for the scenario
+        n_cfg_ships = len(config.ship_list)
         os_csog_state = [x.csog_state for x in ship_list if x.id == 0]
         while non_cfged_ship_indices:
             cfg_ship_idx = non_cfged_ship_indices.pop(0)
@@ -335,7 +412,6 @@ class ScenarioGenerator:
             else:
                 ship_config = ship.Config()
                 ship_config.id = cfg_ship_idx
-                ship_config.mmsi = ship_obj.mmsi
 
             ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
 
@@ -371,14 +447,7 @@ class ScenarioGenerator:
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
-        ship_list.sort(key=lambda x: x.id)
-        ship_config_list.sort(key=lambda x: x.id)
-
-        config.ship_list = ship_config_list
-        if config.save_scenario:
-            save_scenario_definition(config)
-
-        return ship_list, config, enc_copy
+        return ship_list, ship_config_list, csog_state_list
 
     def generate_ts_csog_state(
         self,

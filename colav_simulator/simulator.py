@@ -100,7 +100,7 @@ class Simulator:
         """Runs through all specified scenarios. If none are specified, the scenarios are generated from the config file and run through.
 
         Args:
-            input_scenarios (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
+            scenario_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
 
         Returns:
             dict: Dictionary containing list of simulation data, simulated AIS data, ship info and vessel data (for evaluation) for each scenario.
@@ -231,6 +231,16 @@ class Simulator:
 
 
 def extract_valid_sensor_measurements(t: float, most_recent_sensor_measurements: list, sensor_measurements_i: list) -> list:
+    """Extracts non-NaN sensor measurements from the recent sensor measurements list and appends them to the most recent sensor measurements list.
+
+    Args:
+        t (float): Current simulation time.
+        most_recent_sensor_measurements (list): List of most recent valid (non-nan) sensor measurements for the current ship
+        sensor_measurements_i (list): List of new sensor measurements for the current ship.
+
+    Returns:
+        list: List of updated most recent valid (non-nan) sensor measurements for the current ship
+    """
     if t == 0.0:
         most_recent_sensor_measurements = sensor_measurements_i
     for _, meas in enumerate(sensor_measurements_i):
