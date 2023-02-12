@@ -254,6 +254,7 @@ class ScenarioGenerator:
         config.filename = scenario_config_file.name
 
         ais_vessel_data_list = []
+        mmsi_list = []
         ais_data_output = process_ais_data(config)
         if ais_data_output:
             ais_vessel_data_list = ais_data_output["vessels"]
@@ -264,26 +265,19 @@ class ScenarioGenerator:
         config.map_origin_enu, config.map_size = find_global_map_origin_and_size(config)
         enc_copy = self._configure_enc(config)
 
-        cfg_ship_idx = 0
-        non_cfged_ship_indices = []
-        ship_list = []
-        ship_config_list = []
-        csog_state_list = []
-        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_ais_data(
+        ais_ship_output = self.generate_ships_with_ais_data(
             ais_vessel_data_list,
             mmsi_list,
-            cfg_ship_idx,
-            non_cfged_ship_indices,
-            ship_list,
-            ship_config_list,
-            csog_state_list,
             config,
         )
+        ship_list = ais_ship_output["ship_list"]
+        ship_config_list = ais_ship_output["ship_config_list"]
+        csog_state_list = ais_ship_output["csog_state_list"]
+        non_cfged_ship_indices = ais_ship_output["non_cfged_ship_indices"]
 
-        if config.n_random_ships is None:
+        n_random_ships = config.n_random_ships
+        if n_random_ships is None:
             n_random_ships = 0
-        else:
-            n_random_ships = config.n_random_ships
 
         # Ships still non-configured will be generated randomly
         # Add own-ship (idx 0) if no AIS ships were configured
@@ -296,9 +290,7 @@ class ScenarioGenerator:
         for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
             non_cfged_ship_indices.append(i)
 
-        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_random_plans(
-            cfg_ship_idx, non_cfged_ship_indices, ship_list, ship_config_list, csog_state_list, config, n_random_ships
-        )
+        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_random_plans(non_cfged_ship_indices, ship_list, ship_config_list, csog_state_list, config)
         ship_list.sort(key=lambda x: x.id)
         ship_config_list.sort(key=lambda x: x.id)
 
@@ -313,28 +305,24 @@ class ScenarioGenerator:
         self,
         ais_vessel_data_list: list,
         mmsi_list: list,
-        cfg_ship_idx: int,
-        non_cfged_ship_indices: list,
-        ship_list: list,
-        ship_config_list: list,
-        csog_state_list: list,
         config: ScenarioConfig,
-    ) -> Tuple[list, list, list]:
+    ) -> dict:
         """Generates ships from AIS data. Their plans can be fully or partially be specified by the AIS trajectory data.
 
         Args:
             ais_vessel_data_list (list): List of AIS vessel data objects.
             mmsi_list (list): List of corresponding MMSI numbers for the AIS vessels.
-            cfg_ship_idx (int): The index of the current ship being configured.
-            non_cfged_ship_indices (list): List of indices of ships that are not yet configured.
-            ship_list (list): List of already configured ships, to which the AIS ships will be added.
-            ship_config_list (list): List of final ship configurations, to which the AIS ships will be added.
-            csog_state_list (list): List of CSOG states of the already configured ships, to which the AIS ship initial CSOG states will be added.
             config (ScenarioConfig): The scenario configuration.
 
         Returns:
-            Tuple[list, list, list]: The list of ships, the list of ship configurations, and the list of CSOG states.
+            dict: Dictionary containing the list of AIS ships, the list of AIS ship configurations, the list of AIS CSOG states and the updated list of non-configured ship indices.
         """
+        output = {}
+        cfg_ship_idx = 0
+        non_cfged_ship_indices = []
+        ship_list = []
+        ship_config_list = []
+        csog_state_list = []
         n_cfg_ships = len(config.ship_list)
         while ais_vessel_data_list:
             use_ais_ship_trajectory = True
@@ -378,11 +366,15 @@ class ScenarioGenerator:
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
             cfg_ship_idx += 1
-        return ship_list, ship_config_list, csog_state_list
+
+        output["ship_list"] = ship_list
+        output["ship_config_list"] = ship_config_list
+        output["csog_state_list"] = csog_state_list
+        output["non_cfged_ship_indices"] = non_cfged_ship_indices
+        return output
 
     def generate_ships_with_random_plans(
         self,
-        cfg_ship_idx: int,
         non_cfged_ship_indices: list,
         ship_list: list,
         ship_config_list: list,
@@ -392,7 +384,6 @@ class ScenarioGenerator:
         """Generates ships with random plans.
 
         Args:
-            cfg_ship_idx (int): The index of the current ship being configured.
             non_cfged_ship_indices (list): List of indices of ships that are not yet configured.
             ship_list (list): List of already configured ships, to which the random ships will be added.
             ship_config_list (list): List of final ship configurations, to which the random ships will be added.
