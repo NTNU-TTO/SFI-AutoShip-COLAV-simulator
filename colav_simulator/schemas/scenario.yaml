@@ -18,9 +18,12 @@ dt_sim:
   min: 0.1
 type:
   required: True
-  type: integer
+  type: string
 utm_zone:
   required: True
+  type: integer
+n_episodes:
+  required: False
   type: integer
 map_data_files:
   required: True
@@ -42,6 +45,12 @@ map_origin_enu:
   minlength: 2
   schema:
     type: float
+map_tolerance:
+  required: False
+  type: integer
+map_buffer:
+  required: False
+  type: integer
 new_load_of_map_data:
   required: True
   type: boolean
@@ -60,6 +69,15 @@ allowed_nav_statuses:
 n_random_ships:
   required: False
   type: integer
+  excludes: [n_random_ships_range]
+n_random_ships_range:
+  required: False
+  type: list
+  excludes: [n_random_ships]
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: integer
 min_dist_between_ships:
   required: False
   type: float

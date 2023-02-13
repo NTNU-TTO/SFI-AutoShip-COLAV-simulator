@@ -133,6 +133,9 @@ visualizer:
     save_animation:
       required: True
       type: boolean
+    zoom_in_liveplot_on_ownship:
+      required: True
+      type: boolean
 
     n_snapshots:
       required: False

@@ -74,98 +74,107 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
-    def generate_scenarios_from_config(self) -> list:
-        """Generates scenarios listed in the simulator config.
-
-        Returns:
-            dict: Dictionary containing list of ship objects, scenario configuration objects and relevant ENC objects for each scenario.
-        """
-
-        scenario_list = []
-        for i, scenario_file in enumerate(self._config.scenario_files):
-            scenario_data = {}
-            if self._config.verbose:
-                print("\rScenario generator: Creating scenario nr {i}: {scenario_file}...")
-            ship_list, scenario_config, scenario_enc = self._scenario_generator.generate(dp.scenarios / scenario_file)
-            if self._config.verbose:
-                print("\rScenario generator: Finished creating scenario nr {i}: {scenario_file}.")
-
-            scenario_data["ship_list"] = ship_list
-            scenario_data["scenario_config"] = scenario_config
-            scenario_data["scenario_enc"] = scenario_enc
-            scenario_list.append(scenario_data)
-        return scenario_list
-
-    def run(self, scenario_list: Optional[list] = None) -> dict:
-        """Runs through all specified scenarios. If none are specified, the scenarios are generated from the config file and run through.
+    def generate_scenarios_from_files(self, files: Optional[list] = None) -> list:
+        """Generates scenarios from each of the input files.
+        If no files are specified, the scenarios are generated from the ones specified in the simulator config.
 
         Args:
-            scenario_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
+            files (list): List of scenario files to run.
 
         Returns:
-            dict: Dictionary containing list of simulation data, simulated AIS data, ship info and vessel data (for evaluation) for each scenario.
+            list: List of dictionary containing list of ship objects, scenario configuration objects and relevant ENC objects for each scenario episode.
+        """
+        if files is None:
+            files = self._config.scenario_files
+
+        scenario_data_list = []
+        for i, scenario_file in enumerate(files):
+            if self._config.verbose:
+                print(f"\rScenario generator: Creating scenario nr {i + 1}: {scenario_file}...")
+            scenario_episode_list, enc = self._scenario_generator.generate(config_file=dp.scenarios / scenario_file)
+            if self._config.verbose:
+                print(f"\rScenario generator: Finished creating scenario nr {i + 1}: {scenario_file}.")
+
+            scenario_data_list.append((scenario_episode_list, enc))
+        return scenario_data_list
+
+    def run(self, scenario_data_list: Optional[list] = None) -> list:
+        """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
+
+        Args:
+            scenario_data_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
+
+        Returns:
+            list: List of dictionaries containing the following simulation data for each scenario:
+            - episode_simdata_list (list): List of dictionaries containing the following simulation data for each scenario episode:
+                - sim_data (pd.DataFrame): Dataframe containing the simulated data for each ship.
+                - ais_data (pd.DataFrame): Dataframe containing the simulated ais data for each ship.
+                - ship_info (pd.DataFrame): Dataframe containing the ship info for each ship.
+                - config (sm.ScenarioConfig): Configuration object for the scenario episode.
+            - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
         if self._config.verbose:
             print("\rSimulator: Started running through scenarios...")
 
-        sim_data_list = []
-        ais_data_list = []
-        ship_info_list = []
-        vessels_data_list = []
-        scenario_config_list = []
-        scenario_enc_list = []
+        if scenario_data_list is None:
+            scenario_data_list = self.generate_scenarios_from_files()
 
-        if scenario_list is None:
-            scenario_list = self.generate_scenarios_from_config()
+        scenario_simdata_list = []
+        for i, (scenario_episode_list, scenario_enc) in enumerate(scenario_data_list):
+            scenario_simdata = {}
+            if self._config.verbose:
+                print(f"\rSimulator: Running scenario nr {i + 1}...")
 
-        for i, scenario_data in enumerate(scenario_list):
-            ship_list = scenario_data["ship_list"]
-            scenario_config = scenario_data["scenario_config"]
-            scenario_enc = scenario_data["scenario_enc"]
-            scenario_file = scenario_config.filename
+            episode_simdata_list = []
+            for ep, episode_data in enumerate(scenario_episode_list):
+                episode_simdata = {}
+                ship_list = episode_data["ship_list"]
+                episode_config = episode_data["config"]
+                scenario_episode_file = episode_config.filename
+
+                if self._config.verbose:
+                    print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
+                sim_data, ais_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc)
+                if self._config.verbose:
+                    print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
+
+                self._visualizer.visualize_results(
+                    self._scenario_generator.enc,
+                    ship_list,
+                    sim_data,
+                    sim_times,
+                    save_figs=True,
+                    save_file_path=dp.figure_output / episode_config.name,
+                )
+
+                vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, episode_config.utm_zone)
+
+                episode_simdata["vessel_data"] = vessel_data
+                episode_simdata["sim_data"] = sim_data
+                episode_simdata["ais_data"] = ais_data
+                episode_simdata["ship_info"] = ship_info
+                episode_simdata["config"] = episode_config
+                episode_simdata_list.append(episode_simdata)
 
             if self._config.verbose:
-                print(f"\rSimulator: Running scenario nr {i}: {scenario_file}...")
-            sim_data, ais_data, ship_info, sim_times = self.run_scenario(ship_list, scenario_config, scenario_enc)
-            if self._config.verbose:
-                print("\rSimulator: Finished running through scenario nr {i}: {scenario_file}.")
+                print(f"\rSimulator: Finished running through episodes of scenario nr {i}.")
 
-            self._visualizer.visualize_results(
-                self._scenario_generator.enc,
-                ship_list,
-                sim_data,
-                sim_times,
-                save_figs=True,
-                save_file_path=dp.figure_output / scenario_config.name,
-            )
+            scenario_simdata["episode_simdata_list"] = episode_simdata_list
+            scenario_simdata["enc"] = scenario_enc
+            scenario_simdata_list.append(scenario_simdata)
 
-            vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, scenario_config.utm_zone)
-            vessels_data_list.append(vessel_data)
-            sim_data_list.append(sim_data)
-            ais_data_list.append(ais_data)
-            ship_info_list.append(ship_info)
-            scenario_config_list.append(scenario_config)
-            scenario_enc_list.append(scenario_enc)
-
-        output = {}
-        output["sim_data_list"] = sim_data_list
-        output["ais_data_list"] = ais_data_list
-        output["ship_info_list"] = ship_info_list
-        output["vessels_data_list"] = vessels_data_list
-        output["scenario_config_list"] = scenario_config_list
-        output["scenario_enc_list"] = scenario_enc_list
         if self._config.verbose:
             print("\rSimulator: Finished running through scenarios.")
-        return output
+        return scenario_simdata_list
 
-    def run_scenario(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
-        """Runs the simulator for a scenario specified by the ship object array, using a time step dt_sim.
+    def run_scenario_episode(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
+        """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
         Args:
             ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
-            scenario_config (ScenarioConfig): Scenario configuration object.
+            scenario_config (ScenarioConfig): Scenario episode configuration object.
             scenario_enc (senc.ENC): ENC object relevant for the scenario.
 
 

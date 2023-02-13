@@ -280,6 +280,12 @@ class Ship(IShip):
         if config.waypoints is not None and config.speed_plan is not None:
             self.set_nominal_plan(config.waypoints, config.speed_plan)
 
+        if config.t_start is not None:
+            self.t_start = config.t_start
+
+        if config.t_end is not None:
+            self.t_end = config.t_end
+
         if config.mmsi != -1:
             self._mmsi = config.mmsi
 

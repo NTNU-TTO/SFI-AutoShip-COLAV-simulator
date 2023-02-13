@@ -1,6 +1,6 @@
 evaluator:
   sample_interval: 2.0
-  evaluate_grounding: True
+  evaluate_grounding: False
   r_colregs_2_max: 2500.0 # Maximum range for COLREGS stage 2 [m]
   r_colregs_3_max: 1100.0 # Maximum range for COLREGS stage 3 [m]
   r_colregs_4_max: 200.0 # Maximum range for COLREGS stage 4 [m]

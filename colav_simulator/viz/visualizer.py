@@ -38,6 +38,7 @@ class Config:
     show_waypoints: bool = False
     show_animation: bool = True
     save_animation: bool = False
+    zoom_in_liveplot_on_ownship: bool = True
     n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
@@ -218,7 +219,10 @@ class Visualizer:
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
 
-        self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
+        if self._config.zoom_in_liveplot_on_ownship:
+            self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
+        else:
+            self.init_figure(enc)
         ax_map = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 

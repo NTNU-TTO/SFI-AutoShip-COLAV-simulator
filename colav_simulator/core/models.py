@@ -32,7 +32,7 @@ class KinematicCSOGParams:
     T_chi: float = 3.0
     T_U: float = 5.0
     r_max: float = float(np.deg2rad(4))
-    U_min: float = 4.0
+    U_min: float = 2.0
     U_max: float = 15.0
 
     def to_dict(self):
@@ -55,7 +55,7 @@ class TelemetronParams:
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
     r_max: float = float(np.deg2rad(15))
-    U_min: float = 2.0
+    U_min: float = 1.0
     U_max: float = 18.0
 
 
