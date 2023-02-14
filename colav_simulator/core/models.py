@@ -32,7 +32,7 @@ class KinematicCSOGParams:
     T_chi: float = 3.0
     T_U: float = 5.0
     r_max: float = float(np.deg2rad(4))
-    U_min: float = 2.0
+    U_min: float = 0.0
     U_max: float = 15.0
 
     def to_dict(self):

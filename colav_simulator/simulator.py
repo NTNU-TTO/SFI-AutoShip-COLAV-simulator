@@ -30,7 +30,6 @@ class Config:
     scenario_files: list
     save_scenario_results: bool
     verbose: bool
-    ais_data_column_format: list
 
     scenario_generator: sm.Config
     visualizer: viz.Config
@@ -42,7 +41,6 @@ class Config:
             scenario_files=simulator["scenario_files"],
             save_scenario_results=simulator["save_scenario_results"],
             verbose=simulator["verbose"],
-            ais_data_column_format=simulator["ais_data_column_format"],
             scenario_generator=sm.Config.from_dict(config_dict["scenario_generator"]),
             visualizer=viz.Config.from_dict(config_dict["visualizer"]),
         )
@@ -74,30 +72,6 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
-    def generate_scenarios_from_files(self, files: Optional[list] = None) -> list:
-        """Generates scenarios from each of the input files.
-        If no files are specified, the scenarios are generated from the ones specified in the simulator config.
-
-        Args:
-            files (list): List of scenario files to run.
-
-        Returns:
-            list: List of dictionary containing list of ship objects, scenario configuration objects and relevant ENC objects for each scenario episode.
-        """
-        if files is None:
-            files = self._config.scenario_files
-
-        scenario_data_list = []
-        for i, scenario_file in enumerate(files):
-            if self._config.verbose:
-                print(f"\rScenario generator: Creating scenario nr {i + 1}: {scenario_file}...")
-            scenario_episode_list, enc = self._scenario_generator.generate(config_file=dp.scenarios / scenario_file)
-            if self._config.verbose:
-                print(f"\rScenario generator: Finished creating scenario nr {i + 1}: {scenario_file}.")
-
-            scenario_data_list.append((scenario_episode_list, enc))
-        return scenario_data_list
-
     def run(self, scenario_data_list: Optional[list] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
@@ -113,11 +87,14 @@ class Simulator:
                 - config (sm.ScenarioConfig): Configuration object for the scenario episode.
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
+        if scenario_data_list is None:
+            files = [dp.scenarios / f for f in self._config.scenario_files]
+            # scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
+            scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random", self._config.verbose)
+            scenario_data_list = [scenario_data]
+
         if self._config.verbose:
             print("\rSimulator: Started running through scenarios...")
-
-        if scenario_data_list is None:
-            scenario_data_list = self.generate_scenarios_from_files()
 
         scenario_simdata_list = []
         for i, (scenario_episode_list, scenario_enc) in enumerate(scenario_data_list):
@@ -134,7 +111,7 @@ class Simulator:
 
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
-                sim_data, ais_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc)
+                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc)
                 if self._config.verbose:
                     print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
 
@@ -151,7 +128,6 @@ class Simulator:
 
                 episode_simdata["vessel_data"] = vessel_data
                 episode_simdata["sim_data"] = sim_data
-                episode_simdata["ais_data"] = ais_data
                 episode_simdata["ship_info"] = ship_info
                 episode_simdata["config"] = episode_config
                 episode_simdata_list.append(episode_simdata)
@@ -167,7 +143,7 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
-    def run_scenario_episode(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, pd.DataFrame, dict, np.ndarray]:
+    def run_scenario_episode(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
         Args:
@@ -180,14 +156,12 @@ class Simulator:
 
         Returns: a tuple containing:
             sim_data (DataFrame): Dataframe/table containing the ship simulation data.
-            ais_data (DataFrame): Dataframe/table containing the AIS data broadcasted from all ships.
             ship_info (dict): Dictionary containing the ship info for each ship.
             sim_times (np.array): Array containing the simulation times.
         """
         self._visualizer.init_live_plot(scenario_enc, ship_list)
 
         sim_data = []
-        ais_data = []
         ship_info = {}
         for i, ship_obj in enumerate(ship_list):
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
@@ -224,19 +198,15 @@ class Simulator:
                     )
                     ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_ship_sim_data(t, timestamp_start)
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
                 sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
-
-                if t % 1.0 / ship_obj.ais_msg_freq == 0:
-                    ais_data_row = ship_obj.get_ais_data(int(t), timestamp_start, scenario_config.utm_zone)
-                    ais_data.append(ais_data_row)
 
             sim_data.append(sim_data_dict)
 
             if t % 10.0 < 0.0001:
                 self._visualizer.update_live_plot(t, self._scenario_generator.enc, ship_list, most_recent_sensor_measurements[0])
 
-        return pd.DataFrame(sim_data), pd.DataFrame(ais_data, columns=self._config.ais_data_column_format), ship_info, sim_times
+        return pd.DataFrame(sim_data), ship_info, sim_times
 
 
 def extract_valid_sensor_measurements(t: float, most_recent_sensor_measurements: list, sensor_measurements_i: list) -> list:

@@ -265,13 +265,6 @@ class Ship(IShip):
         if waypoints is not None and speed_plan is not None:
             self.set_nominal_plan(waypoints, speed_plan)
 
-        # Message number 1/2/3 for ships with AIS Class A, 18 for AIS Class B ships
-        # AIS Class A is required for ships bigger than 300 GT. Approximately 45 m x 10 m ship would be 300 GT.
-        if self.length <= 45:
-            self._ais_msg_nr = 18
-        else:
-            self._ais_msg_nr = random.randint(1, 3)
-
     def _set_variables_from_config(self, config: Config) -> None:
         self._id = config.id
         if config.csog_state is not None:
@@ -378,7 +371,7 @@ class Ship(IShip):
         self._waypoints = waypoints
         self._speed_plan = speed_plan
 
-    def get_ship_sim_data(self, t: float, timestamp_0: int) -> dict:
+    def get_sim_data(self, t: float, timestamp_0: int) -> dict:
         """Returns simulation related data for the ship. Position are given in
         the local planar coordinate system.
 
@@ -405,6 +398,8 @@ class Ship(IShip):
             active = False
 
         ship_sim_data = {
+            "id": self.id,
+            "mmsi": self.mmsi,
             "csog_state": csog_state,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
@@ -419,44 +414,6 @@ class Ship(IShip):
         }
 
         return ship_sim_data
-
-    def get_ais_data(self, t: float, timestamp_0: int, utm_zone: int) -> dict:
-        """Returns a simulated AIS data message for the ship at the given timestamp.
-
-        Args:
-            t (float): Current time (s) relative to the start of the simulation.
-            timestamp (int): UTC referenced timestamp at the start of the simulation.
-            utm_zone (int): UTM zone used for the local planar coordinate system.
-
-        Returns:
-            dict: AIS message as a dictionary.
-        """
-        datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
-        datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
-        lat, lon = mapf.local2latlon(self.csog_state[1], self.csog_state[0], utm_zone)
-
-        if self.t_start <= t < self.t_end:
-            sog, cog, true_heading = (
-                int(mf.mps2knots(self.csog_state[2])),
-                int(np.rad2deg(self.csog_state[3])),
-                np.rad2deg(self.heading),
-            )
-        else:
-            lon, lat, sog, cog, true_heading = np.nan, np.nan, np.nan, np.nan, np.nan
-
-        row = {
-            "mmsi": self.mmsi,
-            "lon": lon,
-            "lat": lat,
-            "date_time_utc": datetime_str,
-            "sog": sog,
-            "cog": cog,
-            "true_heading": true_heading,
-            "nav_status": 0,
-            "message_nr": self.ais_msg_nr,
-            "source": "",
-        }
-        return row
 
     def get_ship_info(self) -> dict:
         """Returns information about the ship contained in a dictionary."""

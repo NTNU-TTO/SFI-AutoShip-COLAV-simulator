@@ -253,8 +253,8 @@ class ScenarioGenerator:
         Args:
             scenario_config (ScenarioConfig): Scenario config object.
         """
-        print(f"ENC map size: {scenario_config.map_size}")
-        print(f"ENC map origin: {scenario_config.map_origin_enu}")
+        # print(f"ENC map size: {scenario_config.map_size}")
+        # print(f"ENC map origin: {scenario_config.map_origin_enu}")
 
         self.enc = senc.ENC(
             config_file=dp.seacharts_config,
@@ -269,7 +269,7 @@ class ScenarioGenerator:
 
         return copy.deepcopy(self.enc)
 
-    def load_scenario_from_folder(self, folder: Path, scenario_name: str) -> list:
+    def load_scenario_from_folder(self, folder: Path, scenario_name: str, verbose: bool = False) -> list:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
         Args:
@@ -279,15 +279,22 @@ class ScenarioGenerator:
         Returns:
             list: List of scenario files.
         """
-        scenario_data_list = []
-        for nr, file in enumerate(folder.iterdir()):
+        scenario_episode_list = []
+        first = True
+        for _, file in enumerate(folder.iterdir()):
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
+
+            if verbose:
+                print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
             ship_list, config = self.load_episode(config_file=file)
-            if nr == 0:
+            if first:
+                first = False
                 enc = self._configure_enc(config)
-            scenario_data_list.append((ship_list, config))
-        return (scenario_data_list, enc)
+            scenario_episode_list.append({"ship_list": ship_list, "config": config})
+        if verbose:
+            print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
+        return (scenario_episode_list, enc)
 
     def load_episode(self, config_file: Path) -> Tuple[list, ScenarioConfig]:
         """Loads a fully defined scenario episode from configuration file.
@@ -313,6 +320,25 @@ class ScenarioGenerator:
             ship_list.append(ship_obj)
 
         return ship_list, config
+
+    def generate_scenarios_from_files(self, files: list, verbose: bool = False) -> list:
+        """Generates scenarios from each of the input file paths.
+
+        Args:
+            files (list): List of scenario files to run, as Path objects.
+
+        Returns:
+            list: List of episode config data dictionaries and relevant ENC objects, for each scenario.
+        """
+        scenario_data_list = []
+        for i, scenario_file in enumerate(files):
+            if verbose:
+                print(f"\rScenario generator: Creating scenario nr {i + 1}: {scenario_file.name}...")
+            scenario_episode_list, enc = self.generate(config_file=scenario_file)
+            if verbose:
+                print(f"\rScenario generator: Finished creating scenario nr {i + 1}: {scenario_file.name}.")
+            scenario_data_list.append((scenario_episode_list, enc))
+        return scenario_data_list
 
     def generate(self, config: Optional[ScenarioConfig] = None, config_file: Optional[Path] = None, enc: Optional[senc.ENC] = None) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
@@ -537,9 +563,7 @@ class ScenarioGenerator:
             csog_state = ship_config.csog_state
             if ship_config.csog_state is None:
                 if cfg_ship_idx == 0:
-                    csog_state = self.generate_random_csog_state(
-                        U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 3.0
-                    )
+                    csog_state = self.generate_random_csog_state(U_min=5.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 3.0)
                 else:
                     csog_state = self.generate_ts_csog_state(
                         config.type,
@@ -600,12 +624,16 @@ class ScenarioGenerator:
         if scenario_type == ScenarioType.MS:
             scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
-        if scenario_type == ScenarioType.OT_en and U_max <= os_csog_state[2]:
-            print("WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed. Selecting a different scenario type...")
+        if scenario_type == ScenarioType.OT_en and U_max - 2.0 <= os_csog_state[2]:
+            print(
+                "WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 2.0. Selecting a different scenario type..."
+            )
             scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
-        if scenario_type == ScenarioType.OT_ing and U_min >= os_csog_state[2]:
-            print("WARNING: ScenarioType = OT_ing: Own-ship speed should be above the minimum target ship speed. Selecting a different scenario type...")
+        if scenario_type == ScenarioType.OT_ing and U_min >= os_csog_state[2] - 2.0:
+            print(
+                "WARNING: ScenarioType = OT_ing: Own-ship speed minus margin of 2.0 should be above the minimum target ship speed. Selecting a different scenario type..."
+            )
             scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
         is_safe_pose = False
@@ -618,7 +646,7 @@ class ScenarioGenerator:
 
             elif scenario_type == ScenarioType.OT_ing:
                 bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
-                speed = random.uniform(U_min, os_csog_state[2])
+                speed = random.uniform(U_min, os_csog_state[2] - 2.0)
                 heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
             elif scenario_type == ScenarioType.OT_en:
