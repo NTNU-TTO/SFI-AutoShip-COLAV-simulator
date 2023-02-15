@@ -81,17 +81,16 @@ class Simulator:
         Returns:
             list: List of dictionaries containing the following simulation data for each scenario:
             - episode_simdata_list (list): List of dictionaries containing the following simulation data for each scenario episode:
+                - vessel_data (list): List of data containers containing the vessel simulation data for each ship (used for evaluation).
                 - sim_data (pd.DataFrame): Dataframe containing the simulated data for each ship.
-                - ais_data (pd.DataFrame): Dataframe containing the simulated ais data for each ship.
                 - ship_info (pd.DataFrame): Dataframe containing the ship info for each ship.
-                - config (sm.ScenarioConfig): Configuration object for the scenario episode.
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
         if scenario_data_list is None:
             files = [dp.scenarios / f for f in self._config.scenario_files]
-            # scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
-            scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random", self._config.verbose)
-            scenario_data_list = [scenario_data]
+            scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
+            # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random", self._config.verbose)
+            # scenario_data_list = [scenario_data]
 
         if self._config.verbose:
             print("\rSimulator: Started running through scenarios...")
@@ -129,7 +128,6 @@ class Simulator:
                 episode_simdata["vessel_data"] = vessel_data
                 episode_simdata["sim_data"] = sim_data
                 episode_simdata["ship_info"] = ship_info
-                episode_simdata["config"] = episode_config
                 episode_simdata_list.append(episode_simdata)
 
             if self._config.verbose:

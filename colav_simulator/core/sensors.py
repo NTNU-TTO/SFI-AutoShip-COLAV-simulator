@@ -181,7 +181,7 @@ class Radar(ISensor):
         return self._params.max_range
 
 
-class AIS:
+class AIS(ISensor):
     """Class for simulating AIS transponder measurements.
 
     AIS/VDES:

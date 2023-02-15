@@ -172,6 +172,37 @@ class VOWrapper(ICOLAV):
         return self._vo.get_current_plan()
 
 
+class RLMPCWrapper(ICOLAV):
+    """Wrapper for the Reinforcement Learning Model Predictive Control (RLMPC) COLAV system."""
+
+    def __init__(self, config: Config, **kwargs) -> None:
+        assert config.layer1.rlmpc is not None, "The RLMPC must be on the first layer for the RLMPC wrapper."
+        self._vo = kvo.VO(config.layer1.vo)
+
+        self._t_prev = 0.0
+        self._initialized = False
+
+    def plan(
+        self,
+        t: float,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        ownship_state: np.ndarray,
+        do_list: list,
+        enc: Optional[ENC] = None,
+        goal_pose: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        if not self._initialized:
+            self._t_prev = t
+            self._initialized = True
+
+        references = np.zeros(9)
+        return references
+
+    # def get_current_plan(self) -> np.ndarray:
+    #     return self._rlmpc.get_current_plan()
+
+
 class COLAVBuilder:
     @classmethod
     def construct_colav(cls, config: Optional[Config] = None) -> Optional[ICOLAV]:
