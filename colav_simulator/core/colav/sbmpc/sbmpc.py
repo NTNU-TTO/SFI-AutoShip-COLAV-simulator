@@ -1,7 +1,24 @@
 import math
+from dataclasses import dataclass, field
 
 import numpy as np
-from utils import normalize_angle
+from colav_simulator.common.math_functions import wrap_angle_to_pmpi
+# from utils import normalize_angle
+
+@dataclass
+class SBMPCParams:
+    """Parameters for the SB-MPC algorithm."""
+
+    def to_dict(self):
+        output = {
+        }
+        return output
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        output = SBMPCParams(
+        )
+        return output
 
 
 class SBMPC:
@@ -133,9 +150,9 @@ class SBMPC:
                 v_s[1] = self.own_ship.v_[i]
                 v_s = self.rot2d(self.own_ship.psi_[i], v_s)
 
-                psi_o = normalize_angle(obstacle.psi_)
-                phi = normalize_angle(math.atan2(d[1], d[0]) - self.own_ship.psi_[i])
-                psi_rel = normalize_angle(psi_o - self.own_ship.psi_[i])
+                psi_o = wrap_angle_to_pmpi(obstacle.psi_)
+                phi = wrap_angle_to_pmpi(math.atan2(d[1], d[0]) - self.own_ship.psi_[i])
+                psi_rel = wrap_angle_to_pmpi(psi_o - self.own_ship.psi_[i])
 
                 los = d / dist
                 los_inv = -d / dist
@@ -147,7 +164,7 @@ class SBMPC:
                 else:
                     d_safe_i = d_safe + os_w / 2
 
-                phi_o = normalize_angle(math.atan2(-d[1], -d[0]) - obstacle.psi_)
+                phi_o = wrap_angle_to_pmpi(math.atan2(-d[1], -d[0]) - obstacle.psi_)
 
                 if phi_o < self.PHI_AH_:
                     d_safe_i += d_safe + obs_l / 2
@@ -292,7 +309,7 @@ class Ship_model:
         self.os_y = self.D_ - self.C_
 
     def linear_pred(self, state, u_d, psi_d):
-        self.psi_[0] = normalize_angle(psi_d)
+        self.psi_[0] = wrap_angle_to_pmpi(psi_d)
         self.x_[0] = state[0] + self.os_x * np.cos(state[2]) - self.os_y * np.sin(state[2])
         self.y_[0] = state[1] + self.os_x * np.sin(state[2]) + self.os_y * np.cos(state[2])
         self.u_[0] = state[3]

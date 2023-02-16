@@ -25,6 +25,8 @@ from typing import Optional
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.guidances as guidance
+import colav_simulator.core.colav.sbmpc as sbmpc
+
 import numpy as np
 from seacharts.enc import ENC
 
@@ -33,6 +35,7 @@ class COLAVType(Enum):
     """Enum for the different COLAV algorithms currently compatible with the simulator."""
 
     VO = 0  # Kuwata VO, with LOS guidance to provide velocity references.
+    SBMPC = 1 # SB-MPC, provide trajectory offsets
 
 
 @dataclass
@@ -41,6 +44,7 @@ class LayerConfig:
 
     vo: Optional[kvo.VOParams] = None
     los: Optional[guidance.LOSGuidanceParams] = None
+    sbmpc: Optional[sbmpc.SBMPCParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -50,6 +54,9 @@ class LayerConfig:
 
         if "los" in config_dict:
             config.los = cp.convert_settings_dict_to_dataclass(guidance.LOSGuidanceParams, config_dict["los"])
+
+        if "sbmpc" in config_dict:
+            config.sbmpc = cp.convert_settings_dict_to_dataclass(sbmpc.SBMPCParams, config_dict["sbmpc"])
 
         return config
 
@@ -61,6 +68,9 @@ class LayerConfig:
 
         if self.los is not None:
             config_dict["los"] = self.los.to_dict()
+
+        if self.sbmpc is not None:
+            config_dict["sbmpc"] = self.sbmpc.to_dict()
 
         return config_dict
 
@@ -171,6 +181,23 @@ class VOWrapper(ICOLAV):
     def get_current_plan(self) -> np.ndarray:
         return self._vo.get_current_plan()
 
+class SBMPCWrapper(ICOLAV):
+    """SBMPC wrapper"""
+    
+    def plan(
+        self,
+        t: float,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        ownship_state: np.ndarray,
+        do_list: list,
+        enc: Optional[ENC] = None,
+        goal_pose: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Plans a (hopefully) collision free trajectory for the ship to follow"""
+
+    def get_current_plan(self) -> np.ndarray:
+        """Returns the current planned trajectory"""
 
 class COLAVBuilder:
     @classmethod
@@ -186,4 +213,8 @@ class COLAVBuilder:
         colav: Optional[ICOLAV] = None
         if config and config.name == COLAVType.VO:
             colav = VOWrapper(config)
+
+        if config and config.name == COLAVType.SBMPC:
+            colav = SBMPCWrapper(config)
+
         return colav
