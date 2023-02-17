@@ -25,7 +25,7 @@ from typing import Optional
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.guidances as guidance
-import colav_simulator.core.colav.sbmpc as sbmpc
+import colav_simulator.core.colav.sbmpc.sbmpc as sb_mpc
 
 import numpy as np
 from seacharts.enc import ENC
@@ -44,7 +44,7 @@ class LayerConfig:
 
     vo: Optional[kvo.VOParams] = None
     los: Optional[guidance.LOSGuidanceParams] = None
-    sbmpc: Optional[sbmpc.SBMPCParams] = None
+    sbmpc: Optional[sb_mpc.SBMPCParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -56,7 +56,7 @@ class LayerConfig:
             config.los = cp.convert_settings_dict_to_dataclass(guidance.LOSGuidanceParams, config_dict["los"])
 
         if "sbmpc" in config_dict:
-            config.sbmpc = cp.convert_settings_dict_to_dataclass(sbmpc.SBMPCParams, config_dict["sbmpc"])
+            config.sbmpc = cp.convert_settings_dict_to_dataclass(sb_mpc.SBMPCParams, config_dict["sbmpc"])
 
         return config
 
