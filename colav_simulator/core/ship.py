@@ -8,14 +8,11 @@
 
     Author: Trym Tengesdal
 """
-import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import colav_evaluation_tool.vessel as colav_eval_vessel_data
-import colav_simulator.common.map_functions as mapf
-import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.controllers as controllers
@@ -370,6 +367,17 @@ class Ship(IShip):
 
         self._waypoints = waypoints
         self._speed_plan = speed_plan
+
+    def set_colav_system(self, colav: Any | ci.ICOLAV) -> None:
+        """Sets the COLAV system to be used by the ship.
+
+        Args:
+            colav (Any | ICOLAV): COLAV system, must implement the ICOLAV interface.
+        """
+        self._colav = colav
+
+        if self._guidance is not None:
+            self._guidance = None
 
     def get_sim_data(self, t: float, timestamp_0: int) -> dict:
         """Returns simulation related data for the ship. Position are given in

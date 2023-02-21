@@ -9,11 +9,12 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.scenario_management as sm
 import colav_simulator.viz.visualizer as viz
 import numpy as np
@@ -72,11 +73,12 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
-    def run(self, scenario_data_list: Optional[list] = None) -> list:
+    def run(self, scenario_data_list: Optional[list] = None, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
         Args:
             scenario_data_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
+            ownship_colav_system (Optional[Any | ci.ICOLAV]): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
 
         Returns:
             list: List of dictionaries containing the following simulation data for each scenario:
@@ -110,7 +112,7 @@ class Simulator:
 
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
-                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc)
+                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc, ownship_colav_system)
                 if self._config.verbose:
                     print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
 
@@ -141,7 +143,9 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
-    def run_scenario_episode(self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC) -> Tuple[pd.DataFrame, dict, np.ndarray]:
+    def run_scenario_episode(
+        self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC, ownship_colav_system: Optional[Any | ci.ICOLAV] = None
+    ) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
         Args:
@@ -150,6 +154,7 @@ class Simulator:
             the scenario start (t0).
             scenario_config (ScenarioConfig): Scenario episode configuration object.
             scenario_enc (senc.ENC): ENC object relevant for the scenario.
+            ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
 
 
         Returns: a tuple containing:
@@ -158,6 +163,9 @@ class Simulator:
             sim_times (np.array): Array containing the simulation times.
         """
         self._visualizer.init_live_plot(scenario_enc, ship_list)
+
+        if ownship_colav_system is not None:
+            ship_list[0].set_colav_system(ownship_colav_system)
 
         sim_data = []
         ship_info = {}
