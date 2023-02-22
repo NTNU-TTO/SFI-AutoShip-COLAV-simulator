@@ -32,47 +32,6 @@ class VOCOLREGSSituation(Enum):
     CR_SS = 4  # Crossing with obstacle on the rigght/starboard side
 
 
-# @dataclass
-# class COLREGSConstraints:
-#     """Parameters for the COLREGS constraints."""
-
-#     type: VOCOLREGSSituation
-#     heading_diff_limits: list
-#     bearing_limits: list
-#     cross_track_limits: list
-#     along_track_limits: list
-
-#     def to_dict(self) -> dict:
-#         return asdict(self)
-
-#     @classmethod
-#     def from_dict(cls, data: dict) -> "COLREGSConstraints":
-#         output = COLREGSConstraints(
-#             type=VOCOLREGSSituation(data["type"]),
-#             heading_diff_limits=data["heading_diff_limits"],
-#             bearing_limits=data["bearing_limits"],
-#             cross_track_limits=data["cross_track_limits"],
-#             along_track_limits=data["along_track_limits"],
-#         )
-#         return output
-
-#     def check_if_satisfied(self, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float) -> bool:
-#         """Checks if the COLREGS constraints are satisfied for the given ownship and dynamic obstacle states."""
-#         bearing_do_os = mf.compute_bearing(psi_os, p_do, p_os)
-#         heading_diff = mf.wrap_angle_diff_to_pmpi(psi_do, psi_os)
-
-#         Rmtrx2D_ned_body = mf.Rmtrx2D(psi_os)
-#         p_diff_body = Rmtrx2D_ned_body @ (p_do - p_os)
-
-#         heading_constraint_satisfied = self.heading_diff_limits[0] <= heading_diff <= self.heading_diff_limits[1]
-#         bearing_do_os_constraint_satisfied = self.bearing_limits[0] <= bearing_do_os <= self.bearing_limits[1]
-#         cross_track_constraint_satisfied = self.cross_track_limits[0] <= p_diff_body[1] <= self.cross_track_limits[1]
-#         along_track_constraint_satisfied = self.along_track_limits[0] <= p_diff_body[0] <= self.along_track_limits[1]
-
-#         satisfied = heading_constraint_satisfied and bearing_do_os_constraint_satisfied and cross_track_constraint_satisfied and along_track_constraint_satisfied
-#         return satisfied
-
-
 @dataclass
 class VOParams:
     """Parameters for the velocity obstacle algorithm."""
@@ -93,7 +52,7 @@ class VOParams:
         default_factory=lambda: [0.0, 10.0]
     )  # List of speed modifications to consider in the planning. [m/s] Should be set based on the ship min-max speed.
     speed_set_spacing: float = 0.5  # The spacing between the speeds to consider in the planning [m/s]
-    safety_buffer: float = 15.0   #  A buffer length [m] to add to the obstacle's bounding box to take speed uncertainty into account
+    safety_buffer: float = 15.0  #  A buffer length [m] to add to the obstacle's bounding box to take speed uncertainty into account
     vo_violation_cost: float = 1000.0  # The cost for a velocity obstacle violation.
     grounding_cost: float = 10000.0  # The cost for grounding.
     colregs_violation_cost: float = 100.0  # The cost for a COLREGS violation.
@@ -158,7 +117,14 @@ class VO:
         self._initialized = False
         self._t_prev: float = 0.0
 
-        self._poly_os = geometry.Polygon([(-self._params.length_os / 2, -self._params.width_os / 2), (self._params.length_os / 2, -self._params.width_os / 2), (self._params.length_os / 2, self._params.width_os / 2), (-self._params.length_os / 2, self._params.width_os / 2)])
+        self._poly_os = geometry.Polygon(
+            [
+                (-self._params.length_os / 2, -self._params.width_os / 2),
+                (self._params.length_os / 2, -self._params.width_os / 2),
+                (self._params.length_os / 2, self._params.width_os / 2),
+                (-self._params.length_os / 2, self._params.width_os / 2),
+            ]
+        )
         buffer = self._params.safety_buffer
         theta = 0.0
         coords = []
@@ -459,7 +425,7 @@ class VO:
         return expanded_poly_do, expanded_poly_do_w_uncertainty
 
     def plot_current_velocity_grid(self, fig: plt.Figure, ax: plt.Axes, v_os: np.ndarray, psi_os: float) -> list:
-        """ Plots the current admissible and inadmissible velocities for the VO-COLAV.
+        """Plots the current admissible and inadmissible velocities for the VO-COLAV.
 
         Args:
             fig (plt.Figure): Figure to plot on.
@@ -479,7 +445,16 @@ class VO:
                 color = "g"
                 if self._violation_costs[i, j] > 0.0:
                     color = "r"
-                ray = ax.arrow(0, 0, candidate_speed * np.sin(candidate_heading), candidate_speed * np.cos(candidate_heading), color=color, width=0.1, head_width=0.3, head_length=0.3)
+                ray = ax.arrow(
+                    0,
+                    0,
+                    candidate_speed * np.sin(candidate_heading),
+                    candidate_speed * np.cos(candidate_heading),
+                    color=color,
+                    width=0.1,
+                    head_width=0.3,
+                    head_length=0.3,
+                )
                 speed_conditioned_velocity_handles.append(ray)
 
             velocity_handles.append(speed_conditioned_velocity_handles)
@@ -521,7 +496,16 @@ def compute_reflection(poly: geometry.Polygon) -> geometry.Polygon:
     return geometry.Polygon(new_coords)
 
 
-def plot_vo_situation(expanded_poly_do: geometry.Polygon, expanded_poly_do_buffered, poly_os: geometry.Polygon, v_os: np.ndarray, poly_do: geometry.Polygon, v_do: np.ndarray, fig: Optional[plt.Figure] = None, ax: Optional[plt.Axes] = None) -> Tuple[plt.Figure, plt.Axes]:
+def plot_vo_situation(
+    expanded_poly_do: geometry.Polygon,
+    expanded_poly_do_buffered,
+    poly_os: geometry.Polygon,
+    v_os: np.ndarray,
+    poly_do: geometry.Polygon,
+    v_do: np.ndarray,
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+) -> Tuple[plt.Figure, plt.Axes]:
     """Plots the vcurrent velocity obstacle situation.
 
     Args:
