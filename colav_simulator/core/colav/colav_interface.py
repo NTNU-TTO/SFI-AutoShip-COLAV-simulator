@@ -80,6 +80,7 @@ class Config:
     """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
 
     name: COLAVType = COLAVType.VO
+    name: COLAVType = COLAVType.SBMPC
     layer1: LayerConfig = LayerConfig()
     layer2: Optional[LayerConfig] = None
     layer3: Optional[LayerConfig] = None
@@ -183,6 +184,16 @@ class VOWrapper(ICOLAV):
 
 class SBMPCWrapper(ICOLAV):
     """SBMPC wrapper"""
+
+    def __init__(self, config: Config, **kwargs) -> None:
+        assert config.layer1.sbmpc is not None, "SBMPC must be on the first layer for the SBMPC wrapper."
+        self._sbmpc = sb_mpc.SBMPC(config.layer1.sbmpc)
+
+        assert config.layer2.los is not None, "LOS guidance must be on the second layer for the SBMPC wrapper."
+        self._los = guidance.LOSGuidance(config.layer2.los)
+
+        self._t_prev = 0.0
+        self._initialized = False
     
     def plan(
         self,
@@ -194,7 +205,18 @@ class SBMPCWrapper(ICOLAV):
         enc: Optional[ENC] = None,
         goal_pose: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        """Plans a (hopefully) collision free trajectory for the ship to follow"""
+        if not self._initialized:
+            self._t_prev = t
+            self._initialized = True
+
+        references = self._los.compute_references(waypoints, speed_plan, None, ownship_state, t - self._t_prev)
+        self._t_prev = t
+        course_ref = references[2, 0]
+        speed_ref = references[3, 0]
+        speed_os_best, course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list[0][1])
+        references[2, 0] += course_os_best
+        references[3, 0] = speed_ref * speed_os_best
+        return references
 
     def get_current_plan(self) -> np.ndarray:
         """Returns the current planned trajectory"""

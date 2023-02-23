@@ -30,10 +30,10 @@ class SBMPCParams:
     P_ca_last_: float = 1  # last control change
     Chi_ca_last_: float = 0  # last course change
 
-    Chi_ca_ = field(default_factory=lambda: 
+    Chi_ca_: np.array = field(default_factory=lambda: 
         np.deg2rad(np.array([-90.0, -75.0, -60.0, -45.0, -30.0, -15.0, 0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0]))
     )                                                                       # control behaviors - course offset [deg]
-    P_ca_ = field(default_factory=lambda: np.array([0.0, 0.5, 1.0]))    # control behaviors - speed factor
+    P_ca_: np.array = field(default_factory=lambda: np.array([0.0, 0.5, 1.0]))    # control behaviors - speed factor
 
     def to_dict(self):
         output = {
@@ -78,7 +78,7 @@ class SBMPCParams:
             K_CHI_=data["K_CHI_"],
             K_DP_=data["K_DP_"],
             K_DCHI_SB_=data["K_DCHI_SB_"],
-            K_DCHI_P=data["K_DCHI_P"],
+            K_DCHI_P_=data["K_DCHI_P_"],
             P_ca_last_=data["P_ca_last_"],
             Chi_ca_last_=data["Chi_ca_last_"],
             Chi_ca_=data["Chi_ca_"],
