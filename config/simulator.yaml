@@ -1,6 +1,6 @@
 simulator:
   #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  scenario_files: ["head_on.yaml"]
+  scenario_files: ["rogaland_random_rl.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
   #scenario_files: ["ais1_24012023_13_48_55.yaml"]
   #scenario_files: ["aalesund_random_05022023_17_21_30.yaml"]
@@ -21,14 +21,15 @@ scenario_generator:
   dist_between_ships_range: [1000.0, 2000.0]
 
 visualizer:
-  show_liveplot: False
+  show_liveplot: True
   show_results: False
-  show_measurements: True
-  show_tracks: True
+  show_measurements: False
+  show_liveplot_tracks: False
+  show_tracking_results: False
   show_animation: False
   show_waypoints: True
   save_animation: False
-  zoom_in_liveplot_on_ownship: False
+  zoom_in_liveplot_on_ownship: True
   figsize: [14, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7

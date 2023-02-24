@@ -1,5 +1,5 @@
 name: "rogaland_random"
-save_scenario: True
+save_scenario: False
 t_start: 0.0
 t_end: 1000.0
 dt_sim: 1.0
@@ -12,7 +12,7 @@ map_buffer: 0
 new_load_of_map_data: False
 type: MS
 n_random_ships_range: [1, 3]
-n_episodes: 2
+n_episodes: 1
 ship_list:
   - id: 0
     mmsi: 100

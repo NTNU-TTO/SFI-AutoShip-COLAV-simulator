@@ -34,7 +34,8 @@ class Config:
     show_liveplot: bool = True
     show_results: bool = True
     show_measurements: bool = False
-    show_tracks: bool = True
+    show_liveplot_tracks: bool = True
+    show_tracking_results: bool = True
     show_waypoints: bool = False
     show_animation: bool = True
     save_animation: bool = False
@@ -249,7 +250,7 @@ class Visualizer:
 
                 do_lw = self._config.do_linewidth
 
-                if self._config.show_tracks:
+                if self._config.show_liveplot_tracks:
                     ship_i_handles["do_tracks"] = []
                     ship_i_handles["do_covariances"] = []
                     ship_i_handles["track_started"] = []
@@ -432,7 +433,7 @@ class Visualizer:
                 do_estimates = [track[1] for track in tracks]
                 do_covariances = [track[2] for track in tracks]
 
-                if self._config.show_tracks and len(do_estimates) > 0:
+                if self._config.show_liveplot_tracks and len(do_estimates) > 0:
                     lw = self._config.do_linewidth
                     for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
                         if n_ships > len(self._config.ship_colors):
@@ -584,6 +585,7 @@ class Visualizer:
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
             ship_sim_data = sim_data[f"Ship{i}"]
+            end_idx = k_snapshots[-1]
 
             # If number of ships is greater than 16, use the same color for all target ships
             if i > 0 and n_ships > len(self._config.ship_colors):
@@ -597,7 +599,6 @@ class Visualizer:
                 continue
 
             # Plot ship trajectory and shape at all considered snapshots
-            end_idx = k_snapshots[-1]
             if last_valid_idx < end_idx:
                 end_idx = last_valid_idx + 1
 
@@ -645,7 +646,7 @@ class Visualizer:
             )
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
-            if i == 0:
+            if self._config.show_tracking_results and i == 1:
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
@@ -664,18 +665,18 @@ class Visualizer:
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
-                    do_true_states_j, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{do_labels[j]}"])
+                    do_true_states_j = trajectory_list[do_labels[j]]
                     do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
 
-                    # ax_map.plot(
-                    #     do_estimates_j[1, first_valid_idx_track:end_idx_j],
-                    #     do_estimates_j[0, first_valid_idx_track:end_idx_j],
-                    #     color=do_color,
-                    #     linewidth=ship_lw,
-                    #     transform=enc.crs,
-                    #     label=f"DO {do_labels[j] -1} est. traj.",
-                    #     zorder=zorder_patch - 2,
-                    # )
+                    ax_map.plot(
+                        do_estimates_j[1, first_valid_idx_track:end_idx_j],
+                        do_estimates_j[0, first_valid_idx_track:end_idx_j],
+                        color=do_color,
+                        linewidth=ship_lw,
+                        transform=enc.crs,
+                        label=f"DO {do_labels[j] -1} est. traj.",
+                        zorder=zorder_patch - 2,
+                    )
                     for k in k_snapshots:
                         if k < first_valid_idx_track or k > end_idx_j:
                             continue
@@ -696,6 +697,7 @@ class Visualizer:
 
                     if show_tracking_results:
                         fig_do_j, axes_do_j = self._plot_do_tracking_results(
+                            i,
                             sim_times[first_valid_idx_track:end_idx_j],
                             do_true_states_j[:, first_valid_idx_track:end_idx_j],
                             do_estimates_j[:, first_valid_idx_track:end_idx_j],
@@ -758,6 +760,7 @@ class Visualizer:
 
     def _plot_do_tracking_results(
         self,
+        ship_idx: int,
         sim_times: np.ndarray,
         do_true_states: np.ndarray,
         do_estimates: np.ndarray,
@@ -767,10 +770,10 @@ class Visualizer:
         do_lw: float = 1.0,
         confidence_level: float = 0.95,
     ) -> Tuple[plt.Figure, plt.Axes]:
-        """Plot the tracking results of a specific dynamic obstacle (DO).
+        """Plot the tracking (for ship <ship_idx>) results of a specific dynamic obstacle (DO).
 
         Args:
-            axes (plt.Axes): Axes handle.
+            ship_idx (int): Index of the ship with the tracker.
             sim_times (np.ndarray): Simulation times.
             do_true_states (np.ndarray): True states of the DO
             do_estimates (np.ndarray): Estimated states of the DO
@@ -783,7 +786,7 @@ class Visualizer:
         Returns:
             plt.Figure, plt.Axes: Figure and axes handles for the DO <do_idx> tracking results.
         """
-        fig = plt.figure(num="Tracking results DO" + str(do_idx), figsize=(10, 10))
+        fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), figsize=(10, 10))
         axes = fig.subplot_mosaic(
             [
                 ["x", "y"],
