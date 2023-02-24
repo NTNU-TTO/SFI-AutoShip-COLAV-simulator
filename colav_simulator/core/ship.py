@@ -291,7 +291,7 @@ class Ship(IShip):
             raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
 
         if self._colav is not None:
-            self._references = self._colav.plan(t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_pose)
+            self._references = self._colav.plan(t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_pose, os_length=self._model.params.length)
             return self._references
 
         self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)

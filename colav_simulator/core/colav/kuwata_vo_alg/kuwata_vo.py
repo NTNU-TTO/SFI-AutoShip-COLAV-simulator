@@ -141,7 +141,7 @@ class VO:
         self._total_costs: np.ndarray = np.zeros((len(self._speed_set), len(self._heading_set)))
         self._references = np.zeros((9, 1))
 
-    def get_current_plan(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_current_plan(self) -> np.ndarray:
         """Get the current plan."""
         return self._references
 

@@ -215,18 +215,18 @@ def Dmtrx(D_l: np.ndarray, D_q: np.ndarray, D_c: np.ndarray, nu: np.ndarray) -> 
     return D_l + D_q * np.abs(nu) + D_c * (nu * nu)
 
 
-def Smtrx(a):
+def Smtrx(a: np.ndarray) -> np.ndarray:
     """
     S = Smtrx(a) computes the 3x3 vector skew-symmetric matrix S(a) = -S(a)'.
     The cross product satisfies: a x b = S(a)b.
     """
 
-    S = np.ndarray([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+    S = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
 
     return S
 
 
-def Hmtrx(r):
+def Hmtrx(r: np.ndarray) -> np.ndarray:
     """
     H = Hmtrx(r) computes the 6x6 system transformation matrix
     H = [eye(3)     S'
@@ -242,7 +242,7 @@ def Hmtrx(r):
     return H
 
 
-def Rzyx(phi, theta, psi):
+def Rzyx(phi: float, theta: float, psi: float) -> np.ndarray:
     """
     R = Rzyx(phi,theta,psi) computes the Euler angle rotation matrix R in SO(3)
     using the zyx convention
@@ -255,7 +255,7 @@ def Rzyx(phi, theta, psi):
     cpsi = math.cos(psi)
     spsi = math.sin(psi)
 
-    R = np.ndarray(
+    R: np.ndarray = np.array(
         [
             [cpsi * cth, -spsi * cphi + cpsi * sth * sphi, spsi * sphi + cpsi * cphi * sth],
             [spsi * cth, cpsi * cphi + sphi * sth * spsi, -cpsi * sphi + sth * spsi * cphi],
@@ -266,14 +266,14 @@ def Rzyx(phi, theta, psi):
     return R
 
 
-def Rmtrx(psi):
+def Rmtrx(psi: float) -> np.ndarray:
     """
     R = Rmtrx(psi) computes the 3x3 rotation matrix of an angle psi about the z-axis
     """
     return np.array([[np.cos(psi), -np.sin(psi), 0], [np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
 
 
-def Rmtrx2D(psi):
+def Rmtrx2D(psi: float) -> np.ndarray:
     """
     R = Rmtrx2D(psi) computes the 2D rotation matrix.
     Rmtrx = np.array([[np.cos(psi), np.sin(psi)], [-np.sin(psi), np.cos(psi)])

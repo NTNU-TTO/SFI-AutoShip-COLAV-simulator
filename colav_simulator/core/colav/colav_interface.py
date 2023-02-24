@@ -111,6 +111,7 @@ class ICOLAV(ABC):
         do_list: list,
         enc: Optional[ENC] = None,
         goal_pose: Optional[np.ndarray] = None,
+        **kwargs
     ) -> np.ndarray:
         """Plans a (hopefully) collision free trajectory for the ship to follow.
 
@@ -122,6 +123,7 @@ class ICOLAV(ABC):
             do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
             goal_pose (Optional[np.ndarray]): The goal pose [x, y, psi], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
+            **kwargs: Additional arguments to the COLAV planning algorithm, e.g. the own-ship length.
 
         Returns:
             np.ndarray: The planned poses, velocities and accelerations (vstacked) from the COLAV planning algorithm. Must be compatible with the control system you are using.
@@ -143,7 +145,7 @@ class VOWrapper(ICOLAV):
         assert config.layer1.vo is not None, "Kuwata VO must be on the first layer for the VO wrapper."
         self._vo = kvo.VO(config.layer1.vo)
 
-        assert config.layer2.los is not None, "LOS guidance must be on the second layer for the VO wrapper."
+        assert config.layer2 and config.layer2.los is not None, "LOS guidance must be on the second layer for the VO wrapper."
         self._los = guidance.LOSGuidance(config.layer2.los)
 
         self._t_prev = 0.0
@@ -158,6 +160,7 @@ class VOWrapper(ICOLAV):
         do_list: list,
         enc: Optional[ENC] = None,
         goal_pose: Optional[np.ndarray] = None,
+        **kwargs
     ) -> np.ndarray:
         if not self._initialized:
             self._t_prev = t
