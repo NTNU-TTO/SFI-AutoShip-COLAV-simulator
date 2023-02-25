@@ -255,11 +255,6 @@ class FLSH(IController):
         else:
             self._params = FLSHParams()
 
-        self._eta_diff_int: np.ndarray = np.zeros(3)
-
-    def _reset_integrator(self):
-        self._eta_diff_int = np.zeros(3)
-
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs based on the PID law.
 
