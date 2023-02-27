@@ -20,6 +20,62 @@ from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelle
 from scipy.stats import chi2
 
 
+def check_if_vessel_is_passed_by(
+    p_os: np.ndarray, v_os: np.ndarray, p_do: np.ndarray, v_do: np.ndarray, threshold_angle: float = 100.0, threshold_distance: float = 50.0
+) -> bool:
+    """Checks if a vessel is passed by another vessel.
+
+    Args:
+        p_os (_type_): Position of ownship
+        v_os (_type_): Velocity of ownship
+        p_do (_type_): Position of dynamic obstacle
+        v_do (_type_): Velocity of dynamic obstacle
+
+    Returns:
+        bool: True if ownship is passed by dynamic obstacle, False otherwise.
+    """
+    dist_os_do = p_do - p_os
+    L_os_do = dist_os_do / np.linalg.norm(dist_os_do)
+    U_os = np.linalg.norm(v_os)
+    U_do = np.linalg.norm(v_do)
+
+    os_is_overtaken = np.dot(v_os, v_do) > np.cos(np.deg2rad(68.5)) * U_os * U_do and U_os < U_do and U_os > 0.25
+    do_is_overtaken = np.dot(v_do, v_os) > np.cos(np.deg2rad(68.5)) * U_do * U_os and U_do < U_os and U_do > 0.25
+
+    vessel_is_passed: bool = (
+        (np.dot(v_os, L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_os and not os_is_overtaken)
+        or (np.dot(v_do, -L_os_do) < np.cos(np.deg2rad(threshold_angle)) * U_do and not do_is_overtaken)
+        and np.linalg.norm(dist_os_do) > threshold_distance
+    )
+
+    return vessel_is_passed
+
+
+def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray) -> Tuple[float, float, np.ndarray]:
+    """Computes the closest point of approach (CPA) between two vessel when assumed to travel with constant velocity.
+
+    Args:
+        p1 (np.ndarray): Position of vessel 1.
+        v1 (np.ndarray): Velocity of vessel 1.
+        p2 (np.ndarray): Position of vessel 2.
+        v2 (np.ndarray): Velocity of vessel 2.
+
+    Returns:
+        Tuple[float, float, np.ndarray]: The time to CPA, distance at CPA and corresponding CPA distance vector.
+    """
+    # Compute the relative position and velocity
+    r = p2 - p1
+    v = v2 - v1
+
+    if np.dot(v, v) < 0.0001:
+        return 0.0, float(np.linalg.norm(r)), p2 - p1
+
+    t_cpa = -np.dot(r, v) / np.dot(v, v)
+    d_cpa_vec = r + t_cpa * v
+    d_cpa = float(np.linalg.norm(d_cpa_vec))
+    return t_cpa, d_cpa, d_cpa_vec
+
+
 def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: dict, utm_zone: int) -> list:
     """Converts simulation data to vessel data.
 
@@ -46,7 +102,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
-        vessel.n_msgs = len(vessel.timestamps)
+        n_msgs = len(vessel.timestamps)
         vessel.xy = np.zeros((2, len(X[0, :])))
         vessel.xy[0, :] = X[1, :]  # ENU frame is used in the evaluator
         vessel.xy[1, :] = X[0, :]
@@ -60,6 +116,16 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
             utm_zone,
         )
 
+        vessel.forward_heading_estimate = np.zeros(n_msgs) * np.nan
+        vessel.backward_heading_estimate = np.zeros(n_msgs) * np.nan
+        for k in range(vessel.first_valid_idx, vessel.last_valid_idx):
+            vessel.forward_heading_estimate[k] = np.arctan2(vessel.xy[0, k + 1] - vessel.xy[0, k], vessel.xy[1, k + 1] - vessel.xy[1, k])
+        vessel.forward_heading_estimate[vessel.last_valid_idx] = vessel.forward_heading_estimate[vessel.last_valid_idx - 1]
+
+        for k in range(vessel.first_valid_idx + 1, vessel.last_valid_idx):
+            vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[0, k] - vessel.xy[0, k - 1], vessel.xy[1, k] - vessel.xy[1, k - 1])
+        vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[vessel.first_valid_idx]
+
         vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
 
         print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
@@ -70,6 +136,72 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         identifier += 1
 
     return vessels
+
+
+def find_cpa_indices(trajectory_list: list) -> np.ndarray:
+    """Find the indices of the ships that are closest to each other.
+
+    Args:
+        trajectory_list (list): List of trajectories.
+
+    Returns:
+        np.ndarray: Array containing the indices of the ships that are closest to each other.
+    """
+    n_ships = len(trajectory_list)
+    cpa_indices = np.zeros((n_ships, n_ships), dtype=int) * np.nan
+
+    for i in range(n_ships):
+        for j in range(n_ships):
+            if i == j:
+                continue
+            cpa_indices[i, j] = find_cpa_index(trajectory_list[i], trajectory_list[j])
+
+    return cpa_indices
+
+
+def find_cpa_index(trajectory_i, trajectory_j) -> int | float:
+    """Find the index of the closest point of approach between two ships.
+
+    Args:
+        trajectory_i (np.ndarray): Trajectory of ship i.
+        trajectory_j (np.ndarray): Trajectory of ship j.
+
+    Returns:
+        int: Index of the closest point of approach for the trajectory pair.
+    """
+    min_dist_idx = np.nan
+
+    n_samples = len(trajectory_i[0, :])
+    ranges = np.zeros(n_samples)
+    for k in range(len(trajectory_i[0, :])):
+        ranges[k] = np.linalg.norm(trajectory_i[0:2, k] - trajectory_j[0:2, k])
+
+    finite = np.where(~np.isnan(ranges))[0]
+    if finite.size > 0:
+        min_dist_idx = np.argmin(ranges[finite])
+    return min_dist_idx
+
+
+def extract_ship_data_from_sim_dataframe(ship_list: list, sim_data: pd.DataFrame) -> dict:
+    """Extract the ship data from the simulation data.
+
+    Args:
+        ship_list (list): List of ship objects.
+        sim_data (pd.DataFrame): Simulation data from the ships.
+    Returns:
+        dict: Dictionary containing the ship data related to the simulation.
+    """
+    output = {}
+    trajectory_list = []
+    for i, ship in enumerate(ship_list):
+        X, timestamps, _ = extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{i}"])
+        trajectory_list.append(X)
+
+    output["trajectory_list"] = trajectory_list
+    output["timestamps"] = timestamps
+    cpa_indices = find_cpa_indices(trajectory_list)
+    output["cpa_indices"] = cpa_indices
+    return output
 
 
 def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
@@ -85,7 +217,7 @@ def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[
     timestamps = []
     datetimes_utc = []
     for k, ship_df_k in enumerate(ship_df):
-        X[:, k] = ship_df_k["pose"]
+        X[:, k] = ship_df_k["csog_state"]
         timestamps.append(float(ship_df_k["timestamp"]))
         datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
         datetimes_utc.append(datetime_utc)
@@ -263,14 +395,15 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
     return output_list
 
 
-def convert_sog_cog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N.
+def convert_csog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N,
+    where U is the speed over ground and chi is the course over ground.
 
     Args:
         xs (np.ndarray): State(s) to convert.
 
     Returns:
-        np.ndarray: Converted state.
+        np.ndarray: Converted state(s).
     """
 
     if xs.ndim == 1:

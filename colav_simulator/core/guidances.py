@@ -95,10 +95,27 @@ class IGuidance(ABC):
     """
 
     @abstractmethod
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
-        "Computes guidance reference states for the ship controller to track."
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
+        "Computes guidance reference states for the ship controller to track. 9 x n_samples (typically n_samples = 1) array of reference states are returned, consisting of reference pose, velocity and acceleration."
+
+
+class GuidanceBuilder:
+    @classmethod
+    def construct_guidance(cls, config: Optional[Config] = None) -> IGuidance:
+        """Builds a guidance method from the configuration
+
+        Args:
+            config (Optional[guidance.Config]): Guidance configuration. Defaults to None.
+
+        Returns:
+            Guidance: Guidance system as specified by the configuration, e.g. a LOSGuidance.
+        """
+        if config and config.los:
+            return LOSGuidance(config.los)
+        elif config and config.ktp:
+            return KinematicTrajectoryPlanner(config.ktp)
+        else:
+            return LOSGuidance()
 
 
 class KinematicTrajectoryPlanner(IGuidance):
@@ -122,18 +139,16 @@ class KinematicTrajectoryPlanner(IGuidance):
     _heading_spline: PchipInterpolator
     _speed_spline: PchipInterpolator
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.ktp is not None:
-            self._params: KTPGuidanceParams = config.ktp
+    def __init__(self, params: Optional[KTPGuidanceParams] = None) -> None:
+        if params:
+            self._params: KTPGuidanceParams = params
         else:
             self._params = KTPGuidanceParams()
 
         self._s: float = 0.001
         self._init: bool = False
 
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
 
@@ -149,7 +164,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             dt (float): Time step between the previous and current run of this function.
 
         Returns:
-            np.ndarray: 2-element array containing desired course and desired speed.
+            np.ndarray: 9 x 1 dimensional reference state vector.
         """
         _, n_wps = waypoints.shape
 
@@ -275,31 +290,19 @@ class KinematicTrajectoryPlanner(IGuidance):
             plt.show()
             plt.close()
 
-        return np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
+        references = np.zeros((9, 1))
+        references[:, 0] = np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
+        return references
 
     def _compute_path_variable_derivatives(self) -> Tuple[float, float]:
-        s_dot = self._speed_spline(self._s) / np.sqrt(
-            self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)
-        )
+        s_dot = self._speed_spline(self._s) / np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0))
 
         s_ddot = s_dot * (
-            self._speed_spline(self._s, 1)
-            / np.sqrt(
-                self._params.epsilon
-                + np.power(self._x_spline(self._s, 1), 2.0)
-                + np.power(self._y_spline(self._s, 1), 2.0)
-            )
+            self._speed_spline(self._s, 1) / np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0))
             - self._speed_spline(self._s)
-            * (
-                self._x_spline(self._s, 1) * self._x_spline(self._s, 2)
-                + self._y_spline(self._s, 1) * self._y_spline(self._s, 2)
-            )
+            * (self._x_spline(self._s, 1) * self._x_spline(self._s, 2) + self._y_spline(self._s, 1) * self._y_spline(self._s, 2))
             / np.power(
-                np.sqrt(
-                    self._params.epsilon
-                    + np.power(self._x_spline(self._s, 1), 2.0)
-                    + np.power(self._y_spline(self._s, 1), 2.0)
-                ),
+                np.sqrt(self._params.epsilon + np.power(self._x_spline(self._s, 1), 2.0) + np.power(self._y_spline(self._s, 1), 2.0)),
                 3.0,
             )
         )
@@ -336,18 +339,16 @@ class LOSGuidance(IGuidance):
         _e_int (float): Integral of the cross-track error
     """
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.los is not None:
-            self._params: LOSGuidanceParams = config.los
+    def __init__(self, params: Optional[LOSGuidanceParams] = None) -> None:
+        if params is not None:
+            self._params: LOSGuidanceParams = params
         else:
             self._params = LOSGuidanceParams()
 
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
-    def compute_references(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
-    ) -> np.ndarray:
+    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes references in course and speed using the LOS guidance law.
 
         Args:
@@ -358,7 +359,7 @@ class LOSGuidance(IGuidance):
             dt (float): Time step between the previous and current run of this function.
 
         Returns:
-            np.ndarray: 2-element array containing desired course and desired speed.
+            np.ndarray: 9 x 1 dimensional reference vector.
         """
         self._find_active_wp_segment(waypoints, xs)
 
@@ -373,9 +374,7 @@ class LOSGuidance(IGuidance):
             L_wp_segment = waypoints[:, self._wp_counter + 1] - waypoints[:, self._wp_counter]
 
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
-        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
-            xs[1] - waypoints[1, self._wp_counter]
-        ) * np.cos(alpha)
+        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (xs[1] - waypoints[1, self._wp_counter]) * np.cos(alpha)
         self._e_int += e * dt
         if self._e_int >= self._params.e_int_max:
             self._e_int -= e * dt
@@ -385,7 +384,9 @@ class LOSGuidance(IGuidance):
 
         U_d = speed_plan[self._wp_counter]
 
-        return np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])
+        references = np.zeros((9, 1))
+        references[:, 0] = np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])
+        return references
 
     def _find_active_wp_segment(self, waypoints: np.ndarray, xs: np.ndarray) -> None:
         """Finds the active line segment between waypoints to follow.
@@ -407,7 +408,7 @@ class LOSGuidance(IGuidance):
             segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
             if segment_passed:
                 self._wp_counter += 1
-                print(f"Segment {i} passed!")
+                # print(f"Segment {i} passed!")
             else:
                 break
 

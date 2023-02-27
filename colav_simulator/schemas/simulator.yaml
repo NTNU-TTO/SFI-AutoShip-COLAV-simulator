@@ -1,22 +1,182 @@
-scenario_files:
+simulator:
   required: True
-  type: list
-  minlength: 0
+  type: dict
   schema:
-    type: string
+    scenario_files:
+      required: True
+      type: list
+      minlength: 0
+      schema:
+        type: string
+    save_scenario_results:
+      required: True
+      type: boolean
+    verbose:
+      required: True
+      type: boolean
+    ais_data_column_format:
+      required: True
+      type: list
+      allowed: ["mmsi", "lon", "lat", "date_time_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
+      minlength: 10
 
-save_scenario_results:
+scenario_generator:
   required: True
-  type: boolean
-visualize:
-  required: True
-  type: boolean
-verbose:
-  required: True
-  type: boolean
+  type: dict
+  schema:
+    n_wps_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: integer
+        min: 2
+    speed_plan_variation_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+    waypoint_dist_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: 50.0
+        max: 10000.0
+    waypoint_ang_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+    ho_bearing_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: -20.0
+        max: 20.0
+    ho_heading_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: -15.0
+        max: 15.0
+    ot_bearing_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: -20.0
+        max: 20.0
+    ot_heading_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: -15.0
+        max: 15.0
+    cr_bearing_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: 15.1
+        max: 112.5
+    cr_heading_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: -15.0
+        max: 15.0
+    dist_between_ships_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: 50.0
+        max: 100000.0
 
-ais_data_column_format:
+visualizer:
   required: True
-  type: list
-  allowed: ["mmsi", "lon", "lat", "date_time_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
-  minlength: 10
+  type: dict
+  schema:
+    show_liveplot:
+      required: True
+      type: boolean
+    show_results:
+      required: True
+      type: boolean
+    show_measurements:
+      required: True
+      type: boolean
+    show_tracks:
+      required: True
+      type: boolean
+    show_waypoints:
+      required: True
+      type: boolean
+    show_animation:
+      required: True
+      type: boolean
+    save_animation:
+      required: True
+      type: boolean
+
+    n_snapshots:
+      required: False
+      type: integer
+    figsize:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: integer
+    margins:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: float
+
+    ship_linewidth:
+      required: True
+      type: float
+    ship_scaling:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: float
+    ship_info_fontsize:
+      required: True
+      type: integer
+    ship_colors:
+      required: True
+      type: list
+      minlength: 10
+      schema:
+        type: string
+    do_linewidth:
+      required: True
+      type: float
+    do_colors:
+      required: True
+      type: list
+      minlength: 10
+      schema:
+        type: string

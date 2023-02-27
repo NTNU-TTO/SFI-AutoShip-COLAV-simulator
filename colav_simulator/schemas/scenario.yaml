@@ -66,6 +66,9 @@ min_dist_between_ships:
 max_dist_between_ships:
   required: False
   type: float
+filename:
+  required: False
+  type: string
 ship_list:
   required: False
   type: list
@@ -92,7 +95,12 @@ ship_list:
       random_generated:
         required: False
         type: boolean
-      pose:
+      csog_state:
+        required: False
+        type: list
+        schema:
+          type: float
+      goal_pose:
         required: False
         type: list
         schema:
@@ -113,8 +121,23 @@ ship_list:
       colav:
         required: False
         type: dict
-        excludes: [default]
-
+        excludes: [default, guidance]
+        schema:
+          name:
+            required: True
+            type: string
+          layer1: # First COLAV algorithm, necessary if provided
+            required: True
+            type: dict
+            allow_unknown: True
+          layer2: # Second COLAV algorithm on a layer above
+            required: False
+            type: dict
+            allow_unknown: True
+          layer3: # Third COLAV algorithm, again on a layer above
+            required: False
+            type: dict
+            allow_unknown: True
       tracker:
         required: False
         type: dict
@@ -136,12 +159,12 @@ ship_list:
                 type: float
                 min: 0.00001
                 max: 1.0
-
       sensors:
         required: False
         type: list
         excludes: [default]
         # schema:
+        #   type: dict
         #   oneof:
         #     - radar:
         #         type: dict
@@ -149,7 +172,7 @@ ship_list:
         #           max_range:
         #             required: True
         #             type: float
-        #              min: 100.0
+        #             min: 100.0
         #           measurement_rate:
         #             required: True
         #             type: float
@@ -169,11 +192,11 @@ ship_list:
         #           max_range:
         #             required: True
         #             type: float
-        #              min: 100.0
+        #             min: 100.0
         #           ais_class:
         #             required: True
-        #             type: integer
-        #             allowed: [0, 1] # class A and B
+        #             type: string
+        #             allowed: ["A", "B"] # class A and B
         #           R:
         #             required: True
         #             type: list
@@ -182,11 +205,10 @@ ship_list:
         #             schema:
         #               type: float
         #               min: 0.0001
-
       guidance:
         required: False
         type: dict
-        excludes: [default]
+        excludes: [default, colav]
         schema:
           los:
             type: dict

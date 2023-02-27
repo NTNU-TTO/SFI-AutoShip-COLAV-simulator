@@ -81,13 +81,13 @@ class AISParams:
     def from_dict(cls, config_dict: dict):
         return AISParams(
             max_range=config_dict["max_range"],
-            ais_class=AISClass(config_dict["ais_class"]),
+            ais_class=AISClass[config_dict["ais_class"]],
             R=np.diag(config_dict["R"]),
             R_true=np.diag(config_dict["R_true"]),
         )
 
     def to_dict(self) -> dict:
-        output_dict = {"max_range": self.max_range, "ais_class": self.ais_class.value, "R": self.R.diagonal().tolist(), "R_true": self.R_true.diagonal().tolist()}
+        output_dict = {"max_range": self.max_range, "ais_class": self.ais_class.name, "R": self.R.diagonal().tolist(), "R_true": self.R_true.diagonal().tolist()}
         return output_dict
 
 
@@ -119,6 +119,29 @@ class Config:
                 config.sensor_list.append(cp.convert_settings_dict_to_dataclass(AISParams, sensor_dict["ais"]))
 
         return config
+
+
+class SensorSuiteBuilder:
+    @classmethod
+    def construct_sensors(cls, config: Optional[Config] = None) -> list:
+        """Builds a list of sensors from the configuration
+
+        Args:
+            config (Optional[Config]): Configuration of ship sensors
+
+        Returns:
+            List[Sensor]: List of sensors.
+        """
+        if config:
+            sensors: list = []
+            for sensor_config in config.sensor_list:
+                if isinstance(sensor_config, RadarParams):
+                    sensors.append(Radar(sensor_config))
+                elif isinstance(sensor_config, AISParams):
+                    sensors.append(AIS(sensor_config))
+        else:
+            sensors = [Radar()]
+        return sensors
 
 
 class Radar(ISensor):

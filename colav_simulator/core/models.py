@@ -32,7 +32,7 @@ class KinematicCSOGParams:
     T_chi: float = 3.0
     T_U: float = 5.0
     r_max: float = float(np.deg2rad(4))
-    U_min: float = 0.0
+    U_min: float = 4.0
     U_max: float = 15.0
 
     def to_dict(self):
@@ -103,6 +103,25 @@ class IModel(ABC):
         """
 
 
+class ModelBuilder:
+    @classmethod
+    def construct_model(cls, config: Optional[Config] = None) -> IModel:
+        """Builds a ship model from the configuration
+
+        Args:
+            config (Optional[models.Config]): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a KinematicCSOG model.
+        """
+        if config and config.csog:
+            return KinematicCSOG(config.csog)
+        elif config and config.telemetron:
+            return Telemetron()
+        else:
+            return KinematicCSOG()
+
+
 @dataclass
 class KinematicCSOG(IModel):
     """Implements a planar kinematic model using Course over ground (COG) and Speed over ground (SOG):
@@ -119,9 +138,9 @@ class KinematicCSOG(IModel):
     _n_x: int = 4
     _n_u: int = 2
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.csog is not None:
-            self._params: KinematicCSOGParams = config.csog
+    def __init__(self, params: Optional[KinematicCSOGParams] = None) -> None:
+        if params is not None:
+            self._params: KinematicCSOGParams = params
         else:
             self._params = KinematicCSOGParams()
 

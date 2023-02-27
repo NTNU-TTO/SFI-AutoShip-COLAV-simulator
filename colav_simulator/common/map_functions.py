@@ -208,13 +208,19 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, land_clear
     ss_bounds = safe_sea.geometry.bounds
 
     is_safe = False
+    iter_count = 0
     while not is_safe:
         easting = random.uniform(ss_bounds[0], ss_bounds[2])
         northing = random.uniform(ss_bounds[1], ss_bounds[3])
 
+        # TODO: Fix when enc has wrong map data/no map data.
         is_ok_clearance = min_distance_to_land(enc, easting, northing) >= land_clearance
 
         is_safe = safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance
+
+        iter_count += 1
+        if iter_count > 1000:
+            raise Exception("Could not find a valid start position. Check the map data of your ENC object.")
 
     return northing, easting
 
@@ -235,13 +241,13 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
     return distance
 
 
-def check_if_segment_crosses_grounding_hazards(enc: ENC, next_wp: np.ndarray, prev_wp: np.ndarray, draft: float = 5.0) -> bool:
-    """Checks if a line segment between two waypoints crosses nearby grounding hazards (land, shore).
+def check_if_segment_crosses_grounding_hazards(enc: ENC, p2: np.ndarray, p1: np.ndarray, draft: float = 5.0) -> bool:
+    """Checks if a line segment between two positions/points crosses nearby grounding hazards (land, shore).
 
     Args:
         enc (ENC): Electronic Navigational Chart object
-        next_wp (np.ndarray): Next waypoint position.
-        prev_wp (np.ndarray): Previous waypoint position.
+        p2 (np.ndarray): Second position.
+        p1 (np.ndarray): First position.
         draft (float): Ship's draft in meters.
 
     Returns:
@@ -249,9 +255,9 @@ def check_if_segment_crosses_grounding_hazards(enc: ENC, next_wp: np.ndarray, pr
 
     """
     # Create linestring with east as the x value and north as the y value
-    p1 = (next_wp[1], next_wp[0])
-    p2 = (prev_wp[1], prev_wp[0])
-    wp_line = LineString([p1, p2])
+    p2_reverse = (p2[1], p2[0])
+    p1_reverse = (p1[1], p1[0])
+    wp_line = LineString([p1_reverse, p2_reverse])
 
     entire_seabed = enc.seabed[0].geometry
     depths = list(enc.seabed.keys())

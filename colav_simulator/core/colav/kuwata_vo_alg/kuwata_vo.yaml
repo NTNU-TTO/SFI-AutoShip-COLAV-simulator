@@ -1,0 +1,5 @@
+planning_frequency: 100.0
+d_safe: 20.0
+horizon: 10.0
+t_max: 50.0
+d_min: 500.0

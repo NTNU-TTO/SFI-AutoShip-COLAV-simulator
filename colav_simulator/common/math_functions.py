@@ -75,6 +75,17 @@ def wrap_angle_diff_to_pmpi(a_1: float | np.ndarray, a_2: float | np.ndarray) ->
         return wrap_min_max(diff, -np.pi, np.pi)
 
 
+def compute_bearing(psi: float, p1: np.ndarray, p2: np.ndarray) -> float:
+    """Computes bearing in [-180, 180) from p1 to p2, where the object at p1 has heading psi.
+
+    Args:
+        psi (float): Current heading of object at p1.
+        p1 (np.ndarray): Position of first object.
+        p2 (np.ndarray): Position of second object.
+    """
+    return float(wrap_angle_diff_to_pmpi(np.arctan2(p2[1] - p1[1], p2[0] - p1[0]), psi))
+
+
 def knots2mps(knots: float) -> float:
     """Converts from knots to miles per second.
 
@@ -265,7 +276,7 @@ def Rmtrx(psi):
 def Rmtrx2D(psi):
     """
     R = Rmtrx2D(psi) computes the 2D rotation matrix.
-    Rmtrx = np.array([[np.cos(psi), np.sin(psi), 0], [-np.sin(psi), np.cos(psi), 0], [0, 0, 1]])
+    Rmtrx = np.array([[np.cos(psi), np.sin(psi)], [-np.sin(psi), np.cos(psi)])
     """
     return np.array([[np.cos(psi), -np.sin(psi)], [np.sin(psi), np.cos(psi)]])
 

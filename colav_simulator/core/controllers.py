@@ -17,7 +17,7 @@ import numpy as np
 
 
 @dataclass
-class MIMOPIDPars:
+class MIMOPIDParams:
     "Parameters for a Proportional-Integral-Derivative controller."
     wn: np.ndarray = np.diag([0.3, 0.2, 0.35])
     zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
@@ -31,7 +31,7 @@ class MIMOPIDPars:
 
 
 @dataclass
-class FLSHPars:
+class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 5.0
     K_p_psi: float = 6.0
@@ -45,15 +45,15 @@ class FLSHPars:
 class Config:
     """Configuration class for managing controller parameters."""
 
-    pid: Optional[MIMOPIDPars] = None
-    flsh: Optional[FLSHPars] = None
+    pid: Optional[MIMOPIDParams] = None
+    flsh: Optional[FLSHParams] = None
     pass_through_cs: Optional[bool] = True
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = Config()
         if "pid" in config_dict:
-            config.pid = MIMOPIDPars(
+            config.pid = MIMOPIDParams(
                 wn=np.diag(config_dict["pid"]["wn"]),
                 zeta=np.diag(config_dict["pid"]["zeta"]),
                 eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
@@ -62,7 +62,7 @@ class Config:
             config.pass_through_cs = None
 
         if "flsh" in config_dict:
-            config.flsh = cp.convert_settings_dict_to_dataclass(FLSHPars, config_dict["flsh"])
+            config.flsh = cp.convert_settings_dict_to_dataclass(FLSHParams, config_dict["flsh"])
             config.pid = None
             config.pass_through_cs = None
 
@@ -95,6 +95,27 @@ class IController(ABC):
         References should be of dimension 9 to include pose (typically in NED),
         pose derivative (NED or BODY), and pose double derivative (NED or BODY).
         """
+
+
+class ControllerBuilder:
+    @classmethod
+    def construct_controller(cls, config: Optional[Config] = None) -> IController:
+        """Builds a controller from the configuration
+
+        Args:
+            config (Optional[controllers.Config]): Model configuration. Defaults to None.
+
+        Returns:
+            Model: Model as specified by the configuration, e.g. a MIMOPID controller.
+        """
+        if config and config.pid:
+            return MIMOPID(config.pid)
+        elif config and config.flsh:
+            return FLSH(config.flsh)
+        elif config and config.pass_through_cs:
+            return PassThroughCS()
+        else:
+            return PassThroughCS()
 
 
 @dataclass
@@ -142,11 +163,11 @@ class MIMOPID(IController):
     See Fossen 2011, Ch. 12.
     """
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.pid is not None:
-            self._pars: MIMOPIDPars = config.pid
+    def __init__(self, params: Optional[MIMOPIDParams] = None) -> None:
+        if params is not None:
+            self._params: MIMOPIDParams = params
         else:
-            self._pars = MIMOPIDPars()
+            self._params = MIMOPIDParams()
 
         self._eta_diff_int: np.ndarray = np.zeros(3)
 
@@ -179,7 +200,7 @@ class MIMOPID(IController):
         Mmtrx = model.params.M_rb + model.params.M_a
         Dmtrx = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu)
 
-        K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._pars.wn, self._pars.zeta)
+        K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._params.wn, self._params.zeta)
 
         eta_d = refs[0:3]
         eta_diff = eta - eta_d
@@ -188,7 +209,7 @@ class MIMOPID(IController):
         eta_dot_d = refs[3:6]
         eta_dot_diff = eta_dot - eta_dot_d
 
-        self._eta_diff_int = mf.sat(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._pars.eta_diff_max)
+        self._eta_diff_int = mf.sat(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._params.eta_diff_max)
 
         tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
         tau = R_n_b.T @ tau
@@ -196,9 +217,7 @@ class MIMOPID(IController):
         return tau
 
 
-def pole_placement(
-    Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def pole_placement(Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Dynamic positioning controller pole placement based on Ex. 12.7 in Fossen 2011.
 
     Args:
@@ -230,11 +249,11 @@ class FLSH(IController):
     Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
     """
 
-    def __init__(self, config: Optional[Config] = None) -> None:
-        if config and config.flsh is not None:
-            self._pars: FLSHPars = config.flsh
+    def __init__(self, params: Optional[FLSHParams] = None) -> None:
+        if params is not None:
+            self._params: FLSHParams = params
         else:
-            self._pars = FLSHPars()
+            self._params = FLSHParams()
 
         self._eta_diff_int: np.ndarray = np.zeros(3)
 
@@ -273,8 +292,8 @@ class FLSH(IController):
 
         psi_diff = mf.wrap_angle_diff_to_pmpi(psi_d, eta[2])
 
-        Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * self._pars.K_p_u * (u_d - nu[0])
-        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._pars.K_p_psi * psi_diff + self._pars.K_d_psi * (r_d - nu[2]))
+        Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * self._params.K_p_u * (u_d - nu[0])
+        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_diff + self._params.K_d_psi * (r_d - nu[2]))
 
         tau = np.array([Fx, Fy, Fy * model.params.l_r])
 

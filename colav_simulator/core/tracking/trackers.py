@@ -19,17 +19,17 @@ import scipy.linalg as la
 
 class ITracker(ABC):
     @abstractmethod
-    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list, list]:
+    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states."""
 
-    def get_track_information(self) -> Tuple[list, list, list, list]:
-        """Returns the estimates and covariances of the tracked dynamic obstacles.
+    def get_track_information(self) -> Tuple[list, list]:
+        """Returns the dynamic obstacle track information (ID, state, cov, length, width).
         Also, it returns the associated Normalized Innovation error Squared (NIS) values for
         the most recent update step for each track, and the track labels.
 
         Returns:
-            Tuple[list, list, list]: List of estimates, list of covariances and list of NISes.
+            Tuple[list, list]: List of tracks and list of NISes.
         """
 
 
@@ -72,15 +72,33 @@ class Config:
         return config
 
 
+class TrackerBuilder:
+    @classmethod
+    def construct_tracker(cls, sensors: list, config: Optional[Config] = None) -> ITracker:
+        """Builds a tracker from the configuration
+
+        Args:
+            sensors (list): Sensors used by the tracker.
+            config (Optional[Config]): Tracker configuration. Defaults to None.
+
+        Returns:
+            ITracker: The tracker.
+        """
+        if config and config.kf:
+            return KF(sensors, config.kf)
+        else:
+            return KF(sensors)
+
+
 class KF(ITracker):
     """The KF class implements a linear Kalman filter based tracker."""
 
-    def __init__(self, sensor_list: list, config: Optional[Config] = None) -> None:
+    def __init__(self, sensor_list: list, params: Optional[KFParams] = None) -> None:
         if sensor_list is None:
             raise ValueError("Sensor list must be provided.")
 
-        if config and config.kf is not None:
-            self._params: KFParams = config.kf
+        if params is not None:
+            self._params: KFParams = params
         else:
             self._params = KFParams()
 
@@ -95,9 +113,11 @@ class KF(ITracker):
         self._P_p: list = []
         self._xs_upd: list = []
         self._P_upd: list = []
+        self._length_upd: list = []  # List of DO length estimates. Not used in the KF-tracker, default 20m
+        self._width_upd: list = []  # List of DO width estimates. Not used in the KF-tracker, default 5m
         self._NIS: list = []
 
-    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list, list]:
+    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states.
 
@@ -110,7 +130,7 @@ class KF(ITracker):
             ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
 
         Returns:
-            Tuple[list, list, list]: List of updated dynamic obstacle estimates and covariances. Also, a list the sensor measurements used.
+            Tuple[list, list]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
         """
         relevant_do_states = []
         max_sensor_range = max([sensor.max_range for sensor in self.sensors])
@@ -125,6 +145,8 @@ class KF(ITracker):
                 self._P_upd.append(self._params.P_0)
                 self._xs_p.append(do_state)
                 self._P_p.append(self._params.P_0)
+                self._length_upd.append(20.0)
+                self._width_upd.append(5.0)
                 self._NIS.append(np.nan)
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True
@@ -133,7 +155,7 @@ class KF(ITracker):
         n_tracked_do = len(self._xs_upd)
         # TODO: Implement track termination for when covariance is too large.
         for i in range(n_tracked_do):
-            if np.sqrt(self._P_upd[i][0, 0]) > 15.0 or np.sqrt(self._P_upd[i][1, 1]) > 15.0:
+            if np.sqrt(self._P_upd[i][0, 0]) > 50.0 or np.sqrt(self._P_upd[i][1, 1]) > 50.0:
                 self._track_terminated[i] = True
 
         # Only generate measurements for initialized tracks
@@ -142,6 +164,7 @@ class KF(ITracker):
             z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
             sensor_measurements.append(z)
 
+        tracks = []
         for i in range(n_tracked_do):
             if self._track_initialized[i] and not self._track_terminated[i]:
                 self._xs_p[i], self._P_p[i] = self.predict(self._xs_upd[i], self._P_upd[i], dt)
@@ -155,10 +178,20 @@ class KF(ITracker):
                     if not np.isnan(NIS_i):
                         self._NIS[i] = NIS_i
 
+            tracks.append(
+                (
+                    self._labels[i],
+                    self._xs_upd[i],
+                    self._P_upd[i],
+                    self._length_upd[i],
+                    self._width_upd[i],
+                )
+            )
+
         # print(f"xs_p: {self._xs_p}, xs_upd: {self._xs_upd}")
         # print(f"P_p: {self._P_p}")
         # print(f"P_upd: {self._P_upd}")
-        return self._xs_upd, self._P_upd, sensor_measurements
+        return tracks, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
         F = self._model.F(dt)
@@ -192,8 +225,19 @@ class KF(ITracker):
 
         return x_upd, P_upd, NIS(v, S)
 
-    def get_track_information(self) -> Tuple[list, list, list, list]:
-        return self._xs_upd, self._P_upd, self._NIS, self._labels
+    def get_track_information(self) -> Tuple[list, list]:
+        tracks = []
+        for i, label in enumerate(self._labels):
+            tracks.append(
+                (
+                    label,
+                    self._xs_upd[i],
+                    self._P_upd[i],
+                    self._length_upd[i],
+                    self._width_upd[i],
+                )
+            )
+        return tracks, self._NIS
 
 
 def NIS(v: np.ndarray, S: np.ndarray) -> float:

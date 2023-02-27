@@ -1,7 +1,84 @@
-#scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-#scenario_files: ["crossing_stand_on.yaml"]
-scenario_files: ["ais1_16012023_12_25_21.yaml"] #["ais_scenario1.yaml"]
-save_scenario_results: True
-visualize: True
-verbose: True
-ais_data_column_format: ["mmsi", "lon", "lat", "date_time_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
+simulator:
+  #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
+  scenario_files: ["head_on.yaml"]
+  #scenario_files: ["ais_scenario1.yaml"]
+  #scenario_files: ["ais1_24012023_13_48_55.yaml"]
+  #scenario_files: ["aalesund_random_05022023_17_21_30.yaml"]
+  save_scenario_results: True
+  verbose: True
+  ais_data_column_format: ["mmsi", "lon", "lat", "date_time_utc", "sog", "cog", "true_heading", "nav_status", "message_nr", "source"]
+
+scenario_generator:
+  n_wps_range: [10, 15]
+  speed_plan_variation_range: [-1.0, 1.0]
+  waypoint_dist_range: [200.0, 10000.0]
+  waypoint_ang_range: [-45.0, 45.0]
+  ho_bearing_range: [-20.0, 20.0]
+  ho_heading_range: [-15.0, 15.0]
+  ot_bearing_range: [-20.0, 20.0]
+  ot_heading_range: [-15.0, 15.0]
+  cr_bearing_range: [15.1, 112.5]
+  cr_heading_range: [-15.0, 15.0]
+  dist_between_ships_range: [1000.0, 2000.0]
+
+visualizer:
+  show_liveplot: False
+  show_results: False
+  show_measurements: False
+  show_tracks: False
+  show_animation: False
+  show_waypoints: True
+  save_animation: False
+
+  figsize: [14, 10]
+  margins: [0.0, 0.0]
+  ship_linewidth: 1.7
+  ship_scaling: [10.0, 14.0]
+  ship_info_fontsize: 10
+  ship_colors: ["xkcd:black",
+              "xkcd:red",
+              "xkcd:eggshell",
+              "xkcd:purple",
+              "xkcd:cyan",
+              "xkcd:orange",
+              "xkcd:fuchsia",
+              "xkcd:yellow",
+              "xkcd:grey",
+              "xkcd:reddish brown",
+              "xkcd:bubblegum",
+              "xkcd:baby shit brown",
+              "xkcd:khaki",
+              "xkcd:cloudy blue",
+              "xkcd:pale aqua",
+              "xkcd:light lilac",
+              "xkcd:lemon",
+              "xkcd:powder blue",
+              "xkcd:wine",
+              "xkcd:amber",
+              "xkcd:wheat"]
+  do_linewidth: 1.7
+  do_colors: ["xkcd:light red",
+              "xkcd:pale lilac",
+              "xkcd:aqua",
+              "xkcd:peach",
+              "xkcd:pale purple",
+              "xkcd:goldenrod",
+              "xkcd:light grey",
+              "xkcd:wine",
+              "xkcd:amber",
+              "xkcd:wheat",
+              "xkcd:burnt sienna",
+              "xkcd:barbie pink",
+              "xkcd:ugly brown",
+              "xkcd:light tan",
+              "xkcd:stormy blue",
+              "xkcd:light aquamarine",
+              "xkcd:lemon",
+              "xkcd:pastel blue",
+              "xkcd:blue green",
+              "xkcd:eggshell",
+              "xkcd:purple",
+              "xkcd:cyan",
+              "xkcd:orange",
+              "xkcd:fuchsia"
+          ]

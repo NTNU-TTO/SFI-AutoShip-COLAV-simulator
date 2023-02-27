@@ -6,21 +6,25 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.feature import ShapelyFeature
+from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
+
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 
 
 @dataclass
@@ -35,7 +39,6 @@ class Config:
     show_animation: bool = True
     save_animation: bool = False
     n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
-    frame_delay: float = 200.0
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
@@ -46,6 +49,7 @@ class Config:
             "xkcd:black",
             "xkcd:red",
             "xkcd:eggshell",
+            "xkcd:purple",
             "xkcd:cyan",
             "xkcd:orange",
             "xkcd:fuchsia",
@@ -58,8 +62,11 @@ class Config:
             "xkcd:cloudy blue",
             "xkcd:pale aqua",
             "xkcd:light lilac",
-            "xkcd:dark forest green",
+            "xkcd:lemon",
             "xkcd:powder blue",
+            "xkcd:wine",
+            "xkcd:amber",
+            "xkcd:wheat",
         ]
     )
     do_colors: list = field(
@@ -71,20 +78,36 @@ class Config:
             "xkcd:pale purple",
             "xkcd:goldenrod",
             "xkcd:light grey",
+            "xkcd:wine",
+            "xkcd:amber",
+            "xkcd:wheat",
             "xkcd:burnt sienna",
             "xkcd:barbie pink",
             "xkcd:ugly brown",
             "xkcd:light tan",
             "xkcd:stormy blue",
             "xkcd:light aquamarine",
-            "xkcd:very dark green",
+            "xkcd:lemon",
             "xkcd:pastel blue",
             "xkcd:blue green",
+            "xkcd:eggshell",
+            "xkcd:purple",
+            "xkcd:cyan",
+            "xkcd:orange",
+            "xkcd:fuchsia",
         ]
     )
     do_linewidth: float = 1.3
     radar_color: str = "xkcd:grey"
     ais_color: str = "xkcd:dark lavender"
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        return cls(**d)
+
+    def to_dict(self):
+        output = asdict(self)
+        return output
 
 
 class Visualizer:
@@ -104,13 +127,16 @@ class Visualizer:
     misc_plt_handles: dict  # Extra handles used for live plotting
     t_start: float = 0.0  # start time of the visualization of one scenario
 
-    def __init__(self, enc: Optional[ENC] = None, config_file: Path = dp.visualizer_config) -> None:
-        self._config = cp.extract(Config, config_file, dp.visualizer_schema)
+    def __init__(self, config: Optional[Config] = None, enc: Optional[ENC] = None) -> None:
+        if config:
+            self._config = config
+        else:
+            self._config = Config()
 
         if enc:
             self.init_figure(enc)
 
-    def init_figure(self, enc: ENC) -> None:
+    def init_figure(self, enc: ENC, extent: Optional[list] = None) -> None:
         plt.close()
 
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
@@ -118,16 +144,16 @@ class Visualizer:
         ax_map = self.fig.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        # ax_map.set_xlabel("East [m]")
-        # ax_map.set_ylabel("North [m]")
-        # ax_map.set_xticks(ax_map.get_xticks())
-        # ax_map.set_yticks(ax_map.get_yticks())
+
+        if extent is not None:
+            ax_map.set_extent(extent, crs=enc.crs)
+        ax_map.gridlines(draw_labels=True, dms=True, color="gray", linewidth=1.5, linestyle="--", alpha=0.3, x_inline=False, y_inline=False)
         plt.ion()
 
-        # dark_mode_color = "#142c38"
-        # self.fig.set_facecolor(dark_mode_color)
         self.misc_plt_handles = {}
         self.ship_plt_handles = []
+
+        ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
         self.axes = [ax_map]
         plt.show(block=False)
 
@@ -179,21 +205,36 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        self.init_figure(enc)
-        ax_map = self.axes[0]
-        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
-
+        # Find the limits of the map, based on the own-ship trajectory
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
+        if ship_list[0].trajectory.size > 0:
+            buffer = 1000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].trajectory, xlimits, ylimits)
+        elif ship_list[0].waypoints.size > 0:
+            buffer = 2000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].waypoints, xlimits, ylimits)
+        buffer = 2000
+        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
+
+        self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
+        ax_map = self.axes[0]
+        self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         n_ships = len(ship_list)
         for i, ship in enumerate(ship_list):
 
             # If number of ships is greater than 16, use the same color for all target ships
-            if i > 0 and n_ships > 16:
+            if i > 0 and n_ships > len(self._config.ship_colors):
                 c = self._config.ship_colors[1]
             else:
                 c = self._config.ship_colors[i]
+
+            if i == 0:
+                zorder_patch = 4
+            else:
+                zorder_patch = 3
 
             lw = self._config.ship_linewidth
 
@@ -202,22 +243,16 @@ class Visualizer:
             if i == 0:
                 ship_name = "OS"
 
-                if ship.trajectory.size > 0:
-                    buffer = 1000
-                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.trajectory, xlimits, ylimits)
-                elif ship.waypoints.size > 0:
-                    buffer = 2000
-                    xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship.waypoints, xlimits, ylimits)
-
                 do_lw = self._config.do_linewidth
 
                 if self._config.show_tracks:
                     ship_i_handles["do_tracks"] = []
                     ship_i_handles["do_covariances"] = []
+                    ship_i_handles["track_started"] = []
                     for j in range(1, n_ships):
+                        ship_i_handles["track_started"].append(False)
 
-                        # If number of ships is greater than 16, use the same color for all target ships
-                        if n_ships > 16:
+                        if n_ships > len(self._config.ship_colors):
                             do_c = self._config.do_colors[1]
                         else:
                             do_c = self._config.do_colors[j]
@@ -229,9 +264,9 @@ class Visualizer:
                                 [0.0],
                                 linewidth=do_lw,
                                 color=do_c,
-                                label=f"DO{j} est. traj.",
+                                label=f"DO {j - 1} est. traj.",
                                 transform=enc.crs,
-                                zorder=1,
+                                zorder=zorder_patch - 2,
                             )[0]
                         )
 
@@ -241,10 +276,10 @@ class Visualizer:
                                     [],
                                     linewidth=lw,
                                     color=do_c,
-                                    alpha=0.6,
-                                    label=f"DO{j} est. cov.",
+                                    alpha=0.5,
+                                    label=f"DO {j - 1} est. 3sigma cov.",
                                     crs=enc.crs,
-                                    zorder=1,
+                                    zorder=zorder_patch - 2,
                                 )
                             )
                         )
@@ -258,11 +293,11 @@ class Visualizer:
                                 color=self._config.radar_color,
                                 linewidth=lw,
                                 linestyle="None",
-                                marker="o",
+                                marker=".",
                                 markersize=8,
-                                label=ship_name + "Radar meas.",
+                                # label="Radar meas.",
                                 transform=enc.crs,
-                                zorder=0,
+                                zorder=zorder_patch - 3,
                             )[0]
                         elif sensor.type == "ais":
                             ship_i_handles["ais"] = ax_map.plot(
@@ -272,14 +307,14 @@ class Visualizer:
                                 linewidth=lw,
                                 linestyle="None",
                                 marker="*",
-                                markersize=8,
+                                markersize=10,
                                 label="AIS meas.",
                                 transform=enc.crs,
-                                zorder=0,
+                                zorder=zorder_patch - 3,
                             )[0]
 
             else:
-                print("i = {}".format(i))
+                # print("i = {}".format(i))
                 ship_name = "DO " + str(i - 1)
 
             ship_i_handles["info"] = ax_map.text(
@@ -294,14 +329,10 @@ class Visualizer:
                 zorder=5,
             )
 
-            if i == 0:
-                zorder_patch = 4
-            else:
-                zorder_patch = 3
-            ship_i_handles["patch"] = ax_map.add_feature(ShapelyFeature([], color=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch))
+            ship_i_handles["patch"] = ax_map.add_feature(ShapelyFeature([], edgecolor="k", facecolor=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch))
 
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
-            ship_i_handles["trajectory"] = ax_map.plot([0.0], [0.0], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs, zorder=zorder_patch - 1)[
+            ship_i_handles["trajectory"] = ax_map.plot([0.0], [0.0], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs, zorder=zorder_patch - 2)[
                 0
             ]
 
@@ -312,9 +343,9 @@ class Visualizer:
                 linewidth=lw,
                 marker="*",
                 linestyle="-",
-                label=ship_name + " pred. traj.",
+                label="",  # ship_name + " pred. traj.",
                 transform=enc.crs,
-                zorder=zorder_patch - 1,
+                zorder=zorder_patch - 2,
             )[0]
 
             if self._config.show_waypoints and ship.waypoints.size > 0:
@@ -322,23 +353,18 @@ class Visualizer:
                     ship.waypoints[1, :],
                     ship.waypoints[0, :],
                     color=c,
-                    marker="o",
-                    markersize=11,
-                    linestyle="--",
+                    marker=".",
+                    markersize=8,
+                    linestyle="dashed",
                     linewidth=lw,
                     alpha=0.3,
                     label=ship_name + " waypoints",
                     transform=enc.crs,
-                    zorder=-5,
+                    zorder=-6,
                 )[0]
 
-            ship_i_handles["started"] = False
+            ship_i_handles["ship_started"] = False
             self.ship_plt_handles.append(ship_i_handles)
-
-        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
-        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
-        # ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
-        # self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         extent = ax_map.get_extent()
         self.misc_plt_handles["time"] = ax_map.text(
@@ -359,7 +385,7 @@ class Visualizer:
             t (float): Current time in the simulation.
             enc (ENC): ENC object containing the map data.
             ship_list (list): List of configured ships in the simulation.
-            sensor_measurements (list): List of sensor measurements generated from each ship at the current time.
+            sensor_measurements (list): Most recent sensor measurements generated from the own-ship sensors.
         """
         if not self._config.show_liveplot:
             return
@@ -375,15 +401,21 @@ class Visualizer:
                 continue
 
             # Hack to avoid ValueError from matplotlib, see previous function for more info
-            if self.ship_plt_handles[i]["started"]:
-                start_idx_line_data = 0
+            if self.ship_plt_handles[i]["ship_started"]:
+                start_idx_ship_line_data = 0
             else:
-                start_idx_line_data = 1
+                start_idx_ship_line_data = 1
+                self.ship_plt_handles[i]["ship_started"] = True
 
-            pose_i = ship_obj.pose
+            if i == 0:
+                zorder_patch = 4
+            else:
+                zorder_patch = 3
+
+            csog_state_i = ship_obj.csog_state
 
             # If number of ships is greater than 16, use the same color for all target ships
-            if i > 0 and n_ships > 16:
+            if i > 0 and n_ships > len(self._config.ship_colors):
                 c = self._config.ship_colors[1]
             else:
                 c = self._config.ship_colors[i]
@@ -391,25 +423,34 @@ class Visualizer:
             lw = self._config.ship_linewidth
 
             if i == 0:
-                do_estimates, do_covariances, _, do_labels = ship_obj.get_do_track_information()
+                tracks, _ = ship_obj.get_do_track_information()
+                do_labels = [track[0] for track in tracks]
+                do_estimates = [track[1] for track in tracks]
+                do_covariances = [track[2] for track in tracks]
+
                 if self._config.show_tracks and len(do_estimates) > 0:
                     lw = self._config.do_linewidth
                     for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
-                        # If number of ships is greater than 16, use the same color for all target ships
-                        if n_ships > 16:
+                        if n_ships > len(self._config.ship_colors):
                             do_c = self._config.do_colors[1]
                         else:
                             do_c = self._config.do_colors[do_labels[j] - 1]
 
+                        if self.ship_plt_handles[i]["track_started"][do_labels[j] - 1]:
+                            start_idx_track_line_data = 0
+                        else:
+                            start_idx_track_line_data = 1
+                            self.ship_plt_handles[i]["track_started"][do_labels[j] - 1] = True
+
                         self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].set_xdata(
                             [
-                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_xdata()[start_idx_line_data:],
+                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_xdata()[start_idx_track_line_data:],
                                 do_estimates[j][1],
                             ]
                         )
                         self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].set_ydata(
                             [
-                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_ydata()[start_idx_line_data:],
+                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_ydata()[start_idx_track_line_data:],
                                 do_estimates[j][0],
                             ]
                         )
@@ -423,69 +464,53 @@ class Visualizer:
                                 [ell_geometry],
                                 linewidth=lw,
                                 color=do_c,
-                                alpha=0.6,
-                                label=f"DO{do_labels[j]} est. cov.",
+                                alpha=0.3,
+                                label=f"DO {j - 1} est. 3sigma cov.",
                                 crs=enc.crs,
+                                zorder=zorder_patch - 2,
                             )
                         )
 
-                        if self._config.show_measurements and len(sensor_measurements[i]) > 0:
+                        if self._config.show_measurements:
                             for sensor_id, sensor in enumerate(ship_obj.sensors):
-                                sensor_data = sensor_measurements[i][sensor_id]
+                                sensor_data = sensor_measurements[sensor_id]
                                 if not sensor_data:
                                     continue
-                                sensor_data = sensor_data[j]
 
-                                if any(np.isnan(sensor_data)):
+                                if np.isnan(sensor_data).any():
                                     continue
-
+                                xdata = []
+                                ydata = []
+                                for measurements in sensor_data:
+                                    for meas in measurements:
+                                        xdata.append(meas[1])
+                                        ydata.append(meas[0])
                                 if sensor.type == "radar":
-                                    self.ship_plt_handles[i]["radar"].set_xdata(
-                                        [
-                                            *self.ship_plt_handles[i]["radar"].get_xdata()[start_idx_line_data:],
-                                            sensor_data[1],
-                                        ]
-                                    )
-                                    self.ship_plt_handles[i]["radar"].set_ydata(
-                                        [
-                                            *self.ship_plt_handles[i]["radar"].get_ydata()[start_idx_line_data:],
-                                            sensor_data[0],
-                                        ]
-                                    )
+                                    self.ship_plt_handles[i]["radar"].set_xdata(xdata)
+                                    self.ship_plt_handles[i]["radar"].set_ydata(ydata)
 
                                 elif sensor.type == "ais":
-                                    self.ship_plt_handles[i]["ais"].set_xdata(
-                                        [
-                                            *self.ship_plt_handles[i]["ais"].get_xdata()[start_idx_line_data:],
-                                            sensor_data[1],
-                                        ]
-                                    )
-                                    self.ship_plt_handles[i]["ais"].set_ydata(
-                                        [
-                                            *self.ship_plt_handles[i]["ais"].get_ydata()[start_idx_line_data:],
-                                            sensor_data[0],
-                                        ]
-                                    )
+                                    self.ship_plt_handles[i]["ais"].set_xdata(xdata)
+                                    self.ship_plt_handles[i]["ais"].set_ydata(ydata)
 
             # Update ship patch
             ship_poly = mapf.create_ship_polygon(
-                pose_i[0], pose_i[1], pose_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
+                csog_state_i[0], csog_state_i[1], csog_state_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
             )
             if self.ship_plt_handles[i]["patch"] is not None:
                 self.ship_plt_handles[i]["patch"].remove()
-            self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs))
+            self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
 
-            self.ship_plt_handles[i]["info"].set_x(pose_i[1] + 100)
-            self.ship_plt_handles[i]["info"].set_y(pose_i[0] + 100)
+            self.ship_plt_handles[i]["info"].set_x(csog_state_i[1] - 300)
+            self.ship_plt_handles[i]["info"].set_y(csog_state_i[0] + 350)
 
-            self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_line_data:], pose_i[1]])
-            self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_line_data:], pose_i[0]])
+            self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state_i[1]])
+            self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state_i[0]])
 
             if self._config.show_waypoints and ship_obj.waypoints.size > 0:
                 self.ship_plt_handles[i]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
                 self.ship_plt_handles[i]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
 
-            self.ship_plt_handles[i]["started"] = True
             # TODO: Update predicted ship trajectory
 
         if n_ships < 3:  # to avoid cluttering the legend
@@ -513,12 +538,12 @@ class Visualizer:
         Args:
             enc (ENC): Electronic Navigational Chart object.
             ship_list (list): List of ships in the simulation.
-            sim_data (list): List of simulation data.
+            sim_data (DataFrame): Dataframe of simulation.
             sim_times (list): List of simulation times.
             k_snapshots (Optional[list], optional): List of snapshots to visualize.
             save_figs (bool, optional): Whether to save the figures.
             save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
-            sh
+            show_tracking_results (bool, optional): Whether to show tracking results or not.
 
         Returns:
             Tuple[list, list]: List of figure and axes handles
@@ -527,13 +552,17 @@ class Visualizer:
             return [], []
 
         if save_file_path is None:
-            save_file_path = dp.figure_output / "scenario_ne.eps"
+            save_file_path = dp.figure_output / "scenario_ne.pdf"
         else:
-            save_file_path = Path(str(save_file_path) + ".eps")
+            save_file_path = Path(str(save_file_path) + ".pdf")
+
+        ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
+        trajectory_list = ship_data["trajectory_list"]
+        cpa_indices = ship_data["cpa_indices"]
 
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(0.1 * n_samples), round(0.5 * n_samples), round(0.8 * n_samples)]
+            k_snapshots = [round(0.09 * n_samples), round(0.25 * n_samples), round(0.6 * n_samples)]
 
         figs = []
         axes = []
@@ -553,13 +582,12 @@ class Visualizer:
             ship_sim_data = sim_data[f"Ship{i}"]
 
             # If number of ships is greater than 16, use the same color for all target ships
-            if i > 0 and n_ships > 16:
+            if i > 0 and n_ships > len(self._config.ship_colors):
                 ship_color = self._config.ship_colors[1]
             else:
                 ship_color = self._config.ship_colors[i]
 
-            X, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(ship_sim_data)
-
+            X = trajectory_list[i]
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
@@ -576,8 +604,9 @@ class Visualizer:
             if i == 0:
                 ship_name = "OS"
                 xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X[:, first_valid_idx:end_idx], xlimits, ylimits)
-                xlimits = [xlimits[0] - 2000, xlimits[1] + 2000]
-                ylimits = [ylimits[0] - 2000, ylimits[1] + 2000]
+                buffer = 1500
+                xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+                ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
                 zorder_patch = 4
             else:
                 ship_name = "DO " + str(i - 1)
@@ -608,11 +637,11 @@ class Visualizer:
                 linewidth=ship_lw,
                 label=ship_name + " traj.",
                 transform=enc.crs,
-                zorder=zorder_patch - 1,
+                zorder=zorder_patch - 2,
             )
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
-            if i == 0 and False:
+            if i == 0:
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
@@ -620,51 +649,53 @@ class Visualizer:
                 do_labels = track_data["do_labels"]
 
                 for j, do_estimates_j in enumerate(do_estimates):
-                    first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
+                    first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
 
                     end_idx_j = k_snapshots[-1]
-                    if last_valid_idx < end_idx_j:
+                    if last_valid_idx_track < end_idx_j:
                         end_idx_j = last_valid_idx + 1
+
+                    if first_valid_idx_track >= end_idx_j:
+                        continue
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j, _, _ = mhm.extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{do_labels[j]}"])
-                    do_true_states_j = mhm.convert_sog_cog_state_to_vxvy_state(do_true_states_j)
+                    do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
 
-                    ax_map.plot(
-                        do_estimates_j[1, first_valid_idx:end_idx_j],
-                        do_estimates_j[0, first_valid_idx:end_idx_j],
-                        color=do_color,
-                        linewidth=ship_lw,
-                        linestyle="--",
-                        alpha=0.3,
-                        transform=enc.crs,
-                        zorder=zorder_patch - 1,
-                    )
+                    # ax_map.plot(
+                    #     do_estimates_j[1, first_valid_idx_track:end_idx_j],
+                    #     do_estimates_j[0, first_valid_idx_track:end_idx_j],
+                    #     color=do_color,
+                    #     linewidth=ship_lw,
+                    #     transform=enc.crs,
+                    #     label=f"DO {do_labels[j] -1} est. traj.",
+                    #     zorder=zorder_patch - 2,
+                    # )
                     for k in k_snapshots:
-                        if k < first_valid_idx or k > end_idx_j:
+                        if k < first_valid_idx_track or k > end_idx_j:
                             continue
 
-                        ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
-                        ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
-                        ax_map.add_feature(
-                            ShapelyFeature(
-                                [ell_geometry],
-                                linewidth=do_lw,
-                                color=do_color,
-                                alpha=0.3,
-                                # label=f"DO{do_labels[j]} est. cov.",
-                                crs=enc.crs,
-                                zorder=zorder_patch - 1,
-                            )
-                        )
+                        # ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
+                        # ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
+                        # ax_map.add_feature(
+                        #     ShapelyFeature(
+                        #         [ell_geometry],
+                        #         linewidth=do_lw,
+                        #         color=do_color,
+                        #         alpha=0.3,
+                        #         label=f"DO {do_labels[j] - 1} est. cov.",
+                        #         crs=enc.crs,
+                        #         zorder=zorder_patch - 2,
+                        #     )
+                        # )
 
                     if show_tracking_results:
                         fig_do_j, axes_do_j = self._plot_do_tracking_results(
-                            sim_times[first_valid_idx:end_idx_j],
-                            do_true_states_j[:, first_valid_idx:end_idx_j],
-                            do_estimates_j[:, first_valid_idx:end_idx_j],
-                            do_covariances[j][:, :, first_valid_idx:end_idx_j],
+                            sim_times[first_valid_idx_track:end_idx_j],
+                            do_true_states_j[:, first_valid_idx_track:end_idx_j],
+                            do_estimates_j[:, first_valid_idx_track:end_idx_j],
+                            do_covariances[j][:, :, first_valid_idx_track:end_idx_j],
                             do_NISes[j],
                             j,
                             do_lw,
@@ -675,6 +706,7 @@ class Visualizer:
             count = 1
             for k in k_snapshots:
                 if k < first_valid_idx or k > end_idx:
+                    count += 1
                     continue
 
                 ship_poly = mapf.create_ship_polygon(
@@ -683,35 +715,38 @@ class Visualizer:
                     heading=X[3, k],
                     length=ship.length,
                     width=ship.width,
-                    length_scaling=2 * self._config.ship_scaling[0],
-                    width_scaling=2 * self._config.ship_scaling[1],
+                    length_scaling=self._config.ship_scaling[0],
+                    width_scaling=self._config.ship_scaling[1],
                 )
                 ax_map.add_feature(
                     ShapelyFeature(
                         [ship_poly],
                         linewidth=ship_lw,
                         color=ship_color,
-                        # label=f"DO{do_labels[j]} est. cov.",
+                        # label=ship_name",
                         crs=enc.crs,
                         zorder=zorder_patch,
                     )
                 )
-                ax_map.text(
-                    X[1, k] - 250,
-                    X[0, k] + 300,
-                    f"$t_{count}$",
-                    fontsize=12,
-                    zorder=zorder_patch + 1,
-                )
+                # ax_map.text(
+                #     X[1, k] - 100,
+                #     X[0, k] + 200,
+                #     f"$t_{count}$",
+                #     fontsize=12,
+                #     zorder=zorder_patch + 1,
+                # )
                 count += 1
 
         ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
         ax_map.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
 
         plt.legend()
 
         if save_figs:
-            fig_map.savefig(save_file_path, format="eps", dpi=1000)
+            if not save_file_path.parents[0].exists():
+                save_file_path.parents[0].mkdir(parents=True)
+            fig_map.savefig(save_file_path, format="pdf", dpi=500, bbox_inches="tight")
 
         figs.append(fig_map)
         axes.append(ax_map)
