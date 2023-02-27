@@ -154,6 +154,9 @@ class SBMPC:
                     u_os_best = self._params.P_ca_[j]
                     chi_os_best = self._params.Chi_ca_[i]
 
+        if self._params.Chi_ca_last_ != chi_os_best or self._params.P_ca_last_ != u_os_best:
+            print('best: ', u_os_best, chi_os_best, '\n')
+
         self._params.P_ca_last_ = u_os_best
         self._params.Chi_ca_last_ = chi_os_best
 
@@ -290,6 +293,7 @@ class Obstacle:
         self.u_ = np.zeros(self.n_samp_)
         self.v_ = np.zeros(self.n_samp_)
 
+        """ 
         self.A_ = state[5]
         self.B_ = state[6]
         self.C_ = state[7]
@@ -309,13 +313,30 @@ class Obstacle:
         self.r11_ = np.cos(self.psi_)
         self.r12_ = -np.sin(self.psi_)
         self.r21_ = np.sin(self.psi_)
-        self.r22_ = np.cos(self.psi_)
+        self.r22_ = np.cos(self.psi_) 
+        """
+
+        self.x_[0] = state[1][0]
+        self.y_[0] = state[1][1]
+        self.u_[0] = state[1][2]
+        self.v_[0] = state[1][3]
+        self.psi_ = np.arctan2(self.v_[0], self.u_[0])
+
+        self.l = state[3]
+        self.w = state[4]
+
+        self.r11_ = np.cos(self.psi_)
+        self.r12_ = -np.sin(self.psi_)
+        self.r21_ = np.sin(self.psi_)
+        self.r22_ = np.cos(self.psi_) 
 
         self.calculate_trajectory()
 
+    """ 
     def calculate_pos_offsets(self):
         self.os_x = self.A_ - self.B_
-        self.os_y = self.D_ - self.C_
+        self.os_y = self.D_ - self.C_ 
+    """
 
     def calculate_trajectory(self):
         for i in range(1, self.n_samp_):
@@ -323,7 +344,6 @@ class Obstacle:
             self.y_[i] = self.y_[i - 1] + (self.r21_ * self.u_[i - 1] + self.r22_ * self.v_[i - 1]) * self.dt_
             self.u_[i] = self.u_[i - 1]
             self.v_[i] = self.v_[i - 1]
-
 
 class Ship_model:
     def __init__(self, T: np.double, dt: np.double):
