@@ -154,8 +154,8 @@ class SBMPC:
                     u_os_best = self._params.P_ca_[j]
                     chi_os_best = self._params.Chi_ca_[i]
 
-        if self._params.Chi_ca_last_ != chi_os_best or self._params.P_ca_last_ != u_os_best:
-            print('best: ', u_os_best, chi_os_best, '\n')
+        # if self._params.Chi_ca_last_ != chi_os_best or self._params.P_ca_last_ != u_os_best:
+        #     print('best: ', u_os_best, chi_os_best, '\n')
 
         self._params.P_ca_last_ = u_os_best
         self._params.Chi_ca_last_ = chi_os_best

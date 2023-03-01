@@ -29,18 +29,18 @@ ship_list:
         sbmpc:
           P_: 1.0
           Q_: 4.0
-          D_INIT_: 1000.0
-          D_CLOSE_: 200.0
-          D_SAFE_: 40.0
-          K_COLL_: 0.5
+          D_INIT_: 1500.0
+          D_CLOSE_: 1000.0
+          D_SAFE_: 50.0
+          K_COLL_: 0.2
           PHI_AH_: 68.5 
           PHI_OT_: 68.5
           PHI_HO_: 22.5
           PHI_CR_: 68.5
-          KAPPA_: 3.0
-          K_P_: 2.5
+          KAPPA_: 10.0
+          K_P_: 15.0
           K_CHI_: 1.3
-          K_DP_: 2.0
+          K_DP_: 6.0
           K_DCHI_SB_: 0.9 
           K_DCHI_P_: 1.2
           P_ca_last_: 1
