@@ -1,19 +1,19 @@
-name: "head_on1"
+name: "imazu04"
 save_scenario: False
 t_start: 0.0
-t_end: 300.0
+t_end: 1000.0
 dt_sim: 0.1
 utm_zone: 33
-map_size: [15000.0, 15000.0]
-map_origin_enu: [37000.0, 6950450.0]
-map_data_files: ["More_og_Romsdal_utm33.gdb"]
+map_size: [16000.0, 16000.0]
+map_origin_enu: [267492.637968, 7041883.359532]
+map_data_files: ["Trondelag.gdb"]
 new_load_of_map_data: false
 type: 1
-n_random_ships: 1
+n_random_ships: 0
 ship_list:
-  - csog_state: [6957500.0, 39500.0, 7.0, 45.0]
-    waypoints: [[6957500.0, 6959500.0], [39500.0, 41500.0]]
-    speed_plan: [7.0, 7.0]
+  - csog_state: [7044940.0, 275000.0, 10.0, 0.0] 
+    waypoints: [[7044940.0, 7060000.0], [275000.0, 275000.0]]
+    speed_plan: [10.0, 10.0]
     id: 0
     mmsi: 100
     colav:
@@ -75,9 +75,9 @@ ship_list:
         K_d_psi: 12.1
     model:
       telemetron: ''
-  - csog_state: [6959500.0, 41500.0, 7.0, 225.0]
-    waypoints: [[6959500.0, 6957500.0], [41500.0, 39500.0]]
-    speed_plan: [7.0, 7.0]
+  - csog_state: [7047500.0, 269500.0, 10.0, 40.0] 
+    waypoints: [[7047500.0, 7056000.0], [269500.0, 280000.0]]
+    speed_plan: [10.0, 10.0]
     id: 1
     mmsi: 101
     colav:
