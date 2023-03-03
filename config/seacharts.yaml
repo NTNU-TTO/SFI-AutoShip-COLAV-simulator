@@ -1,6 +1,6 @@
 enc:
   utm_zone: 33
-  size: [20000.0, 5000.0]                                                  # width, height (east, north) window to consider map data from. Unit is distance in meters
+  size: [2000.0, 5000.0]                                                  # width, height (east, north) window to consider map data from. Unit is distance in meters
   origin: [39000.0, 6956450.0]                                            # easting/northing origin in UTM zone matchin that of input .gdb data
   buffer: 0                                                               # int of dilation or erosion distance for geometries
   tolerance: 0                                                            # int of maximum tolerance distance for geometries
@@ -14,7 +14,7 @@ enc:
   #origin_lla: [62.457464, 6.146678]                                       # origin in latitude longitude (degrees) for transformation purposes (NOT IMPLEMENTED YET)
 
 display:
-  show_figure: False # Whether or not to disable the seacharts figure/display
+  show_figure: false # Whether or not to disable the seacharts figure/display
   dpi: 96
   anchor: "center"
   resolution: 1080
