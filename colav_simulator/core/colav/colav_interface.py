@@ -110,7 +110,7 @@ class ICOLAV(ABC):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_pose: Optional[np.ndarray] = None,
+        goal_csog_state: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
         """Plans a (hopefully) collision free trajectory for the ship to follow.
@@ -122,7 +122,7 @@ class ICOLAV(ABC):
             ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r]. Used as start state in case of high level planners.
             do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
-            goal_pose (Optional[np.ndarray]): The goal pose [x, y, psi], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
+            goal_csog_state (Optional[np.ndarray]): The goal pose [x, y, psi], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
             **kwargs: Additional arguments to the COLAV planning algorithm, e.g. the own-ship length.
 
         Returns:
@@ -159,7 +159,7 @@ class VOWrapper(ICOLAV):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_pose: Optional[np.ndarray] = None,
+        goal_csog_state: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
         if not self._initialized:

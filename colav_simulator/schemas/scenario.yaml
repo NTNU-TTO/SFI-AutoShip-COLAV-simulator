@@ -120,7 +120,7 @@ ship_list:
         minlength: 4
         schema:
           type: float
-      goal_pose:
+      goal_csog_state:
         required: False
         type: list
         schema:
@@ -301,11 +301,35 @@ ship_list:
                 required: True
                 type: float
                 min: 0.0
+              K_i_u:
+                required: True
+                type: float
+                min: 0.0
               K_p_psi:
                 required: True
                 type: float
                 min: 0.0
               K_d_psi:
+                required: True
+                type: float
+                min: 0.0
+              K_i_psi:
+                required: True
+                type: float
+                min: 0.0
+              max_speed_error_int:
+                required: True
+                type: float
+                min: 0.0
+              speed_error_int_threshold:
+                required: True
+                type: float
+                min: 0.0
+              max_psi_error_int:
+                required: True
+                type: float
+                min: 0.0
+              psi_error_int_threshold:
                 required: True
                 type: float
                 min: 0.0

@@ -33,9 +33,15 @@ class MIMOPIDParams:
 @dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
-    K_p_u: float = 5.0
-    K_p_psi: float = 6.0
-    K_d_psi: float = 12.0
+    K_p_u: float = 1.0
+    K_i_u: float = 0.05
+    K_p_psi: float = 3.0
+    K_d_psi: float = 3.0
+    K_i_psi: float = 0.005
+    max_speed_error_int: float = 0.75
+    speed_error_int_threshold: float = 0.2
+    max_psi_error_int: float = 20.0 * np.pi / 180.0
+    psi_error_int_threshold: float = 10.0 * np.pi / 180.0
 
     def to_dict(self):
         return asdict(self)
@@ -254,6 +260,29 @@ class FLSH(IController):
             self._params: FLSHParams = params
         else:
             self._params = FLSHParams()
+        self._speed_error_int = 0.0
+        self._psi_error_int = 0.0
+        self._psi_d_prev = 0.0
+        self._psi_prev = 0.0
+
+    def update_integrators(self, speed_error: float, psi_error: float, dt: float) -> None:
+        if abs(speed_error) <= self._params.speed_error_int_threshold:
+            self._speed_error_int += speed_error * dt
+
+        if abs(self._speed_error_int) > self._params.max_speed_error_int:
+            self._speed_error_int -= speed_error * dt
+
+        if abs(speed_error) <= 0.01:
+            self._speed_error_int = 0.0
+
+        if abs(psi_error) <= self._params.psi_error_int_threshold:
+            self._psi_error_int += psi_error * dt
+
+        if abs(self._psi_error_int) > self._params.max_speed_error_int:
+            self._psi_error_int -= psi_error * dt
+
+        if abs(psi_error) <= 0.02 * np.pi / 180.0:
+            self._psi_error_int = 0.0
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs based on the PID law.
@@ -274,21 +303,27 @@ class FLSH(IController):
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
 
-        u_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.params.U_max)
-        psi_d = refs[2]
-        r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
-
         eta = xs[0:3]
         nu = xs[3:]
+
+        U_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.params.U_max)
+        psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
+        psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
+        r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
+
+        psi: float = mf.wrap_angle_to_pmpi(eta[2])
+        psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
 
         Mmtrx = model.params.M_rb + model.params.M_a
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
         Dvv = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu) @ nu
 
-        psi_diff = mf.wrap_angle_diff_to_pmpi(psi_d, eta[2])
+        speed_error = U_d - np.sqrt(nu[0] ** 2 + nu[1] ** 2)
+        psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
+        self.update_integrators(speed_error, psi_error, dt)
 
-        Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * self._params.K_p_u * (u_d - nu[0])
-        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_diff + self._params.K_d_psi * (r_d - nu[2]))
+        Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
+        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
 
         tau = np.array([Fx, Fy, Fy * model.params.l_r])
 

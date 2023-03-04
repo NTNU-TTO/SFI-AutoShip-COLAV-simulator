@@ -75,6 +75,19 @@ def wrap_angle_diff_to_pmpi(a_1: float | np.ndarray, a_2: float | np.ndarray) ->
         return wrap_min_max(diff, -np.pi, np.pi)
 
 
+def unwrap_angle(a_prev: float, a: float) -> float:
+    """Unwraps angle a to a_prev + angle difference.
+
+    Args:
+        a_prev (float): Previous angle in radians
+        a (float): Angle in radians
+
+    Returns:
+        float: Unwrapped angle
+    """
+    return a_prev + float(wrap_angle_diff_to_pmpi(a, a_prev))
+
+
 def compute_bearing(psi: float, p1: np.ndarray, p2: np.ndarray) -> float:
     """Computes bearing in [-180, 180) from p1 to p2, where the object at p1 has heading psi.
 

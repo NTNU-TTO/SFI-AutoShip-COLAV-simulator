@@ -40,6 +40,7 @@ class Config:
     t_end: Optional[float] = None  # Determines when the ship ends its part in the simulation
     random_generated: Optional[bool] = False  # True if the ship should have randomly generated COG-SOG-state, wps and speed plan. Takes priority over mmsi.
     csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
+    goal_csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
     waypoints: Optional[np.ndarray] = None
     speed_plan: Optional[np.ndarray] = None
 
@@ -49,6 +50,10 @@ class Config:
         if "csog_state" in config_dict:
             config.csog_state = np.array(config_dict["csog_state"])
             config.csog_state[3] = np.deg2rad(config.csog_state[3])
+
+        if "goal_csog_state" in config_dict:
+            config.goal_csog_state = np.array(config_dict["goal_csog_state"])
+            config.goal_csog_state[3] = np.deg2rad(config.goal_csog_state[3])
 
         if "waypoints" in config_dict:
             config.waypoints = np.array(config_dict["waypoints"])
@@ -99,6 +104,10 @@ class Config:
         if self.csog_state is not None:
             config_dict["csog_state"] = self.csog_state.tolist()
             config_dict["csog_state"][3] = float(np.rad2deg(self.csog_state[3]))
+
+        if self.goal_csog_state is not None:
+            config_dict["goal_csog_state"] = self.goal_csog_state.tolist()
+            config_dict["goal_csog_state"][3] = float(np.rad2deg(self.goal_csog_state[3]))
 
         if self.waypoints is not None:
             config_dict["waypoints"] = self.waypoints.tolist()
@@ -227,7 +236,7 @@ class Ship(IShip):
         mmsi: int,
         identifier: int,
         csog_state: Optional[np.ndarray] = None,
-        goal_pose: Optional[np.ndarray] = None,
+        goal_csog_state: Optional[np.ndarray] = None,
         waypoints: Optional[np.ndarray] = None,
         speed_plan: Optional[np.ndarray] = None,
         config: Optional[Config] = None,
@@ -237,7 +246,7 @@ class Ship(IShip):
         self._id = identifier
         self._ais_msg_nr: int = 18
         self._state: np.ndarray = np.zeros(6)
-        self._goal_pose: np.ndarray = np.zeros(4)
+        self._goal_state: np.ndarray = np.zeros(6)
         self._waypoints: np.ndarray = np.empty(0)
         self._speed_plan: np.ndarray = np.zeros(0)
         self._references: np.ndarray = np.zeros(0)
@@ -256,8 +265,8 @@ class Ship(IShip):
         if csog_state is not None:
             self.set_initial_state(csog_state)
 
-        if goal_pose is not None:
-            self._goal_pose = goal_pose
+        if goal_csog_state is not None:
+            self._goal_csog_state = goal_csog_state
 
         if waypoints is not None and speed_plan is not None:
             self.set_nominal_plan(waypoints, speed_plan)
@@ -266,6 +275,9 @@ class Ship(IShip):
         self._id = config.id
         if config.csog_state is not None:
             self.set_initial_state(config.csog_state)
+
+        if config.goal_csog_state is not None:
+            self.set_goal_state(config.goal_csog_state)
 
         if config.waypoints is not None and config.speed_plan is not None:
             self.set_nominal_plan(config.waypoints, config.speed_plan)
@@ -287,11 +299,13 @@ class Ship(IShip):
         enc: Optional[senc.ENC] = None,
     ) -> np.ndarray:
 
-        if self._goal_pose is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
+        if self._goal_csog_state is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
             raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
 
         if self._colav is not None:
-            self._references = self._colav.plan(t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_pose, os_length=self._model.params.length)
+            self._references = self._colav.plan(
+                t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_csog_state, os_length=self._model.params.length
+            )
             return self._references
 
         self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
@@ -349,6 +363,14 @@ class Ship(IShip):
             csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
         """
         self._state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
+
+    def set_goal_state(self, csog_state: np.ndarray) -> None:
+        """Sets the goal state of the ship based on the input kinematic state.
+
+        Args:
+            csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
+        """
+        self._goal_state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
         """Reassigns waypoints and speed_plan to the ship, to change its objective.
