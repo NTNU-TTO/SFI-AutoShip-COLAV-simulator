@@ -257,7 +257,7 @@ class Ship(IShip):
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
         self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
-
+        self._min_depth =
         if config:
             self._set_variables_from_config(config)
 
@@ -299,12 +299,20 @@ class Ship(IShip):
         enc: Optional[senc.ENC] = None,
     ) -> np.ndarray:
 
-        if self._goal_csog_state is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
+        if self._goal_state is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
             raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
 
         if self._colav is not None:
             self._references = self._colav.plan(
-                t, self._waypoints, self._speed_plan, self._state, do_list, enc, self._goal_csog_state, os_length=self._model.params.length
+                t,
+                self._waypoints,
+                self._speed_plan,
+                self._state,
+                do_list,
+                enc,
+                self._goal_state,
+                os_length=self._model.params.length,
+                os_min_depth=self._model.params.min_depth,
             )
             return self._references
 
