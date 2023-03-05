@@ -563,7 +563,7 @@ class ScenarioGenerator:
             csog_state = ship_config.csog_state
             if ship_config.csog_state is None:
                 if cfg_ship_idx == 0:
-                    csog_state = self.generate_random_csog_state(U_min=5.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 3.0)
+                    csog_state = self.generate_random_csog_state(U_min=5.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 2.0)
                 else:
                     csog_state = self.generate_ts_csog_state(
                         config.type,
@@ -601,7 +601,7 @@ class ScenarioGenerator:
         U_min: float = 1.0,
         U_max: float = 15.0,
         draft: float = 2.0,
-        min_land_clearance: float = 100.0,
+        min_land_clearance: float = 10.0,
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective of the first ship/own-ship,
         such that the scenario is of the input type.

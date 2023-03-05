@@ -257,7 +257,6 @@ class Ship(IShip):
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
         self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
-        self._min_depth =
         if config:
             self._set_variables_from_config(config)
 
@@ -312,7 +311,7 @@ class Ship(IShip):
                 enc,
                 self._goal_state,
                 os_length=self._model.params.length,
-                os_min_depth=self._model.params.min_depth,
+                os_draft=self._model.params.draft,
             )
             return self._references
 
