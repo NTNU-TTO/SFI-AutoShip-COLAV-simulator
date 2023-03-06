@@ -21,7 +21,7 @@ scenario_generator:
   dist_between_ships_range: [1000.0, 2000.0]
 
 visualizer:
-  show_liveplot: True
+  show_liveplot: False
   show_results: False
   show_measurements: False
   show_liveplot_tracks: False
@@ -29,7 +29,7 @@ visualizer:
   show_animation: False
   show_waypoints: True
   save_animation: False
-  zoom_in_liveplot_on_ownship: True
+  zoom_in_liveplot_on_ownship: False
   figsize: [14, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7

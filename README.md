@@ -48,28 +48,27 @@ Go to your projects directory and clone the simulator repository with
 Install dependencies to the virtual environment with
 `conda install -n ENV_NAME -c conda-forge fiona cartopy matplotlib`
 
-Clone the Seacharts and Colav-Evaluation-Tool packages inside colav_simulator directory
-`git clone https://github.com/trymte/seacharts.git`
+Clone the seacharts to a directory outside the colav-simulator but inside the virtual environment
+```
+git clone https://github.com/trymte/seacharts.git
+cd seacharts
+pip install -e .
+```
 
-Go to Seacharts directory and run
-`pip install -e . `
-
-Inside colav_simulator directory run to clone colav evaluation tool
-`git clone https://github.com/trymte/colav_evaluation_tool.git`
-
-Install dependencies with
-```bash
+Similarly for the colav-evaluation-tool
+```
+git clone https://github.com/trymte/colav_evaluation_tool.git
 cd colav_evaluation_tool
 pip install -e .
 ```
 
-Inside dependencies for the simulator. Go to colav_simulator directory run
+Install dependencies for the simulator. Go to the colav_simulator directory and run
 `pip install -e .`
 
 Install the latest gdal version with
 `conda install -n ENV_NAME gdal`
 
-Create external directory inside the Seacharts package
+Create external directory inside the seacharts package
 ```bash
 cd seacharts/data
 mkdir external
