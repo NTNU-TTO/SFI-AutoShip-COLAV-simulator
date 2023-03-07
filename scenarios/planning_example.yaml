@@ -2,12 +2,12 @@ name: "rogaland_random"
 save_scenario: False
 t_start: 0.0
 t_end: 1000.0
-dt_sim: 1.0
+dt_sim: 0.5
 utm_zone: 33
-map_size: [10000.0, 15000.0]
-map_origin_enu: [-35824.0, 6572730.0]
+map_size: [10000.0, 14000.0]
+map_origin_enu: [-35824.0, 6573730.0]
 map_data_files: ["Rogaland_utm33.gdb"]
-map_tolerance: 2
+map_tolerance: 3
 map_buffer: 0
 new_load_of_map_data: False
 type: MS
@@ -16,7 +16,7 @@ n_episodes: 1
 ship_list:
   - id: 0
     mmsi: 100
-    csog_state: [6574280.0, -31824.0, 5.0, -45.0]
+    csog_state: [6574280.0, -31824.0, 6.0, -45.0]
     goal_csog_state: [6583580.0, -31824.0, 0.0, 0.0]
     random_generated: False
     tracker:

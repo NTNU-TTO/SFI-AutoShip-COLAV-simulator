@@ -311,6 +311,7 @@ class Ship(IShip):
                 enc,
                 self._goal_state,
                 os_length=self._model.params.length,
+                os_width=self._model.params.width,
                 os_draft=self._model.params.draft,
             )
             return self._references
