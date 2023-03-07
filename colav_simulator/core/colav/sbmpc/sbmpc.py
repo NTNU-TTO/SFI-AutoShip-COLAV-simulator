@@ -318,9 +318,9 @@ class Obstacle:
 
         self.x_[0] = state[1][0]
         self.y_[0] = state[1][1]
-        self.u_[0] = state[1][2]
-        self.v_[0] = state[1][3]
-        self.psi_ = np.arctan2(self.v_[0], self.u_[0])
+        V_x = state[1][2]
+        V_y = state[1][3]
+        self.psi_ = np.arctan2(V_y, V_x) #chi
 
         self.l = state[3]
         self.w = state[4]
@@ -329,6 +329,9 @@ class Obstacle:
         self.r12_ = -np.sin(self.psi_)
         self.r21_ = np.sin(self.psi_)
         self.r22_ = np.cos(self.psi_) 
+
+        self.u_[0] = self.r11_ * V_x + self.r21_ * V_y
+        self.v_[0] = self.r12_ * V_x + self.r22_ * V_y
 
         self.calculate_trajectory()
 

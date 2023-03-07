@@ -214,7 +214,9 @@ class SBMPCWrapper(ICOLAV):
         course_ref = references[2, 0]
         speed_ref = references[3, 0]
         speed_os_best, course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
-        references[2, 0] += course_os_best
+        # if course_os_best != 0:
+        #     print("speed: ", course_ref, course_os_best)
+        references[2, 0] += np.deg2rad(course_os_best)
         references[3, 0] = speed_ref * speed_os_best
         return references
 
