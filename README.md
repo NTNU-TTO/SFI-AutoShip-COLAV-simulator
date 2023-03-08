@@ -25,7 +25,6 @@ Are all outlined in setup.cfg, and listed below:
 - dacite
 - seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
-- yaspin
 
 ## Generic Install Instructions
 `seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
