@@ -330,8 +330,8 @@ class Obstacle:
         self.r21_ = np.sin(self.psi_)
         self.r22_ = np.cos(self.psi_) 
 
-        self.u_[0] = self.r11_ * V_x + self.r21_ * V_y
-        self.v_[0] = self.r12_ * V_x + self.r22_ * V_y
+        self.u_[0] = self.r22_ * V_x + self.r21_ * V_y
+        self.v_[0] = self.r12_ * V_x + self.r11_ * V_y
 
         self.calculate_trajectory()
 

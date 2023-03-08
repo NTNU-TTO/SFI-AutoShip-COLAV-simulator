@@ -194,6 +194,9 @@ class SBMPCWrapper(ICOLAV):
 
         self._t_prev = 0.0
         self._initialized = False
+        self._t_run_sbmpc_last = 0.0
+        self._speed_os_best = 1.0
+        self._course_os_best = 0.0
     
     def plan(
         self,
@@ -213,11 +216,12 @@ class SBMPCWrapper(ICOLAV):
         self._t_prev = t
         course_ref = references[2, 0]
         speed_ref = references[3, 0]
-        speed_os_best, course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
-        # if course_os_best != 0:
-        #     print("speed: ", course_ref, course_os_best)
-        references[2, 0] += np.deg2rad(course_os_best)
-        references[3, 0] = speed_ref * speed_os_best
+        if t - self._t_run_sbmpc_last >= 5.0:
+            self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
+            self._t_run_sbmpc_last = t
+            print("course: ", np.rad2deg(course_ref) + self._course_os_best, self._course_os_best)
+        references[2, 0] += np.deg2rad(self._course_os_best)
+        references[3, 0] = speed_ref * self._speed_os_best
         return references
 
     def get_current_plan(self) -> np.ndarray:
