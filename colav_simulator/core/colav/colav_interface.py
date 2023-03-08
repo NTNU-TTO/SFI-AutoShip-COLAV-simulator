@@ -219,7 +219,8 @@ class SBMPCWrapper(ICOLAV):
         if t - self._t_run_sbmpc_last >= 5.0:
             self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
             self._t_run_sbmpc_last = t
-            print("course: ", np.rad2deg(course_ref) + self._course_os_best, self._course_os_best)
+            #print("course: ", np.rad2deg(course_ref) + self._course_os_best, self._course_os_best)
+            #print("speed: ", speed_ref * self._speed_os_best, self._speed_os_best, speed_ref)
         references[2, 0] += np.deg2rad(self._course_os_best)
         references[3, 0] = speed_ref * self._speed_os_best
         return references
