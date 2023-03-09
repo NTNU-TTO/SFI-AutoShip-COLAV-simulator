@@ -1,0 +1,205 @@
+name: "imazu11"
+save_scenario: False
+t_start: 0.0
+t_end: 1000.0
+dt_sim: 0.1
+utm_zone: 33
+map_size: [16000.0, 16000.0]
+map_origin_enu: [267492.637968, 7041883.359532]
+map_data_files: ["Trondelag.gdb"]
+new_load_of_map_data: false
+type: 1
+n_random_ships: 0
+ship_list:
+  - csog_state: [7044940.0, 275000.0, 10.0, 0.0] 
+    waypoints: [[7044940.0, 7060000.0], [275000.0, 275000.0]]
+    speed_plan: [10.0, 10.0]
+    id: 0
+    mmsi: 100
+    colav:
+      name: "VO"
+      layer2:
+        los:
+          pass_angle_threshold: 80.0
+          R_a: 15.0
+          K_p: 0.015
+          K_i: 0.0
+          e_int_max: 200.0
+      layer1:
+        vo:
+          length_os: 15.0
+          width_os: 5.0
+          draft_os: 2.0
+          planning_frequency: 1.0
+          t_max: 60.0
+          d_min: 50.0
+          t_grounding_max: 40.0
+          t_colregs_update_interval: 20.0
+          head_on_width: 30.0
+          overtaking_angle: 112.0
+          heading_set_limits: [-120.0, 120.0]
+          heading_set_spacing: 2.5
+          speed_set_limits: [0.0, 0.5]
+          speed_set_spacing: 0.5
+          safety_buffer: 50.0
+          vo_violation_cost: 1000.0
+          grounding_cost: 10000.0
+          colregs_violation_cost: 100.0
+          Q: [1.0, 1.0]
+    # guidance:
+    #   los:
+    #     pass_angle_threshold: 80.0
+    #     R_a: 15.0
+    #     K_p: 0.024
+    #     K_i: 0.0
+    #     e_int_max: 101.0
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
+    sensors:
+      - radar:
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 5000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 6.1
+        K_d_psi: 12.1
+    model:
+      telemetron: ''
+  - csog_state: [7052000.0, 268000.0, 10.0, 90.0] 
+    waypoints: [[7052000.0, 7052000.0], [268000.0, 282000.0]]
+    speed_plan: [10.0, 10.0]
+    id: 1
+    mmsi: 101
+    colav:
+      name: "VO"
+      layer2:
+        los:
+          pass_angle_threshold: 80.0
+          R_a: 15.0
+          K_p: 0.015
+          K_i: 0.0
+          e_int_max: 200.0
+      layer1:
+        vo:
+          length_os: 15.0
+          width_os: 5.0
+          draft_os: 2.0
+          planning_frequency: 1.0
+          t_max: 60.0
+          d_min: 50.0
+          t_grounding_max: 40.0
+          t_colregs_update_interval: 20.0
+          head_on_width: 30.0
+          overtaking_angle: 112.0
+          heading_set_limits: [-120.0, 120.0]
+          heading_set_spacing: 2.5
+          speed_set_limits: [0.0, 0.5]
+          speed_set_spacing: 0.5
+          safety_buffer: 45.0
+          vo_violation_cost: 1000.0
+          grounding_cost: 1e4
+          colregs_violation_cost: 100.0
+          Q: [1.0, 1.0]
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
+    sensors:
+      - radar:
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 5000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    # guidance:
+    #   los:
+    #     pass_angle_threshold: 80.0
+    #     R_a: 15.0
+    #     K_p: 0.024
+    #     K_i: 0.0
+    #     e_int_max: 101.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 6.1
+        K_d_psi: 12.1
+    model:
+      telemetron: ''
+  - csog_state: [7045750.0, 277950.0, 10.0, 345.0] 
+    waypoints: [[7045750.0, 7057500.0], [277950.0, 272350.0]]
+    speed_plan: [10.0, 10.0]
+    id: 2
+    mmsi: 102
+    colav:
+      name: "VO"
+      layer2:
+        los:
+          pass_angle_threshold: 80.0
+          R_a: 15.0
+          K_p: 0.015
+          K_i: 0.0
+          e_int_max: 200.0
+      layer1:
+        vo:
+          length_os: 15.0
+          width_os: 5.0
+          draft_os: 2.0
+          planning_frequency: 1.0
+          t_max: 60.0
+          d_min: 50.0
+          t_grounding_max: 40.0
+          t_colregs_update_interval: 20.0
+          head_on_width: 30.0
+          overtaking_angle: 112.0
+          heading_set_limits: [-120.0, 120.0]
+          heading_set_spacing: 2.5
+          speed_set_limits: [0.0, 0.5]
+          speed_set_spacing: 0.5
+          safety_buffer: 45.0
+          vo_violation_cost: 1000.0
+          grounding_cost: 1e4
+          colregs_violation_cost: 100.0
+          Q: [1.0, 1.0]
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 0.15
+    sensors:
+      - radar:
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R: [25.0, 25.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 5000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    # guidance:
+    #   los:
+    #     pass_angle_threshold: 80.0
+    #     R_a: 15.0
+    #     K_p: 0.024
+    #     K_i: 0.0
+    #     e_int_max: 101.0
+    controller:
+      flsh:
+        K_p_u: 5.1
+        K_p_psi: 6.1
+        K_d_psi: 12.1
+    model:
+      telemetron: ''

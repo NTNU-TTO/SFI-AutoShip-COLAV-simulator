@@ -11,7 +11,7 @@ dpi_value = 150  # figure dpi value
 if __name__ == "__main__":
 
     n_wps = 9
-    scenario_generator = ScenarioGenerator(init_enc=True)
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True)
     scenario_generator.enc.start_display()
     origin = scenario_generator.enc_origin
 

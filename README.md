@@ -25,7 +25,6 @@ Are all outlined in setup.cfg, and listed below:
 - dacite
 - seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
-- yaspin
 
 ## Generic Install Instructions
 `seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
@@ -48,28 +47,27 @@ Go to your projects directory and clone the simulator repository with
 Install dependencies to the virtual environment with
 `conda install -n ENV_NAME -c conda-forge fiona cartopy matplotlib`
 
-Clone the Seacharts and Colav-Evaluation-Tool packages inside colav_simulator directory
-`git clone https://github.com/trymte/seacharts.git`
-
-Go to Seacharts directory and run
-`pip install -e . `
-
-Inside colav_simulator directory run to clone colav evaluation tool
-`git clone https://github.com/trymte/colav_evaluation_tool.git`
-
-Install dependencies with
+Clone the seacharts to a directory outside the colav-simulator but inside the virtual environment
 ```bash
+git clone https://github.com/trymte/seacharts.git
+cd seacharts
+pip install -e .
+```
+
+Similarly for the colav-evaluation-tool
+```bash
+git clone https://github.com/trymte/colav_evaluation_tool.git
 cd colav_evaluation_tool
 pip install -e .
 ```
 
-Inside dependencies for the simulator. Go to colav_simulator directory run
+Install dependencies for the simulator. Go to the colav_simulator directory and run
 `pip install -e .`
 
 Install the latest gdal version with
 `conda install -n ENV_NAME gdal`
 
-Create external directory inside the Seacharts package
+Create external directory inside the seacharts package
 ```bash
 cd seacharts/data
 mkdir external
@@ -78,7 +76,6 @@ And download the .gdb files into this folder.
 
 Inside the colav_simulator directory test the installation with
 `python tests/test_ship.py`
-
 ## Git Workflow
 
 All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.

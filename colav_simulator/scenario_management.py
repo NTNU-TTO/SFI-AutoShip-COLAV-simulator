@@ -314,7 +314,7 @@ class ScenarioGenerator:
 
             cfg_ship_idx += 1
 
-        n_ais_cfg_ships = len(ship_list)
+        n_ais_cfg_ships = len(config.ship_list)
         n_random_ships = config.n_random_ships
         # Ships still non-configured will be generated randomly
         # Add own-ship (idx 0) if no AIS ships were configured
