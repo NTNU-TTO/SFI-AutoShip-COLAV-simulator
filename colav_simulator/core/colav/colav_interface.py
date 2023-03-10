@@ -25,6 +25,8 @@ from typing import Optional
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.guidances as guidance
+import colav_simulator.core.colav.sbmpc.sbmpc as sb_mpc
+
 import numpy as np
 from seacharts.enc import ENC
 
@@ -33,6 +35,7 @@ class COLAVType(Enum):
     """Enum for the different COLAV algorithms currently compatible with the simulator."""
 
     VO = 0  # Kuwata VO, with LOS guidance to provide velocity references.
+    SBMPC = 1 # SB-MPC, provide trajectory offsets
 
 
 @dataclass
@@ -41,6 +44,7 @@ class LayerConfig:
 
     vo: Optional[kvo.VOParams] = None
     los: Optional[guidance.LOSGuidanceParams] = None
+    sbmpc: Optional[sb_mpc.SBMPCParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -50,6 +54,9 @@ class LayerConfig:
 
         if "los" in config_dict:
             config.los = cp.convert_settings_dict_to_dataclass(guidance.LOSGuidanceParams, config_dict["los"])
+
+        if "sbmpc" in config_dict:
+            config.sbmpc = cp.convert_settings_dict_to_dataclass(sb_mpc.SBMPCParams, config_dict["sbmpc"])
 
         return config
 
@@ -62,6 +69,9 @@ class LayerConfig:
         if self.los is not None:
             config_dict["los"] = self.los.to_dict()
 
+        if self.sbmpc is not None:
+            config_dict["sbmpc"] = self.sbmpc.to_dict()
+
         return config_dict
 
 
@@ -70,6 +80,7 @@ class Config:
     """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
 
     name: COLAVType = COLAVType.VO
+    name: COLAVType = COLAVType.SBMPC
     layer1: LayerConfig = LayerConfig()
     layer2: Optional[LayerConfig] = None
     layer3: Optional[LayerConfig] = None
@@ -171,6 +182,51 @@ class VOWrapper(ICOLAV):
     def get_current_plan(self) -> np.ndarray:
         return self._vo.get_current_plan()
 
+class SBMPCWrapper(ICOLAV):
+    """SBMPC wrapper"""
+
+    def __init__(self, config: Config, **kwargs) -> None:
+        assert config.layer1.sbmpc is not None, "SBMPC must be on the first layer for the SBMPC wrapper."
+        self._sbmpc = sb_mpc.SBMPC(config.layer1.sbmpc)
+
+        assert config.layer2.los is not None, "LOS guidance must be on the second layer for the SBMPC wrapper."
+        self._los = guidance.LOSGuidance(config.layer2.los)
+
+        self._t_prev = 0.0
+        self._initialized = False
+        self._t_run_sbmpc_last = 0.0
+        self._speed_os_best = 1.0
+        self._course_os_best = 0.0
+    
+    def plan(
+        self,
+        t: float,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        ownship_state: np.ndarray,
+        do_list: list,
+        enc: Optional[ENC] = None,
+        goal_pose: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        if not self._initialized:
+            self._t_prev = t
+            self._initialized = True
+
+        references = self._los.compute_references(waypoints, speed_plan, None, ownship_state, t - self._t_prev)
+        self._t_prev = t
+        course_ref = references[2, 0]
+        speed_ref = references[3, 0]
+        if t - self._t_run_sbmpc_last >= 5.0:
+            self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
+            self._t_run_sbmpc_last = t
+            #print("course: ", np.rad2deg(course_ref) + self._course_os_best, self._course_os_best)
+            #print("speed: ", speed_ref * self._speed_os_best, self._speed_os_best, speed_ref)
+        references[2, 0] += np.deg2rad(self._course_os_best)
+        references[3, 0] = speed_ref * self._speed_os_best
+        return references
+
+    def get_current_plan(self) -> np.ndarray:
+        """Returns the current planned trajectory"""
 
 class COLAVBuilder:
     @classmethod
@@ -186,4 +242,8 @@ class COLAVBuilder:
         colav: Optional[ICOLAV] = None
         if config and config.name == COLAVType.VO:
             colav = VOWrapper(config)
+
+        if config and config.name == COLAVType.SBMPC:
+            colav = SBMPCWrapper(config)
+
         return colav
