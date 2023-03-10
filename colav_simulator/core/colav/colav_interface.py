@@ -24,9 +24,8 @@ from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
-import colav_simulator.core.guidances as guidance
 import colav_simulator.core.colav.sbmpc.sbmpc as sb_mpc
-
+import colav_simulator.core.guidances as guidance
 import numpy as np
 from seacharts.enc import ENC
 
@@ -35,7 +34,7 @@ class COLAVType(Enum):
     """Enum for the different COLAV algorithms currently compatible with the simulator."""
 
     VO = 0  # Kuwata VO, with LOS guidance to provide velocity references.
-    SBMPC = 1 # SB-MPC, provide trajectory offsets
+    SBMPC = 1  # SB-MPC, provide trajectory offsets
 
 
 @dataclass
@@ -182,6 +181,7 @@ class VOWrapper(ICOLAV):
     def get_current_plan(self) -> np.ndarray:
         return self._vo.get_current_plan()
 
+
 class SBMPCWrapper(ICOLAV):
     """SBMPC wrapper"""
 
@@ -197,7 +197,7 @@ class SBMPCWrapper(ICOLAV):
         self._t_run_sbmpc_last = 0.0
         self._speed_os_best = 1.0
         self._course_os_best = 0.0
-    
+
     def plan(
         self,
         t: float,
@@ -219,14 +219,15 @@ class SBMPCWrapper(ICOLAV):
         if t - self._t_run_sbmpc_last >= 5.0:
             self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
             self._t_run_sbmpc_last = t
-            #print("course: ", np.rad2deg(course_ref) + self._course_os_best, self._course_os_best)
-            #print("speed: ", speed_ref * self._speed_os_best, self._speed_os_best, speed_ref)
+            # print(f"SBMPC course output: {np.rad2deg(course_ref) + self._course_os_best} | Best course offset: {self._course_os_best} | Nominal course ref: {course_ref}")
+            # print(f"SBMPC speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}")
         references[2, 0] += np.deg2rad(self._course_os_best)
         references[3, 0] = speed_ref * self._speed_os_best
         return references
 
     def get_current_plan(self) -> np.ndarray:
         """Returns the current planned trajectory"""
+
 
 class COLAVBuilder:
     @classmethod
