@@ -173,7 +173,7 @@ class Simulator:
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
         timestamp_start = mhm.current_utc_timestamp()
-        most_recent_sensor_measurements = [None] * len(ship_list)
+        most_recent_sensor_measurements: list = [None] * len(ship_list)
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
         t_prev = sim_times[0]
         for _, t in enumerate(sim_times):
