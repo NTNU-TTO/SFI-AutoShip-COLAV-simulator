@@ -227,7 +227,7 @@ class KinematicTrajectoryPlanner(IGuidance):
                 "b.",
                 label="Spline",
             )
-            gca.set_xlabel("South (m)")
+            gca.set_xlabel("East (m)")
             gca.set_ylabel("North (m)")
             gca.legend()
             gca.grid()
