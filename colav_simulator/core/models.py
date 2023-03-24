@@ -55,8 +55,8 @@ class TelemetronParams:
     Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
     Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
     r_max: float = float(np.deg2rad(15))
-    U_min: float = 1.0
-    U_max: float = 18.0
+    U_min: float = 0.0
+    U_max: float = 15.0
 
 
 @dataclass

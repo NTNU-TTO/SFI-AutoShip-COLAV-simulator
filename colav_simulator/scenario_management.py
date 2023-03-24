@@ -691,7 +691,7 @@ class ScenarioGenerator:
         self,
         U_min: float = 1.0,
         U_max: float = 15.0,
-        draft: float = 5.0,
+        draft: float = 3.0,
         heading: Optional[float] = None,
         min_land_clearance: float = 100.0,
     ) -> np.ndarray:

@@ -16,8 +16,34 @@ import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import numpy as np
 import pandas as pd
+import shapely.geometry as geometry
 from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelled
 from scipy.stats import chi2
+
+
+def linestring_to_ndarray(line: geometry.LineString) -> np.ndarray:
+    """Converts a shapely LineString to a numpy array
+
+    Args:
+        line (LineString): Any LineString object
+
+    Returns:
+        np.ndarray: Numpy array containing the coordinates of the LineString
+    """
+    return np.array(line.coords).transpose()
+
+
+def ndarray_to_linestring(array: np.ndarray) -> geometry.LineString:
+    """Converts a 2D numpy array to a shapely LineString
+
+    Args:
+        array (np.ndarray): Numpy array of 2 x n_samples, containing the coordinates of the LineString
+
+    Returns:
+        LineString: Any LineString object
+    """
+    assert array.shape[0] == 2 and array.shape[1] > 1, "Array must be 2 x n_samples with n_samples > 1"
+    return geometry.LineString(list(zip(array[0, :], array[1, :])))
 
 
 def check_if_vessel_is_passed_by(

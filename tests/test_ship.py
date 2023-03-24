@@ -1,5 +1,6 @@
 import colav_simulator.common.math_functions as mf
 import colav_simulator.core.controllers as controllers
+import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensing as sensorss
 import colav_simulator.core.ship as ship
@@ -14,8 +15,10 @@ dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
 
-    n_wps = 9
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True)
+    n_wps = 4
+
+    # Put new_data to True to load map data in ENC if it is not already loaded
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False)
     scenario_generator.enc.start_display()
     origin = scenario_generator.enc_origin
 
@@ -23,32 +26,25 @@ if __name__ == "__main__":
     controller = controllers.FLSH()
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
+    guidance_method = guidances.LOSGuidance()
 
-    # waypoints = np.zeros((2, n_wps))
-    # for i in range(n_wps):
-    #     if i == 0:
-    #         waypoints[:, i] = np.array([0, 0])
-    #     elif i == 1:
-    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([50, 0])
-    #     elif i >= 2 and i < 4:
-    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, 50])
-    #     elif i >= 4 and i < 6:
-    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([-50, -50])
-    #     elif i >= 6:
-    #         waypoints[:, i] = waypoints[:, i - 1] + np.array([50, -50])
-    # speed_plan = np.array([6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]) / 6.0
+    ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list, guidance=guidance_method)
 
-    ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list)
-
-    pose = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=200.0)
-    waypoints = scenario_generator.generate_random_waypoints(x=pose[0], y=pose[1], psi=pose[3], draft=ownship.draft, n_wps=n_wps)
+    csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0)
+    waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
 
-    ownship.set_initial_state(pose)
+    csog_state[3] += 90.0 * np.pi / 180.0
+    ownship.set_initial_state(csog_state)
     ownship.set_nominal_plan(waypoints=waypoints, speed_plan=speed_plan)
 
-    horizon = 300.0
-    dt = 0.1
+    # Plots
+    gcf = plt.gcf()
+    gca = gcf.axes[0]
+    gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
+
+    horizon = 400.0
+    dt = 0.5
     n_x = 6
     n_r = 9
     n_u = 3
@@ -62,10 +58,6 @@ if __name__ == "__main__":
         ownship.plan(time[k], dt, [], None)
         trajectory[:, k], tau[:, k], refs[:, k] = ownship.forward(dt)
 
-    # Plots
-    gcf = plt.gcf()
-    gca = gcf.axes[0]
-    gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
     gca.plot(trajectory[1, :], trajectory[0, :], "k", label="Trajectory")
     gca.set_xlabel("South (m)")
     gca.set_ylabel("North (m)")
@@ -80,27 +72,38 @@ if __name__ == "__main__":
         ]
     )
 
-    axs["x"].plot(time, refs[0] - trajectory[0], label="Tracking error north")
+    axs["xy"].plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
+    axs["xy"].plot(trajectory[1, :], trajectory[0, :], "k", label="Trajectory")
+    axs["xy"].set_xlabel("East (m)")
+    axs["xy"].set_ylabel("North (m)")
+    axs["xy"].grid()
+    axs["xy"].legend()
+
+    axs["x"].plot(time, refs[0], "r--", label="North reference")
+    axs["x"].plot(time, trajectory[0], "k", label="North")
     axs["x"].set_xlabel("Time (s)")
     axs["x"].set_ylabel("North (m)")
     axs["x"].grid()
     axs["x"].legend()
 
-    axs["y"].plot(time, refs[1] - trajectory[1], label="Tracking error east")
+    axs["y"].plot(time, refs[1], "r--", label="East reference")
+    axs["y"].plot(time, trajectory[1], "k", label="East")
     axs["y"].set_xlabel("Time (s)")
     axs["y"].set_ylabel("East (m)")
     axs["y"].grid()
     axs["y"].legend()
 
-    heading_error = mf.wrap_angle_diff_to_pmpi(refs[2, :], trajectory[2, :])
+    # heading_error = mf.wrap_angle_diff_to_pmpi(refs[2, :], trajectory[2, :])
 
-    axs["psi"].plot(time, np.rad2deg(heading_error), label="Heading error")
+    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[2, :])), "r--", label="Heading reference")
+    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[2, :])), "k", label="Heading")
     axs["psi"].set_xlabel("Time (s)")
     axs["psi"].set_ylabel("Heading (deg)")
     axs["psi"].grid()
     axs["psi"].legend()
 
-    axs["r"].plot(time, np.rad2deg(refs[5] - trajectory[5]), label="Yaw rate error")
+    axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[5, :])), "r--", label="Yaw rate reference")
+    axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[5])), "k", label="Yaw rate")
     axs["r"].set_xlabel("Time (s)")
     axs["r"].set_ylabel("Angular rate rate (deg/s)")
     axs["r"].grid()
@@ -108,7 +111,8 @@ if __name__ == "__main__":
 
     U_d = np.sqrt(refs[3] ** 2 + refs[4] ** 2)
     U = np.sqrt(trajectory[3, :] ** 2 + trajectory[4, :] ** 2)
-    axs["U"].plot(time, U_d - U, label="Speed error")
+    axs["U"].plot(time, U_d, "r--", label="Speed reference")
+    axs["U"].plot(time, U, "k", label="Speed")
     axs["U"].set_xlabel("Time (s)")
     axs["U"].set_ylabel("Speed (m/s)")
     axs["U"].grid()

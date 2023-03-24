@@ -22,6 +22,7 @@ import colav_simulator.core.sensing as sensing
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
 import seacharts.enc as senc
+from colav_simulator.core.integrators import erk4_integration_step
 
 
 @dataclass
@@ -382,8 +383,7 @@ class Ship(IShip):
 
         u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
 
-        self._state = self._state + dt * self._model.dynamics(self._state, u)
-
+        self._state = erk4_integration_step(self._model.dynamics, self._state, u, dt)
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:

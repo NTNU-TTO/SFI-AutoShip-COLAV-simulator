@@ -10,10 +10,12 @@
 import random
 from typing import Tuple
 
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import geopy.distance
 import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.display.colors as colors
+import shapely.ops as ops
 from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
@@ -172,25 +174,40 @@ def plot_background(ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed
     ax.set_extent((x_min, x_max, y_min, y_max), crs=enc.crs)
 
 
-def generate_random_seabed_depth_from_draft(enc: ENC, draft: float) -> float:
-    """Randomly chooses a valid sea depth (seabed) depending on a ship's draft.
+def find_minimum_depth(vessel_draft: float, enc: ENC):
+    """Find the minimum seabed depth for the given vessel draft (for it to avoid grounding)
 
     Args:
-        draft (float): Ship's draft in meters.
+        vessel_draft (float): The vessel`s draft.
 
     Returns:
-        float: Seabed depth in meters.
+        float: The minimum seabed depth required for a safe journey for the vessel.
     """
-    feasible_depth_vals = list(enc.seabed.keys())
-    for d in enc.seabed.keys():
-        if len(enc.seabed[d].mapping["coordinates"]) in [0, 1] or float(d) < draft:
-            feasible_depth_vals.remove(d)
+    lowest_possible_depth = 0
+    for depth in enc.seabed:
+        if vessel_draft <= float(depth):
+            lowest_possible_depth = depth
+            break
+    return lowest_possible_depth
 
-    index = random.randint(0, len(feasible_depth_vals) - 1)
-    return feasible_depth_vals[index]
+
+def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
+    """Extracts the relevant grounding hazards from the ENC as a list of polygons.
+
+    This includes land, shore and seabed polygons that are below the vessel`s minimum depth.
+
+    Args:
+        vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
+        enc (senc.ENC): The ENC to check for grounding.
+
+    Returns:
+        list: The relevant grounding hazards.
+    """
+    dangerous_seabed = enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+    return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
 
 
-def generate_random_start_position_from_draft(enc: ENC, draft: float, land_clearance: float = 0.0) -> Tuple[float, float]:
+def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_clearance: float = 100.0) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
@@ -198,31 +215,82 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, land_clear
     Args:
         enc (ENC): Electronic Navigational Chart object
         draft (float): Ship's draft in meters.
-        land_clearance (float): Minimum distance to land in meters.
+        min_land_clearance (float): Minimum distance to land in meters.
 
     Returns:
         Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
     """
-    depth = generate_random_seabed_depth_from_draft(enc, draft)
+    depth = find_minimum_depth(draft, enc)
     safe_sea = enc.seabed[depth]
-    ss_bounds = safe_sea.geometry.bounds
+    bbox = enc.bbox
 
     is_safe = False
     iter_count = 0
     while not is_safe:
-        easting = random.uniform(ss_bounds[0], ss_bounds[2])
-        northing = random.uniform(ss_bounds[1], ss_bounds[3])
-
-        # TODO: Fix when enc has wrong map data/no map data.
-        is_ok_clearance = min_distance_to_land(enc, easting, northing) >= land_clearance
-
-        is_safe = safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance
+        easting = random.uniform(bbox[0], bbox[2])
+        northing = random.uniform(bbox[1], bbox[3])
+        is_ok_clearance = min_distance_to_land(enc, easting, northing) >= min_land_clearance
+        if safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance:
+            break
 
         iter_count += 1
         if iter_count > 1000:
             raise Exception("Could not find a valid start position. Check the map data of your ENC object.")
 
     return northing, easting
+
+
+def compute_closest_grounding_dist(vessel_trajectory: np.ndarray, minimum_vessel_depth: int, enc: ENC, show_enc: bool = False) -> Tuple[float, np.ndarray, int]:
+    """Computes the closest distance to grounding for the given vessel trajectory.
+
+    Args:
+        vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
+        minimum_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
+        enc (senc.ENC): The ENC to check for grounding.
+
+    Returns:
+        Tuple[float, int]: The closest distance to grounding, corresponding distance vector and the index of the trajectory point.
+    """
+    relevant_hazards = extract_relevant_grounding_hazards(minimum_vessel_depth, enc)
+    vessel_traj_linestring = mhm.ndarray_to_linestring(vessel_trajectory)
+    if enc and show_enc:
+        enc.start_display()
+        for hazard in relevant_hazards:
+            enc.draw_polygon(hazard, color="red")
+    # intersection_points = find_intersections_line_polygon(vessel_traj_linestring, relevant_hazards, enc)
+
+    # Will find the first gronding point.
+    min_dist = 1e12
+    for idx, point in enumerate(vessel_traj_linestring.coords):
+        for hazard in relevant_hazards:
+            dist = hazard.distance(Point(point))
+            if dist < min_dist:
+                min_dist = dist
+                min_idx = idx
+
+    closest_point = Point(vessel_traj_linestring.coords[min_idx])
+    nearest_poly_points = []
+    for hazard in relevant_hazards:
+        nearest_point = ops.nearest_points(closest_point, hazard)[1]
+        nearest_poly_points.append(nearest_point)
+
+    epsilon = 0.01
+    for i, point in enumerate(nearest_poly_points):
+        points = [
+            (np.asarray(closest_point.coords.xy[0])[0], np.asarray(closest_point.coords.xy[1])[0]),
+            (np.asarray(point.coords.xy[0])[0], np.asarray(point.coords.xy[1])[0]),
+        ]
+
+        if enc and show_enc:
+            enc.draw_line(points, color="cyan", marker_type="o")
+
+        min_dist_vec = np.array([points[1][0] - points[0][0], points[1][1] - points[0][1]])
+        if np.linalg.norm(min_dist_vec) <= min_dist + epsilon and np.linalg.norm(min_dist_vec) >= min_dist - epsilon:
+            break
+
+    if enc and show_enc:
+        enc.close_display()
+    return min_dist, min_dist_vec, min_idx
 
 
 def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
@@ -239,6 +307,25 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
     position = Point(y, x)
     distance = enc.land.geometry.distance(position)
     return distance
+
+
+def min_distance_to_hazards(hazards: list, x: float, y: float) -> float:
+    """Compute the minimum distance to hazards from a given point.
+
+    Args:
+        hazards (list): List of Multipolygon/Polygon objects that are relevant
+        x (float): Ship's easting coordinate
+        y (float): Ship's northing coordinate
+
+    Returns:
+        float: Minimum distance to hazards in meters.
+    """
+    min_dist = 1e12
+    for hazard in hazards:
+        dist = hazard.distance(Point(x, y))
+        if dist < min_dist:
+            min_dist = dist
+    return min_dist
 
 
 def check_if_segment_crosses_grounding_hazards(enc: ENC, p2: np.ndarray, p1: np.ndarray, draft: float = 5.0) -> bool:
@@ -260,13 +347,9 @@ def check_if_segment_crosses_grounding_hazards(enc: ENC, p2: np.ndarray, p1: np.
     wp_line = LineString([p1_reverse, p2_reverse])
 
     entire_seabed = enc.seabed[0].geometry
-    depths = list(enc.seabed.keys())
-    for depth in depths:
-        if float(depth) > draft:
-            seabed_below_draft = enc.seabed[depth].geometry
-            break
+    min_depth = find_minimum_depth(draft, enc)
 
-    seabed_down_to_draft = entire_seabed.difference(seabed_below_draft)
+    seabed_down_to_draft = entire_seabed.difference(enc.seabed[min_depth].geometry)
 
     intersects_relevant_seabed = wp_line.intersects(seabed_down_to_draft)
 

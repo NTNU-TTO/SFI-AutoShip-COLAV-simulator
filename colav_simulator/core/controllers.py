@@ -36,10 +36,10 @@ class FLSHParams:
     K_p_u: float = 1.0
     K_i_u: float = 0.05
     K_p_psi: float = 3.0
-    K_d_psi: float = 3.0
-    K_i_psi: float = 0.005
+    K_d_psi: float = 1.75
+    K_i_psi: float = 0.003
     max_speed_error_int: float = 0.75
-    speed_error_int_threshold: float = 0.2
+    speed_error_int_threshold: float = 1.0
     max_psi_error_int: float = 20.0 * np.pi / 180.0
     psi_error_int_threshold: float = 10.0 * np.pi / 180.0
 
@@ -281,7 +281,7 @@ class FLSH(IController):
         if abs(self._psi_error_int) > self._params.max_speed_error_int:
             self._psi_error_int -= psi_error * dt
 
-        if abs(psi_error) <= 0.02 * np.pi / 180.0:
+        if abs(psi_error) <= 0.1 * np.pi / 180.0:
             self._psi_error_int = 0.0
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
@@ -313,6 +313,9 @@ class FLSH(IController):
 
         psi: float = mf.wrap_angle_to_pmpi(eta[2])
         psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
+
+        self._psi_d_prev = psi_d
+        self._psi_prev = eta[2]
 
         Mmtrx = model.params.M_rb + model.params.M_a
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu

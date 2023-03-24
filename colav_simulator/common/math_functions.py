@@ -68,7 +68,7 @@ def wrap_angle_diff_to_pmpi(a_1: float | np.ndarray, a_2: float | np.ndarray) ->
     Returns:
         float or np.ndarray: Wrapped angle difference
     """
-    diff = wrap_angle_to_pmpi(a_1) - wrap_angle_to_pmpi(a_2)
+    diff = a_1 - a_2
     if isinstance(diff, np.ndarray):
         return wrap_min_max(diff, -np.pi * np.ones(diff.size), np.pi * np.ones(diff.size))
     else:
