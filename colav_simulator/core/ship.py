@@ -18,7 +18,7 @@ import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
-import colav_simulator.core.sensors as ssensors
+import colav_simulator.core.sensing as sensing
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
 import seacharts.enc as senc
@@ -32,7 +32,7 @@ class Config:
     guidance: Optional[guidances.Config] = guidances.Config()
     model: models.Config = models.Config()
     controller: controllers.Config = controllers.Config()
-    sensors: ssensors.Config = ssensors.Config()
+    sensors: sensing.Config = sensing.Config()
     tracker: trackers.Config = trackers.Config()
     mmsi: int = -1  # MMSI number of the ship, if configured equal to the MMSI of a ship in AIS data, the ship will be initialized with the data from the AIS data.
     id: int = -1  # Ship identifier
@@ -80,7 +80,7 @@ class Config:
 
         config.controller = controllers.Config.from_dict(config_dict["controller"])
 
-        config.sensors = ssensors.Config.from_dict(config_dict["sensors"])
+        config.sensors = sensing.Config.from_dict(config_dict["sensors"])
 
         config.tracker = trackers.Config.from_dict(config_dict["tracker"])
 
@@ -183,8 +183,8 @@ class ShipBuilder:
         return trackers.TrackerBuilder.construct_tracker(sensors, config)
 
     @classmethod
-    def construct_sensors(cls, config: Optional[ssensors.Config] = None) -> list:
-        return ssensors.SensorSuiteBuilder.construct_sensors(config)
+    def construct_sensors(cls, config: Optional[sensing.Config] = None) -> list:
+        return sensing.SensorSuiteBuilder.construct_sensors(config)
 
     @classmethod
     def construct_guidance(cls, config: Optional[guidances.Config] = None) -> guidances.IGuidance:
@@ -240,6 +240,12 @@ class Ship(IShip):
         waypoints: Optional[np.ndarray] = None,
         speed_plan: Optional[np.ndarray] = None,
         config: Optional[Config] = None,
+        model: Optional[models.IModel] = None,
+        controller: Optional[controllers.IController] = None,
+        guidance: Optional[guidances.IGuidance] = None,
+        sensors: Optional[list] = None,
+        tracker: Optional[trackers.ITracker] = None,
+        colav: Optional[ci.ICOLAV] = None,
     ) -> None:
 
         self._mmsi = mmsi
@@ -257,6 +263,27 @@ class Ship(IShip):
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
         self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
+
+        if model is not None:
+            self._model = model
+
+        if controller is not None:
+            self._controller = controller
+
+        if guidance is not None:
+            self._guidance = guidance
+            self._colav = None
+
+        if sensors is not None:
+            self._sensors = sensors
+
+        if tracker is not None:
+            self._tracker = tracker
+
+        if colav is not None:
+            self._colav = colav
+            self._guidance = None
+
         if config:
             self._set_variables_from_config(config)
 

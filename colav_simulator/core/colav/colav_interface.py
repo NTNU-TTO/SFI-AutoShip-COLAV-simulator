@@ -41,7 +41,7 @@ class COLAVType(Enum):
 class LayerConfig:
     """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
-    vo: Optional[kvo.VOParams] = None
+    vo: Optional[kvo.VOParams] = kvo.VOParams()
     los: Optional[guidance.LOSGuidanceParams] = None
 
     @classmethod
@@ -159,7 +159,7 @@ class VOWrapper(ICOLAV):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_csog_state: Optional[np.ndarray] = None,
+        goal_state: Optional[np.ndarray] = None,
         **kwargs
     ) -> np.ndarray:
         if not self._initialized:
@@ -179,7 +179,7 @@ class VOWrapper(ICOLAV):
 
 class COLAVBuilder:
     @classmethod
-    def construct_colav(cls, config: Optional[Config] = None) -> Optional[ICOLAV]:
+    def construct_colav(cls, config: Optional[Config] = None) -> ICOLAV:
         """Builds a colav system from the configuration, if it is specified.
 
         Args:
@@ -188,7 +188,11 @@ class COLAVBuilder:
         Returns:
             ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
-        colav: Optional[ICOLAV] = None
         if config and config.name == COLAVType.VO:
+            colav = VOWrapper(config)
+        else:
+            config = Config()
+            config.layer2 = LayerConfig()
+            config.layer2.los = guidance.LOSGuidanceParams()
             colav = VOWrapper(config)
         return colav

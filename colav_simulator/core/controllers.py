@@ -242,8 +242,8 @@ def pole_placement(Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta) -
 class FLSH(IController):
     """Implements a feedback-linearizing surge-heading (FLSH) controller for a thruster/rudder vessel using
 
-    Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * K_p,u * (u_d - u)
-    Fy = (M[2, 2] / l_r) * ( K_p,psi * (psi_d - psi) - K_d,psi * r )
+    Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * (K_p,u * (u_d - u) + int_0^t K_i,u * (u_d - u))
+    Fy = (M[2, 2] / l_r) * (K_p,psi * (psi_d - psi) + K_d,psi * (r_d - r) + int_0^t K_i,psi * (psi_d - psi))
 
     for the system
 

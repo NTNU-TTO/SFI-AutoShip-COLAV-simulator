@@ -1,5 +1,5 @@
 """
-    sensors.py
+    sensing.py
 
     Summary:
         Contains class definitions for various sensors.
