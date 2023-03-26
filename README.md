@@ -22,10 +22,10 @@ Are all outlined in setup.cfg, and listed below:
 - shapely
 - pyyaml
 - cerberus
+- geopy
 - dacite
 - seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
-- yaspin
 
 ## Generic Install Instructions
 `seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
@@ -175,21 +175,19 @@ Each main module have their own test files, to enable easier debug/fixing and al
 
 ### Simulator
 
-The simulator runs through a set of scenarios specified from the config, visualizes these and saves the results. The scenarios can be generated randomly through a `new_scenario.yaml` config file in the ScenarioGenerator, or loaded from file using an existing scenario definition.
+The simulator runs through a set of scenarios, each consisting of `n_episodes` specified from the config, visualizes these and saves the results. The scenarios can be generated through a `ScenarioConfig` object, or loaded from file using an existing scenario definition (examples under `scenarios/`).
 
 The simulator is configured using the `simulator.yaml` config file.
 
 ### Scenario Generator
 
-The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment.
+The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment. The `n_episodes` (defaults to 1) parameter is used to facilitate Monte Carlo simulation when using random data.
 
-Scenarios are configured through a scenario `.yaml` file as the example `head_on.yaml` file under `scenarios` in the root folder.
-
-Look at the `ScenarioConfig` dataclass, example scenario files for information on how to specify the settings for a scenario.
+Scenarios are configured through a scenario `.yaml` file as e.g. the example `head_on.yaml` file under `scenarios` in the root folder.
 
 Look at the `schemas` folder under the package source code for further clues constraints/tips on how to write a new scenario config file.
 
-Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
+Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example default `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
 
 Troubles with "freezing" when you generate a scenario? Check if you have specified `new_load_of_map_data=True`in the scenario configuration file. If this is false, and the map data is not loaded/wrong data is used, the `distance_to_land` function could spend a long time.
 
@@ -210,4 +208,4 @@ Standardized input/output formats are used for the interfaces to make the code f
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` parameter to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface.
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface.

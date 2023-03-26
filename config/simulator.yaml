@@ -1,6 +1,6 @@
 simulator:
-  #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  scenario_files: ["planning_example.yaml"]
+  scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
+  #scenario_files: ["head_on.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
   #scenario_files: ["ais1_24012023_13_48_55.yaml"]
   #scenario_files: ["aalesund_random_05022023_17_21_30.yaml"]

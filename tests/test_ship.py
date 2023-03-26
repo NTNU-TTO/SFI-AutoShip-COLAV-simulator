@@ -34,7 +34,7 @@ if __name__ == "__main__":
     waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
 
-    csog_state[3] += 90.0 * np.pi / 180.0
+    # csog_state[3] += 90.0 * np.pi / 180.0
     ownship.set_initial_state(csog_state)
     ownship.set_nominal_plan(waypoints=waypoints, speed_plan=speed_plan)
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
 
     horizon = 400.0
-    dt = 0.5
+    dt = 0.1
     n_x = 6
     n_r = 9
     n_u = 3

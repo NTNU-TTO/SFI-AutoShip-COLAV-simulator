@@ -163,15 +163,19 @@ class ShipBuilder:
             controller = cls.construct_controller(config.controller)
             sensors = cls.construct_sensors(config.sensors)
             tracker = cls.construct_tracker(sensors, config.tracker)
-            guidance_alg = cls.construct_guidance(config.guidance)
-            colav_alg = cls.construct_colav(config.colav)
+            guidance_alg = None
+            colav_alg = None
+            if config.guidance is not None:
+                guidance_alg = cls.construct_guidance(config.guidance)
+            else:
+                colav_alg = cls.construct_colav(config.colav)
         else:
             model = cls.construct_model()
             controller = cls.construct_controller()
-            guidance_alg = cls.construct_guidance()
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
-            colav_alg = cls.construct_colav()
+            guidance_alg = cls.construct_guidance()
+            colav_alg = None
 
         return model, controller, guidance_alg, sensors, tracker, colav_alg
 

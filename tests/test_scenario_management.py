@@ -5,6 +5,6 @@ if __name__ == "__main__":
 
     scenario_generator = ScenarioGenerator()
 
-    ship_list, scenario_config, scenario_enc = scenario_generator.generate(scenario_config_file=dp.scenarios / "head_on.yaml")
+    scenario_episode_list, scenario_enc = scenario_generator.generate(config_file=dp.scenarios / "head_on.yaml")
 
     print("done")

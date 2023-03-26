@@ -9,7 +9,7 @@ map_origin_enu: [-50824.0, 6577730.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 2
 map_buffer: 0
-new_load_of_map_data: False
+new_load_of_map_data: True
 type: MS
 n_random_ships_range: [1, 3]
 n_episodes: 1

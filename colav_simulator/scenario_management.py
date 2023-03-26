@@ -300,7 +300,7 @@ class ScenarioGenerator:
         """Loads a fully defined scenario episode from configuration file.
 
         NOTE: The file must have a ship list with fully specified ship configurations,
-        and a corresponding correct number of random ships (excluding the own-ship with ID 0).
+        and a corresponding correct number of random ships (excluded the own-ship with ID 0).
 
         NOTE: The scenario ENC object is not initialized here, but in the `load_scenario_from_folder` function.
 

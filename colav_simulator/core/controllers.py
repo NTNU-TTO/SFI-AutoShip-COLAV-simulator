@@ -33,18 +33,21 @@ class MIMOPIDParams:
 @dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
-    K_p_u: float = 1.0
-    K_i_u: float = 0.05
+    K_p_u: float = 3.0
+    K_i_u: float = 0.1
     K_p_psi: float = 3.0
     K_d_psi: float = 1.75
     K_i_psi: float = 0.003
-    max_speed_error_int: float = 0.75
+    max_speed_error_int: float = 2.0
     speed_error_int_threshold: float = 1.0
-    max_psi_error_int: float = 20.0 * np.pi / 180.0
-    psi_error_int_threshold: float = 10.0 * np.pi / 180.0
+    max_psi_error_int: float = 50.0 * np.pi / 180.0
+    psi_error_int_threshold: float = 15.0 * np.pi / 180.0
 
     def to_dict(self):
-        return asdict(self)
+        output = asdict(self)
+        output["max_psi_error_int"] = np.rad2deg(output["max_psi_error_int"])
+        output["psi_error_int_threshold"] = np.rad2deg(output["psi_error_int_threshold"])
+        return output
 
 
 @dataclass
@@ -69,6 +72,8 @@ class Config:
 
         if "flsh" in config_dict:
             config.flsh = cp.convert_settings_dict_to_dataclass(FLSHParams, config_dict["flsh"])
+            config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
+            config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
             config.pid = None
             config.pass_through_cs = None
 
@@ -272,17 +277,18 @@ class FLSH(IController):
         if abs(self._speed_error_int) > self._params.max_speed_error_int:
             self._speed_error_int -= speed_error * dt
 
-        if abs(speed_error) <= 0.01:
+        if abs(speed_error) <= 0.001:
             self._speed_error_int = 0.0
 
         if abs(psi_error) <= self._params.psi_error_int_threshold:
-            self._psi_error_int += psi_error * dt
+            self._psi_error_int = mf.unwrap_angle(self._psi_error_int, psi_error * dt)
 
         if abs(self._psi_error_int) > self._params.max_speed_error_int:
-            self._psi_error_int -= psi_error * dt
+            self._psi_error_int = mf.unwrap_angle(self._psi_error_int, -psi_error * dt)
 
-        if abs(psi_error) <= 0.1 * np.pi / 180.0:
+        if abs(psi_error) <= 0.01 * np.pi / 180.0:
             self._psi_error_int = 0.0
+        self._psi_error_int = mf.wrap_angle_to_pmpi(self._psi_error_int)
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs based on the PID law.
@@ -306,7 +312,7 @@ class FLSH(IController):
         eta = xs[0:3]
         nu = xs[3:]
 
-        U_d = mf.sat(np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0, model.params.U_max)
+        U_d = refs[3]
         psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
         psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
         r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
@@ -321,9 +327,12 @@ class FLSH(IController):
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
         Dvv = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu) @ nu
 
-        speed_error = U_d - np.sqrt(nu[0] ** 2 + nu[1] ** 2)
+        speed_error = U_d - nu[0]
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
         self.update_integrators(speed_error, psi_error, dt)
+
+        # if abs(speed_error) < 0.01:
+        #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
 
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
         Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
