@@ -49,14 +49,14 @@ Install dependencies to the virtual environment with
 `conda install -n ENV_NAME -c conda-forge fiona cartopy matplotlib`
 
 Clone the seacharts to a directory outside the colav-simulator but inside the virtual environment
-```
+```bash
 git clone https://github.com/trymte/seacharts.git
 cd seacharts
 pip install -e .
 ```
 
 Similarly for the colav-evaluation-tool
-```
+```bash
 git clone https://github.com/trymte/colav_evaluation_tool.git
 cd colav_evaluation_tool
 pip install -e .
@@ -77,7 +77,6 @@ And download the .gdb files into this folder.
 
 Inside the colav_simulator directory test the installation with
 `python tests/test_ship.py`
-
 ## Git Workflow
 
 All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.
