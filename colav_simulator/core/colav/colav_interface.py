@@ -79,7 +79,6 @@ class Config:
     """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
 
     name: COLAVType = COLAVType.VO
-    name: COLAVType = COLAVType.SBMPC
     layer1: LayerConfig = LayerConfig()
     layer2: Optional[LayerConfig] = None
     layer3: Optional[LayerConfig] = None
@@ -209,7 +208,8 @@ class SBMPCWrapper(ICOLAV):
         ownship_state: np.ndarray,
         do_list: list,
         enc: Optional[ENC] = None,
-        goal_pose: Optional[np.ndarray] = None,
+        goal_state: Optional[np.ndarray] = None,
+        **kwargs
     ) -> np.ndarray:
         if not self._initialized:
             self._t_prev = t
@@ -245,7 +245,7 @@ class COLAVBuilder:
         """
         if config and config.name == COLAVType.VO:
             colav = VOWrapper(config)
-        if config and config.name == COLAVType.SBMPC:
+        elif config and config.name == COLAVType.SBMPC:
             colav = SBMPCWrapper(config)
         else:
             config = Config()

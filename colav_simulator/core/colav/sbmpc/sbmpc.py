@@ -1,10 +1,12 @@
 import math
 from dataclasses import dataclass, field
+from typing import Optional
 
 import numpy as np
-from typing import Optional
 from colav_simulator.common.math_functions import wrap_angle_to_pmpi
+
 # from utils import normalize_angle
+
 
 @dataclass
 class SBMPCParams:
@@ -30,10 +32,10 @@ class SBMPCParams:
     P_ca_last_: float = 1  # last control change
     Chi_ca_last_: float = 0  # last course change
 
-    Chi_ca_: np.array = field(default_factory=lambda: 
-        np.deg2rad(np.array([-90.0, -75.0, -60.0, -45.0, -30.0, -15.0, 0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0]))
-    )                                                                       # control behaviors - course offset [deg]
-    P_ca_: np.array = field(default_factory=lambda: np.array([0.0, 0.5, 1.0]))    # control behaviors - speed factor
+    Chi_ca_: np.array = field(
+        default_factory=lambda: np.deg2rad(np.array([-90.0, -75.0, -60.0, -45.0, -30.0, -15.0, 0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0]))
+    )  # control behaviors - course offset [deg]
+    P_ca_: np.array = field(default_factory=lambda: np.array([0.0, 0.5, 1.0]))  # control behaviors - speed factor
 
     def to_dict(self):
         output = {
@@ -59,7 +61,7 @@ class SBMPCParams:
             "P_ca_": self.P_ca_,
         }
         return output
-    
+
     @classmethod
     def from_dict(cls, data: dict):
         output = SBMPCParams(
@@ -92,17 +94,16 @@ class SBMPC:
         # NB os_ship: copy of own ship initialized class
         self.T_ = 300.0  # 400                         # prediction horizon [s]
         self.DT_ = 5.0  # 0.1                          # time step [s]
-        self.n_samp = int(self.T_ / self.DT_)          # number of samplings
+        self.n_samp = int(self.T_ / self.DT_)  # number of samplings
 
         self.cost_ = np.inf
 
-        self.own_ship = Ship_model(self.T_, self.DT_)
+        self.own_ship = ShipModel(self.T_, self.DT_)
 
         if config:
             self._params = config
         else:
             self._params = SBMPCParams()
-        
 
     def get_optimal_ctrl_offset(self, u_d: float, chi_d: float, os_state: np.ndarray, obs_states: np.ndarray):
         """
@@ -221,9 +222,9 @@ class SBMPC:
                 else:
                     d_safe_i += d_safe + +obs_w / 2
 
-                if (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(
+                if (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(
                     v_o
-                ) and np.linalg.norm(v_s) > np.linalg.norm(v_o):
+                ):
                     d_safe_i = d_safe + os_l / 2 + obs_l / 2
 
                 if dist < d_safe_i:
@@ -232,9 +233,9 @@ class SBMPC:
                     C = k_koll * np.linalg.norm(v_s - v_o) ** 2
 
                 # Overtaken by obstacle
-                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(
+                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and np.linalg.norm(v_s) < np.linalg.norm(
                     v_o
-                ) and np.linalg.norm(v_s) < np.linalg.norm(v_o)
+                )
 
                 # Obstacle on starboard side
                 SB = phi >= 0
@@ -242,15 +243,12 @@ class SBMPC:
                 # Obstacle Head-on
                 HO = (
                     np.linalg.norm(v_o) > 0.05
-                    and (np.dot(v_s, v_o))
-                    < -np.cos(np.deg2rad(self._params.PHI_HO_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o)
+                    and (np.dot(v_s, v_o)) < -np.cos(np.deg2rad(self._params.PHI_HO_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o)
                     and (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_AH_)) * np.linalg.norm(v_s)
                 )
 
                 # Crossing situation
-                CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self._params.PHI_CR_)) * np.linalg.norm(v_s) * np.linalg.norm(
-                    v_o
-                ) and (SB and psi_rel < 0)
+                CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self._params.PHI_CR_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and (SB and psi_rel < 0)
 
                 mu = (SB and HO) or (CR and not OT)
 
@@ -293,7 +291,7 @@ class Obstacle:
         self.u_ = np.zeros(self.n_samp_)
         self.v_ = np.zeros(self.n_samp_)
 
-        """ 
+        """
         self.A_ = state[5]
         self.B_ = state[6]
         self.C_ = state[7]
@@ -313,14 +311,14 @@ class Obstacle:
         self.r11_ = np.cos(self.psi_)
         self.r12_ = -np.sin(self.psi_)
         self.r21_ = np.sin(self.psi_)
-        self.r22_ = np.cos(self.psi_) 
+        self.r22_ = np.cos(self.psi_)
         """
 
         self.x_[0] = state[1][0]
         self.y_[0] = state[1][1]
         V_x = state[1][2]
         V_y = state[1][3]
-        self.psi_ = np.arctan2(V_y, V_x) #chi
+        self.psi_ = np.arctan2(V_y, V_x)  # chi
 
         self.l = state[3]
         self.w = state[4]
@@ -328,17 +326,17 @@ class Obstacle:
         self.r11_ = np.cos(self.psi_)
         self.r12_ = -np.sin(self.psi_)
         self.r21_ = np.sin(self.psi_)
-        self.r22_ = np.cos(self.psi_) 
+        self.r22_ = np.cos(self.psi_)
 
         self.u_[0] = self.r22_ * V_x + self.r21_ * V_y
         self.v_[0] = self.r12_ * V_x + self.r11_ * V_y
 
         self.calculate_trajectory()
 
-    """ 
+    """
     def calculate_pos_offsets(self):
         self.os_x = self.A_ - self.B_
-        self.os_y = self.D_ - self.C_ 
+        self.os_y = self.D_ - self.C_
     """
 
     def calculate_trajectory(self):
@@ -348,7 +346,8 @@ class Obstacle:
             self.u_[i] = self.u_[i - 1]
             self.v_[i] = self.v_[i - 1]
 
-class Ship_model:
+
+class ShipModel:
     def __init__(self, T: np.double, dt: np.double):
         self.n_samp_ = int(T / dt)
 
