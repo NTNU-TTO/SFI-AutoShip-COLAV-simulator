@@ -9,9 +9,10 @@ map_origin_enu: [-35824.0, 6573000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 3
 map_buffer: 0
-new_load_of_map_data: True
+new_load_of_map_data: False
 type: MS
-n_random_ships_range: [1, 2]
+n_random_ships: 0
+#n_random_ships_range: [1, 2]
 n_episodes: 1
 ship_list:
   - id: 0
@@ -42,14 +43,15 @@ ship_list:
         K_i: 0.0
         e_int_max: 200.0
     controller:
-      pass_through_cs: ''
+      flsh:
+        K_p_u: 3.0
+        K_i_u: 0.1
+        K_p_psi: 3.0
+        K_d_psi: 1.75
+        K_i_psi: 0.003
+        max_speed_error_int: 2.0
+        speed_error_int_threshold: 1.0
+        max_psi_error_int: 50.0
+        psi_error_int_threshold: 15.0
     model:
-      csog:
-        draft: 3.0
-        length: 12.0
-        width: 4.0
-        T_chi: 3.0
-        T_U: 5.0
-        r_max: 4.0
-        U_min: 0.0
-        U_max: 15.0
+      telemetron: ''
