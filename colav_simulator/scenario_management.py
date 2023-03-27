@@ -54,7 +54,7 @@ class ScenarioType(Enum):
 
 @dataclass
 class ScenarioConfig:
-    """Configuration class for a ship scenario."""
+    """Configuration class for a maritime COLAV scenario."""
 
     name: str
     save_scenario: bool
@@ -269,7 +269,7 @@ class ScenarioGenerator:
 
         return copy.deepcopy(self.enc)
 
-    def load_scenario_from_folder(self, folder: Path, scenario_name: str, verbose: bool = False) -> list:
+    def load_scenario_from_folder(self, folder: Path, scenario_name: str, verbose: bool = False) -> Tuple[list, senc.ENC]:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
         Args:

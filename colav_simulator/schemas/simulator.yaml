@@ -3,11 +3,16 @@ simulator:
   type: dict
   schema:
     scenario_files:
-      required: True
+      required: False
+      excludes: [scenario_folder]
       type: list
       minlength: 0
       schema:
         type: string
+    scenario_folder:
+      required: False
+      excludes: [scenario_files]
+      type: string
     save_scenario_results:
       required: True
       type: boolean

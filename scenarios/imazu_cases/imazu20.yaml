@@ -8,8 +8,8 @@ map_size: [16000.0, 16000.0]
 map_origin_enu: [267492.637968, 7041883.359532]
 map_data_files: ["Trondelag.gdb"]
 new_load_of_map_data: false
-type: 1
-n_random_ships: 0
+type: MS
+n_random_ships: 3
 ship_list:
   - csog_state: [7045300.0, 275000.0, 10.0, 0.0]
     waypoints: [[7045300.0, 7060000.0], [275000.0, 275000.0]]

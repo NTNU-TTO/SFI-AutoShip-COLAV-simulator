@@ -28,23 +28,31 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 class Config:
     """Simulation related configuration/parameter class."""
 
-    scenario_files: list
     save_scenario_results: bool
     verbose: bool
-
     scenario_generator: sm.Config
     visualizer: viz.Config
+    scenario_files: Optional[list] = None
+    scenario_folder: Optional[str] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         simulator = config_dict["simulator"]
         config = Config(
-            scenario_files=simulator["scenario_files"],
+            scenario_files=None,
+            scenario_folder=None,
             save_scenario_results=simulator["save_scenario_results"],
             verbose=simulator["verbose"],
             scenario_generator=sm.Config.from_dict(config_dict["scenario_generator"]),
             visualizer=viz.Config.from_dict(config_dict["visualizer"]),
         )
+
+        if "scenario_files" in simulator:
+            config.scenario_files = simulator["scenario_files"]
+
+        if "scenario_folder" in simulator:
+            config.scenario_folder = simulator["scenario_folder"]
+            config.scenario_files = None
 
         return config
 
@@ -73,6 +81,20 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
+    def _create_file_path_list_from_config(self) -> list:
+        """Creates a list of file paths from the config file scenario files or scenario folder.
+
+        Returns:
+            list: List of valid file paths.
+        """
+        if self._config.scenario_files is not None:
+            return [dp.scenarios / f for f in self._config.scenario_files]
+        else:
+            scenario_folder = dp.scenarios / self._config.scenario_folder
+            files = [file for file in scenario_folder.iterdir()]
+            files.sort()
+            return files
+
     def run(self, scenario_data_list: Optional[list] = None, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
@@ -89,7 +111,7 @@ class Simulator:
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
         if scenario_data_list is None:
-            files = [dp.scenarios / f for f in self._config.scenario_files]
+            files = self._create_file_path_list_from_config()
             scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
             # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random", self._config.verbose)
             # scenario_data_list = [scenario_data]
@@ -133,7 +155,7 @@ class Simulator:
                 episode_simdata_list.append(episode_simdata)
 
             if self._config.verbose:
-                print(f"\rSimulator: Finished running through episodes of scenario nr {i}.")
+                print(f"\rSimulator: Finished running through episodes of scenario nr {i + 1}.")
 
             scenario_simdata["episode_simdata_list"] = episode_simdata_list
             scenario_simdata["enc"] = scenario_enc
