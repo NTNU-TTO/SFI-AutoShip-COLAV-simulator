@@ -30,7 +30,7 @@ Are all outlined in setup.cfg, and listed below:
 ## Generic Install Instructions
 `seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
 
-To use `seacharts`, you must copy the `.gdb` files under `colav_simulator/data/map/` or files you have downloaded yourself (see <https://github.com/trymte/seacharts>), into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
+To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 
 ## Mac OS Apple Slicon Installation
 
@@ -188,7 +188,7 @@ Look at the `schemas` folder under the package source code for further clues con
 
 Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example default `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
 
-Troubles with "freezing" when you generate a scenario? Check if you have specified `new_load_of_map_data=True`in the scenario configuration file. If this is false, and the map data is not loaded/wrong data is used, the `distance_to_land` function could spend a long time.
+Troubles with "freezing" when you generate a scenario? Check if you have specified `new_load_of_map_data=True`in the scenario configuration file. If this is false, and the map data is not loaded/wrong data is used, errors will happen.
 
 ### Visualizer
 
