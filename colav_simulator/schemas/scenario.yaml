@@ -256,9 +256,6 @@ ship_list:
               epsilon:
                 required: True
                 type: float
-              dt_seg:
-                required: True
-                type: float
 
       controller:
         required: False

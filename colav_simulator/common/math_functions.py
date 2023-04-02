@@ -88,6 +88,21 @@ def unwrap_angle(a_prev: float, a: float) -> float:
     return a_prev + float(wrap_angle_diff_to_pmpi(a, a_prev))
 
 
+def unwrap_angle_array(angles: np.ndarray) -> np.ndarray:
+    """Unwraps an array of angles.
+
+    Args:
+        angles (np.ndarray): Array of angles in radians
+
+    Returns:
+        np.ndarray: Unwrapped angles
+    """
+    unwrapped = [angles[0]]
+    for i in range(1, angles.size):
+        unwrapped.append(unwrap_angle(unwrapped[i - 1], angles[i]))
+    return np.array(unwrapped)
+
+
 def compute_bearing(psi: float, p1: np.ndarray, p2: np.ndarray) -> float:
     """Computes bearing in [-180, 180) from p1 to p2, where the object at p1 has heading psi.
 
