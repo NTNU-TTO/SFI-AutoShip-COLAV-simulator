@@ -147,7 +147,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             self._params = KTPGuidanceParams()
 
-        self._s: float = 0.0001
+        self._s: float = 0.0
         self._s_dot: float = 0.0
         self._s_ddot: float = 0.0
         self._init: bool = False
