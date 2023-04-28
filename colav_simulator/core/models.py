@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import colav_simulator.common.config_parsing as cp
@@ -28,6 +28,7 @@ class KinematicCSOGParams:
 
     draft: float = 2.0
     length: float = 10.0
+    ship_vertices: np.ndarray = np.array([[5.0, 2.0], [5.0, -2.0], [-5.0, -2.0], [-5.0, 2.0]])
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
@@ -35,17 +36,36 @@ class KinematicCSOGParams:
     U_min: float = 0.0
     U_max: float = 15.0
 
+    @classmethod
+    def from_dict(self, params_dict: dict):
+        params = KinematicCSOGParams(
+            draft=params_dict["draft"],
+            length=params_dict["length"],
+            width=params_dict["width"],
+            ship_vertices=np.array(params_dict["ship_vertices"]),
+            T_chi=params_dict["T_chi"],
+            T_U=params_dict["T_U"],
+            r_max=np.deg2rad(params_dict["r_max"]),
+            U_min=params_dict["U_min"],
+            U_max=params_dict["U_max"],
+        )
+        return params
+
     def to_dict(self):
-        return asdict(self)
+        output_dict = asdict(self)
+        output_dict["ship_vertices"] = self.ship_vertices.tolist()
+        output_dict["r_max"] = np.rad2deg(self.r_max)
+        return output_dict
 
 
 @dataclass
 class TelemetronParams:
-    """Parameters for the Telemetron vessel (read only / Fixed)."""
+    """Parameters for the Telemetron vessel (read only / fixed)."""
 
-    draft: float = 1.0
-    length: float = 10.0
+    draft: float = 0.5
+    length: float = 8.0
     width: float = 3.0
+    ship_vertices: np.ndarray = np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]])
     l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
@@ -71,13 +91,11 @@ class Config:
         config = Config()
         if "csog" in config_dict:
             config.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGParams, config_dict["csog"])
-            config.csog.r_max = float(np.deg2rad(config.csog.r_max))
             config.telemetron = None
 
         if "telemetron" in config_dict:
             config.telemetron = TelemetronParams()
             config.csog = None
-
         return config
 
     def to_dict(self) -> dict:
@@ -85,7 +103,6 @@ class Config:
 
         if self.csog is not None:
             config_dict["csog"] = self.csog.to_dict()
-            config_dict["csog"]["r_max"] = float(np.rad2deg(self.csog.r_max))
 
         if self.telemetron is not None:
             config_dict["telemetron"] = ""

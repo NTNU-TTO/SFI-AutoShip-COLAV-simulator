@@ -325,7 +325,7 @@ class ScenarioGenerator:
         """Generates scenarios from each of the input file paths.
 
         Args:
-            files (list): List of scenario files to run, as Path objects.
+            files (list): List of configuration files to generate scenarios from, as Path objects.
 
         Returns:
             list: List of episode config data dictionaries and relevant ENC objects, for each scenario.
