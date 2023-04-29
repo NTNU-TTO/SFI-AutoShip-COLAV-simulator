@@ -13,6 +13,7 @@ from typing import Any, Optional, Tuple
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import colav_simulator.core.ship as ship
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -139,6 +140,12 @@ class Visualizer:
             self.init_figure(enc)
 
     def init_figure(self, enc: ENC, extent: Optional[list] = None) -> None:
+        """Initialize the figure for live plotting.
+
+        Args:
+            - enc (ENC): ENC object for the map background.
+            - extent (list): List specifying the extent of the map.
+        """
         plt.close()
 
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
@@ -159,42 +166,27 @@ class Visualizer:
         self.axes = [ax_map]
         plt.show(block=False)
 
-    def clear_ship_handles(self) -> None:
-        """Clears the handles for the ships in the live visualization."""
+    def find_plot_limits(self, ownship: ship.Ship) -> Tuple[list, list]:
+        """Finds the limits of the map, based on the own-ship trajectory
 
-        if "time" in self.misc_plt_handles:
-            self.misc_plt_handles["time"].remove()
+        Args:
+            ownship (ship.Ship): The own-ship object
 
-        for ship_i_handle in self.ship_plt_handles:
-            if "patch" in ship_i_handle:
-                ship_i_handle["patch"].remove()
-
-            if "info" in ship_i_handle:
-                ship_i_handle["info"].remove()
-
-            if "trajectory" in ship_i_handle:
-                ship_i_handle["trajectory"].remove()
-
-            if "predicted_trajectory" in ship_i_handle:
-                ship_i_handle["predicted_trajectory"].remove()
-
-            if "waypoints" in ship_i_handle:
-                ship_i_handle["waypoints"].remove()
-
-            if "do_tracks" in ship_i_handle:
-                for do_track in ship_i_handle["do_tracks"]:
-                    do_track.remove()
-
-                for do_covariance in ship_i_handle["do_covariances"]:
-                    do_covariance.remove()
-
-            if "radar" in ship_i_handle:
-                ship_i_handle["radar"].remove()
-
-            if "ais" in ship_i_handle:
-                ship_i_handle["ais"].remove()
-
-        self.ship_plt_handles = []
+        Returns:
+            Tuple[list, list]: The x and y limits of the map
+        """
+        xlimits = [1e10, -1e10]
+        ylimits = [1e10, -1e10]
+        if ownship.trajectory.size > 0:
+            buffer = 1000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.trajectory, xlimits, ylimits)
+        elif ownship.waypoints.size > 0:
+            buffer = 2000
+            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.waypoints, xlimits, ylimits)
+        buffer = 2000
+        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
+        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
+        return xlimits, ylimits
 
     def init_live_plot(self, enc: ENC, ship_list: list) -> None:
         """Initializes the plot handles of the live plot for a simulation
@@ -207,18 +199,7 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        # Find the limits of the map, based on the own-ship trajectory
-        xlimits = [1e10, -1e10]
-        ylimits = [1e10, -1e10]
-        if ship_list[0].trajectory.size > 0:
-            buffer = 1000
-            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].trajectory, xlimits, ylimits)
-        elif ship_list[0].waypoints.size > 0:
-            buffer = 2000
-            xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ship_list[0].waypoints, xlimits, ylimits)
-        buffer = 2000
-        xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
-        ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
+        xlimits, ylimits = self.find_plot_limits(ship_list[0])
 
         if self._config.zoom_in_liveplot_on_ownship:
             self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
@@ -228,23 +209,21 @@ class Visualizer:
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         n_ships = len(ship_list)
-        for i, ship in enumerate(ship_list):
-
+        for i, ship_obj in enumerate(ship_list):
+            lw = self._config.ship_linewidth
             # If number of ships is greater than 16, use the same color for all target ships
             if i > 0 and n_ships > len(self._config.ship_colors):
                 c = self._config.ship_colors[1]
             else:
                 c = self._config.ship_colors[i]
 
+            # Plot the own-ship (i = 0) above the target ships
             if i == 0:
                 zorder_patch = 4
             else:
                 zorder_patch = 3
 
-            lw = self._config.ship_linewidth
-
             ship_i_handles: dict = {}
-
             if i == 0:
                 ship_name = "OS"
 
@@ -290,7 +269,7 @@ class Visualizer:
                         )
 
                 if self._config.show_measurements:
-                    for sensor in ship.sensors:
+                    for sensor in ship_obj.sensors:
                         if sensor.type == "radar":
                             ship_i_handles["radar"] = ax_map.plot(
                                 [0.0],
@@ -353,10 +332,10 @@ class Visualizer:
                 zorder=zorder_patch - 2,
             )[0]
 
-            if self._config.show_waypoints and ship.waypoints.size > 0:
+            if self._config.show_waypoints and ship_obj.waypoints.size > 0:
                 ship_i_handles["waypoints"] = ax_map.plot(
-                    ship.waypoints[1, :],
-                    ship.waypoints[0, :],
+                    ship_obj.waypoints[1, :],
+                    ship_obj.waypoints[0, :],
                     color=c,
                     marker=".",
                     markersize=8,
@@ -383,6 +362,120 @@ class Visualizer:
             zorder=10,
         )
 
+    def update_ownship_live_tracking_data(self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC) -> None:
+        """Updates tracking-related plots for the own-ship
+
+        Args:
+            ownship (ship.Ship): The own-ship object
+            sensor_measurements (list): List of sensor measurements
+            n_ships (int): Number of ships in the simulation
+            enc (ENC): The ENC object
+        """
+        tracks: list = []
+        tracks, _ = ownship.get_do_track_information()
+        do_labels = [track[0] for track in tracks]
+        do_estimates = [track[1] for track in tracks]
+        do_covariances = [track[2] for track in tracks]
+        ax_map = self.axes[0]
+        zorder_patch = 4
+        if self._config.show_liveplot_tracks and len(do_estimates) > 0:
+            lw = self._config.do_linewidth
+            for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
+                if n_ships > len(self._config.ship_colors):
+                    do_c = self._config.do_colors[1]
+                else:
+                    do_c = self._config.do_colors[do_labels[j] - 1]
+
+                if self.ship_plt_handles[0]["track_started"][do_labels[j] - 1]:
+                    start_idx_track_line_data = 0
+                else:
+                    start_idx_track_line_data = 1
+                    self.ship_plt_handles[0]["track_started"][do_labels[j] - 1] = True
+
+                self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].set_xdata(
+                    [
+                        *self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].get_xdata()[start_idx_track_line_data:],
+                        do_estimates[j][1],
+                    ]
+                )
+                self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].set_ydata(
+                    [
+                        *self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].get_ydata()[start_idx_track_line_data:],
+                        do_estimates[j][0],
+                    ]
+                )
+
+                ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
+                ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
+                if self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1] is not None:
+                    self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1].remove()
+                self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1] = ax_map.add_feature(
+                    ShapelyFeature(
+                        [ell_geometry],
+                        linewidth=lw,
+                        color=do_c,
+                        alpha=0.3,
+                        label=f"DO {j - 1} est. 3sigma cov.",
+                        crs=enc.crs,
+                        zorder=zorder_patch - 2,
+                    )
+                )
+
+                if self._config.show_measurements:
+                    for sensor_id, sensor in enumerate(ownship.sensors):
+                        sensor_data = sensor_measurements[sensor_id]
+                        if not sensor_data:
+                            continue
+
+                        if np.isnan(sensor_data).any():
+                            continue
+                        xdata = []
+                        ydata = []
+                        for measurements in sensor_data:
+                            for meas in measurements:
+                                xdata.append(meas[1])
+                                ydata.append(meas[0])
+                        if sensor.type == "radar":
+                            self.ship_plt_handles[0]["radar"].set_xdata(xdata)
+                            self.ship_plt_handles[0]["radar"].set_ydata(ydata)
+
+                        elif sensor.type == "ais":
+                            self.ship_plt_handles[0]["ais"].set_xdata(xdata)
+                            self.ship_plt_handles[0]["ais"].set_ydata(ydata)
+
+    def update_ship_live_data(self, ship_obj: ship.Ship, idx: int, enc: ENC, **kwargs) -> None:
+        """Updates the live plot with the current data of the input ship object.
+
+        Args:
+            ship_obj (ship.Ship): The ship object to update the live plot with.
+            idx (int): The index of the ship object in the simulation.
+            enc (ENC): The ENC object.
+        """
+        lw = kwargs["lw"] if "lw" in kwargs else self._config.ship_linewidth
+        c = kwargs["c"] if "c" in kwargs else self._config.ship_colors[idx]
+        start_idx_ship_line_data = kwargs["start_idx_ship_line_data"] if "start_idx_ship_line_data" in kwargs else 0
+        ax_map = self.axes[0]
+        zorder_patch = 3
+        csog_state = ship_obj.csog_state
+        ship_poly = mapf.create_ship_polygon(
+            csog_state[0], csog_state[1], csog_state[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
+        )
+        if self.ship_plt_handles[idx]["patch"] is not None:
+            self.ship_plt_handles[idx]["patch"].remove()
+        self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
+
+        self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 300)
+        self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 350)
+
+        self.ship_plt_handles[idx]["trajectory"].set_xdata([*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]])
+        self.ship_plt_handles[idx]["trajectory"].set_ydata([*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]])
+
+        if self._config.show_waypoints and ship_obj.waypoints.size > 0:
+            self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
+            self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
+
+        # TODO: Update predicted ship trajectory
+
     def update_live_plot(self, t: float, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.
 
@@ -396,11 +489,11 @@ class Visualizer:
             return
 
         self.fig.canvas.restore_region(self.background)
-
         self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
 
         ax_map = self.axes[0]
         n_ships = len(ship_list)
+        self.update_ownship_live_tracking_data(ship_list[0], sensor_measurements, n_ships, enc)
         for i, ship_obj in enumerate(ship_list):
             if t < ship_obj.t_start or t > ship_obj.t_end:
                 continue
@@ -412,13 +505,6 @@ class Visualizer:
                 start_idx_ship_line_data = 1
                 self.ship_plt_handles[i]["ship_started"] = True
 
-            if i == 0:
-                zorder_patch = 4
-            else:
-                zorder_patch = 3
-
-            csog_state_i = ship_obj.csog_state
-
             # If number of ships is greater than 16, use the same color for all target ships
             if i > 0 and n_ships > len(self._config.ship_colors):
                 c = self._config.ship_colors[1]
@@ -427,105 +513,12 @@ class Visualizer:
 
             lw = self._config.ship_linewidth
 
-            if i == 0:
-                tracks, _ = ship_obj.get_do_track_information()
-                do_labels = [track[0] for track in tracks]
-                do_estimates = [track[1] for track in tracks]
-                do_covariances = [track[2] for track in tracks]
-
-                if self._config.show_liveplot_tracks and len(do_estimates) > 0:
-                    lw = self._config.do_linewidth
-                    for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
-                        if n_ships > len(self._config.ship_colors):
-                            do_c = self._config.do_colors[1]
-                        else:
-                            do_c = self._config.do_colors[do_labels[j] - 1]
-
-                        if self.ship_plt_handles[i]["track_started"][do_labels[j] - 1]:
-                            start_idx_track_line_data = 0
-                        else:
-                            start_idx_track_line_data = 1
-                            self.ship_plt_handles[i]["track_started"][do_labels[j] - 1] = True
-
-                        self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].set_xdata(
-                            [
-                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_xdata()[start_idx_track_line_data:],
-                                do_estimates[j][1],
-                            ]
-                        )
-                        self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].set_ydata(
-                            [
-                                *self.ship_plt_handles[i]["do_tracks"][do_labels[j] - 1].get_ydata()[start_idx_track_line_data:],
-                                do_estimates[j][0],
-                            ]
-                        )
-
-                        ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
-                        ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
-                        if self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1] is not None:
-                            self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1].remove()
-                        self.ship_plt_handles[i]["do_covariances"][do_labels[j] - 1] = ax_map.add_feature(
-                            ShapelyFeature(
-                                [ell_geometry],
-                                linewidth=lw,
-                                color=do_c,
-                                alpha=0.3,
-                                label=f"DO {j - 1} est. 3sigma cov.",
-                                crs=enc.crs,
-                                zorder=zorder_patch - 2,
-                            )
-                        )
-
-                        if self._config.show_measurements:
-                            for sensor_id, sensor in enumerate(ship_obj.sensors):
-                                sensor_data = sensor_measurements[sensor_id]
-                                if not sensor_data:
-                                    continue
-
-                                if np.isnan(sensor_data).any():
-                                    continue
-                                xdata = []
-                                ydata = []
-                                for measurements in sensor_data:
-                                    for meas in measurements:
-                                        xdata.append(meas[1])
-                                        ydata.append(meas[0])
-                                if sensor.type == "radar":
-                                    self.ship_plt_handles[i]["radar"].set_xdata(xdata)
-                                    self.ship_plt_handles[i]["radar"].set_ydata(ydata)
-
-                                elif sensor.type == "ais":
-                                    self.ship_plt_handles[i]["ais"].set_xdata(xdata)
-                                    self.ship_plt_handles[i]["ais"].set_ydata(ydata)
-
-            # Update ship patch
-            ship_poly = mapf.create_ship_polygon(
-                csog_state_i[0], csog_state_i[1], csog_state_i[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
-            )
-            if self.ship_plt_handles[i]["patch"] is not None:
-                self.ship_plt_handles[i]["patch"].remove()
-            self.ship_plt_handles[i]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
-
-            self.ship_plt_handles[i]["info"].set_x(csog_state_i[1] - 300)
-            self.ship_plt_handles[i]["info"].set_y(csog_state_i[0] + 350)
-
-            self.ship_plt_handles[i]["trajectory"].set_xdata([*self.ship_plt_handles[i]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state_i[1]])
-            self.ship_plt_handles[i]["trajectory"].set_ydata([*self.ship_plt_handles[i]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state_i[0]])
-
-            if self._config.show_waypoints and ship_obj.waypoints.size > 0:
-                self.ship_plt_handles[i]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
-                self.ship_plt_handles[i]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
-
-            # TODO: Update predicted ship trajectory
+            self.update_ship_live_data(ship_obj, i, enc, lw=lw, c=c, start_idx_ship_line_data=start_idx_ship_line_data)
 
         if n_ships < 3:  # to avoid cluttering the legend
             plt.legend(loc="upper right")
         self.fig.canvas.blit(ax_map.bbox)
-
         self.fig.canvas.flush_events()
-
-        # tx = "Mean Frame Rate:\n {fps:.3f}FPS".format(fps=((i + 1) / (time.time() - self.t_start)))
-        # plt.pause(0.00001)  # plt.pause(self._config.frame_delay / 1000)
 
     def visualize_results(
         self,
@@ -583,7 +576,7 @@ class Visualizer:
         axes_tracking: list = []
         ship_lw = self._config.ship_linewidth
         n_ships = len(ship_list)
-        for i, ship in enumerate(ship_list):
+        for i, ship_obj in enumerate(ship_list):
             ship_sim_data = sim_data[f"Ship{i}"]
             end_idx = k_snapshots[-1]
 
@@ -621,10 +614,10 @@ class Visualizer:
                     continue
 
             # Plot ship nominal waypoints
-            if ship.waypoints.size > 0:
+            if ship_obj.waypoints.size > 0:
                 ax_map.plot(
-                    ship.waypoints[1, :],
-                    ship.waypoints[0, :],
+                    ship_obj.waypoints[1, :],
+                    ship_obj.waypoints[0, :],
                     color=ship_color,
                     marker="o",
                     markersize=4,
@@ -719,8 +712,8 @@ class Visualizer:
                     x=X[0, k],
                     y=X[1, k],
                     heading=X[3, k],
-                    length=ship.length,
-                    width=ship.width,
+                    length=ship_obj.length,
+                    width=ship_obj.width,
                     length_scaling=self._config.ship_scaling[0],
                     width_scaling=self._config.ship_scaling[1],
                 )
@@ -752,7 +745,7 @@ class Visualizer:
         if save_figs:
             if not save_file_path.parents[0].exists():
                 save_file_path.parents[0].mkdir(parents=True)
-            fig_map.savefig(save_file_path, format="pdf", dpi=500, bbox_inches="tight")
+            fig_map.savefig(save_file_path, format="pdf", dpi=300, bbox_inches="tight")
 
         figs.append(fig_map)
         axes.append(ax_map)

@@ -496,7 +496,7 @@ class Ship(IShip):
         output["max_turn_rate"] = self.max_turn_rate
         return output
 
-    def get_do_track_information(self) -> Tuple[list, list, list, list]:
+    def get_do_track_information(self) -> Tuple[list, list]:
         return self._tracker.get_track_information()
 
     def transfer_vessel_ais_data(

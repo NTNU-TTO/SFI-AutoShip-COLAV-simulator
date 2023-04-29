@@ -201,6 +201,14 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._heading_spline = PchipInterpolator(linspace, self._heading_waypoints)
         return self._x_spline, self._y_spline, self._heading_spline, self._speed_spline
 
+    def update_path_variable(self, dt: float) -> None:
+        """Updates the path variable based on the time dt since the last update.
+
+        Args:
+            dt (float): Time step since the last update.
+        """
+        self._s = mf.sat(self._s + dt * self._s_dot, 0.0, 1.0)
+
     def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
@@ -233,9 +241,6 @@ class KinematicTrajectoryPlanner(IGuidance):
 
         references = np.zeros((9, 1))
         references[:, 0] = np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
-
-        # Increment path variable to propagate reference vehicle along trajectory.
-        self._s = mf.sat(self._s + dt * self._s_dot, 0.0, 1.0)
         return references
 
     def compute_reference_trajectory(self, dt: float) -> np.ndarray:
