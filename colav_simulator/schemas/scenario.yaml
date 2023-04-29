@@ -353,6 +353,9 @@ ship_list:
               width:
                 required: True
                 type: float
+              ship_vertices:
+                required: False
+                type: list
               T_chi:
                 required: True
                 type: float

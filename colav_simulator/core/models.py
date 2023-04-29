@@ -28,7 +28,7 @@ class KinematicCSOGParams:
 
     draft: float = 2.0
     length: float = 10.0
-    ship_vertices: np.ndarray = np.array([[5.0, 2.0], [5.0, -2.0], [-5.0, -2.0], [-5.0, 2.0]])
+    ship_vertices: np.ndarray = np.empty(2)
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
@@ -49,6 +49,14 @@ class KinematicCSOGParams:
             U_min=params_dict["U_min"],
             U_max=params_dict["U_max"],
         )
+        params.ship_vertices = np.array(
+            [
+                [params.length / 2.0, -params.width / 2.0],
+                [params.length / 2.0, params.width / 2.0],
+                [-params.length / 2.0, params.width / 2.0],
+                [-params.length / 2.0, -params.width / 2.0],
+            ]
+        ).T
         return params
 
     def to_dict(self):
@@ -65,7 +73,7 @@ class TelemetronParams:
     draft: float = 0.5
     length: float = 8.0
     width: float = 3.0
-    ship_vertices: np.ndarray = np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]])
+    ship_vertices: np.ndarray = np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T
     l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))
