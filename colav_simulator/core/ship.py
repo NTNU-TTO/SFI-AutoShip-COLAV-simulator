@@ -20,6 +20,7 @@ import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensing as sensing
 import colav_simulator.core.tracking.trackers as trackers
+import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.enc as senc
 from colav_simulator.core.integrators import erk4_integration_step
@@ -383,7 +384,7 @@ class Ship(IShip):
             return self._state, np.empty(3), np.empty(9)
 
         if dt <= 0.0:
-            raise ValueError("Time step must be strictly positive!")
+            return self._state, np.empty(3), np.empty(9)
 
         u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
 
@@ -625,3 +626,20 @@ class Ship(IShip):
             return np.array([])
         else:
             return self._trajectory[:, self._first_valid_idx : self._last_valid_idx + 1]
+
+    def plot_colav_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
+        """Plots the COLAV data of the ship, if available.
+
+        Args:
+            ax_map (plt.Axes): Map axes to plot on.
+            enc (senc.ENC): ENC object.
+            plt_handles (dict): Dictionary of plot handles.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            dict: Dictionary of plot handles.
+        """
+        if self._colav is None:
+            return plt_handles
+
+        return self._colav.plot_results(ax_map, enc, plt_handles, **kwargs)

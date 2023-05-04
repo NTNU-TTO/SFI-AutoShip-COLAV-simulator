@@ -33,6 +33,7 @@ class Config:
     """Configuration class for specifying the look of the visualization."""
 
     show_liveplot: bool = True
+    show_colav_results_live: bool = True
     show_results: bool = True
     show_measurements: bool = False
     show_liveplot_tracks: bool = True
@@ -178,12 +179,10 @@ class Visualizer:
         xlimits = [1e10, -1e10]
         ylimits = [1e10, -1e10]
         if ownship.trajectory.size > 0:
-            buffer = 1000
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.trajectory, xlimits, ylimits)
         elif ownship.waypoints.size > 0:
-            buffer = 2000
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.waypoints, xlimits, ylimits)
-        buffer = 2000
+        buffer = 1000
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
         return xlimits, ylimits
@@ -320,17 +319,39 @@ class Visualizer:
                 0
             ]
 
-            ship_i_handles["predicted_trajectory"] = ax_map.plot(
-                [0.0],
-                [0.0],
-                color=c,
-                linewidth=lw,
-                marker="*",
-                linestyle="-",
-                label="",  # ship_name + " pred. traj.",
-                transform=enc.crs,
-                zorder=zorder_patch - 2,
-            )[0]
+            if self._config.show_colav_results_live:
+                ship_i_handles["colav_nominal_trajectory"] = ax_map.plot(
+                    [0.0],
+                    [0.0],
+                    color=c,
+                    linewidth=lw,
+                    marker="",
+                    markersize=4,
+                    linestyle="--",
+                    label=ship_name + " nom. traj.",
+                    transform=enc.crs,
+                    zorder=zorder_patch - 2,
+                )[0]
+
+                ship_i_handles["colav_predicted_trajectory"] = ax_map.plot(
+                    [0.0],
+                    [0.0],
+                    color=c,
+                    linewidth=lw,
+                    marker="8",
+                    markersize=4,
+                    linestyle="dotted",
+                    label=ship_name + " pred. traj.",
+                    transform=enc.crs,
+                    zorder=zorder_patch - 2,
+                )[0]
+
+                ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
+                    ShapelyFeature([], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1)
+                )
+                ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
+                    ShapelyFeature([], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1)
+                )
 
             if self._config.show_waypoints and ship_obj.waypoints.size > 0:
                 ship_i_handles["waypoints"] = ax_map.plot(
@@ -474,7 +495,8 @@ class Visualizer:
             self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
             self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
 
-        # TODO: Update predicted ship trajectory
+        if self._config.show_colav_results_live:
+            self.ship_plt_handles[idx] = ship_obj.plot_colav_results(ax_map, enc, self.ship_plt_handles[idx], **kwargs)
 
     def update_live_plot(self, t: float, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
         """Updates the live plot with the current data of the ships in the simulation.

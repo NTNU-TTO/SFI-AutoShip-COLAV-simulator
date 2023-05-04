@@ -217,7 +217,7 @@ class Simulator:
 
                 most_recent_sensor_measurements[i] = extract_valid_sensor_measurements(t, most_recent_sensor_measurements[i], sensor_measurements_i)
 
-                if dt_sim > 0 and ship_obj.t_start <= t:
+                if ship_obj.t_start <= t:
                     ship_obj.plan(
                         t=t,
                         dt=dt_sim,
