@@ -33,7 +33,7 @@ class MIMOPIDParams:
 @dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
-    K_p_u: float = 3.0
+    K_p_u: float = 1.0
     K_i_u: float = 0.1
     K_p_psi: float = 3.0
     K_d_psi: float = 1.75
@@ -312,7 +312,7 @@ class FLSH(IController):
         eta = xs[0:3]
         nu = xs[3:]
 
-        U_d = refs[3]
+        u_d = refs[3]
         psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
         psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
         r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
@@ -327,7 +327,7 @@ class FLSH(IController):
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
         Dvv = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu) @ nu
 
-        speed_error = U_d - nu[0]
+        speed_error = u_d - nu[0]
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
         self.update_integrators(speed_error, psi_error, dt)
 
@@ -335,8 +335,8 @@ class FLSH(IController):
         #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
 
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
-        Fy = (Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
+        Fy = (Mmtrx[2, 2] / -model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
 
-        tau = np.array([Fx, Fy, Fy * model.params.l_r])
+        tau = np.array([Fx, Fy, -Fy * model.params.l_r])
 
         return tau

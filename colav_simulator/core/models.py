@@ -213,7 +213,7 @@ class KinematicCSOG(IModel):
 
 @dataclass
 class Telemetron(IModel):
-    """Implements a 3DOF vessel maneuvering model
+    """Implements a 3DOF underactuated vessel maneuvering model
 
     eta_dot = Rpsi(eta) * nu
     (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
@@ -266,6 +266,7 @@ class Telemetron(IModel):
         Cvv = mf.Cmtrx(self._params.M_rb + self._params.M_a, nu) @ nu
         Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu) @ nu
 
+        B = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, -self._params.l_r]])
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
         ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)

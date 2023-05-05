@@ -18,7 +18,7 @@ if __name__ == "__main__":
     n_wps = 4
 
     # Put new_data to True to load map data in ENC if it is not already loaded
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False)
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True)
     scenario_generator.enc.start_display()
     origin = scenario_generator.enc_origin
 

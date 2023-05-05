@@ -207,6 +207,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         Args:
             dt (float): Time step since the last update.
         """
+        self._s_dot, self._s_ddot = self._compute_path_variable_derivatives(self._s)
         self._s = mf.sat(self._s + dt * self._s_dot, 0.0, 1.0)
 
     def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
@@ -443,7 +444,7 @@ class LOSGuidance(IGuidance):
             raise ValueError("Speed plan does not consist of scalar reference values!")
         n_wps = speed_plan.size
         L_wp_segment = np.zeros(2)
-        if self._wp_counter + 1 >= n_wps:
+        if self._wp_counter >= n_wps - 1:
             L_wp_segment = waypoints[:, self._wp_counter] - waypoints[:, self._wp_counter - 1]
         else:
             L_wp_segment = waypoints[:, self._wp_counter + 1] - waypoints[:, self._wp_counter]
