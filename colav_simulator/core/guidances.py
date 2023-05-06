@@ -36,6 +36,10 @@ class LOSGuidanceParams:
     K_i: float = 0.0
     e_int_max: float = 100.0
 
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        return LOSGuidanceParams(**config_dict)
+
     def to_dict(self):
         return asdict(self)
 

@@ -36,7 +36,7 @@ visualizer:
   figsize: [14, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
-  ship_scaling: [10.0, 12.0]
+  ship_scaling: [3.0, 5.0]
   ship_info_fontsize: 10
   ship_colors: ["xkcd:black",
               "xkcd:red",

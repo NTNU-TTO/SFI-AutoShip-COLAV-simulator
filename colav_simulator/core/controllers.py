@@ -33,7 +33,7 @@ class MIMOPIDParams:
 @dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
-    K_p_u: float = 1.0
+    K_p_u: float = 3.0
     K_i_u: float = 0.1
     K_p_psi: float = 3.0
     K_d_psi: float = 1.75
@@ -337,6 +337,6 @@ class FLSH(IController):
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
         Fy = (Mmtrx[2, 2] / -model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
 
-        tau = np.array([Fx, Fy, -Fy * model.params.l_r])
+        tau = np.array([float(Fx), float(Fy), float(-Fy * model.params.l_r)])
 
         return tau
