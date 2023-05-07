@@ -388,7 +388,7 @@ class Ship(IShip):
 
         u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._state, u, dt)
+        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, dt)
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:

@@ -33,9 +33,9 @@ class MIMOPIDParams:
 @dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
-    K_p_u: float = 3.0
+    K_p_u: float = 2.0
     K_i_u: float = 0.1
-    K_p_psi: float = 3.0
+    K_p_psi: float = 2.5
     K_d_psi: float = 1.75
     K_i_psi: float = 0.003
     max_speed_error_int: float = 2.0

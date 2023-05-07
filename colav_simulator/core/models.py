@@ -8,8 +8,8 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
-from typing import Optional
+from dataclasses import asdict, dataclass
+from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -127,6 +127,11 @@ class IModel(ABC):
         The input should be 3 x 1.
         """
 
+    @abstractmethod
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Returns the lower and upper bounds for the inputs and states in the model.
+        The output is on the form (lbu, ubu, lbx, ubx)."""
+
 
 class ModelBuilder:
     @classmethod
@@ -186,7 +191,7 @@ class KinematicCSOG(IModel):
             raise ValueError("Dimension of state should be 6!")
 
         chi_d = u[0]
-        U_d = mf.sat(u[1], 0, self._params.U_max)
+        U_d = mf.sat(u[1], 0.0, self._params.U_max)
 
         chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
         xs[3] = mf.sat(xs[3], 0.0, self._params.U_max)
@@ -198,6 +203,13 @@ class KinematicCSOG(IModel):
         ode_fun[3] = (U_d - xs[3]) / self._params.T_U
 
         return ode_fun
+
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        lbu = np.array([-np.inf, 0.0, -np.inf])
+        ubu = np.array([np.inf, self._params.U_max, np.inf])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -self._params.r_max])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, self._params.r_max])
+        return lbu, ubu, lbx, ubx
 
     @property
     def params(self):
@@ -275,6 +287,13 @@ class Telemetron(IModel):
             ode_fun[2] = 0.0
 
         return ode_fun
+
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.Fy_limits[0] * self._params.l_r])
+        ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.Fy_limits[1] * self._params.l_r])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -self._params.r_max])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, self._params.r_max])
+        return lbu, ubu, lbx, ubx
 
     @property
     def params(self):

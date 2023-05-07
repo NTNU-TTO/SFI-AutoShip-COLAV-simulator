@@ -46,9 +46,9 @@ ship_list:
         e_int_max: 200.0
     controller:
       flsh:
-        K_p_u: 3.0
+        K_p_u: 2.0
         K_i_u: 0.1
-        K_p_psi: 3.0
+        K_p_psi: 2.5
         K_d_psi: 1.75
         K_i_psi: 0.003
         max_speed_error_int: 2.0
