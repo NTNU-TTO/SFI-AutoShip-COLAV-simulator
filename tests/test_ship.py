@@ -24,17 +24,17 @@ if __name__ == "__main__":
 
     model = models.Telemetron()
     ctrl_params = controllers.FLSHParams(
-        K_p_u=2.0,
-        K_i_u=0.1,
+        K_p_u=0.5,
+        K_i_u=0.0,
         K_p_psi=2.0,
-        K_d_psi=1.75,
+        K_d_psi=3.0,
         K_i_psi=0.001,
         max_speed_error_int=2.0,
         speed_error_int_threshold=1.0,
         max_psi_error_int=50.0 * np.pi / 180.0,
         psi_error_int_threshold=15.0 * np.pi / 180.0,
     )
-    controller = controllers.FLSH()
+    controller = controllers.FLSH(ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_method = guidances.LOSGuidance()
