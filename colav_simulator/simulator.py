@@ -224,6 +224,8 @@ class Simulator:
                         do_list=tracks,
                         enc=scenario_enc,
                     )
+
+                if ship_obj.t_start <= t and dt_sim > 0.0:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
