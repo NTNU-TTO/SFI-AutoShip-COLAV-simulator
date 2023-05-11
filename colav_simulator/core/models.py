@@ -42,7 +42,7 @@ class KinematicCSOGParams:
             draft=params_dict["draft"],
             length=params_dict["length"],
             width=params_dict["width"],
-            ship_vertices=np.array(params_dict["ship_vertices"]),
+            ship_vertices=np.empty(2),
             T_chi=params_dict["T_chi"],
             T_U=params_dict["T_U"],
             r_max=np.deg2rad(params_dict["r_max"]),
