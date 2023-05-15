@@ -7,7 +7,7 @@ utm_zone: 33
 map_size: [5000.0, 5000.0]
 map_origin_enu: [-35544.0, 6579000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
-map_tolerance: 1
+map_tolerance: 2
 map_buffer: 0
 new_load_of_map_data: False
 type: MS
