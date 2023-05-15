@@ -9,7 +9,7 @@ map_origin_enu: [-35544.0, 6579000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
 map_buffer: 0
-new_load_of_map_data: True
+new_load_of_map_data: False
 type: MS
 n_random_ships: 0
 #n_random_ships_range: [1, 2]
@@ -48,9 +48,9 @@ ship_list:
       flsh:
         K_p_u: 0.5
         K_i_u: 0.0
-        K_p_psi: 2.0
-        K_d_psi: 3.0
-        K_i_psi: 0.001
+        K_p_psi: 1.5
+        K_d_psi: 5.5
+        K_i_psi: 0.0001
         max_speed_error_int: 2.0
         speed_error_int_threshold: 1.0
         max_psi_error_int: 50.0

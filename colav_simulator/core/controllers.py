@@ -331,7 +331,7 @@ class FLSH(IController):
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
         self.update_integrators(speed_error, psi_error, dt)
 
-        print(f"speed error int: {self._speed_error_int} | speed error: {speed_error} | psi error int: {self._psi_error_int} | psi error: {psi_error}")
+        # print(f"speed error int: {self._speed_error_int} | speed error: {speed_error} | psi error int: {self._psi_error_int} | psi error: {psi_error}")
         # if abs(speed_error) < 0.01:
         #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
 
