@@ -7,7 +7,7 @@ type: MS
 utm_zone: 33
 map_size: [38390.0, 22000.0]
 map_data_files: ["More_og_Romsdal_utm33.gdb"]
-new_load_of_map_data: True
+new_load_of_map_data: False
 ais_data_file: "Case - 09-02-2019, 16-09-15 - 70YMX.csv"
 #ais_data_file: "Case - 01-01-2020, 09-38-04 - 5RY1K.csv"
 ship_data_file: "full_shipdata.csv"

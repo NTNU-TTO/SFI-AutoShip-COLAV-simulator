@@ -258,10 +258,10 @@ class Ship(IShip):
         self._id = identifier
         self._ais_msg_nr: int = 18
         self._state: np.ndarray = np.zeros(6)
-        self._goal_state: np.ndarray = np.zeros(6)
+        self._goal_state: np.ndarray = np.empty(0)
         self._waypoints: np.ndarray = np.empty(0)
-        self._speed_plan: np.ndarray = np.zeros(0)
-        self._references: np.ndarray = np.zeros(0)
+        self._speed_plan: np.ndarray = np.empty(0)
+        self._references: np.ndarray = np.empty(0)
         self._trajectory: np.ndarray = np.empty(0)
         self._trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation (for AIS trajectories)
         self._first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
@@ -331,7 +331,11 @@ class Ship(IShip):
         enc: Optional[senc.ENC] = None,
     ) -> np.ndarray:
 
-        if self._goal_state is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
+        # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
+        if self._trajectory.size > 0:
+            return self._trajectory
+
+        if self._goal_state.size == 0 and (self._waypoints.size < 2 or self._speed_plan.size < 2):
             raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
 
         if self._colav is not None:
