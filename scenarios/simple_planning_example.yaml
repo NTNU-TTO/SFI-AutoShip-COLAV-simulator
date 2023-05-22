@@ -48,8 +48,8 @@ ship_list:
       flsh:
         K_p_u: 0.5
         K_i_u: 0.0
-        K_p_psi: 1.5
-        K_d_psi: 5.5
+        K_p_psi: 1.0
+        K_d_psi: 4.5
         K_i_psi: 0.0001
         max_speed_error_int: 2.0
         speed_error_int_threshold: 1.0
