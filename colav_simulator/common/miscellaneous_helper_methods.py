@@ -154,8 +154,8 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
 
         vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
 
-        print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
-        print(f"Vessel status: {vessel.status}")
+        # print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
+        # print(f"Vessel status: {vessel.status}")
 
         vessels.append(vessel)
 
