@@ -1,10 +1,10 @@
 simulator:
   #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  #scenario_files: ["simple_planning_example.yaml"]
+  scenario_files: ["simple_planning_example.yaml"]
   #scenario_files: ["head_on_sbmpc.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
-  scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
-  scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
+  #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
+  #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
   #scenario_folder: "imazu_cases"
   save_scenario_results: False
   verbose: True
