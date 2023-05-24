@@ -10,7 +10,7 @@ if __name__ == "__main__":
     evaluator = Evaluator()
 
     framework_exec_times = []
-    n_runs = 50
+    n_runs = 5
     for i in range(n_runs):
         start_time = time.time()
         # scenario_data_list = simulator.generate_configured_scenarios()
