@@ -206,10 +206,8 @@ class Simulator:
         timestamp_start = mhm.current_utc_timestamp()
         most_recent_sensor_measurements: list = [None] * len(ship_list)
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
-        t_prev = sim_times[0]
+        dt_sim = scenario_config.dt_sim
         for _, t in enumerate(sim_times):
-            dt_sim = t - t_prev
-            t_prev = t
 
             sim_data_dict = {}
             true_do_states = []
@@ -234,7 +232,6 @@ class Simulator:
                         enc=scenario_enc,
                     )
 
-                if ship_obj.t_start <= t and dt_sim > 0.0:
                     ship_obj.forward(dt_sim)
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
