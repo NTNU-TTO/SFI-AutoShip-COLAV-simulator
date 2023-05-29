@@ -428,6 +428,10 @@ class LOSGuidance(IGuidance):
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
+    def reset_wp_counter(self) -> None:
+        """Resets the waypoint counter to zero."""
+        self._wp_counter = 0
+
     def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes references in course and speed using the LOS guidance law.
 

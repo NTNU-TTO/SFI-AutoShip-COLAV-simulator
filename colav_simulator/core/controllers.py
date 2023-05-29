@@ -51,36 +51,47 @@ class FLSHParams:
 
 
 @dataclass
+class PassThroughInputsParams:
+    "Parameters for the pass-through inputs controller."
+
+    rudder_propeller_mapping: bool = True
+
+    def to_dict(self):
+        return asdict(self)
+
+    def from_dict(self, config_dict: dict):
+        return PassThroughInputsParams(**config_dict)
+
+
+@dataclass
 class Config:
     """Configuration class for managing controller parameters."""
 
     pid: Optional[MIMOPIDParams] = None
     flsh: Optional[FLSHParams] = None
     pass_through_cs: Optional[bool] = True
+    pass_through_inputs: Optional[PassThroughInputsParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config()
+        config = Config(pid=None, flsh=None, pass_through_cs=None, pass_through_inputs=None)
         if "pid" in config_dict:
             config.pid = MIMOPIDParams(
                 wn=np.diag(config_dict["pid"]["wn"]),
                 zeta=np.diag(config_dict["pid"]["zeta"]),
                 eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
             )
-            config.flsh = None
-            config.pass_through_cs = None
 
         if "flsh" in config_dict:
             config.flsh = cp.convert_settings_dict_to_dataclass(FLSHParams, config_dict["flsh"])
             config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
             config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
-            config.pid = None
-            config.pass_through_cs = None
 
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
-            config.pid = None
-            config.flsh = None
+
+        if "pass_through_inputs" in config_dict:
+            config.pass_through_inputs = PassThroughInputsParams(**config_dict["pass_through_inputs"])
 
         return config
 
@@ -94,6 +105,9 @@ class Config:
 
         if self.pass_through_cs is not None:
             config_dict["pass_through_cs"] = ""
+
+        if self.pass_through_inputs is not None:
+            config_dict["pass_through_inputs"] = self.pass_through_inputs.to_dict()
 
         return config_dict
 
@@ -125,6 +139,8 @@ class ControllerBuilder:
             return FLSH(config.flsh)
         elif config and config.pass_through_cs:
             return PassThroughCS()
+        elif config and config.pass_through_inputs:
+            return PassThroughInputs(config.pass_through_inputs)
         else:
             return PassThroughCS()
 
@@ -153,6 +169,45 @@ class PassThroughCS(IController):
 
         # Course taken directly as heading reference.
         return np.array([refs[2], np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0])
+
+
+@dataclass
+class PassThroughInputs(IController):
+    """This controller feeds through the force inputs u = [X, Y, N] or u = [X, Y], depending on the model and mapping chosen.
+
+    If the model is a rudder-propeller model, the references are [X, Y], and the mapping is [X, Y] -> [X, Y, -Y * l_r],
+    where l_r is the distance from the center of rotation to the rudder.
+
+    Otherwise, the mapping is [X, Y, N] -> [X, Y, N]."""
+
+    def __init__(self, params: Optional[PassThroughInputsParams] = None) -> None:
+        if params is None:
+            params = PassThroughInputsParams()
+        else:
+            self.params = params
+
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+        """Takes out relevant parts of references as inputs directly
+
+        Args:
+            refs (np.ndarray): Force inputs = [X, Y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] or [X, Y, -Y * l_r, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] depending on the model.
+            xs (np.ndarray): State xs
+            dt (float): Time step
+            model (IModel): Model object to fetch parameters from, optional in many cases.
+
+        Returns:
+            np.ndarray: 3 x 1 inputs u = [X, Y, N]^T
+        """
+
+        if len(refs) != 9:
+            raise ValueError("Dimension of reference array should be equal to 9!")
+        if len(xs) != 6:
+            raise ValueError("Dimension of state should be 6!")
+
+        if self.params.rudder_propeller_mapping:
+            return np.array([refs[0], refs[1], -refs[1] * model.params.l_r])
+        else:
+            return np.array([refs[0], refs[1], refs[2]])
 
 
 @dataclass

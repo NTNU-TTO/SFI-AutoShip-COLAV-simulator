@@ -18,7 +18,11 @@ if __name__ == "__main__":
     n_wps = 4
 
     # Put new_data to True to load map data in ENC if it is not already loaded
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True)
+    utm_zone = 33
+    map_size = [5000.0, 5000.0]
+    map_origin_enu = [-35544.0, 6579000.0]
+    map_data_files = ["Rogaland_utm33.gdb"]
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
     scenario_generator.enc.start_display()
     origin = scenario_generator.enc_origin
 
@@ -42,8 +46,12 @@ if __name__ == "__main__":
     ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list, guidance=guidance_method)
 
     csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0)
+
     waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
+    waypoints = np.array([[6581585.0, 6581585.0, 6581690.0, 6581790.0, 6581850.0, 6582000.0], [-33700.0, -33615.0, -33600.0, -33620.0, -33615.0, -33495.0]])
+    speed_plan = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
+    csog_state = np.array([6581585.0, -33700.0, 4.0, np.deg2rad(120.0)])
 
     # csog_state[3] += 90.0 * np.pi / 180.0
     ownship.set_initial_state(csog_state)
@@ -54,7 +62,7 @@ if __name__ == "__main__":
     gca = gcf.axes[0]
     gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
 
-    horizon = 400.0
+    horizon = 150.0
     dt = 0.1
     n_x = 6
     n_r = 9
@@ -70,7 +78,7 @@ if __name__ == "__main__":
         trajectory[:, k], tau[:, k], refs[:, k] = ownship.forward(dt)
 
     gca.plot(trajectory[1, :], trajectory[0, :], "k", label="Trajectory")
-    gca.set_xlabel("South (m)")
+    gca.set_xlabel("East (m)")
     gca.set_ylabel("North (m)")
     gca.legend()
     gca.grid()
