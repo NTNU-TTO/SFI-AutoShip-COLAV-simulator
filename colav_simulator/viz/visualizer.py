@@ -33,16 +33,15 @@ class Config:
     """Configuration class for specifying the look of the visualization."""
 
     show_liveplot: bool = True
+    zoom_in_liveplot_on_ownship: bool = True
     show_colav_results_live: bool = True
     show_results: bool = True
+    show_waypoints: bool = False
     show_measurements: bool = False
     show_liveplot_tracks: bool = True
-    show_tracking_results: bool = True
-    show_waypoints: bool = False
-    show_animation: bool = True
-    save_animation: bool = False
-    zoom_in_liveplot_on_ownship: bool = True
-    n_snapshots: int = 3  # number of scenario snapshots to show in trajectory result plotting
+    show_target_tracking_results: bool = True
+    show_trajectory_tracking_results: bool = True
+    n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     ship_linewidth: float = 0.9
@@ -167,11 +166,12 @@ class Visualizer:
         self.axes = [ax_map]
         plt.show(block=False)
 
-    def find_plot_limits(self, ownship: ship.Ship) -> Tuple[list, list]:
+    def find_plot_limits(self, ownship: ship.Ship, buffer: float = 1000.0) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
 
         Args:
-            ownship (ship.Ship): The own-ship object
+            - ownship (ship.Ship): The own-ship object
+            - buffer (float): Buffer to add to the limits
 
         Returns:
             Tuple[list, list]: The x and y limits of the map
@@ -182,7 +182,6 @@ class Visualizer:
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.trajectory, xlimits, ylimits)
         elif ownship.waypoints.size > 0:
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.waypoints, xlimits, ylimits)
-        buffer = 1000
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
         return xlimits, ylimits
@@ -532,7 +531,6 @@ class Visualizer:
                 c = self._config.ship_colors[1]
             else:
                 c = self._config.ship_colors[i]
-
             lw = self._config.ship_linewidth
 
             self.update_ship_live_data(ship_obj, i, enc, lw=lw, c=c, start_idx_ship_line_data=start_idx_ship_line_data)
@@ -551,19 +549,17 @@ class Visualizer:
         k_snapshots: Optional[list] = None,
         save_figs: bool = True,
         save_file_path: Optional[Path] = None,
-        show_tracking_results: bool = False,
     ) -> Tuple[list, list]:
         """Visualize the results of a scenario simulation.
 
         Args:
-            enc (ENC): Electronic Navigational Chart object.
-            ship_list (list): List of ships in the simulation.
-            sim_data (DataFrame): Dataframe of simulation.
-            sim_times (list): List of simulation times.
-            k_snapshots (Optional[list], optional): List of snapshots to visualize.
-            save_figs (bool, optional): Whether to save the figures.
-            save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
-            show_tracking_results (bool, optional): Whether to show tracking results or not.
+            - enc (ENC): Electronic Navigational Chart object.
+            - ship_list (list): List of ships in the simulation.
+            - sim_data (DataFrame): Dataframe of simulation.
+            - sim_times (list): List of simulation times.
+            - k_snapshots (Optional[list], optional): List of snapshots to visualize.
+            - save_figs (bool, optional): Whether to save the figures.
+            - save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
 
         Returns:
             Tuple[list, list]: List of figure and axes handles
@@ -578,6 +574,8 @@ class Visualizer:
 
         ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
         trajectory_list = ship_data["trajectory_list"]
+        colav_data_list = ship_data["colav_data_list"]
+        nominal_trajectory_list = [colav_data[0]["nominal_trajectory"] for colav_data in range(colav_data_list)]
         cpa_indices = ship_data["cpa_indices"]
 
         n_samples = len(sim_times)
@@ -590,8 +588,7 @@ class Visualizer:
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        xlimits = [1e10, -1e10]
-        ylimits = [1e10, -1e10]
+        xlimits, ylimits = self.find_plot_limits(ship_list[0])
         plt.show(block=False)
 
         figs_tracking: list = []
@@ -623,10 +620,6 @@ class Visualizer:
             is_inside_map = True
             if i == 0:
                 ship_name = "OS"
-                xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(X[:, first_valid_idx:end_idx], xlimits, ylimits)
-                buffer = 1500
-                xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
-                ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
                 zorder_patch = 4
             else:
                 ship_name = "DO " + str(i - 1)
@@ -660,8 +653,12 @@ class Visualizer:
                 zorder=zorder_patch - 2,
             )
 
-            # If the ship is the own-ship: Also plot dynamic obstacle tracks, and tracking results
-            if self._config.show_tracking_results and i == 1:
+            # If the ship is the own-ship: Also plot dynamic obstacle tracks, and trajectory tracking results
+            if i == 0:
+
+                if self._config.show_trajectory_tracking_results:
+                    self.plot_trajectory_tracking_results(i, sim_times, X, X_ref, linewidth=1.0)
+
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
@@ -692,26 +689,27 @@ class Visualizer:
                         label=f"DO {do_labels[j] -1} est. traj.",
                         zorder=zorder_patch - 2,
                     )
-                    for k in k_snapshots:
-                        if k < first_valid_idx_track or k > end_idx_j:
-                            continue
 
-                        # ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
-                        # ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
-                        # ax_map.add_feature(
-                        #     ShapelyFeature(
-                        #         [ell_geometry],
-                        #         linewidth=do_lw,
-                        #         color=do_color,
-                        #         alpha=0.3,
-                        #         label=f"DO {do_labels[j] - 1} est. cov.",
-                        #         crs=enc.crs,
-                        #         zorder=zorder_patch - 2,
-                        #     )
-                        # )
+                    # for k in k_snapshots:
+                    #     if k < first_valid_idx_track or k > end_idx_j:
+                    #         continue
 
-                    if show_tracking_results:
-                        fig_do_j, axes_do_j = self._plot_do_tracking_results(
+                    #     ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j][:2, :2, k], 0.99)
+                    #     ell_geometry = Polygon(zip(ellipse_y + do_estimates_j[1, k], ellipse_x + do_estimates_j[0, k]))
+                    #     ax_map.add_feature(
+                    #         ShapelyFeature(
+                    #             [ell_geometry],
+                    #             linewidth=do_lw,
+                    #             color=do_color,
+                    #             alpha=0.3,
+                    #             label=f"DO {do_labels[j] - 1} est. cov.",
+                    #             crs=enc.crs,
+                    #             zorder=zorder_patch - 2,
+                    #         )
+                    #     )
+
+                    if self._config.show_target_tracking_results:
+                        fig_do_j, axes_do_j = self.plot_do_tracking_results(
                             i,
                             sim_times[first_valid_idx_track:end_idx_j],
                             do_true_states_j[:, first_valid_idx_track:end_idx_j],
@@ -724,6 +722,7 @@ class Visualizer:
                         figs_tracking.append(fig_do_j)
                         axes_tracking.append(axes_do_j)
 
+            # Plot ship shape at all considered snapshots
             count = 1
             for k in k_snapshots:
                 if k < first_valid_idx or k > end_idx:
@@ -733,7 +732,7 @@ class Visualizer:
                 ship_poly = mapf.create_ship_polygon(
                     x=X[0, k],
                     y=X[1, k],
-                    heading=X[3, k],
+                    heading=X[2, k],
                     length=ship_obj.length,
                     width=ship_obj.width,
                     length_scaling=self._config.ship_scaling[0],
@@ -761,7 +760,6 @@ class Visualizer:
         ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
         ax_map.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
         ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
-
         plt.legend()
 
         if save_figs:
@@ -773,7 +771,66 @@ class Visualizer:
         axes.append(ax_map)
         return figs, axes
 
-    def _plot_do_tracking_results(
+    def plot_trajectory_tracking_results(
+        self, ship_idx: int, sim_times: np.ndarray, trajectory: np.ndarray, reference_trajectory: np.ndarray, linewidth: float = 1.0
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Plots the trajectory tracking results of a ship.
+
+        Args:
+            - sim_times (np.ndarray): Simulation times.
+            - trajectory (np.ndarray): Trajectory of the ship.
+            - ship_idx (int): Index of the ship.
+
+        Returns:
+            - Tuple[plt.Figure, plt.Axes]: Figure and axes of the output plots.
+        """
+        fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", figsize=(10, 10))
+        axes = fig.subplot_mosaic(
+            [
+                ["x", "y", "psi"],
+                ["u", "v", "r"],
+            ]
+        )
+
+        axes["x"].plot(sim_times, trajectory[0, :], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["x"].plot(sim_times, reference_trajectory[0, :], color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["x"].set_xlabel("Time [s]")
+        axes["x"].set_ylabel("North [m]")
+        axes["x"].legend()
+
+        axes["y"].plot(sim_times, trajectory[1, :], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["y"].plot(sim_times, reference_trajectory[1, :], color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["y"].set_xlabel("Time [s]")
+        axes["y"].set_ylabel("East [m]")
+        axes["y"].legend()
+
+        axes["psi"].plot(sim_times, trajectory[2, :] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["psi"].plot(sim_times, reference_trajectory[2, :] * 180.0 / np.pi, color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["psi"].set_xlabel("Time [s]")
+        axes["psi"].set_ylabel("Heading [deg]")
+        axes["psi"].legend()
+
+        axes["u"].plot(sim_times, trajectory[3, :], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["u"].plot(sim_times, reference_trajectory[3, :], color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["u"].set_xlabel("Time [s]")
+        axes["u"].set_ylabel("Surge [m/s]")
+        axes["u"].legend()
+
+        axes["v"].plot(sim_times, trajectory[4, :], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["v"].plot(sim_times, reference_trajectory[4, :], color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["v"].set_xlabel("Time [s]")
+        axes["v"].set_ylabel("Sway [m/s]")
+        axes["v"].legend()
+
+        axes["r"].plot(sim_times, trajectory[5, :] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["r"].plot(sim_times, reference_trajectory[5, :] * 180.0 / np.pi, color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["r"].set_xlabel("Time [s]")
+        axes["r"].set_ylabel("Yaw [deg/s]")
+        axes["r"].legend()
+
+        return fig, axes
+
+    def plot_do_tracking_results(
         self,
         ship_idx: int,
         sim_times: np.ndarray,

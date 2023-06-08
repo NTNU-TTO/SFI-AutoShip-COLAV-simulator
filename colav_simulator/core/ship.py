@@ -445,6 +445,17 @@ class Ship(IShip):
         if self._guidance is not None:
             self._guidance = None
 
+    def get_colav_data(self) -> dict:
+        """Returns COLAV related data for the ship, if any.
+
+        Returns:
+            dict: COLAV data as dictionary
+        """
+        if self._colav is None:
+            return {}
+
+        return self._colav.get_colav_data()
+
     def get_sim_data(self, t: float, timestamp_0: int) -> dict:
         """Returns simulation related data for the ship. Position are given in
         the local planar coordinate system.
@@ -475,8 +486,11 @@ class Ship(IShip):
             "id": self.id,
             "mmsi": self.mmsi,
             "csog_state": csog_state,
+            "state": self._state,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
+            "references": self._references,
+            "goal_state": self._goal_state,
             "date_time_utc": datetime_str,
             "timestamp": t,
             "do_estimates": xs_i_upd,

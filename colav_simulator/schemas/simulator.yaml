@@ -124,12 +124,6 @@ visualizer:
     show_measurements:
       required: True
       type: boolean
-    show_liveplot_tracks:
-      required: True
-      type: boolean
-    show_tracking_results:
-      required: True
-      type: boolean
     show_waypoints:
       required: True
       type: boolean
@@ -137,6 +131,15 @@ visualizer:
       required: True
       type: boolean
     save_animation:
+      required: True
+      type: boolean
+    show_liveplot_tracks:
+      required: True
+      type: boolean
+    show_target_tracking_results:
+      required: True
+      type: boolean
+    show_trajectory_tracking_results:
       required: True
       type: boolean
     zoom_in_liveplot_on_ownship:
