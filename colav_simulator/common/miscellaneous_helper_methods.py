@@ -125,7 +125,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
             draft=ship_i_info["draft"],
         )
 
-        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
+        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_dataframe(sim_data[name])
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
         n_msgs = len(vessel.timestamps)
@@ -243,7 +243,7 @@ def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.nd
     Returns:
         Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
     """
-    X = np.zeros((4, len(ship_df)))
+    X = np.zeros((6, len(ship_df)))
     timestamps = []
     datetimes_utc = []
     for k, ship_df_k in enumerate(ship_df):
@@ -265,7 +265,7 @@ def extract_colav_data_from_dataframe(ship_df: pd.DataFrame) -> list:
     """
     colav_data = []
     for _, ship_df_k in enumerate(ship_df):
-        colav_data.append(ship_df_k["colav_data"])
+        colav_data.append(ship_df_k["colav"])
     return colav_data
 
 

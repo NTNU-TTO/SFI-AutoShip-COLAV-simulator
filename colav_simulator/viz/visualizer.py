@@ -35,10 +35,11 @@ class Config:
     show_liveplot: bool = True
     zoom_in_liveplot_on_ownship: bool = True
     show_colav_results_live: bool = True
-    show_results: bool = True
     show_waypoints: bool = False
     show_measurements: bool = False
     show_liveplot_tracks: bool = True
+    save_animation: bool = True
+    show_results: bool = True
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
@@ -117,8 +118,8 @@ class Visualizer:
     """Class with functionality for visualizing/animating ship scenarios, and plotting/saving the simulation results.
 
     Internal variables:
-        fig (Figure): Matplotlib figure object for the visualization.
-        axes (list): List of matplotlib axes objects for the visualization.
+        - fig (Figure): Matplotlib figure object for the visualization.
+        - axes (list): List of matplotlib axes objects for the visualization.
 
     """
 
@@ -191,8 +192,8 @@ class Visualizer:
         given by the ship list.
 
         Args:
-            enc (ENC): ENC object containing the map data.
-            ship_list (list): List of configured ships in the simulation.
+            - enc (ENC): ENC object containing the map data.
+            - ship_list (list): List of configured ships in the simulation.
         """
         if not self._config.show_liveplot:
             return
@@ -357,7 +358,7 @@ class Visualizer:
                     ship_obj.waypoints[1, :],
                     ship_obj.waypoints[0, :],
                     color=c,
-                    marker=".",
+                    marker="o",
                     markersize=8,
                     linestyle="dashed",
                     linewidth=lw,
@@ -386,10 +387,10 @@ class Visualizer:
         """Updates tracking-related plots for the own-ship
 
         Args:
-            ownship (ship.Ship): The own-ship object
-            sensor_measurements (list): List of sensor measurements
-            n_ships (int): Number of ships in the simulation
-            enc (ENC): The ENC object
+            - ownship (ship.Ship): The own-ship object
+            - sensor_measurements (list): List of sensor measurements
+            - n_ships (int): Number of ships in the simulation
+            - enc (ENC): The ENC object
         """
         tracks: list = []
         tracks, _ = ownship.get_do_track_information()
@@ -467,9 +468,9 @@ class Visualizer:
         """Updates the live plot with the current data of the input ship object.
 
         Args:
-            ship_obj (ship.Ship): The ship object to update the live plot with.
-            idx (int): The index of the ship object in the simulation.
-            enc (ENC): The ENC object.
+            - ship_obj (ship.Ship): The ship object to update the live plot with.
+            - idx (int): The index of the ship object in the simulation.
+            - enc (ENC): The ENC object.
         """
         lw = kwargs["lw"] if "lw" in kwargs else self._config.ship_linewidth
         c = kwargs["c"] if "c" in kwargs else self._config.ship_colors[idx]
@@ -501,10 +502,10 @@ class Visualizer:
         """Updates the live plot with the current data of the ships in the simulation.
 
         Args:
-            t (float): Current time in the simulation.
-            enc (ENC): ENC object containing the map data.
-            ship_list (list): List of configured ships in the simulation.
-            sensor_measurements (list): Most recent sensor measurements generated from the own-ship sensors.
+            - t (float): Current time in the simulation.
+            - enc (ENC): ENC object containing the map data.
+            - ship_list (list): List of configured ships in the simulation.
+            - sensor_measurements (list): Most recent sensor measurements generated from the own-ship sensors.
         """
         if not self._config.show_liveplot:
             return
@@ -575,7 +576,7 @@ class Visualizer:
         ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
         trajectory_list = ship_data["trajectory_list"]
         colav_data_list = ship_data["colav_data_list"]
-        nominal_trajectory_list = [colav_data[0]["nominal_trajectory"] for colav_data in range(colav_data_list)]
+        nominal_trajectory_list = [colav_data[0]["nominal_trajectory"] for colav_data in colav_data_list]
         cpa_indices = ship_data["cpa_indices"]
 
         n_samples = len(sim_times)
@@ -657,7 +658,7 @@ class Visualizer:
             if i == 0:
 
                 if self._config.show_trajectory_tracking_results:
-                    self.plot_trajectory_tracking_results(i, sim_times, X, X_ref, linewidth=1.0)
+                    self.plot_trajectory_tracking_results(i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0)
 
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
@@ -778,56 +779,66 @@ class Visualizer:
 
         Args:
             - sim_times (np.ndarray): Simulation times.
-            - trajectory (np.ndarray): Trajectory of the ship.
+            - trajectory (np.ndarray): Trajectory of the ship, same length as sim_times.
+            - reference_trajectory (np.ndarray): Reference trajectory of the ship.
             - ship_idx (int): Index of the ship.
 
         Returns:
             - Tuple[plt.Figure, plt.Axes]: Figure and axes of the output plots.
         """
+        n_samples = min(sim_times.shape[0], reference_trajectory.shape[1])
         fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", figsize=(10, 10))
         axes = fig.subplot_mosaic(
             [
-                ["x", "y", "psi"],
-                ["u", "v", "r"],
+                ["x"],
+                ["y"],
+                ["psi"],
+                ["u"],
+                ["v"],
+                ["r"],
             ]
         )
 
-        axes["x"].plot(sim_times, trajectory[0, :], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["x"].plot(sim_times, reference_trajectory[0, :], color="xkcd:red", linewidth=linewidth, label="reference")
-        axes["x"].set_xlabel("Time [s]")
+        axes["x"].plot(sim_times[:n_samples], trajectory[0, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["x"].plot(sim_times[:n_samples], reference_trajectory[0, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        # axes["x"].set_xlabel("Time [s]")
         axes["x"].set_ylabel("North [m]")
         axes["x"].legend()
 
-        axes["y"].plot(sim_times, trajectory[1, :], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["y"].plot(sim_times, reference_trajectory[1, :], color="xkcd:red", linewidth=linewidth, label="reference")
-        axes["y"].set_xlabel("Time [s]")
+        axes["y"].plot(sim_times[:n_samples], trajectory[1, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["y"].plot(sim_times[:n_samples], reference_trajectory[1, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        # axes["y"].set_xlabel("Time [s]")
         axes["y"].set_ylabel("East [m]")
         axes["y"].legend()
 
-        axes["psi"].plot(sim_times, trajectory[2, :] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["psi"].plot(sim_times, reference_trajectory[2, :] * 180.0 / np.pi, color="xkcd:red", linewidth=linewidth, label="reference")
-        axes["psi"].set_xlabel("Time [s]")
+        axes["psi"].plot(sim_times[:n_samples], trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["psi"].plot(
+            sim_times[:n_samples], reference_trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference"
+        )
+        # axes["psi"].set_xlabel("Time [s]")
         axes["psi"].set_ylabel("Heading [deg]")
         axes["psi"].legend()
 
-        axes["u"].plot(sim_times, trajectory[3, :], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["u"].plot(sim_times, reference_trajectory[3, :], color="xkcd:red", linewidth=linewidth, label="reference")
-        axes["u"].set_xlabel("Time [s]")
+        axes["u"].plot(sim_times[:n_samples], trajectory[3, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["u"].plot(sim_times[:n_samples], reference_trajectory[3, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        # axes["u"].set_xlabel("Time [s]")
         axes["u"].set_ylabel("Surge [m/s]")
         axes["u"].legend()
 
-        axes["v"].plot(sim_times, trajectory[4, :], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["v"].plot(sim_times, reference_trajectory[4, :], color="xkcd:red", linewidth=linewidth, label="reference")
-        axes["v"].set_xlabel("Time [s]")
+        axes["v"].plot(sim_times[:n_samples], trajectory[4, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["v"].plot(sim_times[:n_samples], reference_trajectory[4, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        # axes["v"].set_xlabel("Time [s]")
         axes["v"].set_ylabel("Sway [m/s]")
         axes["v"].legend()
 
-        axes["r"].plot(sim_times, trajectory[5, :] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["r"].plot(sim_times, reference_trajectory[5, :] * 180.0 / np.pi, color="xkcd:red", linewidth=linewidth, label="reference")
+        axes["r"].plot(sim_times[:n_samples], trajectory[5, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
+        axes["r"].plot(
+            sim_times[:n_samples], reference_trajectory[5, :n_samples] * 180.0 / np.pi, linestyle="--", color="xkcd:red", linewidth=linewidth, label="reference"
+        )
         axes["r"].set_xlabel("Time [s]")
         axes["r"].set_ylabel("Yaw [deg/s]")
         axes["r"].legend()
-
+        plt.show(block=False)
         return fig, axes
 
     def plot_do_tracking_results(
@@ -954,7 +965,7 @@ class Visualizer:
         axes["errs"].plot(sim_times, vel_error, color="xkcd:red", linewidth=do_lw, label="vel. error")
         axes["errs"].set_xlabel("Time [s]")
         axes["errs"].legend()
-
+        plt.show(block=False)
         return fig, axes
 
     def toggle_ship_legend_visibility(self, idx: int, state: bool) -> None:

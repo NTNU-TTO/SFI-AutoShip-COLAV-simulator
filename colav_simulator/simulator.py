@@ -208,7 +208,6 @@ class Simulator:
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
         dt_sim = scenario_config.dt_sim
         for _, t in enumerate(sim_times):
-
             sim_data_dict = {}
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
@@ -231,11 +230,12 @@ class Simulator:
                         do_list=tracks,
                         enc=scenario_enc,
                     )
-                    sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
-                    ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
-                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
+                    sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
+                    sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
+                    sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
+
+                    ship_obj.forward(dt_sim)
 
             sim_data.append(sim_data_dict)
 
