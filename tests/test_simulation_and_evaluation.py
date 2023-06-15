@@ -10,7 +10,7 @@ if __name__ == "__main__":
     evaluator = Evaluator()
 
     framework_exec_times = []
-    n_runs = 5
+    n_runs = 1
     for i in range(n_runs):
         start_time = time.time()
         # scenario_data_list = simulator.generate_configured_scenarios()
@@ -28,8 +28,8 @@ if __name__ == "__main__":
                 evaluator.set_vessel_data(vessels)
                 results = evaluator.evaluate()
 
-                # evaluator.print_vessel_scores(vessel_id=0)
-                # evaluator.print_vessel_scores(vessel_id=1)
+                evaluator.print_vessel_scores(vessel_id=0)
+                evaluator.print_vessel_scores(vessel_id=1)
                 # evaluator.plot_trajectories_and_scores(0, [0, 1])
                 # evaluator.plot_scores(vessel_ids=[0, 1])
                 # evaluator.plot_maneuver_detection_information(vessel_id=0)

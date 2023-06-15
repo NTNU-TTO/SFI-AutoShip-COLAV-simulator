@@ -576,7 +576,10 @@ class Visualizer:
         ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
         trajectory_list = ship_data["trajectory_list"]
         colav_data_list = ship_data["colav_data_list"]
-        nominal_trajectory_list = [colav_data[0]["nominal_trajectory"] for colav_data in colav_data_list]
+        nominal_trajectory_list = []
+        for colav_data in colav_data_list:
+            if "nominal_trajectory" in colav_data[0]:
+                nominal_trajectory_list.append(colav_data[0]["nominal_trajectory"])
         cpa_indices = ship_data["cpa_indices"]
         min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
 
@@ -658,7 +661,7 @@ class Visualizer:
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and trajectory tracking results
             if i == 0:
 
-                if self._config.show_trajectory_tracking_results:
+                if self._config.show_trajectory_tracking_results and len(nominal_trajectory_list) > 0:
                     self.plot_trajectory_tracking_results(i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0)
 
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)

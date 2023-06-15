@@ -209,7 +209,7 @@ class VOWrapper(ICOLAV):
         return {}
 
     def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
-        return {}
+        return plt_handles
 
 
 class SBMPCWrapper(ICOLAV):
@@ -264,7 +264,7 @@ class SBMPCWrapper(ICOLAV):
         return {}
 
     def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
-        return {}
+        return plt_handles
 
 
 class COLAVBuilder:
