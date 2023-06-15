@@ -20,7 +20,7 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 
 
 def local2latlon(x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
@@ -207,6 +207,27 @@ def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
     return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
 
 
+def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC) -> list:
+    """Extracts the union of the relevant grounding hazards from the ENC as a list of polygons.
+
+    This includes land, shore and seabed polygons that are below the vessel`s minimum depth.
+
+    Args:
+        vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
+        enc (senc.ENC): The ENC to check for grounding.
+
+    Returns:
+        list: The relevant grounding hazards.
+    """
+    dangerous_seabed = enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+    # return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
+    relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
+    filtered_relevant_hazards = []
+    for hazard in relevant_hazards:
+        filtered_relevant_hazards.append(MultiPolygon(Polygon(p.exterior) for p in hazard.geoms))
+    return filtered_relevant_hazards
+
+
 def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_clearance: float = 100.0) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
@@ -240,6 +261,52 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_c
     return northing, easting
 
 
+def compute_distance_vectors_to_grounding(vessel_trajectory: np.ndarray, minimum_vessel_depth: int, enc: ENC, show_plots: bool = False) -> np.ndarray:
+    """Computes the distance vectors to grounding at each step of the given vessel trajectory.
+
+    Args:
+        - vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
+        - minimum_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
+        - enc (ENC): The ENC to check for grounding.
+
+    Returns:
+        - np.ndarray: The distance to grounding at each step of the vessel trajectory.
+    """
+    if show_plots:
+        enc.start_display()
+    relevant_hazards = extract_relevant_grounding_hazards_as_union(minimum_vessel_depth, enc)
+    vessel_traj_linestring = mhm.ndarray_to_linestring(vessel_trajectory)
+
+    distance_vectors = np.ndarray((2, vessel_trajectory.shape[1]))
+    for idx, point in enumerate(vessel_traj_linestring.coords):
+        for hazard in relevant_hazards:
+            dist = hazard.distance(Point(point))
+
+            point = Point(vessel_traj_linestring.coords[idx])
+            nearest_poly_points = []
+            for hazard in relevant_hazards:
+                nearest_point = ops.nearest_points(point, hazard)[1]
+                nearest_poly_points.append(nearest_point)
+
+            min_dist = 1e12
+            min_dist_vec = np.array([1e6, 1e6])
+            for _, near_point in enumerate(nearest_poly_points):
+                points = [
+                    (np.asarray(point.coords.xy[0])[0], np.asarray(point.coords.xy[1])[0]),
+                    (np.asarray(near_point.coords.xy[0])[0], np.asarray(near_point.coords.xy[1])[0]),
+                ]
+
+                if show_plots:
+                    enc.draw_line(points, color="black", width=0.5, marker_type="o")
+
+                dist_vec = np.array([points[1][0] - points[0][0], points[1][1] - points[0][1]])
+                if np.linalg.norm(dist_vec) <= min_dist:
+                    min_dist_vec = dist_vec
+                    min_dist = np.linalg.norm(min_dist_vec)
+            distance_vectors[:, idx] = min_dist_vec
+    return distance_vectors
+
+
 def compute_closest_grounding_dist(vessel_trajectory: np.ndarray, minimum_vessel_depth: int, enc: ENC, show_enc: bool = False) -> Tuple[float, np.ndarray, int]:
     """Computes the closest distance to grounding for the given vessel trajectory.
 
@@ -259,7 +326,7 @@ def compute_closest_grounding_dist(vessel_trajectory: np.ndarray, minimum_vessel
             enc.draw_polygon(hazard, color="red")
     # intersection_points = find_intersections_line_polygon(vessel_traj_linestring, relevant_hazards, enc)
 
-    # Will find the first gronding point.
+    # Will find the closest grounding point.
     min_dist = 1e12
     for idx, point in enumerate(vessel_traj_linestring.coords):
         for hazard in relevant_hazards:

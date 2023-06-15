@@ -578,6 +578,7 @@ class Visualizer:
         colav_data_list = ship_data["colav_data_list"]
         nominal_trajectory_list = [colav_data[0]["nominal_trajectory"] for colav_data in colav_data_list]
         cpa_indices = ship_data["cpa_indices"]
+        min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
 
         n_samples = len(sim_times)
         if k_snapshots is None:
@@ -665,6 +666,9 @@ class Visualizer:
                 do_covariances = track_data["do_covariances"]
                 do_NISes = track_data["do_NISes"]
                 do_labels = track_data["do_labels"]
+
+                # Plot distance to own-ship
+                self.plot_obstacle_distances_to_ownship(sim_times, trajectory_list, do_estimates, do_covariances, do_labels, min_os_depth, enc)
 
                 for j, do_estimates_j in enumerate(do_estimates):
                     first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
@@ -772,9 +776,75 @@ class Visualizer:
         axes.append(ax_map)
         return figs, axes
 
+    def plot_obstacle_distances_to_ownship(
+        self,
+        sim_times: np.ndarray,
+        trajectory_list: list,
+        do_estimates: list,
+        do_covariances: list,
+        do_labels: list,
+        min_os_depth: int,
+        enc: ENC,
+        d_safe_so: float = 5.0,
+        d_safe_do: float = 5.0,
+    ) -> Tuple[plt.Figure, list]:
+        """Plots the obstacle (both dynamic and static) distances to the ownship.
+
+        Args:
+            - sim_times (np.ndarray): Simulation times.
+            - trajectory_list (list): List of trajectories for all vessels involved in the scenario episode.
+            - do_estimates (list): List of DO estimates.
+            - do_covariances (list): List of DO covariances.
+            - do_labels (list): List of DO labels.
+            - min_os_depth (int): Minimum allowable depth for the own-ship.
+            - enc (ENC): Electronic Navigational Chart object.
+            - d_safe_so (float, optional): Safe distance to static obstacles to be kept by the COLAV system. Defaults to 5.0.
+            - d_safe_do (float, optional): Safe distance to dynamic obstacles to be kept by the COLAV system. Defaults to 5.0.
+
+        Returns:
+            Tuple[plt.Figure, list]: Figure and axes of the output plots.
+        """
+
+        fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 10))
+        n_do = len(do_labels)
+        axes = fig.subplots(n_do + 1, 1, sharex=True)
+        plt.show(block=False)
+
+        os_traj = trajectory_list[0]
+        os_en_traj = os_traj[:2, :].copy()
+        os_en_traj[0, :] = os_traj[1, :]
+        os_en_traj[1, :] = os_traj[0, :]
+        distance_vectors = mapf.compute_distance_vectors_to_grounding(os_en_traj, min_os_depth, enc)
+        dist2closest_grounding_hazard = np.linalg.norm(distance_vectors, axis=0)
+        if n_do == 0:
+            axes = [axes]
+        axes[0].plot(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
+        axes[0].plot(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+        axes[0].set_ylabel("Distance [m]")
+        axes[0].set_xlabel("Time [s]")
+        axes[0].legend()
+
+        for j, do_estimates_j in enumerate(do_estimates):
+            first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
+
+            if first_valid_idx_track >= last_valid_idx_track:
+                continue
+
+            do_true_states_j = trajectory_list[do_labels[j]]
+            do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
+
+            dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)
+            axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+            axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+            axes[j + 1].set_ylabel("Distance [m]")
+            axes[j + 1].set_xlabel("Time [s]")
+            axes[j + 1].legend()
+
+        return fig, axes
+
     def plot_trajectory_tracking_results(
         self, ship_idx: int, sim_times: np.ndarray, trajectory: np.ndarray, reference_trajectory: np.ndarray, linewidth: float = 1.0
-    ) -> Tuple[plt.Figure, plt.Axes]:
+    ) -> Tuple[plt.Figure, list]:
         """Plots the trajectory tracking results of a ship.
 
         Args:
@@ -784,7 +854,7 @@ class Visualizer:
             - ship_idx (int): Index of the ship.
 
         Returns:
-            - Tuple[plt.Figure, plt.Axes]: Figure and axes of the output plots.
+            - Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
         n_samples = min(sim_times.shape[0], reference_trajectory.shape[1])
         fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", figsize=(10, 10))
@@ -852,7 +922,7 @@ class Visualizer:
         do_idx: int,
         do_lw: float = 1.0,
         confidence_level: float = 0.95,
-    ) -> Tuple[plt.Figure, plt.Axes]:
+    ) -> Tuple[plt.Figure, list]:
         """Plot the tracking (for ship <ship_idx>) results of a specific dynamic obstacle (DO).
 
         Args:
@@ -867,7 +937,7 @@ class Visualizer:
             confidence_level (float, optional): Confidence level considered for the uncertainty plotting. Defaults to 0.95.
 
         Returns:
-            plt.Figure, plt.Axes: Figure and axes handles for the DO <do_idx> tracking results.
+            Tuple[plt.Figure, list]: Figure and axes handles for the DO <do_idx> tracking results.
         """
         fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), figsize=(10, 10))
         axes = fig.subplot_mosaic(
