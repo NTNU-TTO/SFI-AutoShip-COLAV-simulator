@@ -24,6 +24,7 @@ from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
 
+plt.rcParams.update(matplotlib.rcParamsDefault)
 matplotlib.rcParams["pdf.fonttype"] = 42
 matplotlib.rcParams["ps.fonttype"] = 42
 
@@ -580,6 +581,19 @@ class Visualizer:
         for colav_data in colav_data_list:
             if "nominal_trajectory" in colav_data[0]:
                 nominal_trajectory_list.append(colav_data[0]["nominal_trajectory"])
+
+        t_solve = []
+        cost_vals = []
+        n_iters = []
+        final_residuals = []
+        for os_colav_data in colav_data_list[0]:
+            if os_colav_data:
+                t_solve.append(os_colav_data["t_solve"])
+                cost_vals.append(os_colav_data["cost_vals"])
+                n_iters.append(os_colav_data["n_iters"])
+                final_residuals.append(os_colav_data["final_residuals"])
+        colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
+
         cpa_indices = ship_data["cpa_indices"]
         min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
 
