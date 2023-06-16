@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -60,7 +60,7 @@ class KTPGuidanceParams:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    los: Optional[LOSGuidanceParams] = LOSGuidanceParams()
+    los: Optional[LOSGuidanceParams] = field(default_factory=lambda: LOSGuidanceParams())
     ktp: Optional[KTPGuidanceParams] = None
 
     @classmethod

@@ -42,8 +42,8 @@ class RadarParams:
 
     max_range: float = 500.0
     measurement_rate: float = 1.0
-    R: np.ndarray = np.diag([5.0**2, 5.0**2])  # meas cov used by the tracker
-    R_true: np.ndarray = np.diag([5.0**2, 5.0**2])  # meas cov that reflects the true noise characteristics. Used to generate measurements
+    R: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2]))  # meas cov used by the tracker
+    R_true: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2]))  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(self, config_dict: dict):
@@ -74,8 +74,8 @@ class AISParams:
 
     max_range: float = 5000.0
     ais_class: AISClass = AISClass.A
-    R: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov for a state vector of [x, y, Vx, Vy], used by the tracker
-    R_true: np.ndarray = np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])  # meas cov that reflects the true noise characteristics. Used to generate measurements
+    R: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2]))  # meas cov for a state vector of [x, y, Vx, Vy], used by the tracker
+    R_true: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2]))  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(cls, config_dict: dict):

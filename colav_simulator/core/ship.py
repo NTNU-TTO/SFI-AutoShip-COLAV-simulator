@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 
 import colav_evaluation_tool.vessel as colav_eval_vessel_data
@@ -30,11 +30,11 @@ class Config:
     """Configuration class for managing ship parameters."""
 
     colav: Optional[ci.Config] = None
-    guidance: Optional[guidances.Config] = guidances.Config()
-    model: models.Config = models.Config()
-    controller: controllers.Config = controllers.Config()
-    sensors: sensing.Config = sensing.Config()
-    tracker: trackers.Config = trackers.Config()
+    guidance: Optional[guidances.Config] = field(default_factory=lambda: guidances.Config())
+    model: models.Config = field(default_factory=lambda: models.Config())
+    controller: controllers.Config = field(default_factory=lambda: controllers.Config())
+    sensors: sensing.Config = field(default_factory=lambda: sensing.Config())
+    tracker: trackers.Config = field(default_factory=lambda: trackers.Config())
     mmsi: int = -1  # MMSI number of the ship, if configured equal to the MMSI of a ship in AIS data, the ship will be initialized with the data from the AIS data.
     id: int = -1  # Ship identifier
     t_start: Optional[float] = None  # Determines when the ship should start in the simulation
