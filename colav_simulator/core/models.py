@@ -9,7 +9,7 @@
 """
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -28,6 +28,7 @@ class KinematicCSOGParams:
 
     draft: float = 2.0
     length: float = 10.0
+    ship_vertices: np.ndarray = field(default_factory=lambda: np.empty(2))
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
@@ -35,17 +36,44 @@ class KinematicCSOGParams:
     U_min: float = 0.0
     U_max: float = 15.0
 
+    @classmethod
+    def from_dict(self, params_dict: dict):
+        params = KinematicCSOGParams(
+            draft=params_dict["draft"],
+            length=params_dict["length"],
+            width=params_dict["width"],
+            ship_vertices=np.empty(2),
+            T_chi=params_dict["T_chi"],
+            T_U=params_dict["T_U"],
+            r_max=np.deg2rad(params_dict["r_max"]),
+            U_min=params_dict["U_min"],
+            U_max=params_dict["U_max"],
+        )
+        params.ship_vertices = np.array(
+            [
+                [params.length / 2.0, -params.width / 2.0],
+                [params.length / 2.0, params.width / 2.0],
+                [-params.length / 2.0, params.width / 2.0],
+                [-params.length / 2.0, -params.width / 2.0],
+            ]
+        ).T
+        return params
+
     def to_dict(self):
-        return asdict(self)
+        output_dict = asdict(self)
+        output_dict["ship_vertices"] = self.ship_vertices.tolist()
+        output_dict["r_max"] = np.rad2deg(self.r_max)
+        return output_dict
 
 
 @dataclass
 class TelemetronParams:
-    """Parameters for the Telemetron vessel (read only / Fixed)."""
+    """Parameters for the Telemetron vessel (read only / fixed)."""
 
-    draft: float = 1.0
-    length: float = 10.0
+    draft: float = 0.5
+    length: float = 8.0
     width: float = 3.0
+    ship_vertices: np.ndarray = field(default_factory=lambda: np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T)
     l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = field(default_factory=lambda: np.diag([3980.0, 3980.0, 19703.0]))  # Rigid body mass matrix
     M_a: np.ndarray = field(default_factory=lambda: np.zeros((3, 3)))
@@ -71,13 +99,11 @@ class Config:
         config = Config()
         if "csog" in config_dict:
             config.csog = cp.convert_settings_dict_to_dataclass(KinematicCSOGParams, config_dict["csog"])
-            config.csog.r_max = float(np.deg2rad(config.csog.r_max))
             config.telemetron = None
 
         if "telemetron" in config_dict:
             config.telemetron = TelemetronParams()
             config.csog = None
-
         return config
 
     def to_dict(self) -> dict:
@@ -85,7 +111,6 @@ class Config:
 
         if self.csog is not None:
             config_dict["csog"] = self.csog.to_dict()
-            config_dict["csog"]["r_max"] = float(np.rad2deg(self.csog.r_max))
 
         if self.telemetron is not None:
             config_dict["telemetron"] = ""
@@ -101,6 +126,11 @@ class IModel(ABC):
         The state should be 6 x 1
         The input should be 3 x 1.
         """
+
+    @abstractmethod
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Returns the lower and upper bounds for the inputs and states in the model.
+        The output is on the form (lbu, ubu, lbx, ubx)."""
 
 
 class ModelBuilder:
@@ -161,7 +191,7 @@ class KinematicCSOG(IModel):
             raise ValueError("Dimension of state should be 6!")
 
         chi_d = u[0]
-        U_d = mf.sat(u[1], 0, self._params.U_max)
+        U_d = mf.sat(u[1], 0.0, self._params.U_max)
 
         chi_diff = mf.wrap_angle_diff_to_pmpi(chi_d, xs[2])
         xs[3] = mf.sat(xs[3], 0.0, self._params.U_max)
@@ -173,6 +203,13 @@ class KinematicCSOG(IModel):
         ode_fun[3] = (U_d - xs[3]) / self._params.T_U
 
         return ode_fun
+
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        lbu = np.array([-np.inf, 0.0, -np.inf])
+        ubu = np.array([np.inf, self._params.U_max, np.inf])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -self._params.r_max])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, self._params.r_max])
+        return lbu, ubu, lbx, ubx
 
     @property
     def params(self):
@@ -188,7 +225,7 @@ class KinematicCSOG(IModel):
 
 @dataclass
 class Telemetron(IModel):
-    """Implements a 3DOF vessel maneuvering model
+    """Implements a 3DOF underactuated vessel maneuvering model
 
     eta_dot = Rpsi(eta) * nu
     (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
@@ -216,7 +253,7 @@ class Telemetron(IModel):
 
         Args:
             xs (np.ndarray): State xs = [eta, nu]^T
-            u (np.ndarray): Input vector u = tau (generalized forces in X, Y and Z)
+            u (np.ndarray): Input vector u = tau (generalized forces in X, Y and N)
 
         Returns:
             np.ndarray: New state xs.
@@ -249,6 +286,13 @@ class Telemetron(IModel):
             ode_fun[2] = 0.0
 
         return ode_fun
+
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.Fy_limits[0] * self._params.l_r])
+        ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.Fy_limits[1] * self._params.l_r])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -self._params.r_max])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, self._params.r_max])
+        return lbu, ubu, lbx, ubx
 
     @property
     def params(self):

@@ -9,9 +9,10 @@ map_origin_enu: [-35824.0, 6573000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 3
 map_buffer: 0
-new_load_of_map_data: True
+new_load_of_map_data: False
 type: MS
-n_random_ships_range: [1, 2]
+n_random_ships: 1
+#n_random_ships_range: [1, 2]
 n_episodes: 1
 ship_list:
   - id: 0
@@ -42,14 +43,54 @@ ship_list:
         K_i: 0.0
         e_int_max: 200.0
     controller:
-      pass_through_cs: ''
+      flsh:
+        K_p_u: 3.0
+        K_i_u: 0.1
+        K_p_psi: 3.0
+        K_d_psi: 1.75
+        K_i_psi: 0.003
+        max_speed_error_int: 2.0
+        speed_error_int_threshold: 1.0
+        max_psi_error_int: 50.0
+        psi_error_int_threshold: 15.0
     model:
-      csog:
-        draft: 3.0
-        length: 12.0
-        width: 4.0
-        T_chi: 3.0
-        T_U: 5.0
-        r_max: 4.0
-        U_min: 0.0
-        U_max: 15.0
+      telemetron: ''
+  - id: 1
+    mmsi: 101
+    csog_state: [6575080.0, -32424.0, 6.0, 120.0]
+    random_generated: True
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 1.0
+    sensors:
+      - radar:
+          max_range: 3000.0
+          measurement_rate: 0.000001
+          R: [250.0, 250.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 3000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 40.0
+        K_p: 0.015
+        K_i: 0.0
+        e_int_max: 200.0
+    controller:
+      flsh:
+        K_p_u: 3.0
+        K_i_u: 0.1
+        K_p_psi: 3.0
+        K_d_psi: 1.75
+        K_i_psi: 0.003
+        max_speed_error_int: 2.0
+        speed_error_int_threshold: 1.0
+        max_psi_error_int: 50.0
+        psi_error_int_threshold: 15.0
+    model:
+      telemetron: ''

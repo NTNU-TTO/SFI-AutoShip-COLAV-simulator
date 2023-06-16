@@ -81,7 +81,7 @@ class Simulator:
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
 
-    def _create_file_path_list_from_config(self) -> list:
+    def create_file_path_list_from_config(self) -> list:
         """Creates a list of file paths from the config file scenario files or scenario folder.
 
         Returns:
@@ -94,6 +94,16 @@ class Simulator:
             files = [file for file in scenario_folder.iterdir()]
             files.sort()
             return files
+
+    def generate_configured_scenarios(self) -> list:
+        """Convenience method for generating a list of configured scenarios from the simulator config file, using the scenario generator.
+
+        Returns:
+            list: List of configured scenario data definitions.
+        """
+        files = self.create_file_path_list_from_config()
+        scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
+        return scenario_data_list
 
     def run(self, scenario_data_list: Optional[list] = None, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
@@ -111,8 +121,7 @@ class Simulator:
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
         if scenario_data_list is None:
-            files = self._create_file_path_list_from_config()
-            scenario_data_list = self._scenario_generator.generate_scenarios_from_files(files, self._config.verbose)
+            scenario_data_list = self.generate_configured_scenarios()
             # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random", self._config.verbose)
             # scenario_data_list = [scenario_data]
 
@@ -197,16 +206,13 @@ class Simulator:
         timestamp_start = mhm.current_utc_timestamp()
         most_recent_sensor_measurements: list = [None] * len(ship_list)
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
-        t_prev = sim_times[0]
+        dt_sim = scenario_config.dt_sim
         for _, t in enumerate(sim_times):
-            dt_sim = t - t_prev
-            t_prev = t
-
             sim_data_dict = {}
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
-                if t == 0.0:
-                    print(f"Ship {i} starts at {ship_obj.t_start}")
+                # if t == 0.0:
+                #    print(f"Ship {i} starts at {ship_obj.t_start}")
                 if ship_obj.t_start <= t:
                     vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
                     true_do_states.append((i, vxvy_state))
@@ -217,17 +223,19 @@ class Simulator:
 
                 most_recent_sensor_measurements[i] = extract_valid_sensor_measurements(t, most_recent_sensor_measurements[i], sensor_measurements_i)
 
-                if dt_sim > 0 and ship_obj.t_start <= t:
+                if ship_obj.t_start <= t:
                     ship_obj.plan(
                         t=t,
                         dt=dt_sim,
                         do_list=tracks,
                         enc=scenario_enc,
                     )
-                    ship_obj.forward(dt_sim)
 
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
-                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
+                    sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
+                    sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
+                    sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
+
+                    ship_obj.forward(dt_sim)
 
             sim_data.append(sim_data_dict)
 

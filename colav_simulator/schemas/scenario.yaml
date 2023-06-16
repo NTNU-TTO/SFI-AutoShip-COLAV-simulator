@@ -256,9 +256,6 @@ ship_list:
               epsilon:
                 required: True
                 type: float
-              dt_seg:
-                required: True
-                type: float
 
       controller:
         required: False
@@ -267,7 +264,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [flsh, pass_through, csog]
+            excludes: [flsh, pass_through_cs, csog, pass_through_inputs]
             schema:
               wn:
                 required: True
@@ -295,7 +292,7 @@ ship_list:
                   min: 0.0
           flsh:
             type: dict
-            excludes: [pid, pass_through, csog]
+            excludes: [pid, pass_through_cs, csog]
             schema:
               K_p_u:
                 required: True
@@ -337,6 +334,13 @@ ship_list:
             type: string
             empty: True
             excludes: [pid, flsh]
+          pass_through_inputs:
+            type: dict
+            excludes: [pid, flsh, pass_through_cs]
+            schema:
+              rudder_propeller_mapping:
+                required: True
+                type: boolean
 
       model:
         required: False
@@ -356,6 +360,9 @@ ship_list:
               width:
                 required: True
                 type: float
+              ship_vertices:
+                required: False
+                type: list
               T_chi:
                 required: True
                 type: float

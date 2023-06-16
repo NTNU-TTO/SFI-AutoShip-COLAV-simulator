@@ -26,6 +26,7 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.colav.sbmpc.sbmpc as sb_mpc
 import colav_simulator.core.guidances as guidance
+import matplotlib.pyplot as plt
 import numpy as np
 from seacharts.enc import ENC
 
@@ -144,6 +145,27 @@ class ICOLAV(ABC):
             np.ndarray: The most recent planned poses, velocities and accelerations (vstacked) over the COLAV planning horizon (if any). Must be compatible with the control system you are using.
         """
 
+    @abstractmethod
+    def get_colav_data(self) -> dict:
+        """Returns the plotting data relevant for the COLAV planning algorithm. This includes e.g. the predicted trajectory, considered obstacles, optimal inputs etc..
+
+        Returns:
+            dict: The relevant data used in the COLAV planning algorithm.
+        """
+
+    @abstractmethod
+    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+        """Plots the COLAV planning algorithm results data, e.g. the predicted trajectory, considered obstacles, optimal inputs etc..
+
+        Args:
+            ax_map (plt.Axes): Map axes to plot on.
+            enc (senc.ENC): ENC object.
+            plt_handles (dict): Dictionary of plot handles.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            dict: Dictionary of plot handles."""
+
 
 class VOWrapper(ICOLAV):
     """The VO wrapper is a Kuwata VO-based reactive COLAV planning system, where LOS-guidance is used to provide velocity references."""
@@ -182,6 +204,12 @@ class VOWrapper(ICOLAV):
 
     def get_current_plan(self) -> np.ndarray:
         return self._vo.get_current_plan()
+
+    def get_colav_data(self) -> dict:
+        return {}
+
+    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+        return plt_handles
 
 
 class SBMPCWrapper(ICOLAV):
@@ -229,7 +257,14 @@ class SBMPCWrapper(ICOLAV):
         return references
 
     def get_current_plan(self) -> np.ndarray:
-        """Returns the current planned trajectory"""
+        refs = np.zeros((9, 1))
+        return refs
+
+    def get_colav_data(self) -> dict:
+        return {}
+
+    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+        return plt_handles
 
 
 class COLAVBuilder:

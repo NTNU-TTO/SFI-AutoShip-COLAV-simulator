@@ -20,6 +20,7 @@ import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensing as sensing
 import colav_simulator.core.tracking.trackers as trackers
+import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.enc as senc
 from colav_simulator.core.integrators import erk4_integration_step
@@ -257,10 +258,10 @@ class Ship(IShip):
         self._id = identifier
         self._ais_msg_nr: int = 18
         self._state: np.ndarray = np.zeros(6)
-        self._goal_state: np.ndarray = np.zeros(6)
+        self._goal_state: np.ndarray = np.empty(0)
         self._waypoints: np.ndarray = np.empty(0)
-        self._speed_plan: np.ndarray = np.zeros(0)
-        self._references: np.ndarray = np.zeros(0)
+        self._speed_plan: np.ndarray = np.empty(0)
+        self._references: np.ndarray = np.empty(0)
         self._trajectory: np.ndarray = np.empty(0)
         self._trajectory_sample: int = -1  # Index of current trajectory sample considered in the simulation (for AIS trajectories)
         self._first_valid_idx: int = -1  # Index of first valid AIS message in predefined trajectory
@@ -330,7 +331,11 @@ class Ship(IShip):
         enc: Optional[senc.ENC] = None,
     ) -> np.ndarray:
 
-        if self._goal_state is None and (self._waypoints.size < 2 or self._speed_plan.size < 2):
+        # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
+        if self._trajectory.size > 0:
+            return self._trajectory
+
+        if self._goal_state.size == 0 and (self._waypoints.size < 2 or self._speed_plan.size < 2):
             raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
 
         if self._colav is not None:
@@ -383,11 +388,11 @@ class Ship(IShip):
             return self._state, np.empty(3), np.empty(9)
 
         if dt <= 0.0:
-            raise ValueError("Time step must be strictly positive!")
+            return self._state, np.empty(3), np.empty(9)
 
         u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._state, u, dt)
+        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, dt)
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
@@ -440,6 +445,17 @@ class Ship(IShip):
         if self._guidance is not None:
             self._guidance = None
 
+    def get_colav_data(self) -> dict:
+        """Returns COLAV related data for the ship, if any.
+
+        Returns:
+            dict: COLAV data as dictionary
+        """
+        if self._colav is None:
+            return {}
+
+        return self._colav.get_colav_data()
+
     def get_sim_data(self, t: float, timestamp_0: int) -> dict:
         """Returns simulation related data for the ship. Position are given in
         the local planar coordinate system.
@@ -470,8 +486,11 @@ class Ship(IShip):
             "id": self.id,
             "mmsi": self.mmsi,
             "csog_state": csog_state,
+            "state": self._state,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
+            "references": self._references,
+            "goal_state": self._goal_state,
             "date_time_utc": datetime_str,
             "timestamp": t,
             "do_estimates": xs_i_upd,
@@ -496,7 +515,7 @@ class Ship(IShip):
         output["max_turn_rate"] = self.max_turn_rate
         return output
 
-    def get_do_track_information(self) -> Tuple[list, list, list, list]:
+    def get_do_track_information(self) -> Tuple[list, list]:
         return self._tracker.get_track_information()
 
     def transfer_vessel_ais_data(
@@ -625,3 +644,20 @@ class Ship(IShip):
             return np.array([])
         else:
             return self._trajectory[:, self._first_valid_idx : self._last_valid_idx + 1]
+
+    def plot_colav_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
+        """Plots the COLAV data of the ship, if available.
+
+        Args:
+            ax_map (plt.Axes): Map axes to plot on.
+            enc (senc.ENC): ENC object.
+            plt_handles (dict): Dictionary of plot handles.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            dict: Dictionary of plot handles.
+        """
+        if self._colav is None:
+            return plt_handles
+
+        return self._colav.plot_results(ax_map, enc, plt_handles, **kwargs)

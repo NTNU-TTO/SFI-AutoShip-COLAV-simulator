@@ -125,7 +125,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
             draft=ship_i_info["draft"],
         )
 
-        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_ship_dataframe(sim_data[name])
+        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_dataframe(sim_data[name])
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
         n_msgs = len(vessel.timestamps)
@@ -154,8 +154,8 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
 
         vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
 
-        print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
-        print(f"Vessel status: {vessel.status}")
+        # print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
+        # print(f"Vessel status: {vessel.status}")
 
         vessels.append(vessel)
 
@@ -219,18 +219,22 @@ def extract_ship_data_from_sim_dataframe(ship_list: list, sim_data: pd.DataFrame
     """
     output = {}
     trajectory_list = []
+    colav_data = []
     for i, ship in enumerate(ship_list):
-        X, timestamps, _ = extract_trajectory_data_from_ship_dataframe(sim_data[f"Ship{i}"])
+        X, timestamps, _ = extract_trajectory_data_from_dataframe(sim_data[f"Ship{i}"])
+        colav_data_i = extract_colav_data_from_dataframe(sim_data[f"Ship{i}"])
         trajectory_list.append(X)
+        colav_data.append(colav_data_i)
 
     output["trajectory_list"] = trajectory_list
+    output["colav_data_list"] = colav_data
     output["timestamps"] = timestamps
     cpa_indices = find_cpa_indices(trajectory_list)
     output["cpa_indices"] = cpa_indices
     return output
 
 
-def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
+def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
     """Extract the trajectory related data from a ship dataframe.
 
     Args:
@@ -239,16 +243,30 @@ def extract_trajectory_data_from_ship_dataframe(ship_df: pd.DataFrame) -> Tuple[
     Returns:
         Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
     """
-    X = np.zeros((4, len(ship_df)))
+    X = np.zeros((6, len(ship_df)))
     timestamps = []
     datetimes_utc = []
     for k, ship_df_k in enumerate(ship_df):
-        X[:, k] = ship_df_k["csog_state"]
+        X[:, k] = ship_df_k["state"]
         timestamps.append(float(ship_df_k["timestamp"]))
         datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
         datetimes_utc.append(datetime_utc)
-
     return X, timestamps, datetimes_utc
+
+
+def extract_colav_data_from_dataframe(ship_df: pd.DataFrame) -> list:
+    """Extract the COLAV related data from a ship dataframe
+
+    Args:
+        ship_df (pd.DataFrame): Dataframe containing the ship simulation data.
+
+    Returns:
+        list: List of COLAV data at each simulation timestamp.
+    """
+    colav_data = []
+    for _, ship_df_k in enumerate(ship_df):
+        colav_data.append(ship_df_k["colav"])
+    return colav_data
 
 
 def extract_track_data_from_dataframe(ship_df: pd.DataFrame) -> dict:

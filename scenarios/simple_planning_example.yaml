@@ -1,0 +1,61 @@
+name: "rogaland_random"
+save_scenario: False
+t_start: 0.0
+t_end: 840.0
+dt_sim: 0.5
+utm_zone: 33
+map_size: [4000.0, 4000.0]
+map_origin_enu: [-34544.0, 6580000.0]
+map_data_files: ["Rogaland_utm33.gdb"]
+map_tolerance: 2
+map_buffer: 0
+new_load_of_map_data: False
+type: MS
+n_random_ships: 0
+#n_random_ships_range: [1, 2]
+n_episodes: 1
+ship_list:
+  - id: 0
+    mmsi: 100
+    csog_state: [6581585.0, -33700.0, 4.0, 120.0]
+    waypoints: [[6581585.0, 6581585.0, 6581690.0, 6581790.0, 6581850.0, 6582000.0, 6582200.0, 6582270.0, 6582310.0, 6582360.0, 6582560.0, 6582760.0, 6582660.0, 6582620.0, 6582490.0, 6582270.0, 6582220.0, 6582120.0, 6581980.0, 6581780.0, 6581780.0], [-33700.0, -33615.0, -33600.0, -33620.0, -33615.0, -33495.0, -33500.0, -33500.0, -33550.0, -33540.0, -33490.0, -33290.0, -33090.0, -32900.0, -32660.0, -32450.0, -32440.0, -32480.0, -32480.0, -32450.0, -32670.0]]
+    speed_plan: [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
+    goal_csog_state: [6581780.0, -32670.0, 0.0, -30.0]
+    random_generated: False
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 1.0
+    sensors:
+      - radar:
+          max_range: 3000.0
+          measurement_rate: 0.000001
+          R: [250.0, 250.0]
+          R_true: [25.0, 25.0]
+      - ais:
+          max_range: 3000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 40.0
+        K_p: 0.015
+        K_i: 0.0
+        e_int_max: 200.0
+    controller:
+      pass_through_inputs:
+        rudder_propeller_mapping: True
+      # flsh:
+      #   K_p_u: 0.5
+      #   K_i_u: 0.0
+      #   K_p_psi: 2.0
+      #   K_d_psi: 3.5
+      #   K_i_psi: 0.001
+      #   max_speed_error_int: 2.0
+      #   speed_error_int_threshold: 1.0
+      #   max_psi_error_int: 50.0
+      #   psi_error_int_threshold: 15.0
+    model:
+      telemetron: ''
