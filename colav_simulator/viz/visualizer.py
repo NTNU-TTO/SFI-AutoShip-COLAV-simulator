@@ -587,12 +587,13 @@ class Visualizer:
         n_iters = []
         final_residuals = []
         for os_colav_data in colav_data_list[0]:
-            if os_colav_data:
-                t_solve.append(os_colav_data["t_solve"])
-                cost_vals.append(os_colav_data["cost_vals"])
-                n_iters.append(os_colav_data["n_iters"])
-                final_residuals.append(os_colav_data["final_residuals"])
-        colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
+            if os_colav_data and "mpc_soln" in os_colav_data:
+                mpc_soln = os_colav_data["mpc_soln"]
+                t_solve.append(mpc_soln["t_solve"])
+                cost_vals.append(mpc_soln["cost_vals"])
+                n_iters.append(mpc_soln["n_iters"])
+                final_residuals.append(mpc_soln["final_residuals"])
+        os_colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
 
         cpa_indices = ship_data["cpa_indices"]
         min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
