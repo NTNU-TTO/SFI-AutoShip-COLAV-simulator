@@ -10,6 +10,18 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 <img src="./scenarios/example_img/aalesund_random.pdf">
 
 
+## Citation
+If you are using the `colav_simulator` for academic work, please use the following citation:
+```
+@Article{Tengesdal2023_sim,
+  author  = {Trym Tengesdal and Tor A. Johansen},
+  journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
+  title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
+  year    = {2023},
+  note    = {In press},
+}
+```
+
 ## Dependencies
 Are all outlined in setup.cfg, and listed below:
 
@@ -82,18 +94,6 @@ Inside the colav_simulator directory test the installation with
 All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.
 
 If you're unfamiliar with git, check out <https://try.github.io/> to get familiar, and use <https://learngitbranching.js.org/> for trying out topics on your own.
-
-### Citation
-If you are using the `colav_simulator` for academic work, please use the following citation:
-```
-@Article{Tengesdal2023_sim,
-  author  = {Trym Tengesdal and Tor A. Johansen},
-  journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
-  title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
-  year    = {2023},
-  note    = {In press},
-}
-```
 
 ### Main branch
 The `main` branch shall always be working. This means that:
