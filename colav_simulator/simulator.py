@@ -109,8 +109,8 @@ class Simulator:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
         Args:
-            scenario_data_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
-            ownship_colav_system (Optional[Any | ci.ICOLAV]): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
+            - scenario_data_list (Optional[list]): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects. Defaults to None.
+            - ownship_colav_system (Optional[Any | ci.ICOLAV]): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
 
         Returns:
             list: List of dictionaries containing the following simulation data for each scenario:
@@ -180,18 +180,18 @@ class Simulator:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
         Args:
-            ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
+            - ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
-            scenario_config (ScenarioConfig): Scenario episode configuration object.
-            scenario_enc (senc.ENC): ENC object relevant for the scenario.
-            ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
+            - scenario_config (ScenarioConfig): Scenario episode configuration object.
+            - scenario_enc (senc.ENC): ENC object relevant for the scenario.
+            - ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
 
 
         Returns: a tuple containing:
-            sim_data (DataFrame): Dataframe/table containing the ship simulation data.
-            ship_info (dict): Dictionary containing the ship info for each ship.
-            sim_times (np.array): Array containing the simulation times.
+            - sim_data (DataFrame): Dataframe/table containing the ship simulation data.
+            - ship_info (dict): Dictionary containing the ship info for each ship.
+            - sim_times (np.array): Array containing the simulation times.
         """
         self._visualizer.init_live_plot(scenario_enc, ship_list)
 

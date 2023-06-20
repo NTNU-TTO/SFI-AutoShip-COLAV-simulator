@@ -83,6 +83,18 @@ All contributors are obligated to follow methods as outlined in <https://www.atl
 
 If you're unfamiliar with git, check out <https://try.github.io/> to get familiar, and use <https://learngitbranching.js.org/> for trying out topics on your own.
 
+### Citation
+If you are using the `colav_simulator` for academic work, please use the following citation:
+```
+@Article{Tengesdal2023_sim,
+  author  = {Trym Tengesdal and Tor A. Johansen},
+  journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
+  title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
+  year    = {2023},
+  note    = {In press},
+}
+```
+
 ### Main branch
 The `main` branch shall always be working. This means that:
 
@@ -140,7 +152,7 @@ git push -u origin feature/name_of_feature # -u flag with origin only needed fir
 #### Performing tests before merging into main
 
 After doing some development and thorough testing, it might be time to merge the feature into the `main` branch.
-Before doing that, make sure that all the steps listed under the heading [_Main branch_](#Main-branch).
+Before doing that, make sure that all checkpoints under the heading [_Main branch_](#Main-branch) are satisfied.
 
 To make sure new issues don't arise when merging into `main` later (because of other changes to `main`) we merge `main` into `feature/name_of_feature` first:
 
@@ -207,4 +219,4 @@ Standardized input/output formats are used for the interfaces to make the code f
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface.
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`).
