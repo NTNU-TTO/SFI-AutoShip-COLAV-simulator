@@ -40,7 +40,9 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
+`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. If you get troubles installing `gdal`, this might be due to:
+- The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
+- It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
 
 To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 
@@ -48,7 +50,7 @@ To use `seacharts` in the simulator, you should download `.gdb` files from <http
 
 Install Conda Miniforge from https://github.com/conda-forge/miniforge
 
-Create a conda virtual environment. Python version 3.10 is recommended since the version 3.11 results in error.
+Create a conda virtual environment, e.g. with python 3.10
 ```bash
 conda create --name ENV_NAME python=3.10
 conda activate ENV_NAME
@@ -171,7 +173,7 @@ After the tests have been completed, you can initiate a pull request on github, 
 
 #### Pull request
 
-Go to the `colav_simulator` repo on <github.com> and navigate to your branch (`feature/name_of_feature`).
+Go to the `colav_simulator` repo on <https://github.com> and navigate to your branch (`feature/name_of_feature`).
 In the status bar above the commit message there is a link for _Pull request_.
 Click that and describe your feature.
 Assign people to it to review the changes, and create the pull request.
