@@ -207,14 +207,15 @@ def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
     return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
 
 
-def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC) -> list:
+def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC, show_plots: bool = False) -> list:
     """Extracts the union of the relevant grounding hazards from the ENC as a list of polygons.
 
     This includes land, shore and seabed polygons that are below the vessel`s minimum depth.
 
     Args:
-        vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
-        enc (senc.ENC): The ENC to check for grounding.
+        - vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
+        - enc (senc.ENC): The ENC to check for grounding.
+        - show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
         list: The relevant grounding hazards.
@@ -224,7 +225,12 @@ def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC)
     relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
     filtered_relevant_hazards = []
     for hazard in relevant_hazards:
-        filtered_relevant_hazards.append(MultiPolygon(Polygon(p.exterior) for p in hazard.geoms))
+        filtered_relevant_hazards.append(MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon)))
+
+    if show_plots:
+        enc.start_display()
+        for hazard in filtered_relevant_hazards:
+            enc.draw_polygon(hazard, color="red", alpha=0.5)
     return filtered_relevant_hazards
 
 
@@ -234,12 +240,12 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_c
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
 
     Args:
-        enc (ENC): Electronic Navigational Chart object
-        draft (float): Ship's draft in meters.
-        min_land_clearance (float): Minimum distance to land in meters.
+        - enc (ENC): Electronic Navigational Chart object
+        - draft (float): Ship's draft in meters.
+        - min_land_clearance (float): Minimum distance to land in meters.
 
     Returns:
-        Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
+        - Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
     """
     depth = find_minimum_depth(draft, enc)
     safe_sea = enc.seabed[depth]
@@ -311,12 +317,12 @@ def compute_closest_grounding_dist(vessel_trajectory: np.ndarray, minimum_vessel
     """Computes the closest distance to grounding for the given vessel trajectory.
 
     Args:
-        vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
-        minimum_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
-        enc (senc.ENC): The ENC to check for grounding.
+        - vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
+        - minimum_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
+        - enc (senc.ENC): The ENC to check for grounding.
 
     Returns:
-        Tuple[float, int]: The closest distance to grounding, corresponding distance vector and the index of the trajectory point.
+        - Tuple[float, int]: The closest distance to grounding, corresponding distance vector and the index of the trajectory point.
     """
     relevant_hazards = extract_relevant_grounding_hazards(minimum_vessel_depth, enc)
     vessel_traj_linestring = mhm.ndarray_to_linestring(vessel_trajectory)

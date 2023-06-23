@@ -231,10 +231,11 @@ class Simulator:
                         enc=scenario_enc,
                     )
 
-                    sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
-                    sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
-                    sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
+                sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
+                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
+                sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
 
+                if ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
             sim_data.append(sim_data_dict)
