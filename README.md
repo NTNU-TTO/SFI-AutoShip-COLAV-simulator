@@ -10,6 +10,18 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 <img src="./scenarios/example_img/aalesund_random.pdf">
 
 
+## Citation
+If you are using the `colav_simulator` for academic work, please use the following citation:
+```
+@Article{Tengesdal2023_sim,
+  author  = {Trym Tengesdal and Tor A. Johansen},
+  journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
+  title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
+  year    = {2023},
+  note    = {In press},
+}
+```
+
 ## Dependencies
 Are all outlined in setup.cfg, and listed below:
 
@@ -28,7 +40,9 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
+`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. If you get troubles installing `gdal`, this might be due to:
+- The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
+- It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
 
 To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 
@@ -36,7 +50,7 @@ To use `seacharts` in the simulator, you should download `.gdb` files from <http
 
 Install Conda Miniforge from https://github.com/conda-forge/miniforge
 
-Create a conda virtual environment. Python version 3.10 is recommended since the version 3.11 results in error.
+Create a conda virtual environment, e.g. with python 3.10
 ```bash
 conda create --name ENV_NAME python=3.10
 conda activate ENV_NAME
@@ -140,7 +154,7 @@ git push -u origin feature/name_of_feature # -u flag with origin only needed fir
 #### Performing tests before merging into main
 
 After doing some development and thorough testing, it might be time to merge the feature into the `main` branch.
-Before doing that, make sure that all the steps listed under the heading [_Main branch_](#Main-branch).
+Before doing that, make sure that all checkpoints under the heading [_Main branch_](#Main-branch) are satisfied.
 
 To make sure new issues don't arise when merging into `main` later (because of other changes to `main`) we merge `main` into `feature/name_of_feature` first:
 
@@ -159,7 +173,7 @@ After the tests have been completed, you can initiate a pull request on github, 
 
 #### Pull request
 
-Go to the `colav_simulator` repo on <github.com> and navigate to your branch (`feature/name_of_feature`).
+Go to the `colav_simulator` repo on <https://github.com> and navigate to your branch (`feature/name_of_feature`).
 In the status bar above the commit message there is a link for _Pull request_.
 Click that and describe your feature.
 Assign people to it to review the changes, and create the pull request.
@@ -207,4 +221,4 @@ Standardized input/output formats are used for the interfaces to make the code f
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface.
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`).
