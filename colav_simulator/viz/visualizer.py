@@ -24,10 +24,6 @@ from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
 
-plt.rcParams.update(matplotlib.rcParamsDefault)
-matplotlib.rcParams["pdf.fonttype"] = 42
-matplotlib.rcParams["ps.fonttype"] = 42
-
 
 @dataclass
 class Config:
@@ -196,8 +192,13 @@ class Visualizer:
             - enc (ENC): ENC object containing the map data.
             - ship_list (list): List of configured ships in the simulation.
         """
+
         if not self._config.show_liveplot:
             return
+
+        plt.rcParams.update(matplotlib.rcParamsDefault)
+        matplotlib.rcParams["pdf.fonttype"] = 42
+        matplotlib.rcParams["ps.fonttype"] = 42
 
         xlimits, ylimits = self.find_plot_limits(ship_list[0])
 
@@ -569,6 +570,10 @@ class Visualizer:
         if not self._config.show_results:
             return [], []
 
+        plt.rcParams.update(matplotlib.rcParamsDefault)
+        matplotlib.rcParams["pdf.fonttype"] = 42
+        matplotlib.rcParams["ps.fonttype"] = 42
+
         if save_file_path is None:
             save_file_path = dp.figure_output / "scenario_ne.pdf"
         else:
@@ -590,8 +595,8 @@ class Visualizer:
             if os_colav_data and "mpc_soln" in os_colav_data:
                 mpc_soln = os_colav_data["mpc_soln"]
                 t_solve.append(mpc_soln["t_solve"])
-                cost_vals.append(mpc_soln["cost_vals"])
-                n_iters.append(mpc_soln["n_iters"])
+                cost_vals.append(mpc_soln["cost_val"])
+                n_iters.append(mpc_soln["n_iter"])
                 final_residuals.append(mpc_soln["final_residuals"])
         os_colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
 
@@ -608,7 +613,7 @@ class Visualizer:
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        xlimits, ylimits = self.find_plot_limits(ship_list[0])
+        xlimits, ylimits = self.find_plot_limits(ship_list[0], buffer=0.0)
         plt.show(block=False)
 
         figs_tracking: list = []
@@ -836,8 +841,10 @@ class Visualizer:
         dist2closest_grounding_hazard = np.linalg.norm(distance_vectors, axis=0)
         if n_do == 0:
             axes = [axes]
-        axes[0].plot(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
-        axes[0].plot(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+        # axes[0].plot(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
+        # axes[0].plot(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+        axes[0].semilogy(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
+        axes[0].semilogy(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
         axes[0].set_ylabel("Distance [m]")
         axes[0].set_xlabel("Time [s]")
         axes[0].legend()
@@ -852,8 +859,10 @@ class Visualizer:
             do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
 
             dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)
-            axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
-            axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+            # axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+            # axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+            axes[j + 1].semilogy(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+            axes[j + 1].semilogy(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
             axes[j + 1].set_ylabel("Distance [m]")
             axes[j + 1].set_xlabel("Time [s]")
             axes[j + 1].legend()
