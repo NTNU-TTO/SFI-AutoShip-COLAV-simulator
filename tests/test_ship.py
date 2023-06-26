@@ -22,7 +22,8 @@ if __name__ == "__main__":
     map_size = [5000.0, 5000.0]
     map_origin_enu = [-35544.0, 6579000.0]
     map_data_files = ["Rogaland_utm33.gdb"]
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+
     scenario_generator.enc.start_display()
     origin = scenario_generator.enc_origin
 

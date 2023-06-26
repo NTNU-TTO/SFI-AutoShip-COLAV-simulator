@@ -1,4 +1,4 @@
-name: "rogaland_random"
+name: "simple_planning_example"
 save_scenario: False
 t_start: 0.0
 t_end: 770.0
