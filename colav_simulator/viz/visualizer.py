@@ -897,41 +897,39 @@ class Visualizer:
         )
 
         axes["x"].plot(sim_times[:n_samples], trajectory[0, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["x"].plot(sim_times[:n_samples], reference_trajectory[0, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        axes["x"].plot(sim_times[:n_samples], reference_trajectory[0, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
         # axes["x"].set_xlabel("Time [s]")
         axes["x"].set_ylabel("North [m]")
         axes["x"].legend()
 
         axes["y"].plot(sim_times[:n_samples], trajectory[1, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["y"].plot(sim_times[:n_samples], reference_trajectory[1, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        axes["y"].plot(sim_times[:n_samples], reference_trajectory[1, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
         # axes["y"].set_xlabel("Time [s]")
         axes["y"].set_ylabel("East [m]")
         axes["y"].legend()
 
         axes["psi"].plot(sim_times[:n_samples], trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
         axes["psi"].plot(
-            sim_times[:n_samples], reference_trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference"
+            sim_times[:n_samples], reference_trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal"
         )
         # axes["psi"].set_xlabel("Time [s]")
         axes["psi"].set_ylabel("Heading [deg]")
         axes["psi"].legend()
 
         axes["u"].plot(sim_times[:n_samples], trajectory[3, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["u"].plot(sim_times[:n_samples], reference_trajectory[3, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        axes["u"].plot(sim_times[:n_samples], reference_trajectory[3, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
         # axes["u"].set_xlabel("Time [s]")
         axes["u"].set_ylabel("Surge [m/s]")
         axes["u"].legend()
 
         axes["v"].plot(sim_times[:n_samples], trajectory[4, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["v"].plot(sim_times[:n_samples], reference_trajectory[4, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="reference")
+        axes["v"].plot(sim_times[:n_samples], reference_trajectory[4, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
         # axes["v"].set_xlabel("Time [s]")
         axes["v"].set_ylabel("Sway [m/s]")
         axes["v"].legend()
 
         axes["r"].plot(sim_times[:n_samples], trajectory[5, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["r"].plot(
-            sim_times[:n_samples], reference_trajectory[5, :n_samples] * 180.0 / np.pi, linestyle="--", color="xkcd:red", linewidth=linewidth, label="reference"
-        )
+        axes["r"].plot(sim_times[:n_samples], reference_trajectory[5, :n_samples] * 180.0 / np.pi, linestyle="--", color="xkcd:red", linewidth=linewidth, label="nominal")
         axes["r"].set_xlabel("Time [s]")
         axes["r"].set_ylabel("Yaw [deg/s]")
         axes["r"].legend()
