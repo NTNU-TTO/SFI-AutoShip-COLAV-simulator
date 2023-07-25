@@ -20,7 +20,7 @@ import colav_simulator.viz.visualizer as viz
 import numpy as np
 import pandas as pd
 import seacharts.enc as senc
-import colav_simulator.core.colav.im_interface as im
+
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 
 
@@ -207,10 +207,7 @@ class Simulator:
         most_recent_sensor_measurements: list = [None] * len(ship_list)
         sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
         dt_sim = scenario_config.dt_sim
-
-        intention_model = im.IMWrapper(len(ship_list),ship_list[0])
-
-        for time, t in enumerate(sim_times):
+        for _, t in enumerate(sim_times):
             sim_data_dict = {}
             true_do_states = []
             for i, ship_obj in enumerate(ship_list):
@@ -241,8 +238,6 @@ class Simulator:
                 if ship_obj.t_start <= t:
                     ship_obj.forward(dt_sim)
 
-            if (time % 60 == 0):
-                intention_model.calculate_intentions(ship_list, time)
             sim_data.append(sim_data_dict)
 
             if t % 10.0 < 0.0001:
