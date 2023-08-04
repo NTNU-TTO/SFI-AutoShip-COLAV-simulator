@@ -2,7 +2,7 @@
     ship.py
 
     Summary:
-        Contains class definitions for ship classes.
+        Contains class definition for the Ship, representing an agent in the simulator.
         Every ship class must adhere to the interface
         IShip and must be built by a ShipBuilder.
 

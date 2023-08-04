@@ -18,7 +18,6 @@ If you are using the `colav_simulator` for academic work, please use the followi
   journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
   title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
   year    = {2023},
-  note    = {In press},
 }
 ```
 
@@ -210,7 +209,7 @@ Class responsible for visualizing scenarios run through by the Simulator, and vi
 
 The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
-#### Ship
+### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
 
 - `forward(dt: float) -> np.ndarray` function that allows simple forward simulation of the vessel.
@@ -221,4 +220,5 @@ Standardized input/output formats are used for the interfaces to make the code f
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`).
+#### COLAV
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`). This enables the usage of both internally developed COLAV planners in addition to third-party ones.

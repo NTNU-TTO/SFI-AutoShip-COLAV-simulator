@@ -31,6 +31,22 @@ class MIMOPIDParams:
 
 
 @dataclass
+class CyberShip2ControllerParams:
+    "Parameters for a PID controller for surge+heading control of the Cybership 2."
+    wn: np.ndarray = np.diag([0.3, 0.2, 0.35])
+    zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
+    eta_diff_max: np.ndarray = np.zeros(3)
+    V: np.ndarray = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]])
+
+    def to_dict(self):
+        output_dict = {}
+        output_dict["wn"] = self.wn.diagonal().tolist()
+        output_dict["zeta"] = self.zeta.diagonal().tolist()
+        output_dict["eta_diff_max"] = self.eta_diff_max.tolist()
+        output_dict["V"] = self.V.tolist()
+
+
+@dataclass
 class FLSHParams:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 2.0
@@ -117,7 +133,7 @@ class IController(ABC):
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
         """Computes inputs using the specific controller strategy.
 
-        References should be of dimension 9 to include pose (typically in NED),
+        References should be of dimension 9 to be able to include pose (typically in NED),
         pose derivative (NED or BODY), and pose double derivative (NED or BODY).
         """
 
@@ -346,7 +362,7 @@ class FLSH(IController):
         self._psi_error_int = mf.wrap_angle_to_pmpi(self._psi_error_int)
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
-        """Computes inputs based on the PID law.
+        """Computes inputs based on the proposed control law.
 
         Args:
             refs (np.ndarray): Desired/reference state xs_d = [eta_d^T, eta_dot_d^T, eta_ddot_d^T]^T
@@ -367,6 +383,7 @@ class FLSH(IController):
         eta = xs[0:3]
         nu = xs[3:]
 
+        # assume eta_dot_d is in BODY frame
         u_d = refs[3]
         psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
         psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
@@ -396,3 +413,178 @@ class FLSH(IController):
         tau = np.array([float(Fx), float(Fy), float(-Fy * model.params.l_r)])
 
         return tau
+
+
+class CyberShip2Controller(IController):
+    def __init__(self, model_params, params: Optional[CyberShip2ControllerParams] = None) -> None:
+        self._model_params = model_params
+        if params is not None:
+            self._params: CyberShip2ControllerParams = params
+        else:
+            self._params = CyberShip2ControllerParams()
+        self._eta_diff_int: np.ndarray = np.zeros(3)
+        self._psi_d_prev: float = 0.0
+        self._psi_prev: float = 0.0
+        self._n_u: int = 5
+
+    def _reset_integrator(self):
+        self._eta_diff_int = np.zeros(3)
+
+    def nonlinear_damping_matrix(self, nu: np.ndarray) -> np.ndarray:
+        """Computes the nonlinear damping matrix D_nl(nu)
+
+        Args:
+            nu (np.ndarray): Velocity vector nu = [u, v, r]^T
+
+        Returns:
+            np.ndarray: Nonlinear damping matrix D_nl(nu)
+        """
+        d_11 = self._model_params.X_uu * np.abs(nu[0]) + self._model_params.X_uuu * nu[0] ** 2
+        d_22 = self._model_params.Y_vv * np.abs(nu[1]) + self._model_params.Y_rv * np.abs(nu[2])
+        d_23 = self._model_params.Y_vr * np.abs(nu[1]) + self._model_params.Y_rr * np.abs(nu[2])
+        d_32 = self._model_params.N_vv * np.abs(nu[1]) + self._model_params.N_rv * np.abs(nu[2])
+        d_33 = self._model_params.N_vr * np.abs(nu[1]) + self._model_params.N_rr * np.abs(nu[2])
+        return np.array([[-d_11, 0.0, 0.0], [0.0, -d_22, -d_23], [0.0, -d_32, -d_33]])
+
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+        """Computes inputs based on the PID law.
+
+        Args:
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T. Could in practice be = [-, -, psi_d, U_d, -, -, -, -, -]^T if LOS-guidance is used.
+            xs (np.ndarray): State xs = [eta, nu]^T
+            dt (float): Time step
+            model (IModel): Model object to fetch parameters from, not used here.
+
+        Returns:
+            np.ndarray: Inputs u = tau to apply to the system.
+        """
+        if len(refs) != 9:
+            raise ValueError("Dimension of reference array should be equal to 9!")
+        if len(xs) != 6:
+            raise ValueError("Dimension of state should be 6!")
+
+        psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
+        psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
+        eta_d[2] = psi_d_unwrapped
+
+        psi: float = mf.wrap_angle_to_pmpi(eta[2])
+        psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
+
+        z = self._params.V @ xs
+        z[2] = psi_unwrapped
+
+        z_scaled = z.copy()
+        z_scaled[0] = z[0] * np.sqrt(self._model_params.scaling_factor)
+        z_scaled[1] = z[1] * np.sqrt(self._model_params.scaling_factor)
+        z_scaled[2] = z[2] / np.sqrt(self._model_params.scaling_factor)
+
+        Mmtrx = self._model_params.M_rb + self._model_params.M_a
+        Dmtrx = self._model_params.D_l @ nu_scaled + self.nonlinear_damping_matrix(nu_scaled)
+
+        K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._params.wn, self._params.zeta)
+
+        eta_d = refs[0:3]
+        eta_diff = eta - eta_d
+        eta_diff[2] = mf.wrap_angle_diff_to_pmpi(eta[2], eta_d[2])
+
+        self._eta_diff_int = mf.sat(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._params.eta_diff_max)
+
+        tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
+        tau = R_n_b.T @ tau
+
+        u = self.thrust_allocation(tau, nu_scaled)
+        return u
+
+    def thrust_allocation(self, tau: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
+        """Computes the propeller speeds n and rudder angles delta from the generalized forces tau = [Fx, Fy, N]^T.
+
+        Args:
+            tau (np.ndarray): Generalized forces tau = [Fx, Fy, N]^T
+            nu_r (np.ndarray): Relative velocity vector nu_r = [u_r, v_r, r]^T
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Propeller speeds n and rudder angles delta
+        """
+        W = np.eye(self._n_u)
+        B_pseudo_inv = np.linalg.inv(W) * self._model_params.B.T * np.linalg.inv(self._model_params.B * np.linalg.inv(W) * self._model_params.B.T)
+        f = B_pseudo_inv @ tau
+        n_1 = self.main_propeller_thrust_force_to_speed(f[0], nu_r[0])
+        n_2 = self.main_propeller_thrust_force_to_speed(f[1], nu_r[0])
+        n_3 = self.bow_thrust_force_to_propeller_speed(f[2])
+        delta_1 = self.main_propeller_lift_force_to_rudder_angle(f[3], f[0], nu_r[0])
+        delta_2 = self.main_propeller_lift_force_to_rudder_angle(f[4], f[1], nu_r[0])
+
+        n_1 = mf.sat(n_1, 0.0, self._model_params.max_propeller_speed)
+        n_2 = mf.sat(n_2, 0.0, self._model_params.max_propeller_speed)
+        n_3 = mf.sat(n_3, 0.0, self._model_params.max_propeller_speed)
+        delta_1 = mf.sat(delta_1, -self._model_params.max_rudder_angle, self._model_params.max_rudder_angle)
+        delta_2 = mf.sat(delta_2, -self._model_params.max_rudder_angle, self._model_params.max_rudder_angle)
+
+        return np.array([n_1, n_2, n_3, delta_1, delta_2])
+
+    def main_propeller_thrust_force_to_speed(self, T: float, u_r: float) -> float:
+        """Computes the main propeller speed n from the thrust force T and relative velocity u_r.
+
+        Args:
+            T (float): Thrust force T
+            u_r (float): Relative surge speed u_r
+
+        Returns:
+            float: Main propeller speed n
+        """
+        n_top = np.max(0.0, u_r * self._model_params.T_nu_plus / self._model_params.T_nn_plus)
+        n_bottom = np.min(0.0, u_r * self._model_params.T_nu_minus / self._model_params.T_nn_minus)
+        if T > 0.0:
+            n = u_r * self._model_params.T_nu_plus / (2 * self._model_params.T_nn_plus) + np.sqrt(
+                (self._model_params.T_nu_plus * u_r) ** 2 + 4 * self._model_params.T_nn_plus * T
+            ) / (2 * self._model_params.T_nn_plus)
+        elif T == 0.0:
+            n = 0.0
+        else:
+            n = u_r * self._model_params.T_nu_minus / (2 * self._model_params.T_nn_minus) + np.sqrt(
+                (self._model_params.T_nu_minus * u_r) ** 2 - 4 * self._model_params.T_nn_minus * T
+            ) / (2 * self._model_params.T_nn_minus)
+        return n
+
+    def bow_thrust_force_to_propeller_speed(self, T: float) -> float:
+        """Computes the bow thruster speed n from the thrust force T and relative surge speed u_r.
+
+        Args:
+            T (float): Thrust force T
+
+        Returns:
+            float: Bow thruster speed n
+        """
+        n = np.sign(T) * np.sqrt(self._model_params.T_n3n3 * np.abs(T)) / self._model_params.T_n3n3
+        return n
+
+    def main_propeller_lift_force_to_rudder_angle(self, L: float, T: float, u_r: float) -> float:
+        """Computes the rudder angle delta from the lift force L and relative surge speed u_r.
+
+        Args:
+            L (float): Lift force L
+            T (float): Thrust force T for propeller at the same location
+            u_r (float): Relative surge speed u_r
+
+        Returns:
+            float: Rudder angle delta
+        """
+        # Fluid velocity at rudder surface
+        u_rud = u_r
+        if u_r >= 0.0:
+            u_rud = u_r + self._model_params.k_u * (np.sqrt(np.max(0.0, 8.0 * T / (np.pi * self._model_params.rho * self._model_params.d_rud) + u_r**2)) - u_r)
+
+        epsilon = 0.0001
+        if u_rud >= epsilon:
+            delta = (np.sign(L) / (2.0 * self._model_params.L_ddelta_plus)) * (
+                self._model_params.L_delta_plus
+                - np.sqrt((self._model_params.L_delta_plus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_plus * u_rud**2 * np.abs(L)) / (u_rud**2)
+            )
+        elif np.abs(u_rud) < epsilon:
+            delta = 0.0
+        elif u_rud <= -epsilon:
+            delta = (np.sign(L) / (2.0 * self._model_params.L_ddelta_minus)) * (
+                self._model_params.L_delta_minus
+                - np.sqrt((self._model_params.L_delta_minus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_minus * u_rud**2 * np.abs(L)) / (u_rud**2)
+            )
+        return delta
