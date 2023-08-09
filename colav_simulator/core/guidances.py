@@ -31,10 +31,10 @@ class LOSGuidanceParams:
     """
 
     pass_angle_threshold: float = 90.0
-    R_a: float = 10.0
-    K_p: float = 0.03
+    R_a: float = 25.0
+    K_p: float = 0.015
     K_i: float = 0.0
-    e_int_max: float = 100.0
+    e_int_max: float = 200.0
 
     @classmethod
     def from_dict(cls, config_dict: dict):

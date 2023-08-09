@@ -87,6 +87,84 @@ max_dist_between_ships:
 filename:
   required: False
   type: string
+stochasticity:
+  required: False
+  type: dict
+  schema:
+    wind:
+      required: False
+      type: dict
+      schema:
+        gauss_markov:
+          required: False
+          type: dict
+          schema:
+            constant:
+              required: True
+              type: boolean
+            initial_speed:
+              required: True
+              type: float
+            initial_direction:
+              required: True
+              type: float
+            speed_range:
+              required: True
+              type: list
+            direction_range:
+              required: True
+              type: list
+            mu_speed:
+              required: True
+              type: float
+            mu_direction:
+              required: True
+              type: float
+            sigma_speed:
+              required: True
+              type: float
+            sigma_direction:
+              required: True
+              type: float
+    waves: # TBD
+      required: False
+      type: dict
+    currents:
+      required: False
+      type: dict
+      schema:
+        gauss_markov:
+          required: False
+          type: dict
+          schema:
+            constant:
+              required: True
+              type: boolean
+            initial_speed:
+              required: True
+              type: float
+            initial_direction:
+              required: True
+              type: float
+            speed_range:
+              required: True
+              type: list
+            direction_range:
+              required: True
+              type: list
+            mu_speed:
+              required: True
+              type: float
+            mu_direction:
+              required: True
+              type: float
+            sigma_speed:
+              required: True
+              type: float
+            sigma_direction:
+              required: True
+              type: float
+
 ship_list:
   required: False
   type: list
@@ -264,7 +342,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [flsh, pass_through_cs, csog, pass_through_inputs]
+            excludes: [cybership2_controller, flsh, pass_through_cs, csog, pass_through_inputs]
             schema:
               wn:
                 required: True
@@ -290,9 +368,37 @@ ship_list:
                 schema:
                   type: float
                   min: 0.0
+          cybership2_controller:
+            type: dict
+            excludes: [flsh, pass_through_cs, csog, pid, pass_through_inputs]
+            schema:
+              wn:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+              zeta:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+              z_diff_max:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
           flsh:
             type: dict
-            excludes: [pid, pass_through_cs, csog]
+            excludes: [cybership2_controller, pid, pass_through_cs, pass_through_inputs, csog]
             schema:
               K_p_u:
                 required: True
@@ -333,10 +439,10 @@ ship_list:
           pass_through_cs:
             type: string
             empty: True
-            excludes: [pid, flsh]
+            excludes: [cybership2_controller, pid, flsh, csog, pass_through_inputs]
           pass_through_inputs:
             type: dict
-            excludes: [pid, flsh, pass_through_cs]
+            excludes: [pid, flsh, pass_through_cs, cybership2_controller, csog]
             schema:
               rudder_propeller_mapping:
                 required: True
@@ -349,7 +455,7 @@ ship_list:
         schema:
           csog:
             type: dict
-            excludes: [telemetron]
+            excludes: [telemetron, cybership2]
             schema:
               draft:
                 required: True
@@ -382,4 +488,9 @@ ship_list:
           telemetron:
             type: string
             empty: True
-            excludes: [csog]
+            excludes: [csog, cybership2]
+
+          cybership2:
+            type: string
+            empty: True
+            excludes: [csog, telemetron]

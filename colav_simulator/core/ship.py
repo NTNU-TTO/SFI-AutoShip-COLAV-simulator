@@ -19,6 +19,7 @@ import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensing as sensing
+import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.core.tracking.trackers as trackers
 import matplotlib.pyplot as plt
 import numpy as np
@@ -323,13 +324,7 @@ class Ship(IShip):
         if config.mmsi != -1:
             self._mmsi = config.mmsi
 
-    def plan(
-        self,
-        t: float,
-        dt: float,
-        do_list: list,
-        enc: Optional[senc.ENC] = None,
-    ) -> np.ndarray:
+    def plan(self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
 
         # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
         if self._trajectory.size > 0:
@@ -347,6 +342,7 @@ class Ship(IShip):
                 do_list,
                 enc,
                 self._goal_state,
+                w,
                 os_length=self._model.params.length,
                 os_width=self._model.params.width,
                 os_draft=self._model.params.draft,
@@ -356,7 +352,7 @@ class Ship(IShip):
         self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
         return self._references
 
-    def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def forward(self, dt: float, w: Optional[stochasticity.DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
 
         If the ship is following a predefined trajectory,
@@ -365,6 +361,7 @@ class Ship(IShip):
 
         Args:
             dt (float): Time step (s) in the prediction.
+            w (Optional[stochasticity.DisturbanceData], optional): The disturbance to apply to the ship. Defaults to None.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,
@@ -390,9 +387,9 @@ class Ship(IShip):
         if dt <= 0.0:
             return self._state, np.empty(3), np.empty(9)
 
-        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
+        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, dt)
+        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, w, dt)
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:

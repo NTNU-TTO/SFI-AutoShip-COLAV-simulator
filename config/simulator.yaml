@@ -1,6 +1,6 @@
 simulator:
   #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  scenario_files: ["simple_planning_example.yaml"]
+  scenario_files: ["rl_scenario.yaml"]
   #scenario_files: ["head_on_sbmpc.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
   #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
@@ -12,7 +12,7 @@ simulator:
 scenario_generator:
   n_wps_range: [10, 15]
   speed_plan_variation_range: [-1.0, 1.0]
-  waypoint_dist_range: [200.0, 10000.0]
+  waypoint_dist_range: [500.0, 1000.0]
   waypoint_ang_range: [-45.0, 45.0]
   ho_bearing_range: [-20.0, 20.0]
   ho_heading_range: [-15.0, 15.0]

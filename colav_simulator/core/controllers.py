@@ -9,7 +9,7 @@
 """
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -32,18 +32,39 @@ class MIMOPIDParams:
 
 @dataclass
 class CyberShip2ControllerParams:
-    "Parameters for a PID controller for surge+heading control of the Cybership 2."
-    wn: np.ndarray = np.diag([0.3, 0.2, 0.35])
-    zeta: np.ndarray = np.diag([1.0, 1.0, 1.0])
-    eta_diff_max: np.ndarray = np.zeros(3)
-    V: np.ndarray = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]])
+    "Parameters for a PID controller for surge, sway + heading control of the Cybership 2."
+    K_p: np.ndarray
+    K_d: np.ndarray
+    K_i: np.ndarray
+    z_diff_max: np.ndarray
+    V: np.ndarray
+
+    def __init__(
+        self,
+        K_p: np.ndarray = np.diag([50.0, 0.0, 10.0]),
+        K_d: np.ndarray = np.diag([5.0, 5.0, 5.0]),
+        K_i: np.ndarray = np.diag([1.0, 0.1, 0.1]),
+        z_diff_max: np.ndarray = np.array([2.0, 2.0, 30.0 * np.pi / 180.0]),
+    ) -> None:
+        self.K_p = K_p
+        self.K_d = K_d
+        self.K_i = K_i
+        self.z_diff_max = z_diff_max
+        self.V = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]])
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        params = CyberShip2ControllerParams(
+            K_p=np.diag(config_dict["K_p"]), K_d=np.diag(config_dict["K_d"]), K_i=np.diag(config_dict["K_i"]), z_diff_max=np.array(config_dict["z_diff_max"])
+        )
+        return params
 
     def to_dict(self):
         output_dict = {}
-        output_dict["wn"] = self.wn.diagonal().tolist()
-        output_dict["zeta"] = self.zeta.diagonal().tolist()
-        output_dict["eta_diff_max"] = self.eta_diff_max.tolist()
-        output_dict["V"] = self.V.tolist()
+        output_dict["K_p"] = self.K_p.diagonal().tolist()
+        output_dict["K_d"] = self.K_d.diagonal().tolist()
+        output_dict["K_i"] = self.K_i.diagonal().tolist()
+        output_dict["z_diff_max"] = self.z_diff_max.tolist()
 
 
 @dataclass
@@ -85,6 +106,7 @@ class Config:
 
     pid: Optional[MIMOPIDParams] = None
     flsh: Optional[FLSHParams] = None
+    cybership2controller: Optional[CyberShip2ControllerParams] = None
     pass_through_cs: Optional[bool] = True
     pass_through_inputs: Optional[PassThroughInputsParams] = None
 
@@ -102,6 +124,9 @@ class Config:
             config.flsh = cp.convert_settings_dict_to_dataclass(FLSHParams, config_dict["flsh"])
             config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
             config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
+
+        if "cybership2controller" in config_dict:
+            config.cybership2controller = cp.convert_settings_dict_to_dataclass(CyberShip2ControllerParams, config_dict["cybership2controller"])
 
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
@@ -130,7 +155,7 @@ class Config:
 
 class IController(ABC):
     @abstractmethod
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs using the specific controller strategy.
 
         References should be of dimension 9 to be able to include pose (typically in NED),
@@ -140,7 +165,7 @@ class IController(ABC):
 
 class ControllerBuilder:
     @classmethod
-    def construct_controller(cls, config: Optional[Config] = None) -> IController:
+    def construct_controller(cls, model: Any, config: Optional[Config] = None) -> IController:
         """Builds a controller from the configuration
 
         Args:
@@ -150,9 +175,9 @@ class ControllerBuilder:
             Model: Model as specified by the configuration, e.g. a MIMOPID controller.
         """
         if config and config.pid:
-            return MIMOPID(config.pid)
+            return MIMOPID(model, config.pid)
         elif config and config.flsh:
-            return FLSH(config.flsh)
+            return FLSH(model, config.flsh)
         elif config and config.pass_through_cs:
             return PassThroughCS()
         elif config and config.pass_through_inputs:
@@ -165,14 +190,13 @@ class ControllerBuilder:
 class PassThroughCS(IController):
     """This controller just feeds through the course (heading) and forward speed references."""
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Takes out relevant parts of references as inputs directly
 
         Args:
             refs (np.ndarray): Desired/references = [x, y, psi, u, v, r, ax, ay, rdot]
             xs (np.ndarray): State xs
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from, optional in many cases.
 
         Returns:
             np.ndarray: 3 x 1 inputs u = [chi_d, U_d, 0.0]^T, where chi_d and U_d are the desired course and speed over ground
@@ -196,20 +220,20 @@ class PassThroughInputs(IController):
 
     Otherwise, the mapping is [X, Y, N] -> [X, Y, N]."""
 
-    def __init__(self, params: Optional[PassThroughInputsParams] = None) -> None:
+    def __init__(self, model_params, params: Optional[PassThroughInputsParams] = None) -> None:
+        self._model_params = model_params
         if params is None:
             params = PassThroughInputsParams()
         else:
             self.params = params
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Takes out relevant parts of references as inputs directly
 
         Args:
             refs (np.ndarray): Force inputs = [X, Y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] or [X, Y, -Y * l_r, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] depending on the model.
             xs (np.ndarray): State xs
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from, optional in many cases.
 
         Returns:
             np.ndarray: 3 x 1 inputs u = [X, Y, N]^T
@@ -221,7 +245,7 @@ class PassThroughInputs(IController):
             raise ValueError("Dimension of state should be 6!")
 
         if self.params.rudder_propeller_mapping:
-            return np.array([refs[0], refs[1], -refs[1] * model.params.l_r])
+            return np.array([refs[0], refs[1], -refs[1] * self._model_params.l_r])
         else:
             return np.array([refs[0], refs[1], refs[2]])
 
@@ -245,7 +269,8 @@ class MIMOPID(IController):
     See Fossen 2011, Ch. 12.
     """
 
-    def __init__(self, params: Optional[MIMOPIDParams] = None) -> None:
+    def __init__(self, model_params, params: Optional[MIMOPIDParams] = None) -> None:
+        self._model_params = model_params
         if params is not None:
             self._params: MIMOPIDParams = params
         else:
@@ -256,14 +281,13 @@ class MIMOPID(IController):
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the PID law.
 
         Args:
             refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T
             xs (np.ndarray): State xs = [eta, nu]^T
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from, not used here.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
@@ -279,8 +303,8 @@ class MIMOPID(IController):
         R_n_b = mf.Rmtrx(eta[2])
         eta_dot = R_n_b @ nu
 
-        Mmtrx = model.params.M_rb + model.params.M_a
-        Dmtrx = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu)
+        Mmtrx = self._model_params.M_rb + self._model_params.M_a
+        Dmtrx = mf.Dmtrx(self._model_params.D_l, self._model_params.D_q, self._model_params.D_c, nu)
 
         K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._params.wn, self._params.zeta)
 
@@ -310,7 +334,7 @@ def pole_placement(Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta) -
     """
     K_p = wn @ wn @ Mmtrx
     K_d = 2.0 * zeta @ wn @ Mmtrx - Dmtrx
-    K_i = (1.0 / 10.0) * wn @ Mmtrx
+    K_i = (1.0 / 10.0) * wn @ K_p
     return K_p, K_d, K_i
 
 
@@ -331,7 +355,8 @@ class FLSH(IController):
     Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
     """
 
-    def __init__(self, params: Optional[FLSHParams] = None) -> None:
+    def __init__(self, model_params, params: Optional[FLSHParams] = None) -> None:
+        self._model_params = model_params
         if params is not None:
             self._params: FLSHParams = params
         else:
@@ -361,7 +386,7 @@ class FLSH(IController):
             self._psi_error_int = 0.0
         self._psi_error_int = mf.wrap_angle_to_pmpi(self._psi_error_int)
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the proposed control law.
 
         Args:
@@ -369,7 +394,6 @@ class FLSH(IController):
             (equal to [0, 0, psi_d, U_d, 0, 0, 0, 0, 0]^T in case of LOSGuidance)
             xs (np.ndarray): State xs = [eta^T, nu^T]^T
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
@@ -387,7 +411,7 @@ class FLSH(IController):
         u_d = refs[3]
         psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
         psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
-        r_d = mf.sat(refs[5], -model.params.r_max, model.params.r_max)
+        r_d = mf.sat(refs[5], -self._model_params.r_max, self._model_params.r_max)
 
         psi: float = mf.wrap_angle_to_pmpi(eta[2])
         psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
@@ -395,9 +419,9 @@ class FLSH(IController):
         self._psi_d_prev = psi_d
         self._psi_prev = eta[2]
 
-        Mmtrx = model.params.M_rb + model.params.M_a
+        Mmtrx = self._model_params.M_rb + self._model_params.M_a
         Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
-        Dvv = mf.Dmtrx(model.params.D_l, model.params.D_q, model.params.D_c, nu) @ nu
+        Dvv = mf.Dmtrx(self._model_params.D_l, self._model_params.D_q, self._model_params.D_c, nu) @ nu
 
         speed_error = u_d - nu[0]
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
@@ -408,27 +432,31 @@ class FLSH(IController):
         #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
 
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
-        Fy = -(Mmtrx[2, 2] / model.params.l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
+        Fy = -(Mmtrx[2, 2] / self._model_params.l_r) * (
+            self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int
+        )
 
-        tau = np.array([float(Fx), float(Fy), float(-Fy * model.params.l_r)])
+        tau = np.array([float(Fx), float(Fy), float(-Fy * self._model_params.l_r)])
 
         return tau
 
 
 class CyberShip2Controller(IController):
+    """Implements a simple PID-controller for steering the CyberShip2 vessel (without rudder dynamics consideration)."""
+
     def __init__(self, model_params, params: Optional[CyberShip2ControllerParams] = None) -> None:
         self._model_params = model_params
         if params is not None:
             self._params: CyberShip2ControllerParams = params
         else:
             self._params = CyberShip2ControllerParams()
-        self._eta_diff_int: np.ndarray = np.zeros(3)
+        self._z_diff_int: np.ndarray = np.zeros(3)
         self._psi_d_prev: float = 0.0
         self._psi_prev: float = 0.0
         self._n_u: int = 5
 
     def _reset_integrator(self):
-        self._eta_diff_int = np.zeros(3)
+        self._z_diff_int = np.zeros(3)
 
     def nonlinear_damping_matrix(self, nu: np.ndarray) -> np.ndarray:
         """Computes the nonlinear damping matrix D_nl(nu)
@@ -446,14 +474,13 @@ class CyberShip2Controller(IController):
         d_33 = self._model_params.N_vr * np.abs(nu[1]) + self._model_params.N_rr * np.abs(nu[2])
         return np.array([[-d_11, 0.0, 0.0], [0.0, -d_22, -d_23], [0.0, -d_32, -d_33]])
 
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float, model) -> np.ndarray:
+    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the PID law.
 
         Args:
-            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T. Could in practice be = [-, -, psi_d, U_d, -, -, -, -, -]^T if LOS-guidance is used.
+            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T. Could in practice be = [-, -, psi_d, u_d, -, -, -, -, -]^T if LOS-guidance is used.
             xs (np.ndarray): State xs = [eta, nu]^T
             dt (float): Time step
-            model (IModel): Model object to fetch parameters from, not used here.
 
         Returns:
             np.ndarray: Inputs u = tau to apply to the system.
@@ -463,39 +490,65 @@ class CyberShip2Controller(IController):
         if len(xs) != 6:
             raise ValueError("Dimension of state should be 6!")
 
+        nu = xs[3:]
+
         psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
         psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
-        eta_d[2] = psi_d_unwrapped
 
-        psi: float = mf.wrap_angle_to_pmpi(eta[2])
+        psi: float = mf.wrap_angle_to_pmpi(xs[2])
         psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
+
+        self._psi_d_prev = psi_d
+        self._psi_prev = psi
 
         z = self._params.V @ xs
         z[2] = psi_unwrapped
-
         z_scaled = z.copy()
-        z_scaled[0] = z[0] * np.sqrt(self._model_params.scaling_factor)
-        z_scaled[1] = z[1] * np.sqrt(self._model_params.scaling_factor)
-        z_scaled[2] = z[2] / np.sqrt(self._model_params.scaling_factor)
 
-        Mmtrx = self._model_params.M_rb + self._model_params.M_a
-        Dmtrx = self._model_params.D_l @ nu_scaled + self.nonlinear_damping_matrix(nu_scaled)
+        # Reference = [u, v, psi]
+        z_d = np.array([refs[3], 0.0, psi_d_unwrapped])
+        z_d_scaled = z_d.copy()
 
-        K_p, K_d, K_i = pole_placement(Mmtrx, Dmtrx, self._params.wn, self._params.zeta)
+        # Scale down velocity, relevant states and references to model size
+        nu_scaled = nu.copy()
+        nu_scaled[0] = nu[0] / np.sqrt(self._model_params.scaling_factor)
+        nu_scaled[1] = nu[1] / np.sqrt(self._model_params.scaling_factor)
+        nu_scaled[2] = nu[2] * np.sqrt(self._model_params.scaling_factor)
 
-        eta_d = refs[0:3]
-        eta_diff = eta - eta_d
-        eta_diff[2] = mf.wrap_angle_diff_to_pmpi(eta[2], eta_d[2])
+        z_scaled[0] = z[0] / np.sqrt(self._model_params.scaling_factor)
+        z_scaled[1] = z[1] / np.sqrt(self._model_params.scaling_factor)
 
-        self._eta_diff_int = mf.sat(self._eta_diff_int + eta_diff * dt, np.zeros(3), self._params.eta_diff_max)
+        z_d_scaled[0] = z_d[0] / np.sqrt(self._model_params.scaling_factor)
+        z_d_scaled[1] = z_d[1] / np.sqrt(self._model_params.scaling_factor)
 
-        tau = -K_p @ eta_diff - K_d @ eta_dot_diff - K_i @ self._eta_diff_int
-        tau = R_n_b.T @ tau
+        psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
+        z_diff = z_d_scaled - z_scaled
+        z_diff[2] = psi_error
 
-        u = self.thrust_allocation(tau, nu_scaled)
+        self.update_integrator(z_diff, dt)
+
+        tau = self._params.K_p @ z_diff - self._params.K_d @ nu_scaled + self._params.K_i @ self._z_diff_int
+
+        tau[0] = mf.sat(tau[0], self._model_params.Fx_limits[0], self._model_params.Fx_limits[1])
+        tau[1] = mf.sat(tau[1], self._model_params.Fy_limits[0], self._model_params.Fy_limits[1])
+        tau[2] = mf.sat(tau[2], self._model_params.N_limits[0], self._model_params.N_limits[1])
+
+        u = tau  # self.thrust_allocation_two_main_propellers_rudders_and_bow_thruster(tau, nu_scaled)
+
         return u
 
-    def thrust_allocation(self, tau: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
+    def update_integrator(self, z_diff: np.ndarray, dt: float) -> None:
+        """Updates the integrator state for the PID controller.
+
+        Args:
+            z_diff (np.ndarray): Difference between desired and actual state
+            dt (float): Time step
+        """
+        self._z_diff_int = mf.sat(self._z_diff_int + z_diff * dt, -self._params.z_diff_max, self._params.z_diff_max)
+        if np.linalg.norm(z_diff) < 1e-3:
+            self._z_diff_int = np.zeros(3)
+
+    def thrust_allocation_two_main_propellers_rudders_and_bow_thruster(self, tau: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
         """Computes the propeller speeds n and rudder angles delta from the generalized forces tau = [Fx, Fy, N]^T.
 
         Args:
@@ -506,7 +559,7 @@ class CyberShip2Controller(IController):
             Tuple[np.ndarray, np.ndarray]: Propeller speeds n and rudder angles delta
         """
         W = np.eye(self._n_u)
-        B_pseudo_inv = np.linalg.inv(W) * self._model_params.B.T * np.linalg.inv(self._model_params.B * np.linalg.inv(W) * self._model_params.B.T)
+        B_pseudo_inv = np.linalg.inv(W) @ self._model_params.B.T @ np.linalg.inv(self._model_params.B @ np.linalg.inv(W) @ self._model_params.B.T)
         f = B_pseudo_inv @ tau
         n_1 = self.main_propeller_thrust_force_to_speed(f[0], nu_r[0])
         n_2 = self.main_propeller_thrust_force_to_speed(f[1], nu_r[0])
@@ -532,8 +585,6 @@ class CyberShip2Controller(IController):
         Returns:
             float: Main propeller speed n
         """
-        n_top = np.max(0.0, u_r * self._model_params.T_nu_plus / self._model_params.T_nn_plus)
-        n_bottom = np.min(0.0, u_r * self._model_params.T_nu_minus / self._model_params.T_nn_minus)
         if T > 0.0:
             n = u_r * self._model_params.T_nu_plus / (2 * self._model_params.T_nn_plus) + np.sqrt(
                 (self._model_params.T_nu_plus * u_r) ** 2 + 4 * self._model_params.T_nn_plus * T
@@ -541,9 +592,9 @@ class CyberShip2Controller(IController):
         elif T == 0.0:
             n = 0.0
         else:
-            n = u_r * self._model_params.T_nu_minus / (2 * self._model_params.T_nn_minus) + np.sqrt(
+            n = u_r * self._model_params.T_nu_minus / (2 * self._model_params.T_nn_minus) - np.sqrt(
                 (self._model_params.T_nu_minus * u_r) ** 2 - 4 * self._model_params.T_nn_minus * T
-            ) / (2 * self._model_params.T_nn_minus)
+            ) / (2 * self._model_params.T_nu_minus)
         return n
 
     def bow_thrust_force_to_propeller_speed(self, T: float) -> float:
@@ -555,7 +606,7 @@ class CyberShip2Controller(IController):
         Returns:
             float: Bow thruster speed n
         """
-        n = np.sign(T) * np.sqrt(self._model_params.T_n3n3 * np.abs(T)) / self._model_params.T_n3n3
+        n = np.sign(T) * np.sqrt(self._model_params.T_n3n3 * abs(T)) / self._model_params.T_n3n3
         return n
 
     def main_propeller_lift_force_to_rudder_angle(self, L: float, T: float, u_r: float) -> float:
@@ -572,19 +623,20 @@ class CyberShip2Controller(IController):
         # Fluid velocity at rudder surface
         u_rud = u_r
         if u_r >= 0.0:
-            u_rud = u_r + self._model_params.k_u * (np.sqrt(np.max(0.0, 8.0 * T / (np.pi * self._model_params.rho * self._model_params.d_rud) + u_r**2)) - u_r)
+            u_rud = u_r + self._model_params.k_u * (np.sqrt(max(0.0, 8.0 * T / (np.pi * self._model_params.rho * self._model_params.d_rud**2) + u_r**2)) - u_r)
 
         epsilon = 0.0001
+        delta = 0.0
         if u_rud >= epsilon:
             delta = (np.sign(L) / (2.0 * self._model_params.L_ddelta_plus)) * (
                 self._model_params.L_delta_plus
-                - np.sqrt((self._model_params.L_delta_plus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_plus * u_rud**2 * np.abs(L)) / (u_rud**2)
+                + np.sqrt((self._model_params.L_delta_plus * u_rud**2) ** 2 + 4 * self._model_params.L_ddelta_plus * u_rud**2 * abs(L)) / (u_rud**2)
             )
-        elif np.abs(u_rud) < epsilon:
+        elif abs(u_rud) < epsilon:
             delta = 0.0
         elif u_rud <= -epsilon:
-            delta = (np.sign(L) / (2.0 * self._model_params.L_ddelta_minus)) * (
+            delta = -(np.sign(L) / (2.0 * self._model_params.L_ddelta_minus)) * (
                 self._model_params.L_delta_minus
-                - np.sqrt((self._model_params.L_delta_minus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_minus * u_rud**2 * np.abs(L)) / (u_rud**2)
+                - np.sqrt((self._model_params.L_delta_minus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_minus * u_rud**2 * abs(L)) / (u_rud**2)
             )
         return delta

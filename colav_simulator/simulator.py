@@ -15,6 +15,7 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import colav_simulator.core.colav.colav_interface as ci
+import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.scenario_management as sm
 import colav_simulator.viz.visualizer as viz
 import numpy as np
@@ -175,7 +176,12 @@ class Simulator:
         return scenario_simdata_list
 
     def run_scenario_episode(
-        self, ship_list: list, scenario_config: sm.ScenarioConfig, scenario_enc: senc.ENC, ownship_colav_system: Optional[Any | ci.ICOLAV] = None
+        self,
+        ship_list: list,
+        sconfig: sm.ScenarioConfig,
+        enc: senc.ENC,
+        disturbance: Optional[stochasticity.Disturbance] = None,
+        ownship_colav_system: Optional[Any | ci.ICOLAV] = None,
     ) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
@@ -183,8 +189,9 @@ class Simulator:
             - ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
-            - scenario_config (ScenarioConfig): Scenario episode configuration object.
-            - scenario_enc (senc.ENC): ENC object relevant for the scenario.
+            - sconfig (ScenarioConfig): Scenario episode configuration object.
+            - enc (senc.ENC): ENC object relevant for the scenario.
+            - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
             - ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
 
 
@@ -193,7 +200,8 @@ class Simulator:
             - ship_info (dict): Dictionary containing the ship info for each ship.
             - sim_times (np.array): Array containing the simulation times.
         """
-        self._visualizer.init_live_plot(scenario_enc, ship_list)
+
+        self._visualizer.init_live_plot(enc, ship_list)
 
         if ownship_colav_system is not None:
             ship_list[0].set_colav_system(ownship_colav_system)
@@ -203,10 +211,11 @@ class Simulator:
         for i, ship_obj in enumerate(ship_list):
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
+        disturbance_data: Optional[stochasticity.DisturbanceData] = None
         timestamp_start = mhm.current_utc_timestamp()
         most_recent_sensor_measurements: list = [None] * len(ship_list)
-        sim_times = np.arange(scenario_config.t_start, scenario_config.t_end, scenario_config.dt_sim)
-        dt_sim = scenario_config.dt_sim
+        sim_times = np.arange(sconfig.t_start, sconfig.t_end, sconfig.dt_sim)
+        dt_sim = sconfig.dt_sim
         for _, t in enumerate(sim_times):
             sim_data_dict = {}
             true_do_states = []
@@ -216,6 +225,10 @@ class Simulator:
                 if ship_obj.t_start <= t:
                     vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
                     true_do_states.append((i, vxvy_state))
+
+            if disturbance is not None:
+                disturbance_data = disturbance.get()
+                disturbance.update(t, dt_sim)
 
             for i, ship_obj in enumerate(ship_list):
                 relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
@@ -228,7 +241,7 @@ class Simulator:
                         t=t,
                         dt=dt_sim,
                         do_list=tracks,
-                        enc=scenario_enc,
+                        enc=enc,
                     )
 
                 sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
@@ -236,7 +249,7 @@ class Simulator:
                 sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
 
                 if ship_obj.t_start <= t:
-                    ship_obj.forward(dt_sim)
+                    ship_obj.forward(dt_sim, disturbance_data)
 
             sim_data.append(sim_data_dict)
 

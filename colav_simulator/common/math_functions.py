@@ -206,14 +206,44 @@ def sat(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndar
     return np.clip(x, x_min, x_max)
 
 
-def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
-    """Calculates coriolis matrix C(v)
-
-    Assumes decoupled surge and sway-yaw dynamics.
-    See eq. (7.12) - (7.15) in Fossen2011
+def coriolis_matrix_rigid_body(M_RB: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates the rigid body Coriolis matrix C_RB(v) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. 7.13 in Fossen (2011).
 
     Args:
-        Mmtrx (np.ndarray): Mass matrix.
+        M_RB (np.ndarray): Rigid body mass matrix
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Coriolis matrix C_RB(v)
+    """
+    c13 = -M_RB[1, 2] * nu[2] - M_RB[1, 1] * nu[1]
+    c23 = M_RB[0, 0] * nu[0]
+    return np.array([[0, 0, c13], [0, 0, c23], [-c13, -c23, 0]])
+
+
+def coriolis_matrix_added_mass(M_A: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates the added mass Coriolis matrix C_A(v) assuming decoupled surge and sway-yaw dynamics,
+    for non-symmetric added mass matrix
+
+    Args:
+        M_A (np.ndarray): Added mass matrix
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Coriolis matrix C_A(v)
+    """
+    c13 = -M_A[1, 1] * nu[1] - 0.5 * (M_A[2, 1] + M_A[1, 2]) * nu[2]
+    c23 = M_A[0, 0] * nu[0]
+    return np.array([[0, 0, c13], [0, 0, c23], [-c13, -c23, 0]])
+
+
+def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates coriolis matrix C(v) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. (7.12) - (7.15) in Fossen2011
+
+    Args:
+        Mmtrx (np.ndarray): Mass matrix (M_RB + M_A).
         nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
 
     Returns:
@@ -226,10 +256,8 @@ def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
 
 
 def Dmtrx(D_l: np.ndarray, D_q: np.ndarray, D_c: np.ndarray, nu: np.ndarray) -> np.ndarray:
-    """Calculates damping matrix D
-
-    Assumes decoupled surge and sway-yaw dynamics.
-    See eq. (7.24) in Fossen2011+
+    """Calculates damping matrix D(nu) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. (7.24) in Fossen2011+
 
     Args:
         D_l (np.ndarray): Linear damping matrix.

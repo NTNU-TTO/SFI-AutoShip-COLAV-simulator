@@ -23,6 +23,7 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
+import colav_simulator.core.stochasticity as stoch
 import numpy as np
 import seacharts.enc as senc
 import yaml
@@ -77,6 +78,7 @@ class ScenarioConfig:
     n_random_ships_range: Optional[list] = None  # Variable range of number of random ships in the scenario, excluding the own-ship, if considered
     ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
     filename: Optional[str] = None  # Filename of the scenario, stored after creation
+    stochasticity: Optional[stoch.Config] = None  # Configuration class containing stochasticity parameters for the scenario
 
     def to_dict(self) -> dict:
         output = {
@@ -92,6 +94,7 @@ class ScenarioConfig:
             "map_tolerance": self.map_tolerance,
             "map_buffer": self.map_buffer,
             "new_load_of_map_data": self.new_load_of_map_data,
+            "stochasticity": self.stochasticity,
             "ship_list": [],
         }
 
@@ -118,6 +121,9 @@ class ScenarioConfig:
 
         if self.filename is not None:
             output["filename"] = self.filename
+
+        if self.stochasticity is not None:
+            output["stochasticity"] = self.stochasticity.to_dict()
 
         if self.ship_list is not None:
             for ship_config in self.ship_list:
@@ -177,6 +183,9 @@ class ScenarioConfig:
 
         if "filename" in config_dict:
             config.filename = config_dict["filename"]
+
+        if "stochasticity" in config_dict:
+            config.stochasticity = stoch.Config.from_dict(config_dict["stochasticity"])
 
         if "ship_list" in config_dict:
             config.ship_list = []

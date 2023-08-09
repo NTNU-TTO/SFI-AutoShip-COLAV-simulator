@@ -13,8 +13,8 @@ from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
-import numpy as np
 import colav_simulator.core.stochasticity as stochasticity
+import numpy as np
 
 
 @dataclass
@@ -137,16 +137,82 @@ class CyberShip2Params:
     L_delta_minus: float = 3.19573
     L_ddelta_minus: float = 2.34356
 
-    Fx_limits: np.ndarray = np.array([-2.0, 2.0])  # Force limits in x (unscaled)
-    Fy_limits: np.ndarray = np.array([-2.0, 2.0])  # Force limits in y (unscaled)
-    N_limits: np.ndarray = np.array([-1.5, 1.5])  # Torque limits in z (unscaled)
-    max_propeller_speed: float = 25.0 # (unscaled)
+    Fx_limits: np.ndarray = np.array([-4.0, 8.0])  # Force limits in x (unscaled)
+    Fy_limits: np.ndarray = np.array([-4.0, 4.0])  # Force limits in y (unscaled)
+    N_limits: np.ndarray = np.array([-2.5, 2.5])  # Torque limits in z (unscaled)
+    max_propeller_speed: float = 33.0  # (unscaled)
     max_rudder_angle: float = 35.0 * np.pi / 180.0  # (unscaled)
 
     U_min: float = 0.0  # Min speed
-    U_max: float = 15.0  # Max speed
+    U_max: float = 10.0  # Max speed
 
     scaling_factor: float = 70.0  # Scaling factor for the ship size
+
+@dataclass
+class RVGunnerusParams:
+    """Parameters for the R/V Gunnerus vessel (read only / fixed)."""
+
+    rho: float = 1000.0  # Density of water
+    draft: float = 5.0
+    length: float = 1.255 * 70.0
+    width: float = 0.29 * 70.0
+    ship_vertices: np.ndarray = np.array(
+        [[0.9 * length / 2.0, width / 2.0], [length / 2.0, 0.0], [0.9 * length / 2.0, -width / 2.0], [-length / 2.0, -width / 2.0], [-length / 2.0, width / 2.0]]
+    ).T
+
+    # The parameters below are scaled up 70 times to match the size of the real ship
+    M_rb: np.ndarray = np.array(
+        [[23.800, 0.0, 0.0], [0.0, 23.800, 23.800 * 0.046], [0.0, 23.800 * 0.046, 1.760]]
+    )  # Rigid body mass, m = 23.800 kg, I_z = 1.760 kgm², x_g = 0.046 matrix
+    M_a: np.ndarray = np.array([[2.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 1.0]])  # Added mass matrix
+    D_l: np.ndarray = np.array([[0.72253, 0.0, 0.0], [0.0, 0.88965, 7.250], [0.0, -0.03130, 1.9]])  # First order/linear damping
+    # Nonlinear damping related parameters:
+    X_uu: float = -1.32742
+    X_uuu: float = -5.86643
+
+    Y_vv: float = -36.47287
+    Y_vr: float = -0.845
+    Y_rv: float = -0.805
+    Y_rr: float = -3.450
+
+    N_vv: float = 3.95645
+    N_rv: float = 0.130
+    N_vr: float = 0.080
+    N_rr: float = -0.750
+
+    B: np.ndarray = np.array([[1.0, 1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0, 1.0], [0.078, -0.078, 0.466, 0.549, 0.549]])  # Actuator configuration matrix
+    # Main propeller thruster 1 and 2 coefficients:
+    T_nn_plus: float = 3.65034e-03
+    T_nu_plus: float = 1.52468e-04
+    T_nn_minus: float = 5.10256e-03
+    T_nu_minus: float = 4.55822e-02
+    # Bow thruster force coefficient
+    T_n3n3: float = 1.56822e-04
+
+    d_rud: float = 0.08  # Rudder diameter
+    k_u: float = 0.5  # Induced velocity factor on fluid at rudder surface
+    # Rudder lift force coefficient
+    L_delta_plus: float = 6.43306
+    L_ddelta_plus: float = 5.83594
+    L_delta_minus: float = 3.19573
+    L_ddelta_minus: float = 2.34356
+
+    Fx_limits: np.ndarray = np.array([-4.0, 8.0])  # Force limits in x (unscaled)
+    Fy_limits: np.ndarray = np.array([-4.0, 4.0])  # Force limits in y (unscaled)
+    N_limits: np.ndarray = np.array([-2.5, 2.5])  # Torque limits in z (unscaled)
+    max_propeller_speed: float = 33.0  # (unscaled)
+    max_rudder_angle: float = 35.0 * np.pi / 180.0  # (unscaled)
+
+    U_min: float = 0.0  # Min speed
+    U_max: float = 10.0  # Max speed
+
+    scaling_factor: float = 70.0  # Scaling factor for the ship size
+
+    rho_air: float = 1.225  # Density of air
+    CD_l_0: float = 0.55 # Longitudinal resistance used to compute wind coefficients in wind model
+    CD_l_pi: float = 0.80
+    CD_t: float = 0.90 # Transversal resistance used to compute wind coefficients in wind model
+
 
 
 @dataclass
@@ -185,17 +251,21 @@ class Config:
         if self.telemetron is not None:
             config_dict["telemetron"] = ""
 
+        if self.cybership2 is not None:
+            config_dict["cybership2"] = ""
+
         return config_dict
 
 
 class IModel(ABC):
     @abstractmethod
-    def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
+    def dynamics(self, xs: np.ndarray, u: np.ndarray, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
         """The r.h.s of the ODE x_k+1 = f(x_k, u_k) for the considered model in discrete time.
 
         Args:
             xs (np.ndarray): The state vector x_k
             u (np.ndarray): The input vector u_k
+            w (stochasticity.DisturbanceData): Optional data containing disturbance information. The model will extract relevant parts of the structure.
 
         NOTE: The state and input dimension may change depending on the model. Make sure to check compatibility between the controller you are using and the model.
         """
@@ -221,6 +291,8 @@ class ModelBuilder:
             return KinematicCSOG(config.csog)
         elif config and config.telemetron:
             return Telemetron()
+        elif config and config.cybership2:
+            return CyberShip2()
         else:
             return KinematicCSOG()
 
@@ -246,12 +318,13 @@ class KinematicCSOG(IModel):
         else:
             self._params = KinematicCSOGParams()
 
-    def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
+    def dynamics(self, xs: np.ndarray, u: np.ndarray, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
         """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
             xs (np.ndarray): State x_k = [x_k, y_k, chi_k, U_k, 0.0, 0.0]
             u (np.ndarray): Input equal to [chi_d, U_d, 0]
+            w (stochasticity.DisturbanceData): Optional data containing disturbance information. The model will extract relevant parts of the structure.
 
         Returns:
             np.ndarray: New state x_k+1.
@@ -296,7 +369,7 @@ class KinematicCSOG(IModel):
 
 
 class Telemetron(IModel):
-    """Implements a 3DOF underactuated vessel maneuvering model
+    """Implements a 3DOF underactuated vessel maneuvering model for the MR Telemetron vessel:
 
     eta_dot = Rpsi(eta) * nu
     (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
@@ -319,12 +392,13 @@ class Telemetron(IModel):
     def __init__(self) -> None:
         self._params: TelemetronParams = TelemetronParams()
 
-    def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
+    def dynamics(self, xs: np.ndarray, u: np.ndarray, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
         """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
 
         Args:
             xs (np.ndarray): State xs = [eta, nu]^T
             u (np.ndarray): Input vector u = tau (generalized forces in X, Y and N)
+            w (stochasticity.DisturbanceData, optional): Optional data containing disturbance information. The model will extract relevant parts of the structure.
 
         Returns:
             np.ndarray: New state xs.
@@ -353,7 +427,90 @@ class Telemetron(IModel):
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
         ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
 
-        if np.abs(nu[0]) < 0.1:
+        if abs(nu[0]) < 0.1:
+            ode_fun[2] = 0.0
+
+        return ode_fun
+
+    def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.Fy_limits[0] * self._params.l_r])
+        ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.Fy_limits[1] * self._params.l_r])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -self._params.r_max])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, self._params.r_max])
+        return lbu, ubu, lbx, ubx
+
+    @property
+    def params(self):
+        "Returns the parameters of the considered model."
+        return self._params
+
+    @property
+    def dims(self):
+        """Returns the ACTUAL state and input dimensions considered in the model.
+
+        NOTE: Not to be mistaken with the model interface state (6) and input (3) dimension requirements."""
+        return self._n_x, self._n_u
+
+class RVGunnerus(IModel):
+    """Implements a 3DOF underactuated vessel maneuvering model for the R/V Gunnerus vessel:
+
+    eta_dot = Rpsi(eta) * nu
+    (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
+
+    with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
+
+    Parameters:
+        M_rb: Rigid body mass matrix
+        M_a: Added mass matrix
+        C: Coriolis matrix, computed from M = M_rb + M_a
+        D_l: Linear damping matrix
+        D_nl: Nonlinear damping matrix
+
+    NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+    """
+
+    _n_x: int = 6
+    _n_u: int = 3
+
+    def __init__(self) -> None:
+        self._params: RVGunnerusParams = RVGunnerusParams()
+
+    def dynamics(self, xs: np.ndarray, u: np.ndarray, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
+        """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
+
+        Args:
+            xs (np.ndarray): State xs = [eta, nu]^T
+            u (np.ndarray): Input vector u = tau (generalized forces in X, Y and N)
+            w (stochasticity.DisturbanceData, optional): Optional data containing disturbance information. The model will extract relevant parts of the structure.
+
+        Returns:
+            np.ndarray: New state xs.
+        """
+        if u.size != self._n_u:
+            raise ValueError("Dimension of input array should be 3!")
+        if xs.size != self._n_x:
+            raise ValueError("Dimension of state should be 6!")
+
+        eta = xs[0:3]
+        eta[2] = mf.wrap_angle_to_pmpi(eta[2])
+
+        nu = xs[3:6]
+        nu[0] = mf.sat(nu[0], -1e10, self._params.U_max)
+        nu[2] = mf.sat(nu[2], -self._params.r_max, self._params.r_max)
+
+        u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
+        u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
+        u[2] = mf.sat(u[2], self._params.Fy_limits[0] * self._params.l_r, self._params.Fy_limits[1] * self._params.l_r)
+
+        Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
+        Cvv = mf.Cmtrx(self._params.M_rb + self._params.M_a, nu) @ nu
+        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu) @ nu
+
+        ode_fun = np.zeros(6)
+        ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
+
+        if abs(nu[0]) < 0.1:
             ode_fun[2] = 0.0
 
         return ode_fun
@@ -378,15 +535,20 @@ class Telemetron(IModel):
         return self._n_x, self._n_u
 
 
+
+
 class CyberShip2(IModel):
-    """Implements a modified version of the 3DOF nonlinear maneuvering model for the Cybership 2 vessel with actuator model and consideration of wind, waves and currents (added although the model is not identified considering these disturbance effects). The disturbance effects can be toggled on/off. The model is on the form
+    """Implements a modified version of the 3DOF nonlinear maneuvering model for the Cybership 2 vessel with consideration of currents. The model is on the form
 
     eta_dot = Rpsi(eta) * nu
-    M_rb * nu_dot + C_rb(nu) * nu + M_A * nu_v_r_dot + C_A(nu_r) * nu_r + D(nu_r) * nu_r = tau + tau_wind + tau_wave
+    M_rb * nu_dot + C_rb(nu) * nu + M_A * nu_v_r_dot + C_A(nu_r) * nu_r + D(nu_r) * nu_r = tau + tau_wind + tau_waves
 
-    with tau = B f_c(u, nu_r)
+    with tau = B f_c(u, nu_r) if the actuator model is used. Here, the actuator model is not used per now.
 
-    where the input vector is u = [n_1, n_2, n_3, delta_1, delta_2]^T. State vector is xs = [eta, nu]^T, where eta = [x, y, psi]^T and nu = [u, v, r]^T.
+    The input vector is thus set to u = tau
+    #(= [n_1, n_2, n_3, delta_1, delta_2]^T if actuator model is used).
+    #
+    # State vector is xs = [eta, nu]^T, where eta = [x, y, psi]^T and nu = [u, v, r]^T.
 
     See "A Nonlinear Ship Manoeuvering Model: Identification and adaptive control with experiments for a model ship" https://www.mic-journal.no/ABS/MIC-2004-1-1/ for more details.
 
@@ -394,140 +556,20 @@ class CyberShip2(IModel):
     """
 
     _n_x: int = 6
-    _n_u: int = 5
+    _n_u: int = 3
 
     def __init__(self) -> None:
         self._params: CyberShip2Params = CyberShip2Params()
 
-    def nonlinear_damping_matrix(self, nu_r: np.ndarray) -> np.ndarray:
-        """Computes the nonlinear damping matrix D_nl(nu_r)
-
-        Args:
-            nu (np.ndarray): Velocity vector nu = [u, v, r]^T or relative velocity vector nu_r = [u_r, v_r, r]^T
-
-        Returns:
-            np.ndarray: Nonlinear damping matrix D_nl(nu)
-        """
-
-        d_11 = self._params.X_uu * np.abs(nu_r[0]) + self._params.X_uuu * nu_r[0] ** 2
-        d_22 = self._params.Y_vv * np.abs(nu_r[1]) + self._params.Y_rv * np.abs(nu_r[2])
-        d_23 = self._params.Y_vr * np.abs(nu_r[1]) + self._params.Y_rr * np.abs(nu_r[2])
-        d_32 = self._params.N_vv * np.abs(nu_r[1]) + self._params.N_rv * np.abs(nu_r[2])
-        d_33 = self._params.N_vr * np.abs(nu_r[1]) + self._params.N_rr * np.abs(nu_r[2])
-        return np.array([[-d_11, 0.0, 0.0], [0.0, -d_22, -d_23], [0.0, -d_32, -d_33]])
-
-    def dynamics(self, xs: np.ndarray, u: np.ndarray) -> np.ndarray:
-        """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
-
-        Args:
-            xs (np.ndarray): State xs = [eta, nu]^T (for the real ship, must be scaled to be used with the CS2-model)
-            u (np.ndarray):  Input equal to [n_1, n_2, n_3, delta_1, delta_2]^T consisting of the two main propeller speeds, bow propeller speed and main propeller rudder angles.
-
-        Returns:
-            np.ndarray: New state xs.
-        """
-        if u.size != self._n_u:
-            raise ValueError("Dimension of input array should be 5!")
-        if xs.size != self._n_x:
-            raise ValueError("Dimension of state should be 6!")
-
-        eta = xs[0:3]
-        eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
-        nu = xs[3:6]
-        nu_c = self._currents
-
-        tau = self.input_to_generalized_forces(u, nu)
-
-        Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
-
-        ode_fun = np.zeros(6)
-        ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv * @ (-Cvv - Dvv + tau)
-
-        if np.abs(nu[0]) < 0.1:
-            ode_fun[2] = 0.0
-
-        return ode_fun
-
-    def input_to_generalized_forces(self, u: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
-        """Computes generalized forces tau from the input u and relative velocity nu_r.
-
-        Args:
-            u (np.ndarray): Input equal to [n_1, n_2, n_3, delta_1, delta_2]^T consisting of the two main propeller speeds, bow propeller speed and main propeller rudder angles.
-            nu_r (np.ndarray): Relative velocity vector nu_r = [u_r, v_r, r]^T
-
-        Returns:
-            np.ndarray: Generalized forces tau = [X, Y, N]^T
-        """
-        T_1 = self.main_propeller_speed_to_thrust_force(u[0], nu_r[0])
-        T_2 = self.main_propeller_speed_to_thrust_force(u[1], nu_r[0])
-        T_3 = self.bow_propeller_speed_to_thrust_force(u[2], nu_r[0])
-        L_1 = self.main_propeller_rudder_angle_to_lift_force(u[0], nu_r[0])
-        L_2 = self.main_propeller_rudder_angle_to_lift_force(u[1], nu_r[0])
-        tau = self._params.B @ np.array([T_1, T_2, T_3, L_1, L_2])
-        return tau
-
-    def main_propeller_speed_to_thrust_force(self, n: float, u_r: float) -> float:
-        """ Computes the thrust force T from the main propeller speed n and relative surge speed using the actuator model.
-
-        Args:
-            n (float): Main propeller speed n
-            u_r (float): Relative surge speed u_r
-
-        Returns:
-            float: Thrust force T
-        """
-        n_top = np.max(0.0, u_r * self._params.T_nu_plus / self._params.T_nn_plus)
-        n_bot = np.min(0.0, u_r * self._params.T_nu_minus / self._params.T_nn_minus)
-        T = 0.0
-        if n >= n_top:
-            T = self._params.T_nn_plus * np.abs(n) * n - self._params.T_nu_plus * np.abs(n) * u_r
-        elif n <= n_bot:
-            T = self._params.T_nn_minus * np.abs(n) * n - self._params.T_nu_minus * np.abs(n) * u_r
-        return T
-
-    def bow_propeller_speed_to_thrust_force(self, n: float) -> float:
-        """ Computes the thrust force T from the bow propeller speed n using the actuator model.
-
-        Args:
-            n (float): Propeller speed n
-
-        Returns:
-            float: Thrust force T
-        """
-        return self._params.T_n3n3 * np.abs(n) * n
-
-    def main_propeller_rudder_angle_to_lift_force(self, delta: float, u_r: float) -> float:
-        """ Computes the lift force L from the main propeller rudder angle delta and relative surge speed using the actuator model.
-
-        Args:
-            delta (float): Main propeller rudder angle delta
-            u_r (float): Relative surge speed u_r
-
-        Returns:
-            float: Lift force L
-        """
-        u_rud = u_r
-        if u_r >= 0.0:
-            u_rud = u_r + self._params.k_u * (np.sqrt(np.max(0.0, 8.0 * T / (np.pi * self._params.rho * self._params.d_rud) + u_r**2)) - u_r)
-
-        if u_rud >= 0.0:
-            L = (self._params.L_delta_plus * delta - self._params.L_ddelta_plus * np.abs(delta) * delta) * np.abs(u_rud) * u_rud
-        else:
-            L = (self._params.L_delta_minus * delta - self._params.L_ddelta_minus * np.abs(delta) * delta) * np.abs(u_rud) * u_rud
-        return L
-
-
-
-
     def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Returns the bounds on the forces the actuators can produce on the ship. """
+        """Returns the bounds on the forces the actuators can produce on the ship."""
         lamb = self._params.scaling_factor
-        lbu = np.array([self._params.Fx_limits[0] * lamb * lamb * lamb, self._params.Fy_limits[0] * lamb * lamb * lamb, self._params.N_limits[0] * lamb * lamb * lamb * lamb * lamb])
+        lbu = np.array(
+            [self._params.Fx_limits[0] * lamb * lamb * lamb, self._params.Fy_limits[0] * lamb * lamb * lamb, self._params.N_limits[0] * lamb * lamb * lamb * lamb * lamb]
+        )
         ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.N_limits[1]])
         lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -np.inf])
-        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, -np.inf])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, np.inf])
         return lbu, ubu, lbx, ubx
 
     @property
@@ -541,3 +583,163 @@ class CyberShip2(IModel):
 
         NOTE: Not to be mistaken with the model interface state (6) and input (3) dimension requirements."""
         return self._n_x, self._n_u
+
+    def nonlinear_damping_matrix(self, nu_r: np.ndarray) -> np.ndarray:
+        """Computes the nonlinear damping matrix D_nl(nu_r)
+
+        Args:
+            nu (np.ndarray): Velocity vector nu = [u, v, r]^T or relative velocity vector nu_r = [u_r, v_r, r]^T
+
+        Returns:
+            np.ndarray: Nonlinear damping matrix D_nl(nu)
+        """
+        d_11 = self._params.X_uu * abs(nu_r[0]) + self._params.X_uuu * nu_r[0] ** 2
+        d_22 = self._params.Y_vv * abs(nu_r[1]) + self._params.Y_rv * abs(nu_r[2])
+        d_23 = self._params.Y_vr * abs(nu_r[1]) + self._params.Y_rr * abs(nu_r[2])
+        d_32 = self._params.N_vv * abs(nu_r[1]) + self._params.N_rv * abs(nu_r[2])
+        d_33 = self._params.N_vr * abs(nu_r[1]) + self._params.N_rr * abs(nu_r[2])
+        return np.array([[-d_11, 0.0, 0.0], [0.0, -d_22, -d_23], [0.0, -d_32, -d_33]])
+
+    def dynamics(self, xs: np.ndarray, u: np.ndarray, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
+        """Computes r.h.s of ODE x_k+1 = f(x_k, u_k), where
+
+        Args:
+            xs (np.ndarray): State xs = [eta, nu]^T (for the real ship, must be scaled to be used with the CS2-model)
+            u (np.ndarray):  Input vector of generalized forces [X, Y, N]^T. Input equal to [n_1, n_2, n_3, delta_1, delta_2]^T consisting of the two main propeller speeds, bow propeller speed and main propeller rudder angles. Values already scaled to be used with the CS2-model.
+            w (stochasticity.DisturbanceData, optional): Optional data containing disturbance information. The model will extract relevant parts of the structure.
+
+        Returns:
+            np.ndarray: New state xs.
+        """
+        # if u.size != self._n_u:
+        #     raise ValueError("Dimension of input array should be 5!")
+        if xs.size != self._n_x:
+            raise ValueError("Dimension of state should be 6!")
+
+        eta = xs[0:3]
+        eta[2] = mf.wrap_angle_to_pmpi(eta[2])
+
+        nu = xs[3:6]
+
+        V_c = 0.0
+        beta_c = 0.0
+        if w is not None and "speed" in w.currents:
+            V_c = w.currents["speed"]
+            beta_c = w.currents["direction"]
+
+        # Current in BODY frame
+        nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
+
+        # Scale down velocities, relevant states and references to model size
+        nu_scaled = nu.copy()
+        nu_scaled[0] = nu[0] / np.sqrt(self._params.scaling_factor)
+        nu_scaled[1] = nu[1] / np.sqrt(self._params.scaling_factor)
+        nu_scaled[2] = nu[2] * np.sqrt(self._params.scaling_factor)
+
+        nu_c_scaled = nu_c.copy()
+        nu_c_scaled[0] = nu_c[0] / np.sqrt(self._params.scaling_factor)
+        nu_c_scaled[1] = nu_c[1] / np.sqrt(self._params.scaling_factor)
+        nu_c_scaled[2] = nu_c[2] * np.sqrt(self._params.scaling_factor)
+
+        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w - eta[2]), V_w * np.sin(beta_w - eta[2]), 0.0])
+        nu_w_scaled = nu_w.copy()
+        nu_w_scaled[0] = nu_w[0] / np.sqrt(self._params.scaling_factor)
+        nu_w_scaled[1] = nu_w[1] / np.sqrt(self._params.scaling_factor)
+
+        nu_r_scaled = nu_scaled - nu_c_scaled
+
+        tau = u  # self.input_to_generalized_forces(u, nu_r_scaled)
+
+        Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
+
+        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu_scaled)
+        C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r_scaled)
+        Cvv = C_RB @ nu_scaled + C_A @ nu_r_scaled
+
+        D_nl = self.nonlinear_damping_matrix(nu_r_scaled)
+        Dvv = self._params.D_l @ nu_r_scaled + D_nl @ nu_r_scaled
+
+        # Compute wind forces and moments
+        u_rw = nu_scaled[0] - nu_w_scaled[0]
+        v_rw = nu_scaled[1] - nu_w_scaled[1]
+        V_rw = np.sqrt(u_rw ** 2 + v_rw ** 2)
+        gamma_rw = - np.arctan2(v_rw, u_rw)
+        tau_wind = 0.5 * self._params.rho_air * V_rw **2 * np.array([coeff_X * ])
+
+        # Compute wave forces and moments
+
+        ode_fun = np.zeros(6)
+        ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau)
+
+        return ode_fun
+
+    # The below functions are used if the actuator model is employed (need proper thrust allocation to control the ship in that case)
+    def input_to_generalized_forces(self, u: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
+        """Computes generalized forces tau from the input u and relative velocity nu_r.
+
+        Args:
+            u (np.ndarray): Input equal to [n_1, n_2, n_3, delta_1, delta_2]^T consisting of the two main propeller speeds, bow propeller speed and main propeller rudder angles.
+            nu_r (np.ndarray): Relative velocity vector nu_r = [u_r, v_r, r]^T
+
+        Returns:
+            np.ndarray: Generalized forces tau = [X, Y, N]^T
+        """
+        T_1 = self.main_propeller_speed_to_thrust_force(u[0], nu_r[0])
+        T_2 = self.main_propeller_speed_to_thrust_force(u[1], nu_r[0])
+        T_3 = self.bow_propeller_speed_to_thrust_force(u[2])
+        L_1 = self.main_propeller_rudder_angle_to_lift_force(u[3], T_1, nu_r[0])
+        L_2 = self.main_propeller_rudder_angle_to_lift_force(u[4], T_2, nu_r[0])
+        tau = self._params.B @ np.array([T_1, T_2, T_3, L_1, L_2])
+        return tau
+
+    def main_propeller_speed_to_thrust_force(self, n: float, u_r: float) -> float:
+        """Computes the thrust force T from the main propeller speed n and relative surge speed using the actuator model.
+
+        Args:
+            n (float): Main propeller speed n
+            u_r (float): Relative surge speed u_r
+
+        Returns:
+            float: Thrust force T
+        """
+        n_top = max(0.0, u_r * self._params.T_nu_plus / self._params.T_nn_plus)
+        n_bot = min(0.0, u_r * self._params.T_nu_minus / self._params.T_nn_minus)
+        T = 0.0
+        if n >= n_top:
+            T = self._params.T_nn_plus * abs(n) * n - self._params.T_nu_plus * abs(n) * u_r
+        elif n <= n_bot:
+            T = self._params.T_nn_minus * abs(n) * n - self._params.T_nu_minus * abs(n) * u_r
+        return T
+
+    def bow_propeller_speed_to_thrust_force(self, n: float) -> float:
+        """Computes the thrust force T from the bow propeller speed n using the actuator model.
+
+        Args:
+            n (float): Propeller speed n
+
+        Returns:
+            float: Thrust force T
+        """
+        return self._params.T_n3n3 * abs(n) * n
+
+    def main_propeller_rudder_angle_to_lift_force(self, delta: float, T: float, u_r: float) -> float:
+        """Computes the lift force L from the main propeller rudder angle delta, thruster force and relative surge speed using the actuator model.
+
+        Args:
+            delta (float): Main propeller rudder angle delta
+            T (float): Thruster force T
+            u_r (float): Relative surge speed u_r
+
+        Returns:
+            float: Lift force L
+        """
+        u_rud = u_r
+        if u_r >= 0.0:
+            u_rud = u_r + self._params.k_u * (np.sqrt(max(0.0, 8.0 * T / (np.pi * self._params.rho * self._params.d_rud**2) + u_r**2)) - u_r)
+
+        if u_rud >= 0.0:
+            L = (self._params.L_delta_plus * delta - self._params.L_ddelta_plus * abs(delta) * delta) * abs(u_rud) * u_rud
+        else:
+            L = (self._params.L_delta_minus * delta - self._params.L_ddelta_minus * abs(delta) * delta) * abs(u_rud) * u_rud
+        return L
