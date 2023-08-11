@@ -342,7 +342,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [cybership2_controller, flsh, pass_through_cs, csog, pass_through_inputs]
+            excludes: [shpid, flsh, pass_through_cs, csog, pass_through_inputs]
             schema:
               wn:
                 required: True
@@ -368,7 +368,7 @@ ship_list:
                 schema:
                   type: float
                   min: 0.0
-          cybership2_controller:
+          shpid:
             type: dict
             excludes: [flsh, pass_through_cs, csog, pid, pass_through_inputs]
             schema:
@@ -398,7 +398,7 @@ ship_list:
                   min: 0.0
           flsh:
             type: dict
-            excludes: [cybership2_controller, pid, pass_through_cs, pass_through_inputs, csog]
+            excludes: [shpid, pid, pass_through_cs, pass_through_inputs, csog]
             schema:
               K_p_u:
                 required: True
@@ -439,10 +439,10 @@ ship_list:
           pass_through_cs:
             type: string
             empty: True
-            excludes: [cybership2_controller, pid, flsh, csog, pass_through_inputs]
+            excludes: [shpid, pid, flsh, csog, pass_through_inputs]
           pass_through_inputs:
             type: dict
-            excludes: [pid, flsh, pass_through_cs, cybership2_controller, csog]
+            excludes: [pid, flsh, pass_through_cs, shpid, csog]
             schema:
               rudder_propeller_mapping:
                 required: True
@@ -494,3 +494,8 @@ ship_list:
             type: string
             empty: True
             excludes: [csog, telemetron]
+
+          rvgunnerus:
+            type: string
+            empty: True
+            excludes: [csog, telemetron, cybership2]

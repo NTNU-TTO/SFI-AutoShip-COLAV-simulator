@@ -54,13 +54,13 @@ ship_list:
         K_i: 0.0
         e_int_max: 200.0
     controller:
-      cybership2_controller:
+      shpid:
         K_p: [50.0, 0.5, 0.5]
         K_d: [5.0, 5.0, 5.0]
         K_i: [1.0, 1.0, 1.0]
         z_diff_max: [2.0, 2.0, 30.0]
     model:
-      cybership2: ''
+      rvgunnerus: ''
   - id: 1
     mmsi: 101
     csog_state: [6575080.0, -32424.0, 6.0, 120.0]

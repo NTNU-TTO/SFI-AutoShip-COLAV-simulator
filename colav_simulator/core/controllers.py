@@ -441,8 +441,8 @@ class FLSH(IController):
         return tau
 
 
-class CyberShip2Controller(IController):
-    """Implements a simple PID-controller for steering the CyberShip2 vessel (without rudder dynamics consideration)."""
+class SHPID(IController):
+    """Implements a surge-heading PID-controller for steering the CyberShip2 vessel (without rudder dynamics consideration)."""
 
     def __init__(self, model_params, params: Optional[CyberShip2ControllerParams] = None) -> None:
         self._model_params = model_params
@@ -457,22 +457,6 @@ class CyberShip2Controller(IController):
 
     def _reset_integrator(self):
         self._z_diff_int = np.zeros(3)
-
-    def nonlinear_damping_matrix(self, nu: np.ndarray) -> np.ndarray:
-        """Computes the nonlinear damping matrix D_nl(nu)
-
-        Args:
-            nu (np.ndarray): Velocity vector nu = [u, v, r]^T
-
-        Returns:
-            np.ndarray: Nonlinear damping matrix D_nl(nu)
-        """
-        d_11 = self._model_params.X_uu * np.abs(nu[0]) + self._model_params.X_uuu * nu[0] ** 2
-        d_22 = self._model_params.Y_vv * np.abs(nu[1]) + self._model_params.Y_rv * np.abs(nu[2])
-        d_23 = self._model_params.Y_vr * np.abs(nu[1]) + self._model_params.Y_rr * np.abs(nu[2])
-        d_32 = self._model_params.N_vv * np.abs(nu[1]) + self._model_params.N_rv * np.abs(nu[2])
-        d_33 = self._model_params.N_vr * np.abs(nu[1]) + self._model_params.N_rr * np.abs(nu[2])
-        return np.array([[-d_11, 0.0, 0.0], [0.0, -d_22, -d_23], [0.0, -d_32, -d_33]])
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the PID law.
