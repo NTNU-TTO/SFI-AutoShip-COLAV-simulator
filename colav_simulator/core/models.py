@@ -184,7 +184,7 @@ class RVGunnerusParams:
     # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
     #
     Fx_limits: np.ndarray = np.array([-1.54273e5, 1.54273e5])  # Force limits in x (unscaled)
-    Fy_limits: np.ndarray = np.array([-0.5 * 1.54273e5, 1.54273e5 * 4.0])  # Force limits in y (unscaled)
+    Fy_limits: np.ndarray = np.array([-0.5 * 1.54273e5, 0.5 * 1.54273e5])  # Force limits in y (unscaled)
     N_limits: np.ndarray = np.array([-0.8 * 1.54273e5, 0.8 * 1.54273e5])  # Torque limits in z (unscaled)
 
     U_min: float = 0.0  # Min speed
@@ -501,9 +501,18 @@ class RVGunnerus(IModel):
         beta_c = 0.0
         V_w = 0.0
         beta_w = 0.0
+        tau_wind = np.zeros(3)
         if w is not None and "speed" in w.wind:
             V_w = w.wind["speed"]
             beta_w = w.wind["direction"]
+            # Compute wind forces and moments
+            u_rw = nu[0] - nu_w[0]
+            v_rw = nu[1] - nu_w[1]
+            V_rw = np.sqrt(u_rw**2 + v_rw**2)
+            gamma_rw = -np.arctan2(v_rw, u_rw)
+            gamma_w = eta[2] - beta_w - np.pi  # wind angle of attack
+            gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
+            tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
         if w is not None and "speed" in w.currents:
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
@@ -519,15 +528,6 @@ class RVGunnerus(IModel):
         Cvv = C_RB @ nu + C_A @ nu_r
         Dvv = (self._params.D_l + self._params.D_u * abs(nu_r[0]) + self._params.D_v * abs(nu_r[1]) + self._params.D_r * abs(nu[2])) @ nu_r
 
-        # Compute wind forces and moments
-        u_rw = nu[0] - nu_w[0]
-        v_rw = nu[1] - nu_w[1]
-        V_rw = np.sqrt(u_rw**2 + v_rw**2)
-        gamma_rw = -np.arctan2(v_rw, u_rw)
-        gamma_w = eta[2] - beta_w - np.pi  # wind angle of attack
-        gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
-        tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
-
         # Compute wave forces and moments
 
         # Compute thruster forces and moments (NOT USED IN CURRENT FRAMEWORK for simplicity),
@@ -538,7 +538,7 @@ class RVGunnerus(IModel):
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u + tau_wind)
 
         if abs(nu[0]) < 0.1:
             ode_fun[2] = 0.0

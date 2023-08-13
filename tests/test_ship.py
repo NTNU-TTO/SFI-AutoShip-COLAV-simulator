@@ -26,11 +26,11 @@ if __name__ == "__main__":
     scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
     origin = scenario_generator.enc_origin
 
-    model = models.CyberShip2()
-    ctrl_params = controllers.CyberShip2ControllerParams(
-        K_p=np.diag([100.0, 0.0, 30.0]), K_d=np.diag([1.0, 1.0, 1.0]), K_i=np.diag([1.0, 0.0, 0.01]), z_diff_max=np.array([2.0, 2.0, 30.0 * np.pi / 180.0])
+    model = models.RVGunnerus()
+    ctrl_params = controllers.SHPIDParams(
+        K_p=np.diag([5e5, 0.0, 1e7]), K_d=np.diag([100.0, 100.0, 100.0]), K_i=np.diag([100.0, 1.0, 100.0]), z_diff_max=np.array([2.0, 2.0, 30.0 * np.pi / 180.0])
     )
-    controller = controllers.CyberShip2Controller(model.params, ctrl_params)
+    controller = controllers.SHPID(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(K_p=0.005, K_i=0.0, R_a=25.0, e_int_max=200.0, pass_angle_threshold=90.0)
@@ -51,6 +51,8 @@ if __name__ == "__main__":
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
+    disturbance._currents = None
+    disturbance._wind = None
 
     horizon = 500.0
     dt = 0.1

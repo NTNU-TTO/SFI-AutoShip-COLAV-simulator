@@ -31,7 +31,7 @@ class MIMOPIDParams:
 
 
 @dataclass
-class CyberShip2ControllerParams:
+class SHPIDParams:
     "Parameters for a PID controller for surge, sway + heading control of the Cybership 2."
     K_p: np.ndarray
     K_d: np.ndarray
@@ -54,7 +54,7 @@ class CyberShip2ControllerParams:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        params = CyberShip2ControllerParams(
+        params = SHPIDParams(
             K_p=np.diag(config_dict["K_p"]), K_d=np.diag(config_dict["K_d"]), K_i=np.diag(config_dict["K_i"]), z_diff_max=np.array(config_dict["z_diff_max"])
         )
         return params
@@ -106,7 +106,7 @@ class Config:
 
     pid: Optional[MIMOPIDParams] = None
     flsh: Optional[FLSHParams] = None
-    cybership2controller: Optional[CyberShip2ControllerParams] = None
+    shpid: Optional[SHPIDParams] = None
     pass_through_cs: Optional[bool] = True
     pass_through_inputs: Optional[PassThroughInputsParams] = None
 
@@ -125,8 +125,8 @@ class Config:
             config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
             config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
 
-        if "cybership2controller" in config_dict:
-            config.cybership2controller = cp.convert_settings_dict_to_dataclass(CyberShip2ControllerParams, config_dict["cybership2controller"])
+        if "shpid" in config_dict:
+            config.shpid = cp.convert_settings_dict_to_dataclass(SHPIDParams, config_dict["shpid"])
 
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
@@ -444,12 +444,12 @@ class FLSH(IController):
 class SHPID(IController):
     """Implements a surge-heading PID-controller for steering the CyberShip2 vessel (without rudder dynamics consideration)."""
 
-    def __init__(self, model_params, params: Optional[CyberShip2ControllerParams] = None) -> None:
+    def __init__(self, model_params, params: Optional[SHPIDParams] = None) -> None:
         self._model_params = model_params
         if params is not None:
-            self._params: CyberShip2ControllerParams = params
+            self._params: SHPIDParams = params
         else:
-            self._params = CyberShip2ControllerParams()
+            self._params = SHPIDParams()
         self._z_diff_int: np.ndarray = np.zeros(3)
         self._psi_d_prev: float = 0.0
         self._psi_prev: float = 0.0
@@ -487,31 +487,17 @@ class SHPID(IController):
 
         z = self._params.V @ xs
         z[2] = psi_unwrapped
-        z_scaled = z.copy()
 
-        # Reference = [u, v, psi]
+        # Reference = [u, 0.0, psi]
         z_d = np.array([refs[3], 0.0, psi_d_unwrapped])
-        z_d_scaled = z_d.copy()
-
-        # Scale down velocity, relevant states and references to model size
-        nu_scaled = nu.copy()
-        nu_scaled[0] = nu[0] / np.sqrt(self._model_params.scaling_factor)
-        nu_scaled[1] = nu[1] / np.sqrt(self._model_params.scaling_factor)
-        nu_scaled[2] = nu[2] * np.sqrt(self._model_params.scaling_factor)
-
-        z_scaled[0] = z[0] / np.sqrt(self._model_params.scaling_factor)
-        z_scaled[1] = z[1] / np.sqrt(self._model_params.scaling_factor)
-
-        z_d_scaled[0] = z_d[0] / np.sqrt(self._model_params.scaling_factor)
-        z_d_scaled[1] = z_d[1] / np.sqrt(self._model_params.scaling_factor)
 
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
-        z_diff = z_d_scaled - z_scaled
+        z_diff = z_d - z
         z_diff[2] = psi_error
 
         self.update_integrator(z_diff, dt)
 
-        tau = self._params.K_p @ z_diff - self._params.K_d @ nu_scaled + self._params.K_i @ self._z_diff_int
+        tau = self._params.K_p @ z_diff - self._params.K_d @ nu + self._params.K_i @ self._z_diff_int
 
         tau[0] = mf.sat(tau[0], self._model_params.Fx_limits[0], self._model_params.Fx_limits[1])
         tau[1] = mf.sat(tau[1], self._model_params.Fy_limits[0], self._model_params.Fy_limits[1])
