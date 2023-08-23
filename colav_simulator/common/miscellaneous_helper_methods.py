@@ -8,6 +8,7 @@
 """
 
 import math
+import os.path
 from datetime import datetime
 from typing import Tuple
 from zoneinfo import ZoneInfo
@@ -558,3 +559,45 @@ def utc_to_local(utc_dt: datetime) -> datetime:
         datetime: Local datetime
     """
     return utc_dt.replace(tzinfo=ZoneInfo("localtime"))
+
+def write_coast_distances_to_file(dist_port, dist_front, dist_starboard, safety_radius, ship_obj, filepath):
+    """
+    Writes the distance to coast data on-line to the AIS case file
+
+    Parameters:
+        dist_port (float): Distance to coast on port side
+        dist_front (float): Distance to coast in front
+        dist_starboard (float): Distance to coast on starboard side
+
+    Returns:
+        Nothing
+    """
+    
+    new_filepath = filepath + "-radius-" + str(safety_radius)
+    
+    if not os.path.isfile(filepath + "-radius-" + str(safety_radius)):
+        old_data = pd.read_csv(filepath, sep=';')
+    else:
+        old_data = pd.read_csv(new_filepath, sep=';')
+    
+    columns = ['dcoast_port', 'dcoast_front', 'dcoast_starboard']
+    
+    if 'dcoast_port' not in old_data.columns or 'dcoast_front' not in old_data.columns or 'dcoast_starboard' not in old_data.columns:
+        old_data[columns[0]] = np.zeros(old_data.index.max() + 1)
+        old_data[columns[1]] = np.zeros(old_data.index.max() + 1)
+        old_data[columns[2]] = np.zeros(old_data.index.max() + 1)
+    
+    # Calculates current timestep for a case file with 60 sec intervals
+    current_timestep = int((ship_obj._trajectory_sample - 1)/60)
+    
+    arr1 = old_data["dcoast_port"].tolist()
+    arr1[current_timestep] = dist_port
+    old_data["dcoast_port"] = arr1
+    arr2 = old_data["dcoast_front"].tolist()
+    arr2[current_timestep] = dist_front
+    old_data["dcoast_front"] = arr2
+    arr3 = old_data["dcoast_starboard"].tolist()
+    arr3[current_timestep] = dist_starboard
+    old_data["dcoast_starboard"] = arr3
+    
+    old_data.to_csv(new_filepath, sep=';', index=False)
