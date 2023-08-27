@@ -24,7 +24,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -49,7 +49,7 @@ class COLAVType(Enum):
 class LayerConfig:
     """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
-    vo: Optional[kvo.VOParams] = kvo.VOParams()
+    vo: Optional[kvo.VOParams] = field(default_factory = lambda: kvo.VOParams())
     los: Optional[guidance.LOSGuidanceParams] = None
     sbmpc: Optional[sb_mpc.SBMPCParams] = None
 
@@ -87,7 +87,7 @@ class Config:
     """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
 
     name: COLAVType = COLAVType.VO
-    layer1: LayerConfig = LayerConfig()
+    layer1: LayerConfig = field(default_factory=lambda: LayerConfig())
     layer2: Optional[LayerConfig] = None
     layer3: Optional[LayerConfig] = None
 

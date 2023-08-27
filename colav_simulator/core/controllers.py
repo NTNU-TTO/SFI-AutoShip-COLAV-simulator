@@ -21,7 +21,7 @@ class MIMOPIDParams:
     "Parameters for a Proportional-Integral-Derivative controller."
     wn: np.ndarray = field(default_factory=lambda: np.diag([0.3, 0.2, 0.35]))
     zeta: np.ndarray = field(default_factory=lambda: np.diag([1.0, 1.0, 1.0]))
-    eta_diff_max: np.ndarray = np.zeros(3)
+    eta_diff_max: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
     def to_dict(self):
         output_dict = {}

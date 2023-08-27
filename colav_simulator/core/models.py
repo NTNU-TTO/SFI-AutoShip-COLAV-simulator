@@ -76,13 +76,13 @@ class TelemetronParams:
     width: float = 3.0
     ship_vertices: np.ndarray = field(default_factory=lambda: np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T)
     l_r: float = 4.0  # Distance from CG to rudder
-    M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
-    M_a: np.ndarray = np.zeros((3, 3))  # Added mass matrix
-    D_c: np.ndarray = np.diag([0.0, 0.0, 3224.0])  # Third order/cubic damping
-    D_q: np.ndarray = np.diag([135.0, 2000.0, 0.0])  # Second order/quadratic damping
-    D_l: np.ndarray = np.diag([50.0, 200.0, 1281.0])  # First order/linear damping
-    Fx_limits: np.ndarray = np.array([-6550.0, 13100.0])  # Force limits in x
-    Fy_limits: np.ndarray = np.array([-645.0, 645.0])  # Force limits in y
+    M_rb: np.ndarray = field(default_factory=lambda: np.diag([3980.0, 3980.0, 19703.0]))  # Rigid body mass matrix
+    M_a: np.ndarray = field(default_factory=lambda: np.zeros((3, 3)))
+    D_c: np.ndarray = field(default_factory=lambda: np.diag([0.0, 0.0, 3224.0]))  # Third order/cubic damping
+    D_q: np.ndarray = field(default_factory=lambda: np.diag([135.0, 2000.0, 0.0]))  # Second order/quadratic damping
+    D_l: np.ndarray = field(default_factory=lambda: np.diag([50.0, 200.0, 1281.0]))  # First order/linear damping
+    Fx_limits: np.ndarray = field(default_factory=lambda: np.array([-6550.0, 13100.0]))  # Force limits in x
+    Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-645.0, 645.0]))  # Force limits in y
     r_max: float = float(np.deg2rad(15))
     U_min: float = 0.0
     U_max: float = 15.0
@@ -223,7 +223,7 @@ class CyberShip2Params:
 class Config:
     """Configuration class for managing model parameters."""
 
-    csog: Optional[KinematicCSOGParams] = KinematicCSOGParams()
+    csog: Optional[KinematicCSOGParams] = field(default_factory=lambda: KinematicCSOGParams())
     telemetron: Optional[TelemetronParams] = None
     cybership2: Optional[CyberShip2Params] = None
     rvgunnerus: Optional[RVGunnerusParams] = None

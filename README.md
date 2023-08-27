@@ -39,7 +39,9 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. If you get troubles installing `gdal`, this might be due to:
+`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
+
+If you get troubles installing `gdal`, this might be due to:
 - The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
 - It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
 
