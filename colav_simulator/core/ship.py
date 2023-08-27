@@ -162,7 +162,7 @@ class ShipBuilder:
         """
         if config:
             model = cls.construct_model(config.model)
-            controller = cls.construct_controller(config.controller)
+            controller = cls.construct_controller(model.params, config.controller)
             sensors = cls.construct_sensors(config.sensors)
             tracker = cls.construct_tracker(sensors, config.tracker)
             guidance_alg = None
@@ -173,7 +173,7 @@ class ShipBuilder:
                 colav_alg = cls.construct_colav(config.colav)
         else:
             model = cls.construct_model()
-            controller = cls.construct_controller()
+            controller = cls.construct_controller(model.params)
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
             guidance_alg = cls.construct_guidance()
@@ -198,8 +198,8 @@ class ShipBuilder:
         return guidances.GuidanceBuilder.construct_guidance(config)
 
     @classmethod
-    def construct_controller(cls, config: Optional[controllers.Config] = None) -> controllers.IController:
-        return controllers.ControllerBuilder.construct_controller(config)
+    def construct_controller(cls, model_params: Any, config: Optional[controllers.Config] = None) -> controllers.IController:
+        return controllers.ControllerBuilder.construct_controller(model_params, config)
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None) -> models.IModel:
@@ -269,7 +269,7 @@ class Ship(IShip):
         self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
-        self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
+        self._model, self._controller, self._guidance, self._sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
 
         if model is not None:
             self._model = model

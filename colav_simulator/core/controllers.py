@@ -146,6 +146,9 @@ class Config:
         if self.flsh is not None:
             config_dict["flsh"] = self.flsh.to_dict()
 
+        if self.shpid is not None:
+            config_dict["shpid"] = self.shpid.to_dict()
+
         if self.pass_through_cs is not None:
             config_dict["pass_through_cs"] = ""
 
@@ -167,21 +170,22 @@ class IController(ABC):
 
 class ControllerBuilder:
     @classmethod
-    def construct_controller(cls, model: Any, config: Optional[Config] = None) -> IController:
+    def construct_controller(cls, model_params: Any, config: Optional[Config] = None) -> IController:
         """Builds a controller from the configuration
 
         Args:
+            model_params (Any): Model parameters used by the controller.
             config (Optional[controllers.Config]): Model configuration. Defaults to None.
 
         Returns:
             Model: Model as specified by the configuration, e.g. a MIMOPID controller.
         """
         if config and config.pid:
-            return MIMOPID(model, config.pid)
+            return MIMOPID(model_params, config.pid)
         elif config and config.flsh:
-            return FLSH(model, config.flsh)
+            return FLSH(model_params, config.flsh)
         elif config and config.shpid:
-            return SHPID(model, config.shpid)
+            return SHPID(model_params, config.shpid)
         elif config and config.pass_through_cs:
             return PassThroughCS()
         elif config and config.pass_through_inputs:

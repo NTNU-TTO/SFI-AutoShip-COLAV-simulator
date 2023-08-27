@@ -35,7 +35,6 @@ class Config:
     show_waypoints: bool = False
     show_measurements: bool = False
     show_liveplot_tracks: bool = True
-    save_animation: bool = True
     show_results: bool = True
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True

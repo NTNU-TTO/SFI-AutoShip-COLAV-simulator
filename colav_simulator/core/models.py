@@ -137,7 +137,7 @@ class RVGunnerusParams:
     # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
     Fx_limits: np.ndarray = field(default_factory=lambda: np.array([-154.273, 154.273]) * 1000.0)  # Force limits in x (unscaled)
     Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-0.5 * 154.273, 0.5 * 154.273]) * 1000.0)  # Force limits in y (unscaled)
-    N_limits: np.ndarray = field(default_factory=lambda: 1.5 * np.array([-154.273, 154.273]) * 1000.0)  # Torque limits in z (unscaled)
+    N_limits: np.ndarray = field(default_factory=lambda: 1.8 * np.array([-154.273, 154.273]) * 1000.0)  # Torque limits in z (unscaled)
 
     U_min: float = 0.0  # Min speed
     U_max: float = mf.knots2ms(12.6)  # Max speed

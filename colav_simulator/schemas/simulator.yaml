@@ -127,9 +127,6 @@ visualizer:
     show_waypoints:
       required: True
       type: boolean
-    save_animation:
-      required: True
-      type: boolean
     show_liveplot_tracks:
       required: True
       type: boolean
