@@ -10,7 +10,7 @@
 """
 import random
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -22,8 +22,8 @@ import numpy as np
 class GaussMarkovDisturbanceParams:
     """Parameters for a gauss-markov disturbance model with random speed and direction (of e.g. wind or current)."""
 
-    constant: bool = False
-    initial_speed: float = 1.0
+    constant: bool = True
+    initial_speed: float = 0.5
     initial_direction: float = 0.0
     speed_range: Tuple[float, float] = (0.0, 3.0)
     direction_range: Tuple[float, float] = (-np.pi, np.pi)
@@ -64,19 +64,28 @@ class GaussMarkovDisturbanceParams:
 class Config:
     "Configuration class for managing environment disturbance/stochasticity parameters"
 
-    wind: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
+    wind: Optional[GaussMarkovDisturbanceParams] = None
     waves: Optional[dict] = None
     currents: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
 
     @classmethod
     def from_dict(cls, config_dict: dict):
 
-        if config_dict["wind"] is not None:
-            cls.wind = cp.convert_settings_dict_to_dataclass
+        if "wind" in config_dict:
+            cls.wind = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["wind"])
+
+        if "currents" in config_dict:
+            cls.currents = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["currents"])
+
         return cls(**config_dict)
 
     def to_dict(self) -> dict:
         config_dict: dict = {}
+        if self.wind is not None:
+            config_dict["wind"] = self.wind.to_dict()
+
+        if self.currents is not None:
+            config_dict["currents"] = self.currents.to_dict()
 
         return config_dict
 

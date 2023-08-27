@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -29,7 +29,7 @@ class KinematicCSOGParams:
 
     draft: float = 2.0
     length: float = 10.0
-    ship_vertices: np.ndarray = np.empty(2)
+    ship_vertices: np.ndarray = field(default_factory=lambda: np.empty(2))
     width: float = 3.0
     T_chi: float = 3.0
     T_U: float = 5.0
@@ -74,7 +74,7 @@ class TelemetronParams:
     draft: float = 0.5
     length: float = 8.0
     width: float = 3.0
-    ship_vertices: np.ndarray = np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T
+    ship_vertices: np.ndarray = field(default_factory=lambda: np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T)
     l_r: float = 4.0  # Distance from CG to rudder
     M_rb: np.ndarray = np.diag([3980.0, 3980.0, 19703.0])  # Rigid body mass matrix
     M_a: np.ndarray = np.zeros((3, 3))  # Added mass matrix
@@ -89,6 +89,71 @@ class TelemetronParams:
 
 
 @dataclass
+class RVGunnerusParams:
+    """Parameters for the R/V Gunnerus vessel (read only / fixed)."""
+
+    rho: float = 1000.0  # Density of water
+    draft: float = 2.7
+    length: float = 31.25  # (Loa)
+    width: float = 9.6
+    ship_vertices: np.ndarray = field(
+        default_factory=lambda length=length, width=width: np.array(
+            [[0.9 * length / 2.0, width / 2.0], [length / 2.0, 0.0], [0.9 * length / 2.0, -width / 2.0], [-length / 2.0, -width / 2.0], [-length / 2.0, width / 2.0]]
+        ).T
+    )
+
+    # The parameters below are scaled up 70 times to match the size of the real ship
+    M_rb: np.ndarray = field(
+        default_factory=lambda: np.array([[574127.69, 0.0, 0.0], [0.0, 574127.69, 0.0], [0.0, 0.0, 41237080.0]])
+    )  # Rigid body mass matrix, m = 574127.69 kg, I_z = 41237080 kgm²
+    M_a: np.ndarray = field(
+        default_factory=lambda: np.array([[26599.24721721, 0.0, 0.0], [0.0, 132619.44, -473277.78], [0.0, -571162.06, 13320142.0]])
+    )  # Added mass matrix
+    D_l: np.ndarray = field(
+        default_factory=lambda: np.array(
+            [[1.11759831e03, 0.00000000e00, 0.00000000e00], [0.00000000e00, 2.22886400e04, 0.00000000e00], [0.00000000e00, 0.00000000e00, 1.94968656e06]]
+        )
+    )  # First order/linear damping
+    D_u: np.ndarray = field(
+        default_factory=lambda: np.array([[1671.60006965, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    )  # Quadratic damping matrix that multiplies with relative surge speed u_r
+    D_v: np.ndarray = field(
+        default_factory=lambda: np.array([[0.0, 0.0, 0.0], [0.0, 23611.351393, 0.0], [0.0, 0.0, 0.0]])
+    )  # Quadratic damping matrix that multiplies with relative sway speed v_r
+    D_r: np.ndarray = field(
+        default_factory=lambda: np.array(
+            [[0.00000000e00, 0.00000000e00, 0.00000000e00], [0.00000000e00, 0.00000000e00, 0.00000000e00], [0.00000000e00, 0.00000000e00, 3.65427334e08]]
+        )
+    )  # Quadratic damping matrix that multiplies with yaw rate r
+
+    # Actuator parameters
+    r_t: np.array = field(default_factory=lambda: np.array([-15.5600097, 0.0, -4.4]))  # Thruster position in BODY coordinates
+    T_azimuth_angle: float = 1.0  # Time constant for azimuth angle
+    T_propeller_speed: float = 1.0  # Time constant for propeller speed
+    max_azimuth_angle_der: float = 0.17453292519943295  # Max azimuth angle derivative (rad/s)
+    max_propeller_speed_der: float = 10.0 / 60.0  # Max propeller speed derivative (rad/s)
+    rudder_area: float = 9.0
+
+    # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
+    Fx_limits: np.ndarray = field(default_factory=lambda: np.array([-154.273, 154.273]) * 1000.0)  # Force limits in x (unscaled)
+    Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-0.5 * 154.273, 0.5 * 154.273]) * 1000.0)  # Force limits in y (unscaled)
+    N_limits: np.ndarray = field(default_factory=lambda: 1.5 * np.array([-154.273, 154.273]) * 1000.0)  # Torque limits in z (unscaled)
+
+    U_min: float = 0.0  # Min speed
+    U_max: float = mf.knots2ms(12.6)  # Max speed
+    r_max: float = np.inf * np.pi / 180.0  # Max yaw rate
+
+    A_Fw: float = 12.0 * 9.6  # guesstimate of frontal area
+    A_Lw: float = 12.0 * 31.25  # guesstimate of lateral area
+    rho_air: float = 1.225  # Density of air
+    CD_l_AF_0: float = 0.55  # Longitudinal resistance used to compute wind coefficients in wind model
+    CD_l_AF_pi: float = 0.65
+    CD_t: float = 0.85  # Transversal resistance used to compute wind coefficients in wind model
+    delta_crossforce: float = 0.60  # Cross-force parameter
+    s_L: float = 0.0  # x-coordinate of transverse prject area A_Lw wrt the main section
+
+
+@dataclass
 class CyberShip2Params:
     """Parameters for the CyberShip2 vessel (read only / fixed)."""
 
@@ -96,16 +161,18 @@ class CyberShip2Params:
     draft: float = 5.0
     length: float = 1.255 * 70.0
     width: float = 0.29 * 70.0
-    ship_vertices: np.ndarray = np.array(
-        [[0.9 * length / 2.0, width / 2.0], [length / 2.0, 0.0], [0.9 * length / 2.0, -width / 2.0], [-length / 2.0, -width / 2.0], [-length / 2.0, width / 2.0]]
-    ).T
+    ship_vertices: np.ndarray = field(
+        default_factory=lambda length=length, width=width: np.array(
+            [[0.9 * length / 2.0, width / 2.0], [length / 2.0, 0.0], [0.9 * length / 2.0, -width / 2.0], [-length / 2.0, -width / 2.0], [-length / 2.0, width / 2.0]]
+        ).T
+    )
 
     # The parameters below are scaled up 70 times to match the size of the real ship
-    M_rb: np.ndarray = np.array(
-        [[23.800, 0.0, 0.0], [0.0, 23.800, 23.800 * 0.046], [0.0, 23.800 * 0.046, 1.760]]
+    M_rb: np.ndarray = field(
+        default_factory=lambda: np.array([[23.800, 0.0, 0.0], [0.0, 23.800, 23.800 * 0.046], [0.0, 23.800 * 0.046, 1.760]])
     )  # Rigid body mass, m = 23.800 kg, I_z = 1.760 kgm², x_g = 0.046 matrix
-    M_a: np.ndarray = np.array([[2.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 1.0]])  # Added mass matrix
-    D_l: np.ndarray = np.array([[0.72253, 0.0, 0.0], [0.0, 0.88965, 7.250], [0.0, -0.03130, 1.9]])  # First order/linear damping
+    M_a: np.ndarray = field(default_factory=lambda: np.array([[2.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 1.0]]))  # Added mass matrix
+    D_l: np.ndarray = field(default_factory=lambda: np.array([[0.72253, 0.0, 0.0], [0.0, 0.88965, 7.250], [0.0, -0.03130, 1.9]]))  # First order/linear damping
     # Nonlinear damping related parameters:
     X_uu: float = -1.32742
     X_uuu: float = -5.86643
@@ -120,7 +187,9 @@ class CyberShip2Params:
     N_vr: float = 0.080
     N_rr: float = -0.750
 
-    B: np.ndarray = np.array([[1.0, 1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0, 1.0], [0.078, -0.078, 0.466, 0.549, 0.549]])  # Actuator configuration matrix
+    B: np.ndarray = field(
+        default_factory=lambda: np.array([[1.0, 1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0, 1.0], [0.078, -0.078, 0.466, 0.549, 0.549]])
+    )  # Actuator configuration matrix
     # Main propeller thruster 1 and 2 coefficients:
     T_nn_plus: float = 3.65034e-03
     T_nu_plus: float = 1.52468e-04
@@ -137,67 +206,17 @@ class CyberShip2Params:
     L_delta_minus: float = 3.19573
     L_ddelta_minus: float = 2.34356
 
-    Fx_limits: np.ndarray = np.array([-4.0, 8.0])  # Force limits in x (unscaled)
-    Fy_limits: np.ndarray = np.array([-4.0, 4.0])  # Force limits in y (unscaled)
-    N_limits: np.ndarray = np.array([-2.5, 2.5])  # Torque limits in z (unscaled)
+    Fx_limits: np.ndarray = field(default_factory=lambda: np.array([-4.0, 8.0]))  # Force limits in x (unscaled)
+    Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-4.0, 4.0]))  # Force limits in y (unscaled)
+    N_limits: np.ndarray = field(default_factory=lambda: np.array([-2.5, 2.5]))  # Torque limits in z (unscaled)
     max_propeller_speed: float = 33.0  # (unscaled)
     max_rudder_angle: float = 35.0 * np.pi / 180.0  # (unscaled)
 
     U_min: float = 0.0  # Min speed
     U_max: float = 10.0  # Max speed
+    r_max: float = np.inf * np.pi / 180.0  # Max yaw rate
 
     scaling_factor: float = 70.0  # Scaling factor for the ship size
-
-
-@dataclass
-class RVGunnerusParams:
-    """Parameters for the R/V Gunnerus vessel (read only / fixed)."""
-
-    rho: float = 1000.0  # Density of water
-    draft: float = 2.7
-    length: float = 31.25  # (Loa)
-    width: float = 9.6
-    ship_vertices: np.ndarray = np.array(
-        [[0.9 * length / 2.0, width / 2.0], [length / 2.0, 0.0], [0.9 * length / 2.0, -width / 2.0], [-length / 2.0, -width / 2.0], [-length / 2.0, width / 2.0]]
-    ).T
-
-    # The parameters below are scaled up 70 times to match the size of the real ship
-    M_rb: np.ndarray = np.array([[574127.69, 0.0, 0.0], [0.0, 574127.69, 0.0], [0.0, 0.0, 41237080.0]])  # Rigid body mass matrix, m = 574127.69 kg, I_z = 41237080 kgm²
-    M_a: np.ndarray = np.array([[26599.24721721, 0.0, 0.0], [0.0, 132619.44, -473277.78], [0.0, -571162.06, 13320142.0]])  # Added mass matrix
-    D_l: np.ndarray = np.array(
-        [[1.11759831e03, 0.00000000e00, 0.00000000e00], [0.00000000e00, 2.22886400e04, 0.00000000e00], [0.00000000e00, 0.00000000e00, 1.94968656e06]]
-    )  # First order/linear damping
-    D_u: np.ndarray = np.array([[1671.60006965, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])  # Quadratic damping matrix that multiplies with relative surge speed u_r
-    D_v: np.ndarray = np.array([[0.0, 0.0, 0.0], [0.0, 23611.351393, 0.0], [0.0, 0.0, 0.0]])  # Quadratic damping matrix that multiplies with relative sway speed v_r
-    D_r: np.ndarray = np.array(
-        [[0.00000000e00, 0.00000000e00, 0.00000000e00], [0.00000000e00, 0.00000000e00, 0.00000000e00], [0.00000000e00, 0.00000000e00, 3.65427334e08]]
-    )  # Quadratic damping matrix that multiplies with yaw rate r
-
-    # Actuator parameters
-    r_t: np.array = np.array([-15.5600097, 0.0, -4.4])  # Thruster position in BODY coordinates
-    T_azimuth_angle: float = 1.0  # Time constant for azimuth angle
-    T_propeller_speed: float = 1.0  # Time constant for propeller speed
-    max_azimuth_angle_der: float = 0.17453292519943295  # Max azimuth angle derivative (rad/s)
-    max_propeller_speed_der: float = 10.0 / 60.0  # Max propeller speed derivative (rad/s)
-    rudder_area: float = 9.0
-
-    # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
-    #
-    Fx_limits: np.ndarray = np.array([-1.54273e5, 1.54273e5])  # Force limits in x (unscaled)
-    Fy_limits: np.ndarray = np.array([-0.5 * 1.54273e5, 0.5 * 1.54273e5])  # Force limits in y (unscaled)
-    N_limits: np.ndarray = np.array([-0.8 * 1.54273e5, 0.8 * 1.54273e5])  # Torque limits in z (unscaled)
-
-    U_min: float = 0.0  # Min speed
-    U_max: float = mf.knots2ms(12.6)  # Max speed
-
-    A_Fw: float = 12.0 * 9.6  # guesstimate of frontal area
-    A_Lw: float = 12.0 * 31.25  # guesstimate of lateral area
-    rho_air: float = 1.225  # Density of air
-    CD_l_AF_0: float = 0.55  # Longitudinal resistance used to compute wind coefficients in wind model
-    CD_l_AF_pi: float = 0.65
-    CD_t: float = 0.85  # Transversal resistance used to compute wind coefficients in wind model
-    delta_crossforce: float = 0.60  # Cross-force parameter
-    s_L: float = 0.0  # x-coordinate of transverse prject area A_Lw wrt the main section
 
 
 @dataclass
@@ -506,6 +525,7 @@ class RVGunnerus(IModel):
             V_w = w.wind["speed"]
             beta_w = w.wind["direction"]
             # Compute wind forces and moments
+            nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
             u_rw = nu[0] - nu_w[0]
             v_rw = nu[1] - nu_w[1]
             V_rw = np.sqrt(u_rw**2 + v_rw**2)
@@ -535,10 +555,11 @@ class RVGunnerus(IModel):
         # u_t = nu[0] - nu_c[0] # surge velocity at thruster location
         # v_t = nu[1] - nu_c[1] + nu[2] * self._params.r_t[0] # sway velocity at thruster location
         # Fx_thruster, Fy_thruster = self._compute_thruster_forces(u_t, v_t, u[0], u[1])
+        tau = u
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u + tau_wind)
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind)
 
         if abs(nu[0]) < 0.1:
             ode_fun[2] = 0.0
@@ -593,7 +614,7 @@ class RVGunnerus(IModel):
         Returns:
             Tuple[float, float]: the forces in the x and y direction
         """
-        U_t = np.sqrt(u_t**2 + v**2)  # total speed
+        U_t = np.sqrt(u_t**2 + v_t**2)  # total speed
         inflow_angle = np.arctan2(v_t, u_t)  # inflow angle
 
         aoa = -inflow_angle + azimuth  # foil angle of attack
@@ -621,8 +642,8 @@ class RVGunnerus(IModel):
     def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.N_limits[0]])
         ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.N_limits[1]])
-        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -0.8 * self._params.max_propeller_speed_der])
-        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, 0.8 * self._params.max_propeller_speed_der])
+        lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -np.inf])
+        ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, np.inf])
         return lbu, ubu, lbx, ubx
 
     @property

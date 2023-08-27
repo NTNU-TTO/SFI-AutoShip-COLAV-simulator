@@ -16,31 +16,32 @@ dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
 
-    n_wps = 4
+    n_wps = 8
 
     # Put new_data to True to load map data in ENC if it is not already loaded
     utm_zone = 33
     map_size = [5000.0, 5000.0]
     map_origin_enu = [-35544.0, 6579000.0]
     map_data_files = ["Rogaland_utm33.gdb"]
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
     origin = scenario_generator.enc_origin
 
     model = models.RVGunnerus()
     ctrl_params = controllers.SHPIDParams(
-        K_p=np.diag([5e5, 0.0, 1e7]), K_d=np.diag([100.0, 100.0, 100.0]), K_i=np.diag([100.0, 1.0, 100.0]), z_diff_max=np.array([2.0, 2.0, 30.0 * np.pi / 180.0])
+        K_p=np.diag([5.0, 1.3, 1.4]), K_d=np.diag([0.0, 5.0, 15.0]), K_i=np.diag([0.25, 0.1, 0.1]), z_diff_max=np.array([2.0, 2.0, 15.0 * np.pi / 180.0])
     )
     controller = controllers.SHPID(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
-    guidance_params = guidances.LOSGuidanceParams(K_p=0.005, K_i=0.0, R_a=25.0, e_int_max=200.0, pass_angle_threshold=90.0)
-    guidance_method = guidances.LOSGuidance()
+    guidance_params = guidances.LOSGuidanceParams(K_p=0.01, K_i=0.0, R_a=25.0, e_int_max=200.0, pass_angle_threshold=90.0)
+    guidance_method = guidances.LOSGuidance(guidance_params)
 
     ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list, guidance=guidance_method)
 
     csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0, U_min=1.0, U_max=10.0)
     waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
-    speed_plan = 5.0 * np.ones(waypoints.shape[1])  # = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
+    speed_plan = 4.0 * np.ones(waypoints.shape[1])  # = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
+    # csog_state[3] += 15.0 * np.pi / 180.0
     # waypoints = np.array([[6581585.0, 6581585.0, 6581690.0, 6581790.0, 6581850.0, 6582000.0], [-33700.0, -33615.0, -33600.0, -33620.0, -33615.0, -33495.0]])
     # speed_plan = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
     # csog_state = np.array([6581585.0, -33700.0, 4.0, np.deg2rad(120.0)])
@@ -51,10 +52,10 @@ if __name__ == "__main__":
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
-    disturbance._currents = None
+    # disturbance._currents = None
     disturbance._wind = None
 
-    horizon = 500.0
+    horizon = 1000.0
     dt = 0.1
     n_x, n_u = model.dims
     n_r = 9
@@ -96,22 +97,22 @@ if __name__ == "__main__":
             ["U", "x", "y"],
         ]
     )
-    axs["xy"].plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
-    axs["xy"].plot(trajectory[1, :], trajectory[0, :], "k", label="Trajectory")
+    axs["xy"].plot(waypoints[1, :] - origin[1], waypoints[0, :] - origin[0], "rx", label="Waypoints")
+    axs["xy"].plot(trajectory[1, :] - origin[1], trajectory[0, :] - origin[0], "k", label="Trajectory")
     axs["xy"].set_xlabel("East (m)")
     axs["xy"].set_ylabel("North (m)")
     axs["xy"].grid()
     axs["xy"].legend()
 
-    axs["x"].plot(time, refs[0], "r--", label="North reference")
-    axs["x"].plot(time, trajectory[0], "k", label="North")
+    axs["x"].plot(time, refs[0] - origin[0], "r--", label="North reference")
+    axs["x"].plot(time, trajectory[0] - origin[0], "k", label="North")
     axs["x"].set_xlabel("Time (s)")
     axs["x"].set_ylabel("North (m)")
     axs["x"].grid()
     axs["x"].legend()
 
-    axs["y"].plot(time, refs[1], "r--", label="East reference")
-    axs["y"].plot(time, trajectory[1], "k", label="East")
+    axs["y"].plot(time, refs[1] - origin[1], "r--", label="East reference")
+    axs["y"].plot(time, trajectory[1] - origin[1], "k", label="East")
     axs["y"].set_xlabel("Time (s)")
     axs["y"].set_ylabel("East (m)")
     axs["y"].grid()
@@ -197,45 +198,6 @@ if __name__ == "__main__":
         axs["N"].set_ylabel("Moment (Nm)")
         axs["N"].grid()
         axs["N"].legend()
-
-    else:
-        fig = plt.figure(figsize=(mf.cm2inch(fig_size[0]), mf.cm2inch(fig_size[1])), dpi=dpi_value)
-        axs = fig.subplot_mosaic(
-            [
-                ["n_1", "n_2", "n_3"],
-                ["delta_1", "delta_2", "-"],
-            ]
-        )
-
-        axs["n_1"].plot(time, tau[0, :], "k", label="Main propeller 1 speed")
-        axs["n_1"].set_xlabel("Time (s)")
-        axs["n_1"].set_ylabel("Speed (rad/s)")
-        axs["n_1"].grid()
-        axs["n_1"].legend()
-
-        axs["n_2"].plot(time, tau[1, :], "k", label="Main propeller 2 speed")
-        axs["n_2"].set_xlabel("Time (s)")
-        axs["n_2"].set_ylabel("Speed (rad/s)")
-        axs["n_2"].grid()
-        axs["n_2"].legend()
-
-        axs["n_3"].plot(time, tau[2, :], "k", label="Bow thruster propeller speed")
-        axs["n_3"].set_xlabel("Time (s)")
-        axs["n_3"].set_ylabel("Speed (rad/s)")
-        axs["n_3"].grid()
-        axs["n_3"].legend()
-
-        axs["delta_1"].plot(time, 180.0 * tau[3, :] / np.pi, "k", label="Main propeller 1 rudder angle")
-        axs["delta_1"].set_xlabel("Time (s)")
-        axs["delta_1"].set_ylabel("Angle (deg)")
-        axs["delta_1"].grid()
-        axs["delta_1"].legend()
-
-        axs["delta_2"].plot(time, 180.0 * tau[4, :] / np.pi, "k", label="Main propeller 2 rudder angle")
-        axs["delta_2"].set_xlabel("Time (s)")
-        axs["delta_2"].set_ylabel("Angle (deg)")
-        axs["delta_2"].grid()
-        axs["delta_2"].legend()
 
     plt.show(block=False)
     print("Done")

@@ -68,7 +68,7 @@ class ScenarioConfig:
     new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
     map_size: Optional[Tuple[float, float]] = None  # Size of the map considered in the scenario (in meters) referenced to the origin.
     map_origin_enu: Optional[Tuple[float, float]] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
-    map_tolerance: Optional[int] = 2  # Tolerance for the map simplification process
+    map_tolerance: Optional[int] = 0  # Tolerance for the map simplification process
     map_buffer: Optional[int] = 0  # Buffer for the map simplification process
     ais_data_file: Optional[Path] = None  # Path to the AIS data file, if considered
     ship_data_file: Optional[Path] = None  # Path to the ship information data file associated with AIS data, if considered

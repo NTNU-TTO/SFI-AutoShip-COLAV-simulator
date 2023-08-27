@@ -95,37 +95,33 @@ stochasticity:
       required: False
       type: dict
       schema:
-        gauss_markov:
-          required: False
-          type: dict
-          schema:
-            constant:
-              required: True
-              type: boolean
-            initial_speed:
-              required: True
-              type: float
-            initial_direction:
-              required: True
-              type: float
-            speed_range:
-              required: True
-              type: list
-            direction_range:
-              required: True
-              type: list
-            mu_speed:
-              required: True
-              type: float
-            mu_direction:
-              required: True
-              type: float
-            sigma_speed:
-              required: True
-              type: float
-            sigma_direction:
-              required: True
-              type: float
+        constant:
+          required: True
+          type: boolean
+        initial_speed:
+          required: True
+          type: float
+        initial_direction:
+          required: True
+          type: float
+        speed_range:
+          required: True
+          type: list
+        direction_range:
+          required: True
+          type: list
+        mu_speed:
+          required: True
+          type: float
+        mu_direction:
+          required: True
+          type: float
+        sigma_speed:
+          required: True
+          type: float
+        sigma_direction:
+          required: True
+          type: float
     waves: # TBD
       required: False
       type: dict
@@ -133,37 +129,33 @@ stochasticity:
       required: False
       type: dict
       schema:
-        gauss_markov:
-          required: False
-          type: dict
-          schema:
-            constant:
-              required: True
-              type: boolean
-            initial_speed:
-              required: True
-              type: float
-            initial_direction:
-              required: True
-              type: float
-            speed_range:
-              required: True
-              type: list
-            direction_range:
-              required: True
-              type: list
-            mu_speed:
-              required: True
-              type: float
-            mu_direction:
-              required: True
-              type: float
-            sigma_speed:
-              required: True
-              type: float
-            sigma_direction:
-              required: True
-              type: float
+        constant:
+          required: True
+          type: boolean
+        initial_speed:
+          required: True
+          type: float
+        initial_direction:
+          required: True
+          type: float
+        speed_range:
+          required: True
+          type: list
+        direction_range:
+          required: True
+          type: list
+        mu_speed:
+          required: True
+          type: float
+        mu_direction:
+          required: True
+          type: float
+        sigma_speed:
+          required: True
+          type: float
+        sigma_direction:
+          required: True
+          type: float
 
 ship_list:
   required: False
@@ -372,7 +364,7 @@ ship_list:
             type: dict
             excludes: [flsh, pass_through_cs, csog, pid, pass_through_inputs]
             schema:
-              wn:
+              K_p:
                 required: True
                 type: list
                 minlength: 3
@@ -380,7 +372,15 @@ ship_list:
                 schema:
                   type: float
                   min: 0.0
-              zeta:
+              K_d:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+              K_i:
                 required: True
                 type: list
                 minlength: 3
