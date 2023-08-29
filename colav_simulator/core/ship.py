@@ -642,6 +642,10 @@ class Ship(IShip):
         else:
             return self._trajectory[:, self._first_valid_idx : self._last_valid_idx + 1]
 
+    @property
+    def sensors(self) -> list:
+        return self._sensors
+
     def plot_colav_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         """Plots the COLAV data of the ship, if available.
 
