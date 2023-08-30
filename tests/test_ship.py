@@ -24,7 +24,7 @@ if __name__ == "__main__":
     map_data_files = ["Rogaland_utm33.gdb"]
 
     # Put new_data to True to load map data in ENC if it is not already loaded
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
     origin = scenario_generator.enc_origin
 
     model = models.RVGunnerus()
