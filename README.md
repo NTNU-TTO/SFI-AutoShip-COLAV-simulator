@@ -39,13 +39,20 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder.
+`seacharts`and the `colav_evaluation_tool` are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
+
+To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 
 If you get troubles installing `gdal`, this might be due to:
 - The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
 - It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
 
-To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
+If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
+
+Test the installation by running any of the files under `tests/` (use these to get familiar with the simulator), e.g.
+```
+python3 tests/test_ship.py
+```
 
 ## Mac OS Apple Slicon Installation
 
@@ -179,8 +186,8 @@ In the status bar above the commit message there is a link for _Pull request_.
 Click that and describe your feature.
 Assign people to it to review the changes, and create the pull request.
 
-The pull request should now be reviewed by someone, and if it's ok, it will be merged into `main`.
-Congratulations! It is now safe to delete the feature branch, and is strongly encouraged in order to keep the repository tidy.
+The pull request should now be reviewed by someone, and if it is ok, it will be merged into `main`.
+Congratulations! It is now safe to delete the feature branch, which is strongly encouraged in order to keep the repository tidy.
 
 
 ## Main modules in the repository
@@ -224,3 +231,15 @@ It can be configured to use different combinations of collision avoidance algori
 
 #### COLAV
 The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`). This enables the usage of both internally developed COLAV planners in addition to third-party ones.
+
+
+## Future Enhancements (Roadmap)
+
+- Create wrapper for the simulator to be usable with the OpenAI Gymnasium and Stable-Baselines.
+- Improve live-visualization in the simulator w.r.t. code readability and run-time.
+- Add functionality for storing animations from simulation data.
+- Create pip package out of `seacharts`, `colav_evaluation_tool` and the `colav_simulator`, to make installation easier.
+- Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
+- Create seacharts functionality to handle scenarios over large map areas that need multiple ENC data files to be loaded and merged.
+- Add functionality for reseting a scenario (new disturbance, initial ship poses, waypoints and speed plans inside the same map area)
+

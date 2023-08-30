@@ -586,18 +586,19 @@ class Visualizer:
             if "nominal_trajectory" in colav_data[0]:
                 nominal_trajectory_list.append(colav_data[0]["nominal_trajectory"])
 
-        t_solve = []
-        cost_vals = []
-        n_iters = []
-        final_residuals = []
-        for os_colav_data in colav_data_list[0]:
-            if os_colav_data and "mpc_soln" in os_colav_data:
+        os_colav_stats = {}
+        if colav_data_list[0] and "mpc_soln" in colav_data_list[0]:
+            t_solve = []
+            cost_vals = []
+            n_iters = []
+            final_residuals = []
+            for os_colav_data in colav_data_list[0]:
                 mpc_soln = os_colav_data["mpc_soln"]
                 t_solve.append(mpc_soln["t_solve"])
                 cost_vals.append(mpc_soln["cost_val"])
                 n_iters.append(mpc_soln["n_iter"])
                 final_residuals.append(mpc_soln["final_residuals"])
-        os_colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
+            os_colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
 
         cpa_indices = ship_data["cpa_indices"]
         min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
@@ -809,6 +810,7 @@ class Visualizer:
         enc: ENC,
         d_safe_so: float = 5.0,
         d_safe_do: float = 5.0,
+        confidence_level: float = 0.95,
     ) -> Tuple[plt.Figure, list]:
         """Plots the obstacle (both dynamic and static) distances to the ownship.
 
@@ -822,6 +824,7 @@ class Visualizer:
             - enc (ENC): Electronic Navigational Chart object.
             - d_safe_so (float, optional): Safe distance to static obstacles to be kept by the COLAV system. Defaults to 5.0.
             - d_safe_do (float, optional): Safe distance to dynamic obstacles to be kept by the COLAV system. Defaults to 5.0.
+            - confidence_level (float, optional): Confidence level for the uncertainty ellipses. Defaults to 0.95.
 
         Returns:
             Tuple[plt.Figure, list]: Figure and axes of the output plots.
@@ -848,7 +851,7 @@ class Visualizer:
         axes[0].set_xlabel("Time [s]")
         axes[0].legend()
 
-        for j, do_estimates_j in enumerate(do_estimates):
+        for j, (do_estimates_j, do_covariances_j) in enumerate(zip(do_estimates, do_covariances)):
             first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
 
             if first_valid_idx_track >= last_valid_idx_track:
@@ -857,6 +860,17 @@ class Visualizer:
             do_true_states_j = trajectory_list[do_labels[j]]
             do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
 
+            # z_val = norm.ppf(confidence_level)
+            # std_x = np.sqrt(do_covariances_j[0, 0, :])
+            # axes[j + 1].fill_between(
+            #     sim_times,
+            #     do_estimates_j[0, :] - z_val * std_x,
+            #     do_estimates_j[0, :] + z_val * std_x,
+            #     color="xkcd:blue",
+            #     alpha=0.3,
+            # )
+
+            est_dist2do_j = np.linalg.norm(do_estimates_j[:2, :] - os_traj[:2, :], axis=0)
             dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)
             # axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
             # axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
