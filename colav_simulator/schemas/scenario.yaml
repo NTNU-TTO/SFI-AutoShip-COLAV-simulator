@@ -133,10 +133,10 @@ stochasticity:
           required: True
           type: boolean
         initial_speed:
-          required: True
+          required: False
           type: float
         initial_direction:
-          required: True
+          required: False
           type: float
         speed_range:
           required: True

@@ -26,8 +26,8 @@ class GaussMarkovDisturbanceParams:
     """
 
     constant: bool = True
-    initial_speed: Optional[float] = 0.5
-    initial_direction: Optional[float] = 0.0
+    initial_speed: float = 0.5
+    initial_direction: float = 0.0
     speed_range: Tuple[float, float] = (0.0, 3.0)
     direction_range: Tuple[float, float] = (-np.pi, np.pi)
     mu_speed: float = 1e-5
