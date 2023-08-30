@@ -399,7 +399,7 @@ class ScenarioGenerator:
         scenario_episode_list = []
         for ep in range(config.n_episodes):
             episode = {}
-            episode["ship_list"], episode["config"] = self.generate_episode(copy.deepcopy(config), ais_ship_data, enc)
+            episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(copy.deepcopy(config), ais_ship_data, enc)
             episode["config"].name = f"{config.name}_ep{ep + 1}"
             if config.save_scenario:
                 episode["config"].filename = save_scenario_episode_definition(episode["config"])
@@ -407,7 +407,9 @@ class ScenarioGenerator:
 
         return scenario_episode_list, enc_copy
 
-    def generate_episode(self, config: ScenarioConfig, ais_ship_data: Optional[dict] = None, enc: Optional[senc.ENC] = None) -> Tuple[list, ScenarioConfig]:
+    def generate_episode(
+        self, config: ScenarioConfig, ais_ship_data: Optional[dict] = None, enc: Optional[senc.ENC] = None
+    ) -> Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]:
         """Creates a single maritime scenario episode based on the input config.
 
         Some ships in the episode can be partially or fully specified by the AIS ship data, if not none.
@@ -420,7 +422,7 @@ class ScenarioGenerator:
             - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment, to override the existing enc being used. Defaults to None.
 
         Returns:
-            - Tuple[list, ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the final scenario config object.
+            - Tuple[list, ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the disturbance object for the episode (if specified) and the final scenario config object.
         """
         if ais_ship_data is None:
             ship_list = []
@@ -462,7 +464,23 @@ class ScenarioGenerator:
         # Overwrite the preliminary ship config list with the final one
         config.ship_list = ship_config_list
 
-        return ship_list, config
+        disturbance = self.generate_disturbance(config)
+
+        return ship_list, disturbance, config
+
+    def generate_disturbance(self, config: ScenarioConfig) -> Optional[stoch.Disturbance]:
+        """Generates a disturbance object from the scenario config.
+
+        Args:
+            - config (ScenarioConfig): Scenario config object.
+
+        Returns:
+            - stoch.Disturbance: Disturbance object.
+        """
+        if config.stochasticity is None:
+            return None
+
+        return stoch.Disturbance(config.stochasticity)
 
     def generate_ships_with_ais_data(
         self,

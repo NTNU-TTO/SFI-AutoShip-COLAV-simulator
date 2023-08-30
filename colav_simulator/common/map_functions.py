@@ -274,6 +274,7 @@ def compute_distance_vectors_to_grounding(vessel_trajectory: np.ndarray, minimum
         - vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
         - minimum_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
         - enc (ENC): The ENC to check for grounding.
+        - show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
         - np.ndarray: The distance to grounding at each step of the vessel trajectory.

@@ -139,12 +139,13 @@ class Simulator:
             for ep, episode_data in enumerate(scenario_episode_list):
                 episode_simdata = {}
                 ship_list = episode_data["ship_list"]
+                disturbance = episode_data["disturbance"]
                 episode_config = episode_data["config"]
                 scenario_episode_file = episode_config.filename
 
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
-                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc, ownship_colav_system)
+                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc, disturbance, ownship_colav_system)
                 if self._config.verbose:
                     print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
 
@@ -229,6 +230,9 @@ class Simulator:
             if disturbance is not None:
                 disturbance_data = disturbance.get()
                 disturbance.update(t, dt_sim)
+                sim_data_dict["currents"] = disturbance_data.currents
+                sim_data_dict["wind"] = disturbance_data.wind
+                sim_data_dict["waves"] = disturbance_data.waves
 
             for i, ship_obj in enumerate(ship_list):
                 relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)

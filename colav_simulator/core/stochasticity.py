@@ -20,11 +20,14 @@ import numpy as np
 
 @dataclass
 class GaussMarkovDisturbanceParams:
-    """Parameters for a gauss-markov disturbance model with random speed and direction (of e.g. wind or current)."""
+    """Parameters for a gauss-markov disturbance model with random speed and direction (of e.g. wind or current).
+
+    Initial speed and direction are optional, and if not configured, they are drawn from the specified ranges.
+    """
 
     constant: bool = True
-    initial_speed: float = 0.5
-    initial_direction: float = 0.0
+    initial_speed: Optional[float] = 0.5
+    initial_direction: Optional[float] = 0.0
     speed_range: Tuple[float, float] = (0.0, 3.0)
     direction_range: Tuple[float, float] = (-np.pi, np.pi)
     mu_speed: float = 1e-5
@@ -35,8 +38,16 @@ class GaussMarkovDisturbanceParams:
     @classmethod
     def from_dict(cls, config_dict: dict):
         params = GaussMarkovDisturbanceParams()
-        params.initial_speed = config_dict["initial_speed"]
-        params.initial_direction = np.deg2rad(config_dict["initial_direction"])
+        if "initial_speed" in config_dict:
+            params.initial_speed = config_dict["initial_speed"]
+        else:
+            params.initial_speed = random.uniform(*config_dict["speed_range"])
+
+        if "initial_direction" in config_dict:
+            params.initial_direction = np.deg2rad(config_dict["initial_direction"])
+        else:
+            params.initial_direction = random.uniform(*config_dict["direction_range"])
+
         params.speed_range = tuple(config_dict["speed_range"])
         params.direction_range = tuple(np.deg2rad(config_dict["direction_range"]))
         params.mu_speed = config_dict["mu_speed"]
@@ -44,6 +55,7 @@ class GaussMarkovDisturbanceParams:
         params.sigma_speed = config_dict["sigma_speed"]
         params.sigma_direction = config_dict["sigma_direction"]
         params.constant = config_dict["constant"]
+        return params
 
     def to_dict(self) -> dict:
         config_dict = {
@@ -70,14 +82,14 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-
+        config = Config()
         if "wind" in config_dict:
-            cls.wind = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["wind"])
+            config.wind = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["wind"])
 
         if "currents" in config_dict:
-            cls.currents = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["currents"])
+            config.currents = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["currents"])
 
-        return cls(**config_dict)
+        return config
 
     def to_dict(self) -> dict:
         config_dict: dict = {}
