@@ -14,6 +14,9 @@ from colav_simulator.gym_wrapper.environment import BaseEnvironment
 
 
 class COLAVSimulatorEnvironment(BaseEnvironment):
-    def __init__(self, config: Optional[sm.ScenarioConfig] = None, **kwargs):
+    def __init__(self, config: Optional[sm.ScenarioConfig] = None, **kwargs) -> None:
 
         super().__init__(config, **kwargs)
+
+
+    def _generate(self):
