@@ -475,7 +475,7 @@ class RVGunnerus(IModel):
     """Implements a 3DOF underactuated vessel maneuvering model for the R/V Gunnerus vessel with linear+quadratic viscous loads:
 
     eta_dot = Rpsi(eta) * nu
-    (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
+    (M_rb + M_a) * nu_dot + C_rb(nu) * nu + C_a(nu_r) * nu_r + (D_l(nu_r) + D_nl) * nu_r = tau + tau_wind + tau_wave
 
     with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
 
@@ -483,6 +483,8 @@ class RVGunnerus(IModel):
     but not used in the current framework. This removes the need for thrust allocation
 
     The model is implemented originally by Mathias Marley in the MCSim_python repository, managed by the Marine Cybernetics laboratory https://www.ntnu.edu/imt/lab/cybernetics.
+
+    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fosse (2011). A future enhancements is to include support for wave disturbances as well.
 
     NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
     """

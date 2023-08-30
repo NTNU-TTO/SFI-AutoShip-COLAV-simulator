@@ -17,7 +17,17 @@ n_episodes: 1
 stochasticity:
   currents:
     constant: True
-    initial_speed: 0.5
+    initial_speed: 0.0
+    initial_direction: 180.0
+    speed_range: [0.0, 1.0]
+    direction_range: [-360.0, 360.0]
+    mu_speed: 0.00001
+    mu_direction: 0.00001
+    sigma_speed: 0.005
+    sigma_direction: 0.005
+  wind:
+    constant: True
+    initial_speed: 0.0
     initial_direction: 180.0
     speed_range: [0.0, 1.0]
     direction_range: [-360.0, 360.0]
@@ -38,7 +48,7 @@ ship_list:
     sensors:
       - radar:
           max_range: 3000.0
-          measurement_rate: 0.000001
+          measurement_rate: 0.5
           R: [250.0, 250.0]
           R_true: [25.0, 25.0]
       - ais:
