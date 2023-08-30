@@ -18,19 +18,28 @@ if __name__ == "__main__":
 
     n_wps = 8
 
-    # Put new_data to True to load map data in ENC if it is not already loaded
     utm_zone = 33
     map_size = [5000.0, 5000.0]
     map_origin_enu = [-35544.0, 6579000.0]
     map_data_files = ["Rogaland_utm33.gdb"]
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+
+    # Put new_data to True to load map data in ENC if it is not already loaded
+    scenario_generator = ScenarioGenerator(init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
     origin = scenario_generator.enc_origin
 
     model = models.RVGunnerus()
-    ctrl_params = controllers.SHPIDParams(
-        K_p=np.diag([5.0, 1.3, 1.4]), K_d=np.diag([0.0, 5.0, 15.0]), K_i=np.diag([0.25, 0.1, 0.1]), z_diff_max=np.array([2.0, 2.0, 15.0 * np.pi / 180.0])
+    ctrl_params = controllers.FLSHParams(
+        K_p_u=0.4,
+        K_i_u=0.05,
+        K_p_psi=0.1,
+        K_d_psi=0.6,
+        K_i_psi=0.0,
+        max_speed_error_int=2.0,
+        speed_error_int_threshold=1.0,
+        max_psi_error_int=50.0 * np.pi / 180.0,
+        psi_error_int_threshold=15.0 * np.pi / 180.0,
     )
-    controller = controllers.SHPID(model.params, ctrl_params)
+    controller = controllers.FLSH(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(K_p=0.01, K_i=0.0, R_a=25.0, e_int_max=200.0, pass_angle_threshold=90.0)
@@ -38,7 +47,7 @@ if __name__ == "__main__":
 
     ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list, guidance=guidance_method)
 
-    csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0, U_min=1.0, U_max=10.0)
+    csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0, U_min=1.0, U_max=6.0)
     waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
     speed_plan = 4.0 * np.ones(waypoints.shape[1])  # = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
     # csog_state[3] += 15.0 * np.pi / 180.0
@@ -52,9 +61,8 @@ if __name__ == "__main__":
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
-    # disturbance._currents = None
-    disturbance._wind = None
-
+    disturbance._currents = None
+    # disturbance._wind = None
     horizon = 1000.0
     dt = 0.1
     n_x, n_u = model.dims
@@ -80,6 +88,15 @@ if __name__ == "__main__":
 
     # Plots
     scenario_generator.enc.start_display()
+    initial_wind_speed = disturbances[0, 0]
+    initial_wind_direction = disturbances[1, 0]
+    if initial_wind_speed > 0.0:
+        wind_arrow_start = (origin[1] + 500.0, origin[0] + 500.0)
+        wind_arrow_end = (
+            wind_arrow_start[0] + 100.0 * initial_wind_speed * np.sin(initial_wind_direction),
+            wind_arrow_start[1] + 100.0 * initial_wind_speed * np.cos(initial_wind_direction),
+        )
+        scenario_generator.enc.draw_arrow(wind_arrow_start, wind_arrow_end, "white", width=15, fill=False, head_size=60, thickness=2)
     gcf = plt.gcf()
     gca = gcf.axes[0]
     gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")

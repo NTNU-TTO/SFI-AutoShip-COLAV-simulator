@@ -27,7 +27,7 @@ visualizer:
   show_colav_results_live: True
   show_measurements: True
   show_liveplot_tracks: True
-  show_waypoints: False
+  show_waypoints: True
   zoom_in_liveplot_on_ownship: True
   show_results: True
   show_target_tracking_results: False

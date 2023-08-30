@@ -54,11 +54,16 @@ ship_list:
         K_i: 0.0
         e_int_max: 200.0
     controller:
-      shpid:
-        K_p: [5.0, 1.3, 1.4]
-        K_d: [0.0, 5.0, 15.0]
-        K_i: [0.25, 0.1, 0.1]
-        z_diff_max: [2.0, 2.0, 15.0]
+      flsh:
+        K_p_u: 0.5
+        K_i_u: 0.1
+        K_p_psi: 0.1
+        K_d_psi: 0.5
+        K_i_psi: 0.001
+        max_speed_error_int: 2.0
+        speed_error_int_threshold: 1.0
+        max_psi_error_int: 50.0
+        psi_error_int_threshold: 15.0
     model:
       rvgunnerus: ''
   - id: 1

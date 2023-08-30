@@ -108,7 +108,6 @@ class Config:
 
     pid: Optional[MIMOPIDParams] = None
     flsh: Optional[FLSHParams] = None
-    shpid: Optional[SHPIDParams] = None
     pass_through_cs: Optional[bool] = True
     pass_through_inputs: Optional[PassThroughInputsParams] = None
 
@@ -127,9 +126,6 @@ class Config:
             config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
             config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
 
-        if "shpid" in config_dict:
-            config.shpid = cp.convert_settings_dict_to_dataclass(SHPIDParams, config_dict["shpid"])
-
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
 
@@ -145,9 +141,6 @@ class Config:
 
         if self.flsh is not None:
             config_dict["flsh"] = self.flsh.to_dict()
-
-        if self.shpid is not None:
-            config_dict["shpid"] = self.shpid.to_dict()
 
         if self.pass_through_cs is not None:
             config_dict["pass_through_cs"] = ""
@@ -184,8 +177,6 @@ class ControllerBuilder:
             return MIMOPID(model_params, config.pid)
         elif config and config.flsh:
             return FLSH(model_params, config.flsh)
-        elif config and config.shpid:
-            return SHPID(model_params, config.shpid)
         elif config and config.pass_through_cs:
             return PassThroughCS()
         elif config and config.pass_through_inputs:
@@ -348,7 +339,7 @@ def pole_placement(Mmtrx: np.ndarray, Dmtrx: np.ndarray, wn: np.ndarray, zeta) -
 
 @dataclass
 class FLSH(IController):
-    """Implements a feedback-linearizing surge-heading (FLSH) controller for a thruster/rudder vessel using
+    """Implements a feedback-linearizing surge-heading (FLSH) controller for a single thruster+rudder Telemetron vessel using
 
     Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * (K_p,u * (u_d - u) + int_0^t K_i,u * (u_d - u))
     Fy = (M[2, 2] / l_r) * (K_p,psi * (psi_d - psi) + K_d,psi * (r_d - r) + int_0^t K_i,psi * (psi_d - psi))
@@ -422,9 +413,19 @@ class FLSH(IController):
         self._psi_d_prev = psi_d
         self._psi_prev = eta[2]
 
+        Cvv = np.zeros(3)
+        Dvv = np.zeros(3)
         Mmtrx = self._model_params.M_rb + self._model_params.M_a
-        Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
-        Dvv = mf.Dmtrx(self._model_params.D_l, self._model_params.D_q, self._model_params.D_c, nu) @ nu
+        if self._model_params.name == "Telemetron":
+            Cvv = mf.Cmtrx(Mmtrx, nu) @ nu
+            Dvv = mf.Dmtrx(self._model_params.D_l, self._model_params.D_q, self._model_params.D_c, nu) @ nu
+            l_r = self._model_params.l_r
+        elif self._model_params.name == "R/V Gunnerus":
+            C_RB = mf.coriolis_matrix_rigid_body(self._model_params.M_rb, nu)
+            C_A = mf.coriolis_matrix_added_mass(self._model_params.M_a, nu)
+            Cvv = C_RB @ nu + C_A @ nu
+            Dvv = (self._model_params.D_l + self._model_params.D_u * abs(nu[0]) + self._model_params.D_v * abs(nu[1]) + self._model_params.D_r * abs(nu[2])) @ nu
+            l_r = abs(self._model_params.r_t[0])
 
         speed_error = u_d - nu[0]
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
@@ -435,185 +436,8 @@ class FLSH(IController):
         #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
 
         Fx = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
-        Fy = -(Mmtrx[2, 2] / self._model_params.l_r) * (
-            self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int
-        )
+        Fy = -(Mmtrx[2, 2] / l_r) * (self._params.K_p_psi * psi_error + self._params.K_d_psi * (r_d - nu[2]) + self._params.K_i_psi * self._psi_error_int)
 
-        tau = np.array([float(Fx), float(Fy), float(-Fy * self._model_params.l_r)])
+        tau = np.array([float(Fx), float(Fy), float(-Fy * l_r)])
 
         return tau
-
-
-class SHPID(IController):
-    """Implements a surge-heading PID-controller with feedback linearization for the mass+coriolis+damping terms in the (RVGunnerus) model."""
-
-    def __init__(self, model_params, params: Optional[SHPIDParams] = None) -> None:
-        self._model_params = model_params
-        if params is not None:
-            self._params: SHPIDParams = params
-        else:
-            self._params = SHPIDParams()
-        self._z_diff_int: np.ndarray = np.zeros(3)
-        self._psi_d_prev: float = 0.0
-        self._psi_prev: float = 0.0
-        self._n_u: int = 5
-
-    def _reset_integrator(self):
-        self._z_diff_int = np.zeros(3)
-
-    def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
-        """Computes inputs based on the PID law.
-
-        Args:
-            refs (np.ndarray): Desired/reference state xs_d = [eta_d, eta_dot_d, eta_ddot_d]^T. Could in practice be = [-, -, psi_d, u_d, -, -, -, -, -]^T if LOS-guidance is used.
-            xs (np.ndarray): State xs = [eta, nu]^T
-            dt (float): Time step
-
-        Returns:
-            np.ndarray: Inputs u = tau to apply to the system.
-        """
-        if len(refs) != 9:
-            raise ValueError("Dimension of reference array should be equal to 9!")
-        if len(xs) != 6:
-            raise ValueError("Dimension of state should be 6!")
-
-        nu = xs[3:]
-
-        psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
-        psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
-
-        psi: float = mf.wrap_angle_to_pmpi(xs[2])
-        psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
-
-        self._psi_d_prev = psi_d
-        self._psi_prev = psi
-
-        z = self._params.V @ xs
-        z[2] = psi_unwrapped
-
-        # Reference = [u, 0.0, psi]
-        z_d = np.array([refs[3], 0.0, psi_d_unwrapped])
-
-        psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
-        z_diff = z_d - z
-        z_diff[2] = psi_error
-
-        self.update_integrator(z_diff, dt)
-
-        M = self._model_params.M_rb + self._model_params.M_a
-        C_RB = mf.coriolis_matrix_rigid_body(self._model_params.M_rb, nu)
-        C_A = mf.coriolis_matrix_added_mass(self._model_params.M_a, nu)
-        Cvv = C_RB @ nu + C_A @ nu
-        Dvv = (self._model_params.D_l + self._model_params.D_u * abs(nu[0]) + self._model_params.D_v * abs(nu[1]) + self._model_params.D_r * abs(nu[2])) @ nu
-
-        tau = Cvv + Dvv + M @ (self._params.K_p @ z_diff - self._params.K_d @ nu + self._params.K_i @ self._z_diff_int)
-
-        tau[0] = mf.sat(tau[0], self._model_params.Fx_limits[0], self._model_params.Fx_limits[1])
-        tau[1] = mf.sat(tau[1], self._model_params.Fy_limits[0], self._model_params.Fy_limits[1])
-        tau[2] = mf.sat(tau[2], self._model_params.N_limits[0], self._model_params.N_limits[1])
-
-        u = tau
-
-        return u
-
-    def update_integrator(self, z_diff: np.ndarray, dt: float) -> None:
-        """Updates the integrator state for the PID controller.
-
-        Args:
-            z_diff (np.ndarray): Difference between desired and actual state
-            dt (float): Time step
-        """
-        self._z_diff_int = mf.sat(self._z_diff_int + z_diff * dt, -self._params.z_diff_max, self._params.z_diff_max)
-
-    # def thrust_allocation_two_main_propellers_rudders_and_bow_thruster(self, tau: np.ndarray, nu_r: np.ndarray) -> np.ndarray:
-    #     """Computes the propeller speeds n and rudder angles delta from the generalized forces tau = [Fx, Fy, N]^T.
-
-    #     Args:
-    #         tau (np.ndarray): Generalized forces tau = [Fx, Fy, N]^T
-    #         nu_r (np.ndarray): Relative velocity vector nu_r = [u_r, v_r, r]^T
-
-    #     Returns:
-    #         Tuple[np.ndarray, np.ndarray]: Propeller speeds n and rudder angles delta
-    #     """
-    #     W = np.eye(self._n_u)
-    #     B_pseudo_inv = np.linalg.inv(W) @ self._model_params.B.T @ np.linalg.inv(self._model_params.B @ np.linalg.inv(W) @ self._model_params.B.T)
-    #     f = B_pseudo_inv @ tau
-    #     n_1 = self.main_propeller_thrust_force_to_speed(f[0], nu_r[0])
-    #     n_2 = self.main_propeller_thrust_force_to_speed(f[1], nu_r[0])
-    #     n_3 = self.bow_thrust_force_to_propeller_speed(f[2])
-    #     delta_1 = self.main_propeller_lift_force_to_rudder_angle(f[3], f[0], nu_r[0])
-    #     delta_2 = self.main_propeller_lift_force_to_rudder_angle(f[4], f[1], nu_r[0])
-
-    #     n_1 = mf.sat(n_1, 0.0, self._model_params.max_propeller_speed)
-    #     n_2 = mf.sat(n_2, 0.0, self._model_params.max_propeller_speed)
-    #     n_3 = mf.sat(n_3, 0.0, self._model_params.max_propeller_speed)
-    #     delta_1 = mf.sat(delta_1, -self._model_params.max_rudder_angle, self._model_params.max_rudder_angle)
-    #     delta_2 = mf.sat(delta_2, -self._model_params.max_rudder_angle, self._model_params.max_rudder_angle)
-
-    #     return np.array([n_1, n_2, n_3, delta_1, delta_2])
-
-    # def main_propeller_thrust_force_to_speed(self, T: float, u_r: float) -> float:
-    #     """Computes the main propeller speed n from the thrust force T and relative velocity u_r.
-
-    #     Args:
-    #         T (float): Thrust force T
-    #         u_r (float): Relative surge speed u_r
-
-    #     Returns:
-    #         float: Main propeller speed n
-    #     """
-    #     if T > 0.0:
-    #         n = u_r * self._model_params.T_nu_plus / (2 * self._model_params.T_nn_plus) + np.sqrt(
-    #             (self._model_params.T_nu_plus * u_r) ** 2 + 4 * self._model_params.T_nn_plus * T
-    #         ) / (2 * self._model_params.T_nn_plus)
-    #     elif T == 0.0:
-    #         n = 0.0
-    #     else:
-    #         n = u_r * self._model_params.T_nu_minus / (2 * self._model_params.T_nn_minus) - np.sqrt(
-    #             (self._model_params.T_nu_minus * u_r) ** 2 - 4 * self._model_params.T_nn_minus * T
-    #         ) / (2 * self._model_params.T_nu_minus)
-    #     return n
-
-    # def bow_thrust_force_to_propeller_speed(self, T: float) -> float:
-    #     """Computes the bow thruster speed n from the thrust force T and relative surge speed u_r.
-
-    #     Args:
-    #         T (float): Thrust force T
-
-    #     Returns:
-    #         float: Bow thruster speed n
-    #     """
-    #     n = np.sign(T) * np.sqrt(self._model_params.T_n3n3 * abs(T)) / self._model_params.T_n3n3
-    #     return n
-
-    # def main_propeller_lift_force_to_rudder_angle(self, L: float, T: float, u_r: float) -> float:
-    #     """Computes the rudder angle delta from the lift force L and relative surge speed u_r.
-
-    #     Args:
-    #         L (float): Lift force L
-    #         T (float): Thrust force T for propeller at the same location
-    #         u_r (float): Relative surge speed u_r
-
-    #     Returns:
-    #         float: Rudder angle delta
-    #     """
-    #     # Fluid velocity at rudder surface
-    #     u_rud = u_r
-    #     if u_r >= 0.0:
-    #         u_rud = u_r + self._model_params.k_u * (np.sqrt(max(0.0, 8.0 * T / (np.pi * self._model_params.rho * self._model_params.d_rud**2) + u_r**2)) - u_r)
-
-    #     epsilon = 0.0001
-    #     delta = 0.0
-    #     if u_rud >= epsilon:
-    #         delta = (np.sign(L) / (2.0 * self._model_params.L_ddelta_plus)) * (
-    #             self._model_params.L_delta_plus
-    #             + np.sqrt((self._model_params.L_delta_plus * u_rud**2) ** 2 + 4 * self._model_params.L_ddelta_plus * u_rud**2 * abs(L)) / (u_rud**2)
-    #         )
-    #     elif abs(u_rud) < epsilon:
-    #         delta = 0.0
-    #     elif u_rud <= -epsilon:
-    #         delta = -(np.sign(L) / (2.0 * self._model_params.L_ddelta_minus)) * (
-    #             self._model_params.L_delta_minus
-    #             - np.sqrt((self._model_params.L_delta_minus * u_rud**2) ** 2 - 4 * self._model_params.L_ddelta_minus * u_rud**2 * abs(L)) / (u_rud**2)
-    #         )
-    #     return delta

@@ -334,7 +334,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [shpid, flsh, pass_through_cs, csog, pass_through_inputs]
+            excludes: [flsh, pass_through_cs, csog, pass_through_inputs]
             schema:
               wn:
                 required: True
@@ -360,45 +360,9 @@ ship_list:
                 schema:
                   type: float
                   min: 0.0
-          shpid:
-            type: dict
-            excludes: [flsh, pass_through_cs, csog, pid, pass_through_inputs]
-            schema:
-              K_p:
-                required: True
-                type: list
-                minlength: 3
-                maxlength: 3
-                schema:
-                  type: float
-                  min: 0.0
-              K_d:
-                required: True
-                type: list
-                minlength: 3
-                maxlength: 3
-                schema:
-                  type: float
-                  min: 0.0
-              K_i:
-                required: True
-                type: list
-                minlength: 3
-                maxlength: 3
-                schema:
-                  type: float
-                  min: 0.0
-              z_diff_max:
-                required: True
-                type: list
-                minlength: 3
-                maxlength: 3
-                schema:
-                  type: float
-                  min: 0.0
           flsh:
             type: dict
-            excludes: [shpid, pid, pass_through_cs, pass_through_inputs, csog]
+            excludes: [pid, pass_through_cs, pass_through_inputs, csog]
             schema:
               K_p_u:
                 required: True
@@ -439,10 +403,10 @@ ship_list:
           pass_through_cs:
             type: string
             empty: True
-            excludes: [shpid, pid, flsh, csog, pass_through_inputs]
+            excludes: [pid, flsh, csog, pass_through_inputs]
           pass_through_inputs:
             type: dict
-            excludes: [pid, flsh, pass_through_cs, shpid, csog]
+            excludes: [pid, flsh, pass_through_cs, csog]
             schema:
               rudder_propeller_mapping:
                 required: True

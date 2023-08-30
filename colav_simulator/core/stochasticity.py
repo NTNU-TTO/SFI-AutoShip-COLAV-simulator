@@ -26,7 +26,7 @@ class GaussMarkovDisturbanceParams:
     """
 
     constant: bool = True
-    initial_speed: float = 0.5
+    initial_speed: float = 2.0
     initial_direction: float = 0.0
     speed_range: Tuple[float, float] = (0.0, 3.0)
     direction_range: Tuple[float, float] = (-np.pi, np.pi)
@@ -76,7 +76,7 @@ class GaussMarkovDisturbanceParams:
 class Config:
     "Configuration class for managing environment disturbance/stochasticity parameters"
 
-    wind: Optional[GaussMarkovDisturbanceParams] = None
+    wind: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
     waves: Optional[dict] = None
     currents: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
 

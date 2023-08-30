@@ -27,6 +27,7 @@ class KinematicCSOGParams:
 
     """
 
+    name: str = "KinematicCSOG"
     draft: float = 2.0
     length: float = 10.0
     ship_vertices: np.ndarray = field(default_factory=lambda: np.empty(2))
@@ -71,6 +72,7 @@ class KinematicCSOGParams:
 class TelemetronParams:
     """Parameters for the Telemetron vessel (read only / fixed)."""
 
+    name: str = "Telemetron"
     draft: float = 0.5
     length: float = 8.0
     width: float = 3.0
@@ -92,6 +94,7 @@ class TelemetronParams:
 class RVGunnerusParams:
     """Parameters for the R/V Gunnerus vessel (read only / fixed)."""
 
+    name: str = "R/V Gunnerus"
     rho: float = 1000.0  # Density of water
     draft: float = 2.7
     length: float = 31.25  # (Loa)
@@ -136,12 +139,11 @@ class RVGunnerusParams:
 
     # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
     Fx_limits: np.ndarray = field(default_factory=lambda: np.array([-154.273, 154.273]) * 1000.0)  # Force limits in x (unscaled)
-    Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-0.5 * 154.273, 0.5 * 154.273]) * 1000.0)  # Force limits in y (unscaled)
-    N_limits: np.ndarray = field(default_factory=lambda: 1.8 * np.array([-154.273, 154.273]) * 1000.0)  # Torque limits in z (unscaled)
+    Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-0.6 * 154.273, 0.6 * 154.273]) * 1000.0)  # Force limits in y (unscaled)
 
     U_min: float = 0.0  # Min speed
     U_max: float = mf.knots2ms(12.6)  # Max speed
-    r_max: float = np.inf * np.pi / 180.0  # Max yaw rate
+    r_max: float = 10.0 * np.pi / 180.0  # Max yaw rate, just a guess
 
     A_Fw: float = 12.0 * 9.6  # guesstimate of frontal area
     A_Lw: float = 12.0 * 31.25  # guesstimate of lateral area
@@ -157,6 +159,7 @@ class RVGunnerusParams:
 class CyberShip2Params:
     """Parameters for the CyberShip2 vessel (read only / fixed)."""
 
+    name: str = "CyberShip2"
     rho: float = 1000.0  # Density of water
     draft: float = 5.0
     length: float = 1.255 * 70.0
@@ -223,7 +226,7 @@ class CyberShip2Params:
 class Config:
     """Configuration class for managing model parameters."""
 
-    csog: Optional[KinematicCSOGParams] = field(default_factory=lambda: KinematicCSOGParams())
+    csog: Optional[KinematicCSOGParams] = KinematicCSOGParams()
     telemetron: Optional[TelemetronParams] = None
     cybership2: Optional[CyberShip2Params] = None
     rvgunnerus: Optional[RVGunnerusParams] = None
@@ -514,7 +517,7 @@ class RVGunnerus(IModel):
         # Guesstimate limits
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
         u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
-        u[2] = mf.sat(u[2], self._params.N_limits[0], self._params.N_limits[1])
+        u[2] = mf.sat(u[2], abs(self._params.r_t[0]) * self._params.Fy_limits[0], abs(self._params.r_t[0]) * self._params.Fy_limits[1])
 
         V_c = 0.0
         beta_c = 0.0
@@ -640,8 +643,8 @@ class RVGunnerus(IModel):
         return F_thrust_x, F_thrust_y
 
     def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.N_limits[0]])
-        ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.N_limits[1]])
+        lbu = np.array([self._params.Fx_limits[0], self._params.Fy_limits[0], self._params.Fy_limits[0] * abs(self._params.r_t[0])])
+        ubu = np.array([self._params.Fx_limits[1], self._params.Fy_limits[1], self._params.Fy_limits[1] * abs(self._params.r_t[0])])
         lbx = np.array([-np.inf, -np.inf, -np.inf, -self._params.U_max, -self._params.U_max, -np.inf])
         ubx = np.array([np.inf, np.inf, np.inf, self._params.U_max, self._params.U_max, np.inf])
         return lbu, ubu, lbx, ubx
