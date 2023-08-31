@@ -371,22 +371,6 @@ def Tzyx(phi, theta) -> np.ndarray:
     return Tmtrx
 
 
-def attitudeEuler(eta: np.ndarray, nu: np.ndarray, sampleTime: float) -> np.ndarray:
-    """
-    eta = attitudeEuler(eta,nu,sampleTime) computes the generalized
-    position/Euler angles eta[k+1]
-    """
-
-    p_dot = np.matmul(Rzyx(eta[3], eta[4], eta[5]), nu[0:3])
-    v_dot = np.matmul(Tzyx(eta[3], eta[4]), nu[3:6])
-
-    # Forward Euler integration
-    eta[0:3] = eta[0:3] + sampleTime * p_dot
-    eta[3:6] = eta[3:6] + sampleTime * v_dot
-
-    return eta
-
-
 def m2c(M: np.ndarray, nu: np.ndarray) -> np.ndarray:
     """
     Cmtrx = m2c(M,nu) computes the Coriolis and centripetal matrix C from the

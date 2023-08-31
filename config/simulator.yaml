@@ -1,7 +1,7 @@
 simulator:
   #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
-  scenario_files: ["rl_scenario.yaml"]
-  #scenario_files: ["head_on_sbmpc.yaml"]
+  #scenario_files: ["rl_scenario.yaml"]
+  scenario_files: ["head_on_sbmpc.yaml"]
   #scenario_files: ["ais_scenario1.yaml"]
   #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
   #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
@@ -25,10 +25,10 @@ scenario_generator:
 visualizer:
   show_liveplot: True
   show_colav_results_live: True
-  show_measurements: True
-  show_liveplot_tracks: True
-  show_waypoints: True
-  zoom_in_liveplot_on_ownship: True
+  show_measurements: False
+  show_liveplot_tracks: False
+  show_waypoints: False
+  zoom_in_liveplot_on_ownship: False
   show_results: True
   show_target_tracking_results: False
   show_trajectory_tracking_results: True

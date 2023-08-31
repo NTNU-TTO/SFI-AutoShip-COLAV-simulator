@@ -239,7 +239,7 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 
 - Create wrapper for the simulator to be usable with the [OpenAI Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3).
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
-- Add functionality for storing animations from simulation data.
+- Add functionality for storing simulation data and creating animations from simulation data.
 - Create pip package out of `seacharts`, `colav_evaluation_tool` and the `colav_simulator`, to make installation easier.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
 - Create seacharts functionality to handle scenarios over large map areas that need multiple ENC data files to be loaded and merged.
