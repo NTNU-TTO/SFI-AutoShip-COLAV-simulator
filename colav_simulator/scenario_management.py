@@ -201,6 +201,7 @@ class Config:
     All angle ranges are in degrees, and all distances are in meters.
     """
 
+    verbose: bool = False
     n_wps_range: list = field(default_factory=lambda: [2, 4])  # Range of number of waypoints to be generated
     speed_plan_variation_range: list = field(default_factory=lambda: [-1.0, 1.0])  # Determines maximal +- change in speed plan from one segment to the next
     waypoint_dist_range: list = field(default_factory=lambda: [200.0, 1000.0])  # Range of [min, max] change in distance between randomly created waypoints
@@ -218,10 +219,20 @@ class Config:
         default_factory=lambda: [-15.0, 15.0]
     )  # Range of [min, max] heading variations of the target ship relative to completely orthogonal crossing scenarios
     dist_between_ships_range: list = field(default_factory=lambda: [200, 10000])  # Range of [min, max] distance variations possible between ships.
+    scenario_files: Optional[list] = None
+    scenario_folder: Optional[str] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        return cls(**config_dict)
+        config = cls(**config_dict)
+        if "scenario_files" in config_dict:
+            config.scenario_files = config_dict["scenario_files"]
+
+        if "scenario_folder" in config_dict:
+            config.scenario_folder = config_dict["scenario_folder"]
+            config.scenario_files = None
+
+        return config
 
     def to_dict(self):
         output = asdict(self)
@@ -239,22 +250,38 @@ class ScenarioGenerator:
     enc: senc.ENC
     _config: Config
 
-    def __init__(self, config: Optional[Config] = None, enc_config_file: Optional[Path] = dp.seacharts_config, init_enc: bool = False, **kwargs) -> None:
+    def __init__(
+        self,
+        config: Optional[Config] = None,
+        config_file: Optional[Path] = dp.scenario_generator_config,
+        enc_config_file: Optional[Path] = dp.seacharts_config,
+        init_enc: bool = False,
+        **kwargs,
+    ) -> None:
         """Constructor for the ScenarioGenerator.
 
         Args:
             - config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
             - config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
+            - enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
+            - init_enc (bool, optional): Flag determining whether or not to initialize the ENC object. Defaults to False.
             - **kwargs: Keyword arguments for the ScenarioGenerator, can be e.g.:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
+        self._config = Config()
         if config:
             self._config = config
+        elif config_file:
+            self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
         else:
-            self._config = Config()
+            raise ValueError("Either config or config_file must be specified.")
 
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
+
+        # self.default_scenario_data_list = self.generate_configured_scenarios()
+        # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random")
+        # scenario_data_list = [scenario_data]
 
     def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.
@@ -281,13 +308,36 @@ class ScenarioGenerator:
 
         return copy.deepcopy(self.enc)
 
-    def load_scenario_from_folder(self, folder: Path, scenario_name: str, verbose: bool = False) -> Tuple[list, senc.ENC]:
+    def create_file_path_list_from_config(self) -> list:
+        """Creates a list of file paths from the config file scenario files or scenario folder.
+
+        Returns:
+            list: List of valid file paths.
+        """
+        if self._config.scenario_files is not None:
+            return [dp.scenarios / f for f in self._config.scenario_files]
+        else:
+            scenario_folder = dp.scenarios / self._config.scenario_folder
+            files = [file for file in scenario_folder.iterdir()]
+            files.sort()
+            return files
+
+    def generate_configured_scenarios(self) -> list:
+        """Generates the list of configured scenarios from the class config file.
+
+        Returns:
+            list: List of fully configured scenario data definitions.
+        """
+        files = self.create_file_path_list_from_config()
+        scenario_data_list = self.generate_scenarios_from_files(files)
+        return scenario_data_list
+
+    def load_scenario_from_folder(self, folder: Path, scenario_name: str) -> Tuple[list, senc.ENC]:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
         Args:
             - folder (Path): Path to folder containing scenario files.
             - scenario_name (str): Name of the scenario.
-            - verbose (bool, optional): Flag determining whether or not to print progress. Defaults to False.
 
         Returns:
             - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
@@ -298,14 +348,14 @@ class ScenarioGenerator:
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
 
-            if verbose:
+            if self._config.verbose:
                 print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
             ship_list, config = self.load_episode(config_file=file)
             if first:
                 first = False
                 enc = self._configure_enc(config)
             scenario_episode_list.append({"ship_list": ship_list, "config": config})
-        if verbose:
+        if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
         return (scenario_episode_list, enc)
 
@@ -334,22 +384,21 @@ class ScenarioGenerator:
 
         return ship_list, config
 
-    def generate_scenarios_from_files(self, files: list, verbose: bool = False) -> list:
+    def generate_scenarios_from_files(self, files: list) -> list:
         """Generates scenarios from each of the input file paths.
 
         Args:
             - files (list): List of configuration files to generate scenarios from, as Path objects.
-            - verbose (bool, optional): Flag determining whether or not to print progress. Defaults to False.
 
         Returns:
             - list: List of episode config data dictionaries and relevant ENC objects, for each scenario.
         """
         scenario_data_list = []
         for i, scenario_file in enumerate(files):
-            if verbose:
+            if self._config.verbose:
                 print(f"\rScenario generator: Creating scenario nr {i + 1}: {scenario_file.name}...")
             scenario_episode_list, enc = self.generate(config_file=scenario_file)
-            if verbose:
+            if self._config.verbose:
                 print(f"\rScenario generator: Finished creating scenario nr {i + 1}: {scenario_file.name}.")
             scenario_data_list.append((scenario_episode_list, enc))
         return scenario_data_list

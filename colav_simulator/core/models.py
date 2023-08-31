@@ -486,7 +486,7 @@ class RVGunnerus(IModel):
 
     Disturbances from winds have been added, with a simple model for wind forces and moments as in Fosse (2011). A future enhancements is to include support for wave disturbances as well.
 
-    NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+    NOTE: When using Eulers method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
     """
 
     _n_x: int = 6

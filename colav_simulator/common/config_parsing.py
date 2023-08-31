@@ -31,7 +31,7 @@ def extract(data_class: Any, config_file: Path, config_schema: Path, converter: 
 
     schema = futils.read_yaml_into_dict(config_schema)
 
-    settings = parse(config_file, schema)
+    settings = parse(config_file, schema, **kwargs)
     settings = override(settings, schema, **kwargs)
 
     settings = convert_settings_dict_to_dataclass(data_class, settings, converter)
@@ -105,24 +105,30 @@ def extract_valid_sections(schema: dict) -> List[str]:
     return sections
 
 
-def parse(file_name: Path, schema: dict) -> dict:
+def parse(file_name: Path, schema: dict, section: Optional[str] = None) -> dict:
     """Parses a configuration file into a dictionary, and validates the settings.
 
     Args:
         file_name (Path): Path to the configuration file.
         schema (dict): Configuration schema to validate the settings against.
+        section (Optional[str]): Main section to parse. Defaults to None.
 
     Returns:
         dict: Configuration settings.
     """
     settings = futils.read_yaml_into_dict(file_name)
 
-    validate(settings, schema)
+    section_settings = settings
+    section_schema = schema
+    if section:
+        section_settings = settings[section]
+        section_schema = schema[section]
 
-    return settings
+    validate(section_settings, section_schema)
+    return section_settings
 
 
-def override(settings: dict, schema: dict, **kwargs) -> dict:
+def override(settings: dict, schema: dict, section: Optional[str] = None, **kwargs) -> dict:
     """Overrides settings with keyword arguments, and validates the new values.
 
     NOTE: Assumes only one section in the provided configuration schema.
@@ -130,6 +136,7 @@ def override(settings: dict, schema: dict, **kwargs) -> dict:
     Args:
         settings (dict): Configuration settings to override.
         schema (dict): Configuration schema to validate the new settings against.
+        section (Optional[str]): Main section to override. Defaults to None.
 
     Raises:
         ValueError: On empty keyword arguments or invalid settings.
@@ -141,9 +148,13 @@ def override(settings: dict, schema: dict, **kwargs) -> dict:
         return settings
 
     new_settings = settings
+    section_schema = schema
+    if section:
+        new_settings = settings[section]
+        section_schema = schema[section]
+
     for key, value in kwargs.items():
         new_settings[key] = value
 
-    validate(settings, schema)
-
+    validate(new_settings, section_schema)
     return new_settings

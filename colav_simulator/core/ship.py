@@ -217,11 +217,7 @@ class IShip(ABC):
 
     @abstractmethod
     def plan(
-        self,
-        t: float,
-        dt: float,
-        do_list: list,
-        enc: Optional[senc.ENC] = None,
+        self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None
     ) -> np.ndarray:
         "Plan a new trajectory for the ship, either using the onboard guidance system or COLAV system employed."
 
@@ -325,6 +321,18 @@ class Ship(IShip):
             self._mmsi = config.mmsi
 
     def plan(self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
+        """Plans a new trajectory for the ship, either using the onboard guidance system or COLAV system employed.
+
+        Args:
+            t (float): Current time (s) relative to the start of the simulation.
+            dt (float): Time step (s) between the current and last planning step.
+            do_list (list): List of dynamic obstacles in the vicinity of the ship.
+            enc (Optional[senc.ENC], optional): Electronic navigational chart object. Defaults to None.
+            w (Optional[stochasticity.DisturbanceData], optional): Disturbance data possibly available to the COLAV system. Defaults to None.
+
+        Returns:
+            np.ndarray: The new planned trajectory for the ship.
+        """
 
         # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
         if self._trajectory.size > 0:
@@ -361,7 +369,7 @@ class Ship(IShip):
 
         Args:
             dt (float): Time step (s) in the prediction.
-            w (Optional[stochasticity.DisturbanceData], optional): The disturbance to apply to the ship. Defaults to None.
+            w (Optional[stochasticity.DisturbanceData]): The disturbance to apply to the ship. Defaults to None.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,

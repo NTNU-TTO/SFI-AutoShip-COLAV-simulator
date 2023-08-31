@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     model = models.RVGunnerus()
     ctrl_params = controllers.FLSHParams(
-        K_p_u=0.4,
+        K_p_u=0.35,
         K_i_u=0.05,
         K_p_psi=0.1,
         K_d_psi=0.6,
