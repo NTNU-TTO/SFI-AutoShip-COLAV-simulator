@@ -7,21 +7,27 @@
     Author: Trym Tengesdal
 """
 
-import itertools
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple, TypeVar, Union
 
 import colav_simulator.core.sensing as sensing
 import colav_simulator.core.tracking.trackers as trackers
 import gymnasium as gym
 import numpy as np
-import pandas as pd
 import seacharts.enc as senc
 from colav_simulator.core.ship import Ship
 
+Observation = TypeVar("Observation")
+
+if TYPE_CHECKING:
+    from colav_simulator.gym.environment import BaseEnvironment
+
 
 class ObservationType(ABC):
-    def __init__(self, ownship: Ship) -> None:
+    name: str = "AbstractObservation"
+
+    def __init__(self, env: "BaseEnvironment", ownship: Ship) -> None:
+        self.env = env
         self.__observer_ship = ownship
 
     @abstractmethod
@@ -29,7 +35,7 @@ class ObservationType(ABC):
         """Get the observation space."""
 
     @abstractmethod
-    def observe(self, enc: senc.ENC, obstacle_) -> np.ndarray:
+    def observe(self) -> np.ndarray:
         """Get an observation of the environment state."""
 
 
@@ -38,25 +44,30 @@ class LidarLikeObservation(ObservationType):
 
     def __init__(
         self,
+        env: "BaseEnvironment",
+        ownship: Ship,
     ) -> None:
-        super().__init__(env, **kwargs)
-        self.lol = "lol"
-        self.n_obs = 360
+        super().__init__(env, ownship)
+        self.n_do = len(self.env.dynamic_obstacles)
+        self.enc = self.env.enc
+
+        self.name = "LidarLikeObservation"
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.n_obs,))
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.n_do,))
 
     def observe(self) -> np.ndarray:
         """Get an observation of the environment state."""
-        reward_insight = self.rewarder.insight()
-        sector_closenesses, sector_velocities = self.ship.perceive(self.obstacles)
 
-        obs = np.concatenate([reward_insight, navigation_states, sector_closenesses, sector_velocities])
+        obs = np.zeros(3)
+        # sector_closenesses, sector_velocities = self.__observer_ship.perceive(self.obstacles)
+
+        # obs = np.concatenate([reward_insight, navigation_states, sector_closenesses, sector_velocities])
         return obs
 
 
-def observation_factory(env: str = "AbstractEnv", observation_type: str = "ContinuousAutopilotReferenceAction") -> ObservationType:
+def observation_factory(env: "BaseEnvironment", ownship: Ship, observation_type: str = "ContinuousAutopilotReferenceAction") -> ObservationType:
     """Factory for creating observation spaces.
 
     Args:
@@ -67,6 +78,6 @@ def observation_factory(env: str = "AbstractEnv", observation_type: str = "Conti
         ActionType: Action type to use
     """
     if observation_type == "LidarLikeObservation":
-        return LidarLikeObservation(env)
+        return LidarLikeObservation(env, ownship)
     else:
         raise ValueError("Unknown action type")

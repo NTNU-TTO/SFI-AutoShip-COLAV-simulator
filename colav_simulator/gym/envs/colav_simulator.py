@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Union
 
 import colav_simulator.scenario_management as sm
 import colav_simulator.simulator as csim
-from colav_simulator.gym_wrapper.environment import BaseEnvironment
+from colav_simulator.gym.environment import BaseEnvironment
 
 
 class COLAVSimulatorEnvironment(BaseEnvironment):

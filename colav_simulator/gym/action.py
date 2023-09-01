@@ -6,23 +6,27 @@
 
     Author: Trym Tengesdal
 """
-import itertools
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
+from colav_simulator.core.ship import Ship
 
 Action = Union[list, int, np.ndarray]
 
+if TYPE_CHECKING:
+    from colav_simulator.gym.environment import BaseEnvironment
+
 
 class ActionType(ABC):
-
     """A type of action specifies its definition space, and how actions are executed in the environment"""
 
-    def __init__(self, env: str = "AbstractEnv", **kwargs) -> None:
+    name: str = "AbstractAction"
+
+    def __init__(self, env: "BaseEnvironment", ownship: Ship) -> None:
         self.env = env
-        self.__ownship = None
+        self.__ownship = ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -63,67 +67,45 @@ class ContinuousAutopilotReferenceAction(ActionType):
     """Steering angle range: [-x, x], in rad."""
 
     def __init__(
-        self, env: str = "AbstractEnv", speed_range: Optional[Tuple[float, float]] = None, course_range: Optional[Tuple[float, float]] = None, clip: bool = True, **kwargs
+        self,
+        env: "BaseEnvironment",
+        ownship: Ship,
+        speed_range: Optional[Tuple[float, float]] = None,
+        course_range: Optional[Tuple[float, float]] = None,
+        clip: bool = True,
+        **kwargs
     ) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
+            ownship (Ship): The ownship to act upon.
             speed_range (Optional[Tuple[float, float]]): The range of speed references. Defaults to None.
             course_range (Optional[Tuple[float, float]]): The range of course references. Defaults to None.
             clip (bool, optional): Clip action to defined range. Defaults to True.
         """
-        super().__init__(env)
+        super().__init__(env, ownship)
 
         self.speed_range = speed_range if speed_range else self.SPEED_RANGE
         self.course_range = course_range if course_range else self.COURSE_RANGE
         self.size = 2
         self.clip = clip
         self.last_action = np.zeros(self.size)
+        self.name = "ContinuousAutopilotReferenceAction"
 
     def space(self) -> gym.spaces.Box:
-        return gym.spaces.Box(
-            np.array([self.course_range[0], self.speed_range[0]]), np.array([self.course_range[1], self.speed_range[1]]), shape=(self.size,), dtype=np.float32
-        )
+        return gym.spaces.Box(0.0, 1.0, shape=(self.size,), dtype=np.float32)
 
-    def act(self, action: np.ndarray) -> None:
+    def act(self, action: Action) -> None:
         # act
         self.last_action = action
 
 
-class DiscreteAutopilotReferenceAction(ContinuousAutopilotReferenceAction):
-    """Discrete action space for setting the own-ship autopilot references in speed and course."""
-
-    def __init__(
-        self,
-        env: str = "AbstractEnv",
-        speed_range: Optional[Tuple[float, float]] = None,
-        course_range: Optional[Tuple[float, float]] = None,
-        num_speed_actions: int = 3,
-        num_course_actions: int = 12,
-        clip: bool = True,
-        **kwargs
-    ) -> None:
-        super().__init__(env, speed_range=speed_range, course_range=course_range, clip=clip)
-        self.num_speed_actions = num_speed_actions
-        self.num_course_actions = num_course_actions
-
-    def space(self) -> gym.spaces.Discrete:
-        return gym.spaces.Discrete(self.num_speed_actions * self.num_course_actions)
-
-    def act(self, action: int) -> None:
-        cont_space = super().space()
-        speed_axes = np.linspace(cont_space.low, cont_space.high, self.num_speed_actions).T
-        course_axes = np.linspace(cont_space.low, cont_space.high, self.num_course_actions).T
-        all_actions = list(itertools.product(*speed_axes, *course_axes))
-        super().act(all_actions[action])
-
-
-def action_factory(env: str = "AbstractEnv", action_type: str = "ContinuousAutopilotReferenceAction") -> ActionType:
+def action_factory(env: "BaseEnvironment", ownship: Ship, action_type: str = "ContinuousAutopilotReferenceAction") -> ActionType:
     """Factory for creating action spaces.
 
     Args:
-        env (str, optional): Name of environment. Defaults to "AbstractEnv".
+        env (str, optional): Name of environment. Defaults to BaseEnvironment.
         action_type (str, optional): Action type name. Defaults to "ContinuousAutopilotReferenceAction".
 
     Raises:
@@ -133,8 +115,6 @@ def action_factory(env: str = "AbstractEnv", action_type: str = "ContinuousAutop
         ActionType: Action type to use
     """
     if action_type == "ContinuousAutopilotReferenceAction":
-        return ContinuousAutopilotReferenceAction(env)
-    if action_type == "DiscreteAutopilotReferenceAction":
-        return DiscreteAutopilotReferenceAction(env)
+        return ContinuousAutopilotReferenceAction(env, ownship)
     else:
         raise ValueError("Unknown action type")

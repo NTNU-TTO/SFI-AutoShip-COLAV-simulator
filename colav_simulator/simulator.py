@@ -21,6 +21,7 @@ import colav_simulator.viz.visualizer as viz
 import numpy as np
 import pandas as pd
 import seacharts.enc as senc
+from colav_simulator.core.ship import Ship
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 
@@ -46,8 +47,21 @@ class Config:
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
-    _config: Config
-    _visualizer: viz.Visualizer
+    config: Config
+    visualizer: viz.Visualizer
+
+    ownship: Ship
+    ship_list: list
+    disturbance: Optional[stochasticity.Disturbance]
+    enc: senc.ENC
+    sconfig: sm.ScenarioConfig
+    recent_sensor_measurements: list
+
+    t: float
+    t_start: float
+    t_end: float
+    dt: float
+    timestamp_start: int
 
     def __init__(self, config: Optional[Config] = None, config_file: Optional[Path] = dp.simulator_config, **kwargs) -> None:
         """Initializes the simulator.
@@ -69,6 +83,38 @@ class Simulator:
             raise ValueError("No configuration file or configuration object provided.")
 
         self._visualizer = viz.Visualizer(self._config.visualizer)
+
+    def initialize_scenario_episode(
+        self,
+        ship_list: list,
+        sconfig: sm.ScenarioConfig,
+        enc: senc.ENC,
+        disturbance: Optional[stochasticity.Disturbance] = None,
+        ownship_colav_system: Optional[Any | ci.ICOLAV] = None,
+    ) -> None:
+        """Initializes the simulation through setting relevant internal state objects.
+
+        Args:
+            - ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
+            is assumed to be properly configured and initialized to its initial state at
+            the scenario start (t0).
+            - sconfig (ScenarioConfig): Scenario episode configuration object.
+            - enc (senc.ENC): ENC object relevant for the scenario.
+            - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
+            - ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
+        """
+        self.ship_list = ship_list
+        self.sconfig = sconfig
+        self.enc = enc
+        self.disturbance = disturbance
+        self.ownship = ship_list[0]
+        if ownship_colav_system is not None:
+            self.ownship.set_colav_system(ownship_colav_system)
+
+        self.t = sconfig.t_start
+        self.t_start = sconfig.t_start
+        self.t_end = sconfig.t_end
+        self.dt = sconfig.dt_sim
 
     def run(self, scenario_data_list: list, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
@@ -99,13 +145,15 @@ class Simulator:
             for ep, episode_data in enumerate(scenario_episode_list):
                 episode_simdata = {}
                 ship_list = episode_data["ship_list"]
-                disturbance = episode_data["disturbance"]
+                episode_disturbance = episode_data["disturbance"]
                 episode_config = episode_data["config"]
                 scenario_episode_file = episode_config.filename
 
+                self.initialize_scenario_episode(ship_list, episode_config, scenario_enc, episode_disturbance, ownship_colav_system)
+
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
-                sim_data, ship_info, sim_times = self.run_scenario_episode(ship_list, episode_config, scenario_enc, disturbance, ownship_colav_system)
+                sim_data, ship_info, sim_times = self.run_scenario_episode()
                 if self._config.verbose:
                     print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
 
@@ -136,25 +184,8 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
-    def run_scenario_episode(
-        self,
-        ship_list: list,
-        sconfig: sm.ScenarioConfig,
-        enc: senc.ENC,
-        disturbance: Optional[stochasticity.Disturbance] = None,
-        ownship_colav_system: Optional[Any | ci.ICOLAV] = None,
-    ) -> Tuple[pd.DataFrame, dict, np.ndarray]:
+    def run_scenario_episode(self) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
-
-        Args:
-            - ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
-            is assumed to be properly configured and initialized to its initial state at
-            the scenario start (t0).
-            - sconfig (ScenarioConfig): Scenario episode configuration object.
-            - enc (senc.ENC): ENC object relevant for the scenario.
-            - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
-            - ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
-
 
         Returns: a tuple containing:
             - sim_data (DataFrame): Dataframe/table containing the ship simulation data.
@@ -162,84 +193,87 @@ class Simulator:
             - sim_times (np.array): Array containing the simulation times.
         """
 
-        self._visualizer.init_live_plot(enc, ship_list)
-
-        if ownship_colav_system is not None:
-            ship_list[0].set_colav_system(ownship_colav_system)
+        self.visualizer.init_live_plot(self.enc, self.ship_list)
 
         sim_data = []
         ship_info = {}
-        for i, ship_obj in enumerate(ship_list):
+        for i, ship_obj in enumerate(self.ship_list):
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
-        disturbance_data: Optional[stochasticity.DisturbanceData] = None
-        timestamp_start = mhm.current_utc_timestamp()
-        most_recent_sensor_measurements: list = [None] * len(ship_list)
-        sim_times = np.arange(sconfig.t_start, sconfig.t_end, sconfig.dt_sim)
-        dt_sim = sconfig.dt_sim
-        for _, t in enumerate(sim_times):
-            sim_data_dict = {}
-            true_do_states = []
-            for i, ship_obj in enumerate(ship_list):
-                # if t == 0.0:
-                #    print(f"Ship {i} starts at {ship_obj.t_start}")
-                if ship_obj.t_start <= t:
-                    vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
-                    true_do_states.append((i, vxvy_state))
-
-            if disturbance is not None:
-                disturbance_data = disturbance.get()
-                disturbance.update(t, dt_sim)
-                sim_data_dict["currents"] = disturbance_data.currents
-                sim_data_dict["wind"] = disturbance_data.wind
-                sim_data_dict["waves"] = disturbance_data.waves
-
-            for i, ship_obj in enumerate(ship_list):
-                relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
-                tracks, sensor_measurements_i = ship_obj.track_obstacles(t, dt_sim, relevant_true_do_states)
-
-                most_recent_sensor_measurements[i] = extract_valid_sensor_measurements(t, most_recent_sensor_measurements[i], sensor_measurements_i)
-
-                if ship_obj.t_start <= t:
-                    ship_obj.plan(
-                        t=t,
-                        dt=dt_sim,
-                        do_list=tracks,
-                        enc=enc,
-                    )
-
-                sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(t, timestamp_start)
-                sim_data_dict[f"Ship{i}"]["sensor_measurements"] = most_recent_sensor_measurements[i]
-                sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
-
-                if ship_obj.t_start <= t:
-                    ship_obj.forward(dt_sim, disturbance_data)
+        self.timestamp_start = mhm.current_utc_timestamp()
+        self.recent_sensor_measurements: list = [None] * len(self.ship_list)
+        sim_times = np.arange(self.t, self.sconfig.t_end, self.dt)
+        while self.t < self.t_end:
+            sim_data_dict = self.step()
 
             sim_data.append(sim_data_dict)
 
-            if t % 10.0 < 0.0001:
-                self._visualizer.update_live_plot(t, enc, ship_list, most_recent_sensor_measurements[0])
+            if self.t % 10.0 < 0.0001:
+                self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
 
         return pd.DataFrame(sim_data), ship_info, sim_times
 
+    def step(self, action: Optional[list] = None) -> dict:
+        """Step through the simulation by one time step, using the specified action for the own-ship.
 
-def extract_valid_sensor_measurements(t: float, most_recent_sensor_measurements: list, sensor_measurements_i: list) -> list:
+        Args:
+            action (Optional[list]): The action to execute. Typically the output autopilot references from the COLAV-algorithm. Defaults to None.
+
+        Returns:
+            dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.
+        """
+        sim_data_dict = {}
+        true_do_states = []
+        for i, ship_obj in enumerate(self.ship_list):
+            if ship_obj.t_start <= self.t:
+                vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
+                true_do_states.append((i, vxvy_state))
+
+        disturbance_data: Optional[stochasticity.DisturbanceData] = None
+        if self.disturbance is not None:
+            disturbance_data = self.disturbance.get()
+            self.disturbance.update(self.t, self.dt)
+            sim_data_dict["currents"] = disturbance_data.currents
+            sim_data_dict["wind"] = disturbance_data.wind
+            sim_data_dict["waves"] = disturbance_data.waves
+
+        for i, ship_obj in enumerate(self.ship_list):
+            relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
+            tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
+
+            self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(self.t, self.recent_sensor_measurements[i], sensor_measurements_i)
+
+            if ship_obj.t_start <= self.t:
+                ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
+
+            sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)
+            sim_data_dict[f"Ship{i}"]["sensor_measurements"] = self.recent_sensor_measurements[i]
+            sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
+
+            if ship_obj.t_start <= self.t:
+                ship_obj.forward(self.dt, disturbance_data)
+
+        self.t += self.dt
+        return sim_data_dict
+
+
+def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:
     """Extracts non-NaN sensor measurements from the recent sensor measurements list and appends them to the most recent sensor measurements list.
 
     Args:
         t (float): Current simulation time.
-        most_recent_sensor_measurements (list): List of most recent valid (non-nan) sensor measurements for the current ship
+        recent_sensor_measurements (list): List of most recent valid (non-nan) sensor measurements for the current ship
         sensor_measurements_i (list): List of new sensor measurements for the current ship.
 
     Returns:
         list: List of updated most recent valid (non-nan) sensor measurements for the current ship
     """
     if t == 0.0:
-        most_recent_sensor_measurements = sensor_measurements_i
+        recent_sensor_measurements = sensor_measurements_i
     for _, meas in enumerate(sensor_measurements_i):
         if not meas:
             continue
         if np.isnan(meas).any():
             continue
-        most_recent_sensor_measurements.append(meas)
-    return most_recent_sensor_measurements
+        recent_sensor_measurements.append(meas)
+    return recent_sensor_measurements
