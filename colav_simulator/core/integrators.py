@@ -7,20 +7,20 @@
     Author: Trym Tengesdal
 """
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import colav_simulator.common.math_functions as mf
 import numpy as np
 
 
-def erk4_integration_step(f: Any, b: Any, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
+def erk4_integration_step(f: Callable, b: Callable, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
     """
     Summary:
         Performs a (saturated) single step of a 4th order Runge-Kutta integration scheme.
 
     Args:
-        f (function): Function to be integrated.
-        b (function): Bounds of states and inputs considered in the model dynamics to be integrated.
+        f (Callable): Function to be integrated.
+        b (Callable): Bounds of states and inputs considered in the model dynamics to be integrated.
         x (np.ndarray): State vector.
         u (np.ndarray): Input vector.
         w (Optional[Any]): Disturbance data.
@@ -39,13 +39,14 @@ def erk4_integration_step(f: Any, b: Any, x: np.ndarray, u: np.ndarray, w: Optio
     return x_next
 
 
-def euler_integration_step(f: Any, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
+def euler_integration_step(f: Callable, b: Callable, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
     """
     Summary:
         Performs a (saturated) single step of a Euler integration scheme.
 
     Args:
-        f (Any): Function to be integrated.
+        f (Callable): Function to be integrated.
+        b (Callable): Bounds of states and inputs considered in the model dynamics to be integrated.
         x (np.ndarray): State vector.
         u (np.ndarray): Input vector.
         w (Optional[Any]): Disturbance data.
@@ -54,4 +55,7 @@ def euler_integration_step(f: Any, x: np.ndarray, u: np.ndarray, w: Optional[Any
     Returns:
         np.ndarray: State vector at time t + dt.
     """
-    return x + dt * f(x, u, w)
+    _, _, lbx, ubx = b()
+    x_next = x + dt * f(x, u, w)
+    x_next = mf.sat(x_next, lbx, ubx)
+    return x_next
