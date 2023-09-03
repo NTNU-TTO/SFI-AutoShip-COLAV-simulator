@@ -216,9 +216,7 @@ class IShip(ABC):
         "Track obstacles using the sensor suite, taking the obstacle states as inputs at the current time."
 
     @abstractmethod
-    def plan(
-        self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None
-    ) -> np.ndarray:
+    def plan(self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
         "Plan a new trajectory for the ship, either using the onboard guidance system or COLAV system employed."
 
 
@@ -438,6 +436,15 @@ class Ship(IShip):
 
         self._waypoints = waypoints
         self._speed_plan = speed_plan
+
+    def set_references(self, references: np.ndarray) -> None:
+        """Sets the references of the ship (pose, velocity and acceleration).
+        If LOS-guidance is used, the references are [0, 0, chi_d, U_d, 0, 0, 0, 0, 0]^T.
+
+        Args:
+            references (np.ndarray): References to set. Typically the output of an external COLAV system in e.g. RL-context.
+        """
+        self._references = references
 
     def set_colav_system(self, colav: Any | ci.ICOLAV) -> None:
         """Sets the COLAV system to be used by the ship.

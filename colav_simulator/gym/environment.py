@@ -6,7 +6,7 @@
 
     Author: Trym Tengesdal
 """
-
+import os
 import pathlib
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, TypeVar
@@ -27,34 +27,9 @@ Action = TypeVar("Action")
 Observation = TypeVar("Observation")
 
 
-@dataclass
-class Config:
-    observation_type: observations.ObservationType = observations.LidarLikeObservation()
-    action_type: actions.ActionType = actions.ContinuousAutopilotReferenceAction()
-
-    def __init__(self) -> None:
-        pass
-
-    @classmethod
-    def from_dict(self, config_dict: dict):
-        config = Config()
-        for key, value in config_dict.items():
-            setattr(config, key, value)
-
-        config.observation_type = observations.observation_factory(self, config_dict["observation_type"])
-        config.action_type = actions.action_factory(self, config_dict["action_type"])
-        return config
-
-    def to_dict(self) -> dict:
-        config_dict = {}
-        config_dict["observation_type"] = self.observation_type.name
-        config_dict["action_type"] = self.action_type.name
-        return config_dict
-
-
-class BaseEnvironment(gym.Env):
+class COLAVEnvironment(gym.Env):
     """
-    A generic environment for ship collision-free planning tasks.
+    An environment for performing ship collision-free planning tasks.
 
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
@@ -75,6 +50,8 @@ class BaseEnvironment(gym.Env):
         self.simulator: simulator.Simulator = simulator.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
         self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config if scenario_config else None
+        self.scenario_data_list: Optional[Tuple[list, senc.Enc]] = None
+        self.rewarder = None
 
         # Scene
         self.ownship = None
@@ -100,8 +77,7 @@ class BaseEnvironment(gym.Env):
 
         self.reset()
 
-    @classmethod
-    def default_config(cls) -> Config:
+    def default_config(self) -> dict:
         """Returns the default config for the environment.
 
         Can be overloaded in environment implementations, or by calling configure().
@@ -110,9 +86,9 @@ class BaseEnvironment(gym.Env):
             dict: A configuration dict
         """
         return {
-            "observation": {"type": "Kinematics"},
-            "action": {"type": "DiscreteMetaAction"},
-            "simulation_frequency": 15,  # [Hz]
+            "observation": {"type": "LidarLikeObservation"},
+            "action": {"type": "ContinuousAutopilotReferenceAction"},
+            "simulation_frequency": 1.0 / self.simulator.dt,  # [Hz]
             "policy_frequency": 1,  # [Hz]
             "screen_width": 600,  # [px]
             "screen_height": 150,  # [px]
@@ -139,19 +115,17 @@ class BaseEnvironment(gym.Env):
         if self._viewer2d is not None:
             self._viewer2d.close()
 
-    def _reward(self, action: Action) -> float:
+    def _reward(self, observation: Observation, action: Action) -> float:
         """Returns the reward of the state-action transition.
 
         Args:
+            observation (Observation): Observation vector from the environment
             action (Action): Action vector applied by the agent
-
-        Raises:
-            NotImplementedError: If the method is not implemented
 
         Returns:
             float: Reward of the state-action transition
         """
-        raise NotImplementedError
+        return self.rewarder(observation, action)
 
     def _is_terminated(self) -> bool:
         """Check whether the current state is a terminal state.
@@ -162,7 +136,8 @@ class BaseEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
-        raise NotImplementedError
+        if self.simulator.ownship_collision:
+            return True
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -173,7 +148,7 @@ class BaseEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a truncated state
         """
-        raise NotImplementedError
+        return self.simulator.t > self.simulator.t_end
 
     def _generate(self, sconfig: Optional[sm.ScenarioConfig] = None) -> None:
         """Generates new scenarios from the configuration."""
@@ -212,14 +187,22 @@ class BaseEnvironment(gym.Env):
             Tuple[observations.Observation, dict]: Initial observation and additional information
         """
         super().reset(seed=seed, options=options)
-        if options and "config" in options:
-            self.configure(options["config"])
+
         self.update_metadata()
         self.define_spaces()  # First, to set the controlled ship class depending on action space
-        self.time = self.steps = 0
 
+        if self.scenario_data_list is None:
+            self.scenario_data_list = self.scenario_generator.generate(self.scenario_config)
+
+        (scenario_episode_list, scenario_enc) = self.scenario_data_list
+        episode_data = scenario_episode_list.pop(0)
+
+        self.simulator.initialize_scenario_episode(
+            ship_list=episode_data["ship_list"], sconfig=episode_data["config"], enc=scenario_enc, disturbance=episode_data["disturbance"], ownship_colav_system=None
+        )
+
+        # Collect initial observation depending on the type configured
         self.define_spaces()  # Second, to link the obs and actions to the own-ship once the scene is created
-        obs = self.observation_type.observe()  # normalized observation
         info = self._info(obs, action=self.action_space.sample())
         if self.render_mode == "human":
             self.render()
@@ -253,28 +236,6 @@ class BaseEnvironment(gym.Env):
 
     def render(self) -> None:
         """Renders the environment in 2D."""
-        if self.render_mode is None:
-            assert self.spec is not None
-            gym.logger.warn(
-                "You are calling render method without specifying any render mode. "
-                "You can specify the render_mode at initialization, "
-                f'e.g. gym.make("{self.spec.id}", render_mode="rgb_array")'
-            )
-            return
-
-        if self.viewer is None:
-            self.viewer = EnvViewer(self)
-
-        self.enable_auto_render = True
-
-        self.viewer.display()
-
-        if self._time % 10.0 < 0.0001:
-            self._visualizer.update_live_plot(self._time, self._enc, self._ship_list, self._most_recent_sensor_measurements[0])
-
-        if self.render_mode == "rgb_array":
-            image = self.viewer.get_image()
-            return image
 
     @property
     def enc(self) -> senc.Enc:

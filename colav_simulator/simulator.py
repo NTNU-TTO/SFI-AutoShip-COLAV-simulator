@@ -116,6 +116,8 @@ class Simulator:
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
 
+        return np.zeros(3)
+
     def run(self, scenario_data_list: list, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
