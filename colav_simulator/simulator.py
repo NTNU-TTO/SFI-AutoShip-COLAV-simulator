@@ -9,9 +9,10 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import colav_simulator.common.config_parsing as cp
+import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import colav_simulator.core.colav.colav_interface as ci
@@ -51,6 +52,7 @@ class Simulator:
     visualizer: viz.Visualizer
 
     ownship: Ship
+    relevant_grounding_hazards: list  # Grounding hazards relevant for the own-ship
     ship_list: list
     disturbance: Optional[stochasticity.Disturbance]
     enc: senc.ENC
@@ -110,6 +112,9 @@ class Simulator:
         self.ownship = ship_list[0]
         if ownship_colav_system is not None:
             self.ownship.set_colav_system(ownship_colav_system)
+
+        ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
+        self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
 
         self.t = sconfig.t_start
         self.t_start = sconfig.t_start
@@ -215,11 +220,8 @@ class Simulator:
 
         return pd.DataFrame(sim_data), ship_info, sim_times
 
-    def step(self, action: Optional[list] = None) -> dict:
+    def step(self) -> dict:
         """Step through the simulation by one time step, using the specified action for the own-ship.
-
-        Args:
-            action (Optional[list]): The action to execute. Typically the output autopilot references from the COLAV-algorithm. Defaults to None.
 
         Returns:
             dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.
@@ -245,7 +247,9 @@ class Simulator:
 
             self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(self.t, self.recent_sensor_measurements[i], sensor_measurements_i)
 
-            if ship_obj.t_start <= self.t:
+            # If action is not None, the own-ship is controlled externally by an RL-agent through setting of the ship references/waypoints+speed_plan or similar.
+            # If action is None, the own-ship is controlled internally by the specified COLAV-system.
+            if ship_obj.t_start <= self.t and action is None:
                 ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
 
             sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)
@@ -257,6 +261,31 @@ class Simulator:
 
         self.t += self.dt
         return sim_data_dict
+
+    def determine_ownship_collision(self) -> bool:
+        """Determines whether the own-ship is in a collision state.
+
+        Returns:
+            bool: True if the own-ship is in a collision state, False otherwise.
+        """
+        ownship_state = self.ownship.csog_state
+        for _, ship_obj in enumerate(self.ship_list[1:]):
+            if ship_obj.t_start <= self.t:
+                ship_state = ship_obj.csog_state
+                d2ship = np.linalg.norm(ownship_state[:2] - ship_state[:2])
+                if d2ship <= self.ownship.length:
+                    return True
+        return False
+
+    def determine_ownship_grounding(self) -> bool:
+        """Determines whether the own-ship is in a grounding state.
+
+        Returns:
+            bool: True if the own-ship is in a grounding state, False otherwise.
+        """
+        ownship_state = self.ownship.csog_state
+        d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ownship_state[1], ownship_state[0])
+        return d2land <= self.ownship.length
 
 
 def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:

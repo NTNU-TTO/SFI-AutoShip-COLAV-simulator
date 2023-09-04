@@ -82,7 +82,7 @@ class IReward(ABC):
         pass
 
     @abstractmethod
-    def __call__(self, state: Observation, action: Action, **kwargs) -> float:
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         """Get the reward for the current state-action pair. Additional arguments can be passed if necessary."""
 
 
@@ -127,7 +127,7 @@ class ExistenceRewarder(IReward):
         """
         self.params = params if params else ExistenceRewardParams()
 
-    def __call__(self, state: Observation, action: Action, **kwargs) -> float:
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         return self.params.r_exists
 
 
@@ -144,7 +144,7 @@ class DistanceToGoalRewarder(IReward):
         self.goal = goal
         self.params = params if params else DistanceToGoalRewardParams()
 
-    def __call__(self, state: Observation, action: Action, **kwargs) -> float:
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
 
         return -self.params.r_d2g * float(np.linalg.norm(state[:2] - self.goal))
 
@@ -164,7 +164,7 @@ class TrajectoryTrackingRewarder(IReward):
         self.trajectory = trajectory
         self.params = params if params else TrajectoryTrackingRewardParams()
 
-    def __call__(self, state: Observation, action: Action, **kwargs) -> float:
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         csog_state = self.__ownship.csog_state
         return -float(np.linalg.norm(csog_state[:2] - self.trajectory))
 
@@ -186,7 +186,7 @@ class Rewarder(IReward):
             elif isinstance(rewarder, DistanceToGoalRewardParams):
                 self.rewarders.append(DistanceToGoalRewarder(np.array([0.0, 0.0]), rewarder))
 
-    def __call__(self, state: Observation, action: Action, **kwargs) -> float:
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         reward = 0.0
         for rewarder in self.rewarders:
             reward += rewarder(state, action, **kwargs)

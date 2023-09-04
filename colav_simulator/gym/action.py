@@ -13,7 +13,7 @@ import gymnasium as gym
 import numpy as np
 from colav_simulator.core.ship import Ship
 
-Action = Union[list, int, np.ndarray]
+Action = Union[list, np.ndarray]
 
 if TYPE_CHECKING:
     from colav_simulator.gym.environment import COLAVEnvironment

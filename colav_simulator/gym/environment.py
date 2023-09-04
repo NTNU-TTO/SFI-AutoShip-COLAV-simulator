@@ -21,15 +21,9 @@ import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
-from colav_simulator.gym.action import ActionType, action_factory
+from colav_simulator.gym.action import Action, ActionType, action_factory
 from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
 from gymnasium.utils import seeding
-
-Action = TypeVar("Action")
-Observation = TypeVar("Observation")
-
-ActionType = TypeVar("ActionType")
-ObservationType = TypeVar("ObservationType")
 
 
 @dataclass
@@ -91,10 +85,12 @@ class COLAVEnvironment(gym.Env):
         self.scenario_data_list: Optional[Tuple[list, senc.ENC]] = None
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
-        self.observation_type
-
         # Scene
         self.ownship = None
+        self.observation_type = observation_factory(self, self.ownship, self.scenario_config.rl_observation_type)
+        self.action_type = action_factory(self, self.ownship, self.scenario_config.rl_action_type)
+        self.action_space = self.action_type.space()
+        self.observation_space = self.observation_type.space()
 
         self.steps = 0  # Actions performed
 
@@ -104,36 +100,6 @@ class COLAVEnvironment(gym.Env):
         self.verbose = verbose
 
         self.reset()
-
-    def default_config(self) -> dict:
-        """Returns the default config for the environment.
-
-        Can be overloaded in environment implementations, or by calling configure().
-
-        Returns:
-            dict: A configuration dict
-        """
-        return {
-            "observation": {"type": "LidarLikeObservation"},
-            "action": {"type": "ContinuousAutopilotReferenceAction"},
-            "simulation_frequency": 1.0 / self.simulator.dt,  # [Hz]
-            "policy_frequency": 1,  # [Hz]
-            "screen_width": 600,  # [px]
-            "screen_height": 150,  # [px]
-            "centering_position": [0.3, 0.5],
-            "scaling": 5.5,
-            "show_trajectories": False,
-            "render_agent": True,
-            "offscreen_rendering": os.environ.get("OFFSCREEN_RENDERING", "0") == "1",
-            "real_time_rendering": False,
-        }
-
-    def define_spaces(self) -> None:
-        """Defines the action and observation types and spaces from the current configuration."""
-        self.observation_type = observation_factory(self)
-        self.action_type = action_factory(self)
-        self.action_space = self.action_type.space()
-        self.observation_space = self.observation_type.space()
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -149,8 +115,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
-        if self.simulator.ownship_collision:
-            return True
+        return self.simulator.determine_ownship_collision()
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -179,17 +144,15 @@ class COLAVEnvironment(gym.Env):
         """
         info = {
             "speed": self.ownship.speed,
-            "collision": self.ownship_collision,
+            "collision": self.simulator.determine_ownship_collision(),
+            "grounding": self.simulator.determine_ownship_grounding(),
             "action": action,
+            "obs": obs,
+            "reward": self.rewarder(obs, action),
         }
-        info["rewards"] = self.rewarder(obs, action)
         return info
 
-    def reset(
-        self,
-        seed: Optional[int] = None,
-        options: Optional[dict] = None,
-    ) -> Tuple[observations.Observation, dict]:
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None, **kwargs) -> Tuple[Observation, dict]:
         """Reset the environment to a new scenario.
 
         Args:
@@ -197,12 +160,14 @@ class COLAVEnvironment(gym.Env):
             options (Optional[dict]): Options for the environment. Defaults to None.
 
         Returns:
-            Tuple[observations.Observation, dict]: Initial observation and additional information
+            Tuple[Observation, dict]: Initial observation and additional information
         """
         super().reset(seed=seed, options=options)
 
-        self.update_metadata()
-        self.define_spaces()  # First, to set the controlled ship class depending on action space
+        if "scenario_config" in kwargs:
+            self.scenario_data_list = self.scenario_generator.generate(config=kwargs["scenario_config"])
+        elif "scenario_config_file" in kwargs:
+            self.scenario_data_list = self.scenario_generator.generate(config_file=kwargs["scenario_config_file"])
 
         if self.scenario_data_list is None:
             self.scenario_data_list = self.scenario_generator.generate(self.scenario_config)
@@ -214,8 +179,7 @@ class COLAVEnvironment(gym.Env):
             ship_list=episode_data["ship_list"], sconfig=episode_data["config"], enc=scenario_enc, disturbance=episode_data["disturbance"], ownship_colav_system=None
         )
 
-        # Collect initial observation depending on the type configured
-        self.define_spaces()  # Second, to link the obs and actions to the own-ship once the scene is created
+        obs = self.observation_type.observe()  # normalized observation
         info = self._info(obs, action=self.action_space.sample())
         if self.render_mode == "human":
             self.render()
@@ -232,6 +196,7 @@ class COLAVEnvironment(gym.Env):
         """
         # map action from [-1, 1] to colav system/autopilot references ranges
 
+        self.action_type.act(action)
         sim_data_dict = self.simulator.step(action)
 
         if self.render_mode == "human":

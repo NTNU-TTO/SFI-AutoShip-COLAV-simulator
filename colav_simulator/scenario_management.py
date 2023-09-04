@@ -79,6 +79,8 @@ class ScenarioConfig:
     ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
     filename: Optional[str] = None  # Filename of the scenario, stored after creation
     stochasticity: Optional[stoch.Config] = None  # Configuration class containing stochasticity parameters for the scenario
+    rl_observation_type: Optional[str] = "tuple_observation"  # Observation type configured for an  RL agent
+    rl_action_type: Optional[str] = "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
 
     def to_dict(self) -> dict:
         output = {
@@ -128,6 +130,12 @@ class ScenarioConfig:
         if self.ship_list is not None:
             for ship_config in self.ship_list:
                 output["ship_list"].append(ship_config.to_dict())
+
+        if self.rl_observation_type is not None:
+            output["rl_observation_type"] = self.rl_observation_type
+
+        if self.rl_action_type is not None:
+            output["rl_action_type"] = self.rl_action_type
 
         return output
 
@@ -191,6 +199,12 @@ class ScenarioConfig:
             config.ship_list = []
             for ship_config in config_dict["ship_list"]:
                 config.ship_list.append(ship.Config.from_dict(ship_config))
+
+        if "rl_observation_type" in config_dict:
+            config.rl_observation_type = config_dict["rl_observation_type"]
+
+        if "rl_action_type" in config_dict:
+            config.rl_action_type = config_dict["rl_action_type"]
 
         return config
 
