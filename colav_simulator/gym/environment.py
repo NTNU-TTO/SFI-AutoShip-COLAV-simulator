@@ -9,22 +9,48 @@
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, TypeVar
+from typing import Optional, Tuple, TypeVar
 
+import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.common.paths as dp
 import colav_simulator.gym.action as actions
 import colav_simulator.gym.observation as observations
+import colav_simulator.gym.reward as rw
 import colav_simulator.scenario_management as sm
-import colav_simulator.simulator as simulator
+import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
-from colav_simulator.core.ship import Ship
 from gymnasium.utils import seeding
 
 Action = TypeVar("Action")
 Observation = TypeVar("Observation")
+
+ActionType = TypeVar("ActionType")
+ObservationType = TypeVar("ObservationType")
+
+
+@dataclass
+class Config:
+    """Configuration for the environment."""
+
+    simulator: Optional[cssim.Config] = None
+    scenario_generator: Optional[sm.Config] = None
+    scenario_config: Optional[sm.ScenarioConfig] = None
+    scenario_config_file: Optional[pathlib.Path] = None
+    rewarder: Optional[list] = None
+
+    @classmethod
+    def from_dict(self, config_dict: dict):
+        cfg = Config()
+        cfg.simulator = cssim.Config.from_dict(config_dict["simulator"])
+        cfg.scenario_generator = sm.Config.from_dict(config_dict["scenario_generator"])
+        cfg.scenario_config = sm.ScenarioConfig.from_dict(config_dict["scenario_config"])
+        cfg.scenario_config_file = pathlib.Path(config_dict["scenario_config_file"])
+        cfg.rewarder = config_dict["rewarder"]
+        return cfg
 
 
 class COLAVEnvironment(gym.Env):
@@ -34,30 +60,40 @@ class COLAVEnvironment(gym.Env):
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
 
-    metadata = {"render.modes": ["human"]}
+    metadata = {
+        "render_modes": ["human", "rgb_array"],
+    }
 
     def __init__(
         self,
-        simulator_config: Optional[simulator.Config] = None,
+        simulator_config: Optional[cssim.Config] = None,
         scenario_generator_config: Optional[sm.Config] = None,
         scenario_config: Optional[sm.ScenarioConfig] = None,
+        scenario_config_file: Optional[pathlib.Path] = None,
+        rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = None,
         verbose: Optional[bool] = False,
     ) -> None:
         super().__init__()
 
         # Configuration
-        self.simulator: simulator.Simulator = simulator.Simulator(config=simulator_config)
+        self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
-        self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config if scenario_config else None
-        self.scenario_data_list: Optional[Tuple[list, senc.Enc]] = None
-        self.rewarder = None
+
+        # ScenarioConfig takes precedence over file
+        if scenario_config is not None:
+            self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
+        elif scenario_config_file is not None:
+            self.scenario_config = cp.extract(sm.ScenarioConfig, scenario_config_file, dp.scenario_schema)
+
+        self.scenario_data_list: Optional[Tuple[list, senc.ENC]] = None
+        self.rewarder = rw.Rewarder(ownship=None, config=rewarder_config)
 
         # Scene
         self.ownship = None
         self.obstacles = None
 
-        # Default spaces, will be set in derived classes
+        # Default spaces, will be set given the action and observation types
         self.action_type = None
         self.observation_type = None
         self._perception_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1, 1), dtype=np.float32)
@@ -65,14 +101,11 @@ class COLAVEnvironment(gym.Env):
         self._observation_space = gym.spaces.Dict({"perception": self._perception_space, "navigation": self._navigation_space})
         self._action_space = gym.spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32)
 
-        # Running
         self.steps = 0  # Actions performed
 
         self._viewer2d = None
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-        self.enable_auto_render = False
-
         self.verbose = verbose
 
         self.reset()
@@ -114,18 +147,6 @@ class COLAVEnvironment(gym.Env):
         """Closes the environment. To be called after usage."""
         if self._viewer2d is not None:
             self._viewer2d.close()
-
-    def _reward(self, observation: Observation, action: Action) -> float:
-        """Returns the reward of the state-action transition.
-
-        Args:
-            observation (Observation): Observation vector from the environment
-            action (Action): Action vector applied by the agent
-
-        Returns:
-            float: Reward of the state-action transition
-        """
-        return self.rewarder(observation, action)
 
     def _is_terminated(self) -> bool:
         """Check whether the current state is a terminal state.
@@ -169,7 +190,7 @@ class COLAVEnvironment(gym.Env):
             "collision": self.ownship_collision,
             "action": action,
         }
-        info["rewards"] = self._rewards(action)
+        info["rewards"] = self.rewarder(obs, action)
         return info
 
     def reset(
@@ -217,17 +238,15 @@ class COLAVEnvironment(gym.Env):
         Returns:
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
-        sim_data_dict = {}
-        true_do_states = []
-
         # map action from [-1, 1] to colav system/autopilot references ranges
+
         sim_data_dict = self.simulator.step(action)
 
         if self.render_mode == "human":
             self.render()
 
         obs = self.observation_type.observe()  # normalized observation
-        reward = self._reward(action)  # normalized reward
+        reward = self.rewarder(obs, action)  # normalized reward
         terminated = self._is_terminated()
         truncated = self._is_truncated()
         info = self._info(obs, action)
@@ -238,7 +257,7 @@ class COLAVEnvironment(gym.Env):
         """Renders the environment in 2D."""
 
     @property
-    def enc(self) -> senc.Enc:
+    def enc(self) -> senc.ENC:
         """The ENC used for the environment."""
         return self.simulator.enc
 
@@ -246,8 +265,3 @@ class COLAVEnvironment(gym.Env):
     def dynamic_obstacles(self) -> list:
         """The dynamic obstacles in the environment."""
         return self.simulator.ship_list[1:]
-
-    @property
-    def ownship(self) -> simulator.Ship:
-        """The ownship in the environment."""
-        return self.simulator.ship_list[0]

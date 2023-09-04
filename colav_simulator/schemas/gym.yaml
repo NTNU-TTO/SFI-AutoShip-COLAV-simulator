@@ -1,0 +1,54 @@
+scenario_config_file
+
+
+rewarders:
+  required: True
+  type: list
+  minlength: 1
+  schema:
+    type: dict
+    schema:
+      existence_rewarder:
+        required: True
+        type: dict
+        schema:
+          r_exists:
+            required: True
+            type: float
+      distance_to_goal_rewarder:
+        required: False
+        type: dict
+        schema:
+          r_d2g:
+            required: True
+            type: float
+      trajectory_tracking_rewarder:
+        required: False
+        type: dict
+        schema:
+          r_tt:
+            required: True
+            type: float
+      colregs_rewarder:
+        required: False
+        type: dict
+        schema:
+          r_tt:
+            required: True
+            type: float
+      antigrounding_rewarder:
+        required: False
+        type: dict
+        schema:
+          r_tt:
+            required: True
+            type: float
+      anticollision_rewarder:
+        required: False
+        type: dict
+        schema:
+          r_tt:
+            required: True
+            type: float
+
+
