@@ -247,9 +247,8 @@ class Simulator:
 
             self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(self.t, self.recent_sensor_measurements[i], sensor_measurements_i)
 
-            # If action is not None, the own-ship is controlled externally by an RL-agent through setting of the ship references/waypoints+speed_plan or similar.
-            # If action is None, the own-ship is controlled internally by the specified COLAV-system.
-            if ship_obj.t_start <= self.t and action is None:
+            # Plans a decision for the ship depending on its configuration
+            if ship_obj.t_start <= self.t:
                 ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
 
             sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)

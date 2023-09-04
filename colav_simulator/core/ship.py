@@ -151,14 +151,16 @@ class ShipBuilder:
     """Class for building all objects needed by a ship with a specific configuration of systems."""
 
     @classmethod
-    def construct_ship(cls, config: Optional[Config] = None):
+    def construct_ship(
+        cls, config: Optional[Config] = None
+    ) -> Tuple[models.IModel, controllers.IController, guidances.IGuidance | None, list, trackers.ITracker, ci.ICOLAV | None]:
         """Builds a ship from the configuration
 
         Args:
             config (Optional[Config]): Ship configuration. Defaults to None.
 
         Returns:
-            Tuple[IModel, IController, IGuidance, list, ITracker, ICOLAV]: The subsystems comprising the ship: model, controller, guidance.
+            Tuple[IModel, IController, IGuidance | None, list, ITracker, ICOLAV | None]: The subsystems comprising the ship: model, controller, guidance.
         """
         if config:
             model = cls.construct_model(config.model)
@@ -177,12 +179,12 @@ class ShipBuilder:
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
             guidance_alg = cls.construct_guidance()
-            colav_alg = None
+            colav_alg = cls.construct_colav()
 
         return model, controller, guidance_alg, sensors, tracker, colav_alg
 
     @classmethod
-    def construct_colav(cls, config: Optional[ci.Config] = None) -> ci.ICOLAV:
+    def construct_colav(cls, config: Optional[ci.Config] = None) -> Optional[ci.ICOLAV]:
         return ci.COLAVBuilder.construct_colav(config)
 
     @classmethod
@@ -194,7 +196,7 @@ class ShipBuilder:
         return sensing.SensorSuiteBuilder.construct_sensors(config)
 
     @classmethod
-    def construct_guidance(cls, config: Optional[guidances.Config] = None) -> guidances.IGuidance:
+    def construct_guidance(cls, config: Optional[guidances.Config] = None) -> Optional[guidances.IGuidance]:
         return guidances.GuidanceBuilder.construct_guidance(config)
 
     @classmethod
@@ -353,9 +355,9 @@ class Ship(IShip):
                 os_width=self._model.params.width,
                 os_draft=self._model.params.draft,
             )
-            return self._references
-
-        self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
+        elif self._guidance is not None:
+            self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
+        # If both the COLAV-system and guidance-system is None, the ship is following external commands, e.g. from an RL-agent.
         return self._references
 
     def forward(self, dt: float, w: Optional[stochasticity.DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

@@ -49,7 +49,7 @@ class COLAVType(Enum):
 class LayerConfig:
     """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
-    vo: Optional[kvo.VOParams] = field(default_factory = lambda: kvo.VOParams())
+    vo: Optional[kvo.VOParams] = field(default_factory=lambda: kvo.VOParams())
     los: Optional[guidance.LOSGuidanceParams] = None
     sbmpc: Optional[sb_mpc.SBMPCParams] = None
 
@@ -280,7 +280,7 @@ class SBMPCWrapper(ICOLAV):
 
 class COLAVBuilder:
     @classmethod
-    def construct_colav(cls, config: Optional[Config] = None) -> ICOLAV:
+    def construct_colav(cls, config: Optional[Config] = None) -> Optional[ICOLAV]:
         """Builds a colav system from the configuration, if it is specified.
 
         Args:
@@ -290,13 +290,8 @@ class COLAVBuilder:
             ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
         if config and config.name == COLAVType.VO:
-            colav = VOWrapper(config)
+            return VOWrapper(config)
         elif config and config.name == COLAVType.SBMPC:
-            colav = SBMPCWrapper(config)
+            return SBMPCWrapper(config)
         else:
-            config = Config()
-            config.layer2 = LayerConfig()
-            config.layer2.los = guidance.LOSGuidanceParams()
-            colav = VOWrapper(config)
-
-        return colav
+            return None

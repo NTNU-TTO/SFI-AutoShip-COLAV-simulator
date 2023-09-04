@@ -15,7 +15,6 @@ import colav_simulator.core.tracking.trackers as trackers
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
-from colav_simulator.core.ship import Ship
 
 Observation = Union[tuple, list, np.ndarray]
 
@@ -28,9 +27,9 @@ class ObservationType(ABC):
 
     name: str = "AbstractObservation"
 
-    def __init__(self, env: "COLAVEnvironment", ownship: Ship) -> None:
+    def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self.__ownship = ownship
+        self.__ownship = self.env.ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -47,9 +46,8 @@ class LidarLikeObservation(ObservationType):
     def __init__(
         self,
         env: "COLAVEnvironment",
-        ownship: Ship,
     ) -> None:
-        super().__init__(env, ownship)
+        super().__init__(env)
         self.n_do = len(self.env.dynamic_obstacles)
         self.enc = self.env.enc
 
@@ -75,12 +73,11 @@ class NavigationStateObservation(ObservationType):
     def __init__(
         self,
         env: "COLAVEnvironment",
-        ownship: Ship,
     ) -> None:
-        super().__init__(env, ownship)
+        super().__init__(env)
 
         self.name = "NavigationStateObservation"
-        self.size = len(ownship.state) + 0
+        self.size = len(self.__ownship.state) + 0
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -97,9 +94,9 @@ class NavigationStateObservation(ObservationType):
 class TupleObservation(ObservationType):
     """Observation consisting of multiple observation types."""
 
-    def __init__(self, env: "COLAVEnvironment", ownship: Ship, observation_configs: list, **kwargs) -> None:
-        super().__init__(env, ownship)
-        self.observation_types = [observation_factory(env, ownship, obs_config) for obs_config in observation_configs]
+    def __init__(self, env: "COLAVEnvironment", observation_configs: list, **kwargs) -> None:
+        super().__init__(env)
+        self.observation_types = [observation_factory(env, obs_config) for obs_config in observation_configs]
 
     def space(self) -> gym.spaces.Space:
         return gym.spaces.Tuple([obs_type.space() for obs_type in self.observation_types])
@@ -108,17 +105,22 @@ class TupleObservation(ObservationType):
         return tuple(obs_type.observe() for obs_type in self.observation_types)
 
 
-def observation_factory(env: "COLAVEnvironment", ownship: Ship, observation_type: str = "ContinuousAutopilotReferenceAction") -> ObservationType:
+def observation_factory(env: "COLAVEnvironment", observation_type: Optional[str] = "lidar_like_observation", **kwargs) -> ObservationType:
     """Factory for creating observation spaces.
 
     Args:
-        env (str, optional): Name of environment. Defaults to "AbstractEnv".
-        observation_type (str, optional): Action type name. Defaults to "LidarLikeObservation".
+        env: Used environment.
+        observation_type (str): Observation type name.
+        **kwargs: Additional arguments to pass to the observation type.
 
     Returns:
-        ActionType: Action type to use
+        ObservationType: Observation type to use
     """
-    if observation_type == "LidarLikeObservation":
-        return LidarLikeObservation(env, ownship)
+    if observation_type == "lidar_like_observation":
+        return LidarLikeObservation(env, **kwargs)
+    elif observation_type == "navigation_state_observation":
+        return NavigationStateObservation(env, **kwargs)
+    elif observation_type == "tuple_observation":
+        return TupleObservation(env, **kwargs)
     else:
         raise ValueError("Unknown action type")

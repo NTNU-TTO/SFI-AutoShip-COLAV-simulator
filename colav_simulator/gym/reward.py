@@ -92,9 +92,6 @@ class Config:
 
     rewarders: list = field(default_factory=lambda: [ExistenceRewardParams()])
 
-    def __init__(self) -> None:
-        pass
-
     @classmethod
     def from_dict(cls, config_dict: dict):
         cfg = Config()
@@ -165,8 +162,7 @@ class TrajectoryTrackingRewarder(IReward):
         self.params = params if params else TrajectoryTrackingRewardParams()
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
-        csog_state = self.__ownship.csog_state
-        return -float(np.linalg.norm(csog_state[:2] - self.trajectory))
+        return -float(np.linalg.norm(state[:2] - self.trajectory))
 
 
 class Rewarder(IReward):

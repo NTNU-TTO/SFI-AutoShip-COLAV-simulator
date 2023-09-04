@@ -28,7 +28,7 @@ from gymnasium.utils import seeding
 
 @dataclass
 class Config:
-    """Configuration for the environment."""
+    """Configuration for the environment. This excludes simulator + scenario generator config,"""
 
     simulator: Optional[cssim.Config] = None
     scenario_generator: Optional[sm.Config] = None
@@ -41,8 +41,14 @@ class Config:
         cfg = Config()
         cfg.simulator = cssim.Config.from_dict(config_dict["simulator"])
         cfg.scenario_generator = sm.Config.from_dict(config_dict["scenario_generator"])
-        cfg.scenario_config = sm.ScenarioConfig.from_dict(config_dict["scenario_config"])
-        cfg.scenario_config_file = pathlib.Path(config_dict["scenario_config_file"])
+
+        if "scenario_config" in config_dict:
+            cfg.scenario_config = sm.ScenarioConfig.from_dict(config_dict["scenario_config"])
+            cfg.scenario_config_file = None
+
+        if "scenario_config_file" in config_dict:
+            cfg.scenario_config_file = pathlib.Path(config_dict["scenario_config_file"])
+            cfg.scenario_config = None
         cfg.rewarder = config_dict["rewarder"]
         return cfg
 
@@ -69,6 +75,7 @@ class COLAVEnvironment(gym.Env):
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = None,
         verbose: Optional[bool] = False,
+        **kwargs
     ) -> None:
         super().__init__()
 
@@ -76,24 +83,15 @@ class COLAVEnvironment(gym.Env):
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
 
-        # ScenarioConfig takes precedence over file
-        if scenario_config is not None:
-            self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
-        elif scenario_config_file is not None:
-            self.scenario_config = cp.extract(sm.ScenarioConfig, scenario_config_file, dp.scenario_schema)
-
-        self.scenario_data_list: Optional[Tuple[list, senc.ENC]] = None
+        self._generate(sconfig=scenario_config, config_file=scenario_config_file)
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
         # Scene
         self.ownship = None
-        self.observation_type = observation_factory(self, self.ownship, self.scenario_config.rl_observation_type)
-        self.action_type = action_factory(self, self.ownship, self.scenario_config.rl_action_type)
-        self.action_space = self.action_type.space()
-        self.observation_space = self.observation_type.space()
+
+        self._define_spaces()
 
         self.steps = 0  # Actions performed
-
         self._viewer2d = None
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -105,6 +103,14 @@ class COLAVEnvironment(gym.Env):
         """Closes the environment. To be called after usage."""
         if self._viewer2d is not None:
             self._viewer2d.close()
+
+    def _define_spaces(self) -> None:
+        """Defines the action and observation spaces."""
+        self.action_type = action_factory(self, self.scenario_config.rl_action_type)
+        self.action_space = self.action_type.space()
+
+        self.observation_type = observation_factory(self, self.scenario_config.rl_observation_type)
+        self.observation_space = self.observation_type.space()
 
     def _is_terminated(self) -> bool:
         """Check whether the current state is a terminal state.
@@ -128,9 +134,17 @@ class COLAVEnvironment(gym.Env):
         """
         return self.simulator.t > self.simulator.t_end
 
-    def _generate(self, sconfig: Optional[sm.ScenarioConfig] = None) -> None:
+    def _generate(self, sconfig: Optional[sm.ScenarioConfig] = None, config_file: Optional[pathlib.Path] = None) -> None:
         """Generates new scenarios from the configuration."""
-        raise NotImplementedError
+        if sconfig is not None:
+            self.scenario_data_tup = self.scenario_generator.generate(config=sconfig)
+            self.scenario_config = sconfig
+        elif config_file is not None:
+            self.scenario_data_tup = self.scenario_generator.generate(config_file=config_file)
+            self.scenario_config = self.scenario_data_tup[0][0]["config"]
+        else:
+            self.scenario_data_tup = self.scenario_generator.generate_configured_scenarios()[0]
+            self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
     def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
@@ -165,14 +179,11 @@ class COLAVEnvironment(gym.Env):
         super().reset(seed=seed, options=options)
 
         if "scenario_config" in kwargs:
-            self.scenario_data_list = self.scenario_generator.generate(config=kwargs["scenario_config"])
+            self._generate(sconfig=kwargs["scenario_config"])
         elif "scenario_config_file" in kwargs:
-            self.scenario_data_list = self.scenario_generator.generate(config_file=kwargs["scenario_config_file"])
+            self._generate(config_file=kwargs["scenario_config_file"])
 
-        if self.scenario_data_list is None:
-            self.scenario_data_list = self.scenario_generator.generate(self.scenario_config)
-
-        (scenario_episode_list, scenario_enc) = self.scenario_data_list
+        (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         episode_data = scenario_episode_list.pop(0)
 
         self.simulator.initialize_scenario_episode(
@@ -185,7 +196,7 @@ class COLAVEnvironment(gym.Env):
             self.render()
         return obs, info
 
-    def step(self, action: Action) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, action: Action) -> Tuple[Observation, float, bool, bool, dict]:
         """Perform an action in the environment and return the new observation, the reward, whether the task is terminated, and additional information.
 
         Args:
@@ -197,7 +208,7 @@ class COLAVEnvironment(gym.Env):
         # map action from [-1, 1] to colav system/autopilot references ranges
 
         self.action_type.act(action)
-        sim_data_dict = self.simulator.step(action)
+        sim_data_dict = self.simulator.step()
 
         if self.render_mode == "human":
             self.render()

@@ -24,9 +24,9 @@ class ActionType(ABC):
 
     name: str = "AbstractAction"
 
-    def __init__(self, env: "COLAVEnvironment", ownship: Ship) -> None:
+    def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self.__ownship = ownship
+        self.__ownship = self.env.ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -60,20 +60,14 @@ class ContinuousAutopilotReferenceAction(ActionType):
     action a = [speed_ref, course_ref].
     """
 
-    SPEED_RANGE = (-5.0, 10.0)
-    """speed range: [-x, x], in m/s."""
-
-    COURSE_RANGE = (-np.pi, np.pi)
-    """Steering angle range: [-x, x], in rad."""
-
-    def __init__(self, env: "COLAVEnvironment", ownship: Ship, **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
             ownship (Ship): The ownship to act upon (reference to object).
         """
-        super().__init__(env, ownship)
+        super().__init__(env)
         self.size = 2
         self.last_action = np.zeros(self.size)
         self.name = "ContinuousAutopilotReferenceAction"
@@ -94,20 +88,17 @@ class ContinuousAutopilotReferenceAction(ActionType):
         self.__ownship.set_references(refs)
 
 
-def action_factory(env: "COLAVEnvironment", ownship: Ship, action_type: str = "ContinuousAutopilotReferenceAction") -> ActionType:
+def action_factory(env: "COLAVEnvironment", action_type: Optional[str] = "continuous_autopilot_reference_action") -> ActionType:
     """Factory for creating action spaces.
 
     Args:
         env (str, optional): Name of environment. Defaults to COLAVEnvironment.
-        action_type (str, optional): Action type name. Defaults to "ContinuousAutopilotReferenceAction".
-
-    Raises:
-        ValueError: Unknown action type
+        action_type (str, optional): Action type name. Defaults to "continuous_autopilot_reference_action".
 
     Returns:
         ActionType: Action type to use
     """
-    if action_type == "ContinuousAutopilotReferenceAction":
-        return ContinuousAutopilotReferenceAction(env, ownship)
+    if action_type == "continuous_autopilot_reference_action":
+        return ContinuousAutopilotReferenceAction(env)
     else:
         raise ValueError("Unknown action type")

@@ -107,7 +107,7 @@ class IGuidance(ABC):
 
 class GuidanceBuilder:
     @classmethod
-    def construct_guidance(cls, config: Optional[Config] = None) -> IGuidance:
+    def construct_guidance(cls, config: Optional[Config] = None) -> Optional[IGuidance]:
         """Builds a guidance method from the configuration
 
         Args:
@@ -121,7 +121,7 @@ class GuidanceBuilder:
         elif config and config.ktp:
             return KinematicTrajectoryPlanner(config.ktp)
         else:
-            return LOSGuidance()
+            return None
 
 
 class KinematicTrajectoryPlanner(IGuidance):
