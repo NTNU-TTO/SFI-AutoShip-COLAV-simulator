@@ -600,6 +600,18 @@ class Ship(IShip):
             return np.array([self._state[0], self._state[1], speed, cog])
 
     @property
+    def state(self) -> np.ndarray:
+        """Returns the 3DOF ship state if a 3DOF model is used.
+
+        Returns:
+            np.ndarray: Ship state.
+        """
+        if isinstance(self._model, models.KinematicCSOG):
+            raise ValueError("This property is not available for KinematicCSOG as it is not 3DOF.")
+
+        return self._state
+
+    @property
     def max_speed(self) -> float:
         return self._model.params.U_max
 

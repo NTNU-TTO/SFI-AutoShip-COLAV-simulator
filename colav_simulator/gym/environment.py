@@ -15,14 +15,14 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
-import colav_simulator.gym.action as actions
-import colav_simulator.gym.observation as observations
 import colav_simulator.gym.reward as rw
 import colav_simulator.scenario_management as sm
 import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
+from colav_simulator.gym.action import ActionType, action_factory
+from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
 from gymnasium.utils import seeding
 
 Action = TypeVar("Action")
@@ -63,6 +63,8 @@ class COLAVEnvironment(gym.Env):
     metadata = {
         "render_modes": ["human", "rgb_array"],
     }
+    observation_type: ObservationType
+    action_type: ActionType
 
     def __init__(
         self,
@@ -87,19 +89,12 @@ class COLAVEnvironment(gym.Env):
             self.scenario_config = cp.extract(sm.ScenarioConfig, scenario_config_file, dp.scenario_schema)
 
         self.scenario_data_list: Optional[Tuple[list, senc.ENC]] = None
-        self.rewarder = rw.Rewarder(ownship=None, config=rewarder_config)
+        self.rewarder = rw.Rewarder(config=rewarder_config)
+
+        self.observation_type
 
         # Scene
         self.ownship = None
-        self.obstacles = None
-
-        # Default spaces, will be set given the action and observation types
-        self.action_type = None
-        self.observation_type = None
-        self._perception_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1, 1), dtype=np.float32)
-        self._navigation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1, 1), dtype=np.float32)
-        self._observation_space = gym.spaces.Dict({"perception": self._perception_space, "navigation": self._navigation_space})
-        self._action_space = gym.spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), dtype=np.float32)
 
         self.steps = 0  # Actions performed
 
@@ -133,15 +128,12 @@ class COLAVEnvironment(gym.Env):
             "real_time_rendering": False,
         }
 
-    @property
-    def action_space(self) -> gym.spaces.Box:
-        """Array defining the shape and bounds of the agent's action."""
-        return self._action_space
-
-    @property
-    def observation_space(self) -> gym.spaces.Dict:
-        """Array defining the shape and bounds of the agent's observations."""
-        return self._observation_space
+    def define_spaces(self) -> None:
+        """Defines the action and observation types and spaces from the current configuration."""
+        self.observation_type = observation_factory(self)
+        self.action_type = action_factory(self)
+        self.action_space = self.action_type.space()
+        self.observation_space = self.observation_type.space()
 
     def close(self):
         """Closes the environment. To be called after usage."""

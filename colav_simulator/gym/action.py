@@ -16,7 +16,7 @@ from colav_simulator.core.ship import Ship
 Action = Union[list, int, np.ndarray]
 
 if TYPE_CHECKING:
-    from colav_simulator.gym.environment import BaseEnvironment
+    from colav_simulator.gym.environment import COLAVEnvironment
 
 
 class ActionType(ABC):
@@ -24,7 +24,7 @@ class ActionType(ABC):
 
     name: str = "AbstractAction"
 
-    def __init__(self, env: "BaseEnvironment", ownship: Ship) -> None:
+    def __init__(self, env: "COLAVEnvironment", ownship: Ship) -> None:
         self.env = env
         self.__ownship = ownship
 
@@ -66,46 +66,39 @@ class ContinuousAutopilotReferenceAction(ActionType):
     COURSE_RANGE = (-np.pi, np.pi)
     """Steering angle range: [-x, x], in rad."""
 
-    def __init__(
-        self,
-        env: "BaseEnvironment",
-        ownship: Ship,
-        speed_range: Optional[Tuple[float, float]] = None,
-        course_range: Optional[Tuple[float, float]] = None,
-        clip: bool = True,
-        **kwargs
-    ) -> None:
+    def __init__(self, env: "COLAVEnvironment", ownship: Ship, **kwargs) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
-            ownship (Ship): The ownship to act upon.
-            speed_range (Optional[Tuple[float, float]]): The range of speed references. Defaults to None.
-            course_range (Optional[Tuple[float, float]]): The range of course references. Defaults to None.
-            clip (bool, optional): Clip action to defined range. Defaults to True.
+            ownship (Ship): The ownship to act upon (reference to object).
         """
         super().__init__(env, ownship)
-
-        self.speed_range = speed_range if speed_range else self.SPEED_RANGE
-        self.course_range = course_range if course_range else self.COURSE_RANGE
         self.size = 2
-        self.clip = clip
         self.last_action = np.zeros(self.size)
         self.name = "ContinuousAutopilotReferenceAction"
 
     def space(self) -> gym.spaces.Box:
-        return gym.spaces.Box(0.0, 1.0, shape=(self.size,), dtype=np.float32)
+        return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
 
     def act(self, action: Action) -> None:
-        # act
+        """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
+
+        Args:
+            action (Action): New course and speed references [course_ref, speed_ref]
+        """
+        assert isinstance(action, np.ndarray), "Action must be a numpy array"
+        # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
+        refs = np.array([0.0, 0.0, action[0], action[1], 0.0, 0.0, 0.0, 0.0, 0.0])
         self.last_action = action
+        self.__ownship.set_references(refs)
 
 
-def action_factory(env: "BaseEnvironment", ownship: Ship, action_type: str = "ContinuousAutopilotReferenceAction") -> ActionType:
+def action_factory(env: "COLAVEnvironment", ownship: Ship, action_type: str = "ContinuousAutopilotReferenceAction") -> ActionType:
     """Factory for creating action spaces.
 
     Args:
-        env (str, optional): Name of environment. Defaults to BaseEnvironment.
+        env (str, optional): Name of environment. Defaults to COLAVEnvironment.
         action_type (str, optional): Action type name. Defaults to "ContinuousAutopilotReferenceAction".
 
     Raises:

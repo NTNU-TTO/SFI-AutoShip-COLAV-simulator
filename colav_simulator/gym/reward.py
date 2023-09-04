@@ -14,9 +14,8 @@ from typing import Optional, Tuple, TypeVar
 import numpy as np
 import seacharts.enc as senc
 from colav_simulator.core.ship import Ship
-
-Action = TypeVar("Action")
-Observation = TypeVar("Observation")
+from colav_simulator.gym.action import Action
+from colav_simulator.gym.observation import Observation
 
 
 @dataclass
@@ -80,7 +79,7 @@ class IReward(ABC):
     """Interface/base class for reward functions. The rewarder parameters should be public."""
 
     def __init__(self, ownship: Ship) -> None:
-        self.ownship = ownship
+        pass
 
     @abstractmethod
     def __call__(self, state: Observation, action: Action, **kwargs) -> float:
@@ -120,14 +119,12 @@ class Config:
 class ExistenceRewarder(IReward):
     """Reward the agent negatively for existing."""
 
-    def __init__(self, ownship: Ship, params: Optional[ExistenceRewardParams] = None) -> None:
+    def __init__(self, params: Optional[ExistenceRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
-            ownship (Ship): The ownship
             params (ExistenceRewardParams): The reward parameters.
         """
-        super().__init__(ownship)
         self.params = params if params else ExistenceRewardParams()
 
     def __call__(self, state: Observation, action: Action, **kwargs) -> float:
@@ -137,21 +134,19 @@ class ExistenceRewarder(IReward):
 class DistanceToGoalRewarder(IReward):
     """Reward the agent for getting closer to the goal."""
 
-    def __init__(self, ownship: Ship, goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None) -> None:
+    def __init__(self, goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
-            ownship (Ship): The ownship
             goal (np.ndarray): The goal position [x_g, y_g]^T
             params (DistanceToGoalRewardParams): The reward parameters.
         """
-        super().__init__(ownship)
         self.goal = goal
         self.params = params if params else DistanceToGoalRewardParams()
 
     def __call__(self, state: Observation, action: Action, **kwargs) -> float:
-        csog_state = self.ownship.csog_state
-        return -self.params.r_d2g * float(np.linalg.norm(csog_state[:2] - self.goal))
+
+        return -self.params.r_d2g * float(np.linalg.norm(state[:2] - self.goal))
 
 
 class TrajectoryTrackingRewarder(IReward):
@@ -160,40 +155,36 @@ class TrajectoryTrackingRewarder(IReward):
     r(s, a) =  todo
     """
 
-    def __init__(self, ownship: Ship, trajectory: np.ndarray, params: Optional[TrajectoryTrackingRewardParams] = None) -> None:
+    def __init__(self, trajectory: np.ndarray, params: Optional[TrajectoryTrackingRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
-            ownship (Ship): The ownship
             trajectory (np.ndarray): The trajectory to track
         """
-        super().__init__(ownship)
         self.trajectory = trajectory
         self.params = params if params else TrajectoryTrackingRewardParams()
 
     def __call__(self, state: Observation, action: Action, **kwargs) -> float:
-        csog_state = self.ownship.csog_state
+        csog_state = self.__ownship.csog_state
         return -float(np.linalg.norm(csog_state[:2] - self.trajectory))
 
 
 class Rewarder(IReward):
     """The rewarder class."""
 
-    def __init__(self, ownship: Ship, config: Optional[Config] = None) -> None:
+    def __init__(self, config: Optional[Config] = None) -> None:
         """Initializes the rewarder.
 
         Args:
-            ownship (Ship): The ownship
             config (Config): The rewarder configuration
         """
-        super().__init__(ownship)
         self.config = config if config else Config()
         self.rewarders = []
         for rewarder in self.config.rewarders:
             if isinstance(rewarder, ExistenceRewardParams):
-                self.rewarders.append(ExistenceRewarder(ownship, rewarder))
+                self.rewarders.append(ExistenceRewarder(rewarder))
             elif isinstance(rewarder, DistanceToGoalRewardParams):
-                self.rewarders.append(DistanceToGoalRewarder(ownship, np.array([0.0, 0.0]), rewarder))
+                self.rewarders.append(DistanceToGoalRewarder(np.array([0.0, 0.0]), rewarder))
 
     def __call__(self, state: Observation, action: Action, **kwargs) -> float:
         reward = 0.0
