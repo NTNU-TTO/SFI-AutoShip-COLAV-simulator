@@ -1,7 +1,7 @@
 # colav-simulator
-This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The framework prototype is described in the [CCTA2023 paper]()
+This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The framework prototype is described in the [CCTA2023 paper](). As of September 2023, the simulation framework has been wrapped to be compatible with the [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version).
 
-The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
+The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes. See the test files for
 
 [![platform](https://img.shields.io/badge/platform-linux-lightgrey)]()
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
@@ -237,10 +237,9 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 
 ## Future Enhancements (Roadmap)
 
-- Create wrapper for the simulator to be usable with the [OpenAI Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3).
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
 - Add functionality for storing animations from simulation data.
-- Create pip package out of `seacharts`, `colav_evaluation_tool` and the `colav_simulator`, to make installation easier.
+- Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
 - Create seacharts functionality to handle scenarios over large map areas that need multiple ENC data files to be loaded and merged.
 - Add functionality for reseting a scenario (new disturbance, initial ship poses, waypoints and speed plans inside the same map area)

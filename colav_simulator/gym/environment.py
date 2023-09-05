@@ -85,7 +85,6 @@ class COLAVEnvironment(gym.Env):
         self._generate(sconfig=scenario_config, config_file=scenario_config_file)
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
-        self.ownship = None
         self._define_spaces()
 
         self.steps = 0  # Actions performed
@@ -112,9 +111,6 @@ class COLAVEnvironment(gym.Env):
     def _is_terminated(self) -> bool:
         """Check whether the current state is a terminal state.
 
-        Raises:
-            NotImplementedError: If the method is not implemented
-
         Returns:
             bool: Whether the current state is a terminal state
         """
@@ -124,9 +120,6 @@ class COLAVEnvironment(gym.Env):
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
-
-        Raises:
-            NotImplementedError: If the method is not implemented
 
         Returns:
             bool: Whether the current state is a truncated state
