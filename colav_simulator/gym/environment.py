@@ -79,16 +79,13 @@ class COLAVEnvironment(gym.Env):
     ) -> None:
         super().__init__()
 
-        # Configuration
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
 
         self._generate(sconfig=scenario_config, config_file=scenario_config_file)
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
-        # Scene
         self.ownship = None
-
         self._define_spaces()
 
         self.steps = 0  # Actions performed
@@ -121,7 +118,9 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
-        return self.simulator.determine_ownship_collision()
+        collided = self.simulator.determine_ownship_collision()
+        grounded = self.simulator.determine_ownship_grounding()
+        return collided or grounded
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -156,6 +155,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             dict: Dictionary of additional information
         """
+        assert self.ownship is not None, "Environment not initialized!"
         info = {
             "speed": self.ownship.speed,
             "collision": self.simulator.determine_ownship_collision(),
@@ -167,7 +167,7 @@ class COLAVEnvironment(gym.Env):
         return info
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None, **kwargs) -> Tuple[Observation, dict]:
-        """Reset the environment to a new scenario.
+        """Reset the environment to a new scenario episode. If a scenario config or config file is provided, a new scenario is generated. Otherwise, the next episode of the current scenario is used, if any.
 
         Args:
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
@@ -177,13 +177,16 @@ class COLAVEnvironment(gym.Env):
             Tuple[Observation, dict]: Initial observation and additional information
         """
         super().reset(seed=seed, options=options)
-
+        self.scenario_generator.seed(seed=seed)
         if "scenario_config" in kwargs:
             self._generate(sconfig=kwargs["scenario_config"])
         elif "scenario_config_file" in kwargs:
             self._generate(config_file=kwargs["scenario_config_file"])
 
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
+        if len(scenario_episode_list) == 0:
+            raise ValueError("No episodes left in scenario! Please generate a new scenario.")
+
         episode_data = scenario_episode_list.pop(0)
 
         self.simulator.initialize_scenario_episode(
@@ -233,3 +236,8 @@ class COLAVEnvironment(gym.Env):
     def dynamic_obstacles(self) -> list:
         """The dynamic obstacles in the environment."""
         return self.simulator.ship_list[1:]
+
+    @property
+    def relevant_grounding_hazards(self) -> list:
+        """The nearby ownship grounding hazards in the environment."""
+        return self.simulator.relevant_grounding_hazards

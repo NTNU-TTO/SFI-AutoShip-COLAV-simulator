@@ -261,6 +261,7 @@ class ScenarioGenerator:
         _config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
     """
 
+    rng: np.random.Generator
     enc: senc.ENC
     _config: Config
 
@@ -270,6 +271,7 @@ class ScenarioGenerator:
         config_file: Optional[Path] = dp.scenario_generator_config,
         enc_config_file: Optional[Path] = dp.seacharts_config,
         init_enc: bool = False,
+        seed: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Constructor for the ScenarioGenerator.
@@ -293,9 +295,19 @@ class ScenarioGenerator:
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
+        self.rng = np.random.default_rng(seed=seed)
+
         # self.default_scenario_data_list = self.generate_configured_scenarios()
         # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random")
         # scenario_data_list = [scenario_data]
+
+    def seed(self, seed: Optional[int] = None) -> None:
+        """Seeds the random number generator.
+
+        Args:
+            seed (Optional[int]): Integer seed. Defaults to None.
+        """
+        self.rng = np.random.default_rng(seed=seed)
 
     def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.
@@ -506,7 +518,7 @@ class ScenarioGenerator:
         if config.n_random_ships is not None:
             n_random_ships = config.n_random_ships
         else:
-            n_random_ships = random.randint(config.n_random_ships_range[0], config.n_random_ships_range[1])
+            n_random_ships = self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1])
         config.n_random_ships = n_random_ships
 
         # Ships still non-configured will be generated randomly
@@ -717,57 +729,57 @@ class ScenarioGenerator:
             return self.generate_random_csog_state(U_min=U_min, U_max=U_max, draft=draft, min_land_clearance=min_land_clearance)
 
         if scenario_type == ScenarioType.MS:
-            scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
+            scenario_type = self.rng.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
         if scenario_type == ScenarioType.OT_en and U_max - 2.0 <= os_csog_state[2]:
             print(
                 "WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 2.0. Selecting a different scenario type..."
             )
-            scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.CR_GW, ScenarioType.CR_SO])
+            scenario_type = self.rng.choice([ScenarioType.HO, ScenarioType.OT_ing, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
         if scenario_type == ScenarioType.OT_ing and U_min >= os_csog_state[2] - 2.0:
             print(
                 "WARNING: ScenarioType = OT_ing: Own-ship speed minus margin of 2.0 should be above the minimum target ship speed. Selecting a different scenario type..."
             )
-            scenario_type = random.choice([ScenarioType.HO, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
+            scenario_type = self.rng.choice([ScenarioType.HO, ScenarioType.OT_en, ScenarioType.CR_GW, ScenarioType.CR_SO])
 
         is_safe_pose = False
         iter_count = 1
         while not is_safe_pose:
             if scenario_type == ScenarioType.HO:
-                bearing = random.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
-                speed = random.uniform(U_min, U_max)
-                heading_modifier = 180.0 + random.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
+                bearing = self.rng.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
+                speed = self.rng.uniform(U_min, U_max)
+                heading_modifier = 180.0 + self.rng.uniform(self._config.ho_heading_range[0], self._config.ho_heading_range[1])
 
             elif scenario_type == ScenarioType.OT_ing:
-                bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
-                speed = random.uniform(U_min, os_csog_state[2] - 2.0)
-                heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+                bearing = self.rng.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
+                speed = self.rng.uniform(U_min, os_csog_state[2] - 2.0)
+                heading_modifier = self.rng.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
             elif scenario_type == ScenarioType.OT_en:
-                bearing = random.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
-                speed = random.uniform(os_csog_state[2], U_max)
-                heading_modifier = random.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
+                bearing = self.rng.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
+                speed = self.rng.uniform(os_csog_state[2], U_max)
+                heading_modifier = self.rng.uniform(self._config.ot_heading_range[0], self._config.ot_heading_range[1])
 
             elif scenario_type == ScenarioType.CR_GW:
-                bearing = random.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
-                speed = random.uniform(U_min, U_max)
-                heading_modifier = -90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+                bearing = self.rng.uniform(self._config.cr_bearing_range[0], self._config.cr_bearing_range[1])
+                speed = self.rng.uniform(U_min, U_max)
+                heading_modifier = -90.0 + self.rng.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
             elif scenario_type == ScenarioType.CR_SO:
-                bearing = random.uniform(-self._config.cr_bearing_range[1], -self._config.cr_bearing_range[0])
-                speed = random.uniform(U_min, U_max)
-                heading_modifier = 90.0 + random.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
+                bearing = self.rng.uniform(-self._config.cr_bearing_range[1], -self._config.cr_bearing_range[0])
+                speed = self.rng.uniform(U_min, U_max)
+                heading_modifier = 90.0 + self.rng.uniform(self._config.cr_heading_range[0], self._config.cr_heading_range[1])
 
             else:
-                bearing = random.uniform(0.0, 2.0 * np.pi)
-                speed = random.uniform(U_min, U_max)
-                heading_modifier = random.uniform(0.0, 359.999)
+                bearing = self.rng.uniform(0.0, 2.0 * np.pi)
+                speed = self.rng.uniform(U_min, U_max)
+                heading_modifier = self.rng.uniform(0.0, 359.999)
 
             bearing = np.deg2rad(bearing)
             heading = os_csog_state[3] + np.deg2rad(heading_modifier)
 
-            distance_os_ts = random.uniform(self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1])
+            distance_os_ts = self.rng.uniform(self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1])
             x = os_csog_state[0] + distance_os_ts * np.cos(os_csog_state[3] + bearing)
             y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + bearing)
 
@@ -803,9 +815,9 @@ class ScenarioGenerator:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
         x, y = mapf.generate_random_start_position_from_draft(self.enc, draft, min_land_clearance)
-        speed = random.uniform(U_min, U_max)
+        speed = self.rng.uniform(U_min, U_max)
         if heading is None:
-            heading = random.uniform(0.0, 2.0 * np.pi)
+            heading = self.rng.uniform(0.0, 2.0 * np.pi)
 
         return np.array([x, y, speed, heading])
 
@@ -823,7 +835,7 @@ class ScenarioGenerator:
             - np.ndarray: 2 x n_wps array of waypoints.
         """
         if n_wps is None:
-            n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
+            n_wps = self.rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
 
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
@@ -834,12 +846,12 @@ class ScenarioGenerator:
             while crosses_grounding_hazards:
                 iter_count += 1
 
-                distance_wp_to_wp = random.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
+                distance_wp_to_wp = self.rng.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
                 distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
 
                 alpha = 0.0
                 if i > 1:
-                    alpha = np.deg2rad(random.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1]))
+                    alpha = np.deg2rad(self.rng.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1]))
 
                 new_wp = np.array(
                     [
@@ -876,12 +888,12 @@ class ScenarioGenerator:
             - np.ndarray: 1 x n_wps array containing the speed plan.
         """
         if n_wps is None:
-            n_wps = random.randint(self._config.n_wps_range[0], self._config.n_wps_range[1])
+            n_wps = self.rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
 
         speed_plan = np.zeros(n_wps)
         speed_plan[0] = U
         for i in range(1, n_wps):
-            U_mod = random.uniform(self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1])
+            U_mod = self.rng.uniform(self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1])
             speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
 
             if i == n_wps - 1:

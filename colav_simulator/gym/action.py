@@ -7,11 +7,10 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import gymnasium as gym
 import numpy as np
-from colav_simulator.core.ship import Ship
 
 Action = Union[list, np.ndarray]
 
@@ -96,7 +95,7 @@ def action_factory(env: "COLAVEnvironment", action_type: Optional[str] = "contin
         action_type (str, optional): Action type name. Defaults to "continuous_autopilot_reference_action".
 
     Returns:
-        ActionType: Action type to use
+        ActionType: Action type to use.
     """
     if action_type == "continuous_autopilot_reference_action":
         return ContinuousAutopilotReferenceAction(env)

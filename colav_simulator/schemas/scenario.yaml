@@ -86,7 +86,22 @@ max_dist_between_ships:
   type: float
 rl_observation_type:
   required: False
-  type: string
+  type: dict
+  schema:
+    tuple_observation:
+      required: False
+      type: list
+      minlength: 1
+      schema:
+        type: string
+    navigation_observation:
+      required: False
+      type: string
+      empty: True
+    lidar_like_observation:
+      required: False
+      type: string
+      empty: True
 rl_action_type:
   required: False
   type: string
