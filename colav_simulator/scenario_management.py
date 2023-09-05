@@ -79,7 +79,9 @@ class ScenarioConfig:
     ship_list: Optional[list] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
     filename: Optional[str] = None  # Filename of the scenario, stored after creation
     stochasticity: Optional[stoch.Config] = None  # Configuration class containing stochasticity parameters for the scenario
-    rl_observation_type: Optional[str] = "tuple_observation"  # Observation type configured for an  RL agent
+    rl_observation_type: Optional[dict] = field(
+        default_factory=lambda: {"tuple_observation": ["navigation_state_observation", "lidar_like_observation"]}
+    )  # Observation type settings configured for an  RL agent
     rl_action_type: Optional[str] = "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
 
     def to_dict(self) -> dict:

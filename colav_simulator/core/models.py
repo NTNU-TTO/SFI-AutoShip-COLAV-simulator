@@ -226,7 +226,7 @@ class CyberShip2Params:
 class Config:
     """Configuration class for managing model parameters."""
 
-    csog: Optional[KinematicCSOGParams] = KinematicCSOGParams()
+    csog: Optional[KinematicCSOGParams] = field(default_factory=lambda: KinematicCSOGParams())
     telemetron: Optional[TelemetronParams] = None
     cybership2: Optional[CyberShip2Params] = None
     rvgunnerus: Optional[RVGunnerusParams] = None

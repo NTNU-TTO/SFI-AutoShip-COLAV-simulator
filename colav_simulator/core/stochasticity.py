@@ -10,7 +10,7 @@
 """
 import random
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -76,7 +76,7 @@ class GaussMarkovDisturbanceParams:
 class Config:
     "Configuration class for managing environment disturbance/stochasticity parameters"
 
-    wind: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
+    wind: Optional[GaussMarkovDisturbanceParams] = field(default_factory=lambda: GaussMarkovDisturbanceParams())
     waves: Optional[dict] = None
     currents: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
 

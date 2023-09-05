@@ -1,23 +1,28 @@
+import colav_simulator.common.paths as dp
 import gymnasium as gym
+import numpy as np
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 
 if __name__ == "__main__":
-    env = gym.make("COLAVSimulator-v1")
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=10_000, progress_bar=True)
-    mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
-    print(f"mean_reward2:{mean_reward:.2f} +/- {std_reward:.2f}")
+    print(*gym.envs.registry.keys())
 
-    vec_env = model.get_env()
+    config_file = dp.scenarios / "rl_scenario.yaml"
 
-    obs = vec_env.reset()
+    env = gym.make(id="COLAVEnvironment-v0", scenario_config_file=config_file)
+    # model = PPO("MlpPolicy", env, verbose=1)
+    # model.learn(total_timesteps=10_000, progress_bar=True)
+    # mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
+    # print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
 
-    observation, info = env.reset(seed=42)
-    for _ in range(1000):
-        action = model.predict(observation, deterministic=True)[0]
-        obs, reward, terminated, truncated, info = env.step(action)
+    converged = False
+    for i in range(1000):
+        obs, reward, terminated, truncated, info = env.step(np.array([0.0, 0.0]))
 
-        if terminated or truncated:
-            observation, info = env.reset()
-    env.close()
+        env.render()
+
+        if terminated:
+            print("terminated")
+            break
+
+    print("done")

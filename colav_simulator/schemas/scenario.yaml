@@ -94,7 +94,7 @@ rl_observation_type:
       minlength: 1
       schema:
         type: string
-    navigation_observation:
+    navigation_state_observation:
       required: False
       type: string
       empty: True

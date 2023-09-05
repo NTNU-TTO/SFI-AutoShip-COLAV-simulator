@@ -29,7 +29,7 @@ class ObservationType(ABC):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self.__ownship = self.env.ownship
+        self._ownship = self.env.ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -77,7 +77,7 @@ class NavigationStateObservation(ObservationType):
         super().__init__(env)
 
         self.name = "NavigationStateObservation"
-        self.size = len(self.__ownship.state) + 0
+        self.size = len(self._ownship.state) + 0
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -85,7 +85,7 @@ class NavigationStateObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        state = self.__ownship.state
+        state = self._ownship.state
         extras = np.empty(0)
         obs = np.concatenate([state, extras])
         return obs
@@ -105,7 +105,7 @@ class TupleObservation(ObservationType):
         return tuple(obs_type.observe() for obs_type in self.observation_types)
 
 
-def observation_factory(env: "COLAVEnvironment", observation_type: Optional[str] = "lidar_like_observation", **kwargs) -> ObservationType:
+def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = "lidar_like_observation", **kwargs) -> ObservationType:
     """Factory for creating observation spaces.
 
     Args:
@@ -120,7 +120,7 @@ def observation_factory(env: "COLAVEnvironment", observation_type: Optional[str]
         return LidarLikeObservation(env, **kwargs)
     elif observation_type == "navigation_state_observation":
         return NavigationStateObservation(env, **kwargs)
-    elif observation_type == "tuple_observation":
-        return TupleObservation(env, **kwargs)
+    elif "tuple_observation" in observation_type:
+        return TupleObservation(env, observation_type["tuple_observation"], **kwargs)
     else:
-        raise ValueError("Unknown action type")
+        raise ValueError("Unknown observation type")

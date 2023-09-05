@@ -2,19 +2,14 @@
     environment.py
 
     Summary:
-        This file wraps the colav-simulator for use with OpenAI Gymnasium.
+        This file wraps the colav-simulator for use with Gymnasium.
 
     Author: Trym Tengesdal
 """
-import os
 import pathlib
 from dataclasses import dataclass
-from typing import Optional, Tuple, TypeVar
+from typing import Optional, Tuple
 
-import colav_simulator.common.config_parsing as cp
-import colav_simulator.common.math_functions as mf
-import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.paths as dp
 import colav_simulator.gym.reward as rw
 import colav_simulator.scenario_management as sm
 import colav_simulator.simulator as cssim
@@ -23,7 +18,6 @@ import numpy as np
 import seacharts.enc as senc
 from colav_simulator.gym.action import Action, ActionType, action_factory
 from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
-from gymnasium.utils import seeding
 
 
 @dataclass
@@ -65,6 +59,8 @@ class COLAVEnvironment(gym.Env):
     }
     observation_type: ObservationType
     action_type: ActionType
+    scenario_config: sm.ScenarioConfig
+    scenario_data_tup: tuple
 
     def __init__(
         self,
@@ -81,19 +77,14 @@ class COLAVEnvironment(gym.Env):
 
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
-
-        self._generate(sconfig=scenario_config, config_file=scenario_config_file)
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
-        self._define_spaces()
-
-        self.steps = 0  # Actions performed
-        self._viewer2d = None
+        self._viewer2d = self.simulator.visualizer
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         self.verbose = verbose
 
-        self.reset()
+        self.reset(scenario_config=scenario_config, scenario_config_file=scenario_config_file)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -150,7 +141,9 @@ class COLAVEnvironment(gym.Env):
         """
         assert self.ownship is not None, "Environment not initialized!"
         info = {
-            "speed": self.ownship.speed,
+            "speed": self.ownship.csog_state[2],
+            "course": self.ownship.csog_state[3],
+            "position": self.ownship.csog_state[0:2],
             "collision": self.simulator.determine_ownship_collision(),
             "grounding": self.simulator.determine_ownship_grounding(),
             "action": action,
@@ -170,6 +163,7 @@ class COLAVEnvironment(gym.Env):
             Tuple[Observation, dict]: Initial observation and additional information
         """
         super().reset(seed=seed, options=options)
+        self.steps = 0  # Actions performed
         self.scenario_generator.seed(seed=seed)
         if "scenario_config" in kwargs:
             self._generate(sconfig=kwargs["scenario_config"])
@@ -185,11 +179,15 @@ class COLAVEnvironment(gym.Env):
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"], sconfig=episode_data["config"], enc=scenario_enc, disturbance=episode_data["disturbance"], ownship_colav_system=None
         )
+        self.ownship = self.simulator.ownship
+
+        self._define_spaces()
 
         obs = self.observation_type.observe()  # normalized observation
         info = self._info(obs, action=self.action_space.sample())
         if self.render_mode == "human":
-            self.render()
+            self._init_render()
+
         return obs, info
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, bool, dict]:
@@ -217,8 +215,14 @@ class COLAVEnvironment(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
-    def render(self) -> None:
+    def _init_render(self) -> None:
+        """Initializes the renderer."""
+        self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+
+    def render(self, step_interval: int = 10) -> None:
         """Renders the environment in 2D."""
+        if self.steps % step_interval == 0:
+            self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
 
     @property
     def enc(self) -> senc.ENC:
