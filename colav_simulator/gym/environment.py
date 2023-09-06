@@ -89,7 +89,7 @@ class COLAVEnvironment(gym.Env):
     def close(self):
         """Closes the environment. To be called after usage."""
         if self._viewer2d is not None:
-            self._viewer2d.close()
+            self._viewer2d.close_live_plot()
 
     def _define_spaces(self) -> None:
         """Defines the action and observation spaces."""
@@ -171,10 +171,11 @@ class COLAVEnvironment(gym.Env):
             self._generate(config_file=kwargs["scenario_config_file"])
 
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
-        if len(scenario_episode_list) == 0:
-            raise ValueError("No episodes left in scenario! Please generate a new scenario.")
 
         episode_data = scenario_episode_list.pop(0)
+        if len(scenario_episode_list) == 0:
+            print("No episodes left in scenario. Re-generating the existing one.")
+            self._generate(sconfig=self.scenario_config)
 
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"], sconfig=episode_data["config"], enc=scenario_enc, disturbance=episode_data["disturbance"], ownship_colav_system=None
@@ -204,14 +205,12 @@ class COLAVEnvironment(gym.Env):
         self.action_type.act(action)
         sim_data_dict = self.simulator.step()
 
-        if self.render_mode == "human":
-            self.render()
-
         obs = self.observation_type.observe()  # normalized observation
         reward = self.rewarder(obs, action)  # normalized reward
         terminated = self._is_terminated()
         truncated = self._is_truncated()
         info = self._info(obs, action)
+        self.steps += 1
 
         return obs, reward, terminated, truncated, info
 
@@ -220,7 +219,11 @@ class COLAVEnvironment(gym.Env):
         self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self, step_interval: int = 10) -> None:
-        """Renders the environment in 2D."""
+        """Renders the environment in 2D at the given step interval.
+
+        Args:
+            step_interval (int): The step interval at which to render the environment. Defaults to 10.
+        """
         if self.steps % step_interval == 0:
             self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
 

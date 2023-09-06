@@ -183,6 +183,10 @@ class Visualizer:
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
         return xlimits, ylimits
 
+    def close_live_plot(self) -> None:
+        """Closes the live plot."""
+        plt.close(fig=self.fig)
+
     def init_live_plot(self, enc: ENC, ship_list: list) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.

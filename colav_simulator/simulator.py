@@ -84,7 +84,7 @@ class Simulator:
         else:
             raise ValueError("No configuration file or configuration object provided.")
 
-        self._visualizer = viz.Visualizer(self._config.visualizer)
+        self.visualizer = viz.Visualizer(self._config.visualizer)
 
     def initialize_scenario_episode(
         self,
@@ -120,8 +120,6 @@ class Simulator:
         self.t_start = sconfig.t_start
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
-
-        return np.zeros(3)
 
     def run(self, scenario_data_list: list, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
@@ -164,7 +162,7 @@ class Simulator:
                 if self._config.verbose:
                     print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
 
-                self._visualizer.visualize_results(
+                self.visualizer.visualize_results(
                     scenario_enc,
                     ship_list,
                     sim_data,

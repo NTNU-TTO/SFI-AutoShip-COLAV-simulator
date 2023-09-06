@@ -1,6 +1,7 @@
 import colav_simulator.common.paths as dp
 import gymnasium as gym
 import numpy as np
+from colav_simulator.gym.environment import COLAVEnvironment
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -16,6 +17,7 @@ if __name__ == "__main__":
     # print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
 
     converged = False
+    env.reset()
     for i in range(1000):
         obs, reward, terminated, truncated, info = env.step(np.array([0.0, 0.0]))
 
