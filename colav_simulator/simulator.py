@@ -116,10 +116,12 @@ class Simulator:
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
 
+        self.timestamp_start = mhm.current_utc_timestamp()
         self.t = sconfig.t_start
         self.t_start = sconfig.t_start
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
+        self.recent_sensor_measurements: list = [None] * len(self.ship_list)
 
     def run(self, scenario_data_list: list, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
@@ -205,8 +207,6 @@ class Simulator:
         for i, ship_obj in enumerate(self.ship_list):
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
-        self.timestamp_start = mhm.current_utc_timestamp()
-        self.recent_sensor_measurements: list = [None] * len(self.ship_list)
         sim_times = np.arange(self.t, self.sconfig.t_end, self.dt)
         while self.t < self.t_end:
             sim_data_dict = self.step()

@@ -9,7 +9,7 @@ map_origin_enu: [-35524.0, 6573000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
 map_buffer: 0
-new_load_of_map_data: False
+new_load_of_map_data: True
 type: MS
 n_random_ships: 0
 #n_random_ships_range: [1, 2]
@@ -17,8 +17,8 @@ n_episodes: 1
 rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
   tuple_observation:
-    - "navigation_state_observation"
-    - "lidar_like_observation"
+    - "navigation_3dof_state_observation"
+    - "navigation_csog_state_observation"
 
 stochasticity:
   currents:

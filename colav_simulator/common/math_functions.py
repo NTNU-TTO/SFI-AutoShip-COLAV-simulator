@@ -7,8 +7,23 @@
     Author: Trym Tengesdal
 """
 import math
+from typing import Tuple
 
 import numpy as np
+
+
+def linear_map(v: float, x: Tuple[float, float], y: Tuple[float, float]) -> float:
+    """Linearly maps v from x to y
+
+    Args:
+        v (float): Value to map
+        x (Tuple[float, float]): Input range
+        y (Tuple[float, float]): Output range
+
+    Returns:
+        float: Mapped value
+    """
+    return y[0] + (v - x[0]) * (y[1] - y[0]) / (x[1] - x[0])
 
 
 def wrap_min_max(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndarray) -> float | np.ndarray:

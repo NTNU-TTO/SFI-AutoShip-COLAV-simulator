@@ -436,7 +436,6 @@ class ScenarioGenerator:
 
         If specified, the ENC object provides the geographical environment.
 
-        You must provide either a valid scenario config object or a scenario config file path as input.
 
         Args:
             - config (ScenarioConfig, optional): Scenario config object. Defaults to None.
@@ -446,11 +445,14 @@ class ScenarioGenerator:
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
         """
-        if config is None:
-            assert config_file is not None, "Either scenario_config or scenario_config_file must be specified."
+        if config is None and config_file is not None:
             config = cp.extract(ScenarioConfig, config_file, dp.scenario_schema)
             config.filename = config_file.name
 
+        if config is None and config_file is None:
+            config = cp.extract(ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
+
+        assert config is not None, "config should not be none here."
         ais_vessel_data_list = []
         mmsi_list = []
         ais_data_output = process_ais_data(config)

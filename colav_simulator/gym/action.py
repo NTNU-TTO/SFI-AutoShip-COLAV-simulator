@@ -7,12 +7,13 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
 
 Action = Union[list, np.ndarray]
+import colav_simulator.common.math_functions as mf
 
 if TYPE_CHECKING:
     from colav_simulator.gym.environment import COLAVEnvironment
@@ -25,7 +26,7 @@ class ActionType(ABC):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self.__ownship = self.env.ownship
+        self._ownship = self.env.ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -37,19 +38,16 @@ class ActionType(ABC):
 
         Args:
             action (Action): The action to execute. Typically the output autopilot references from the COLAV-algorithm.
-
         """
 
     @property
     def ownship(self):
-        """The ownship acted upon.
-
-        If not set, the first controlled vehicle is used by default."""
-        return self.__ownship or self.env.ownship
+        """The ownship acted upon."""
+        return self._ownship
 
     @ownship.setter
     def ownship(self, ship):
-        self.__ownship = ship
+        self._ownship = ship
 
 
 class ContinuousAutopilotReferenceAction(ActionType):
@@ -64,10 +62,11 @@ class ContinuousAutopilotReferenceAction(ActionType):
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
-            ownship (Ship): The ownship to act upon (reference to object).
         """
         super().__init__(env)
         self.size = 2
+        self.course_range = (-np.pi, np.pi)
+        self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
         self.last_action = np.zeros(self.size)
         self.name = "ContinuousAutopilotReferenceAction"
 
@@ -78,13 +77,15 @@ class ContinuousAutopilotReferenceAction(ActionType):
         """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
 
         Args:
-            action (Action): New course and speed references [course_ref, speed_ref]
+            action (Action): New course and speed references [course_ref, speed_ref] within [-1, 1]
         """
         assert isinstance(action, np.ndarray), "Action must be a numpy array"
         # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
-        refs = np.array([0.0, 0.0, action[0], action[1], 0.0, 0.0, 0.0, 0.0, 0.0])
+        course_ref = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
+        speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
+        refs = np.array([0.0, 0.0, course_ref, speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0])
         self.last_action = action
-        self.__ownship.set_references(refs)
+        self._ownship.set_references(refs)
 
 
 def action_factory(env: "COLAVEnvironment", action_type: Optional[str] = "continuous_autopilot_reference_action") -> ActionType:

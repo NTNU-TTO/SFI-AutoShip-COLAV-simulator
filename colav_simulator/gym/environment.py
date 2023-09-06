@@ -16,6 +16,7 @@ import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
+from colav_simulator.core.ship import Ship
 from colav_simulator.gym.action import Action, ActionType, action_factory
 from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
 
@@ -55,7 +56,7 @@ class COLAVEnvironment(gym.Env):
     """
 
     metadata = {
-        "render_modes": ["human", "rgb_array"],
+        "render_modes": ["human"],
     }
     observation_type: ObservationType
     action_type: ActionType
@@ -68,23 +69,48 @@ class COLAVEnvironment(gym.Env):
         scenario_generator_config: Optional[sm.Config] = None,
         scenario_config: Optional[sm.ScenarioConfig] = None,
         scenario_config_file: Optional[pathlib.Path] = None,
+        scenario_files: Optional[list] = None,
         rewarder_config: Optional[rw.Config] = None,
-        render_mode: Optional[str] = None,
+        test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         **kwargs
     ) -> None:
+        """Initializes the environment.
+
+        Note that the scenario config object takes precedence over the scenario config file, which again takes precedence over the scenario file list.
+
+        Args:
+            simulator_config (Optional[cssim.Config]): Simulator configuration. Defaults to None.
+            scenario_generator_config (Optional[sm.Config]): Scenario generator configuration. Defaults to None.
+            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
+            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
+            scenario_files (Optional[list]): List of scenario files. Defaults to None.
+            rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
+            test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
+            verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
+        """
         super().__init__()
+
+        # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
+        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
 
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
+        self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
+        self.scenario_config_file: Optional[pathlib.Path] = scenario_config_file
+        self.scenario_files: Optional[list] = scenario_files
+        self._generate(scenario_config=scenario_config, scenario_config_file=scenario_config_file)
+
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
+        self.steps: int = 0
+        self.episodes: int = 0
+        self.ownship: Optional[Ship] = None
+        self.render_mode = "human"
         self._viewer2d = self.simulator.visualizer
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
-        self.render_mode = render_mode
+        self.test_mode = test_mode
         self.verbose = verbose
-
-        self.reset(scenario_config=scenario_config, scenario_config_file=scenario_config_file)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -93,6 +119,7 @@ class COLAVEnvironment(gym.Env):
 
     def _define_spaces(self) -> None:
         """Defines the action and observation spaces."""
+        assert self.scenario_config is not None, "Scenario config not initialized!"
         self.action_type = action_factory(self, self.scenario_config.rl_action_type)
         self.action_space = self.action_type.space()
 
@@ -117,17 +144,15 @@ class COLAVEnvironment(gym.Env):
         """
         return self.simulator.t > self.simulator.t_end
 
-    def _generate(self, sconfig: Optional[sm.ScenarioConfig] = None, config_file: Optional[pathlib.Path] = None) -> None:
-        """Generates new scenarios from the configuration."""
-        if sconfig is not None:
-            self.scenario_data_tup = self.scenario_generator.generate(config=sconfig)
-            self.scenario_config = sconfig
-        elif config_file is not None:
-            self.scenario_data_tup = self.scenario_generator.generate(config_file=config_file)
-            self.scenario_config = self.scenario_data_tup[0][0]["config"]
-        else:
-            self.scenario_data_tup = self.scenario_generator.generate_configured_scenarios()[0]
-            self.scenario_config = self.scenario_data_tup[0][0]["config"]
+    def _generate(self, scenario_config: Optional[sm.ScenarioConfig] = None, scenario_config_file: Optional[pathlib.Path] = None) -> None:
+        """Generate new scenario from the input configuration.
+
+        Args:
+            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
+            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
+        """
+        self.scenario_data_tup = self.scenario_generator.generate(config=scenario_config, config_file=scenario_config_file)
+        self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
     def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
@@ -152,30 +177,41 @@ class COLAVEnvironment(gym.Env):
         }
         return info
 
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None, **kwargs) -> Tuple[Observation, dict]:
+    def seed(self, seed: Optional[int] = None, options: Optional[dict] = None) -> None:
+        """Re-seed the environment. This is useful for reproducibility.
+
+        Args:
+            seed (Optional[int]): Seed for the random number generator. Defaults to None.
+            options (Optional[dict]): Options for the environment. Defaults to None.
+        """
+        super().reset(seed=seed, options=options)
+        self.scenario_generator.seed(seed=seed)
+
+    def reset(
+        self,
+        seed: Optional[int] = None,
+        options: Optional[dict] = None,
+    ) -> Tuple[Observation, dict]:
         """Reset the environment to a new scenario episode. If a scenario config or config file is provided, a new scenario is generated. Otherwise, the next episode of the current scenario is used, if any.
 
         Args:
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
             options (Optional[dict]): Options for the environment. Defaults to None.
+            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
+            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
 
         Returns:
             Tuple[Observation, dict]: Initial observation and additional information
         """
-        super().reset(seed=seed, options=options)
+        self.seed(seed=seed, options=options)
         self.steps = 0  # Actions performed
-        self.scenario_generator.seed(seed=seed)
-        if "scenario_config" in kwargs:
-            self._generate(sconfig=kwargs["scenario_config"])
-        elif "scenario_config_file" in kwargs:
-            self._generate(config_file=kwargs["scenario_config_file"])
+        self.episodes = 0  # Episodes performed
 
+        assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
-
-        episode_data = scenario_episode_list.pop(0)
         if len(scenario_episode_list) == 0:
-            print("No episodes left in scenario. Re-generating the existing one.")
-            self._generate(sconfig=self.scenario_config)
+            self._generate(scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file)
+        episode_data = scenario_episode_list.pop(0)
 
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"], sconfig=episode_data["config"], enc=scenario_enc, disturbance=episode_data["disturbance"], ownship_colav_system=None
@@ -184,10 +220,9 @@ class COLAVEnvironment(gym.Env):
 
         self._define_spaces()
 
-        obs = self.observation_type.observe()  # normalized observation
+        obs = self.observation_type.observe()
         info = self._info(obs, action=self.action_space.sample())
-        if self.render_mode == "human":
-            self._init_render()
+        self._init_render()
 
         return obs, info
 
@@ -216,7 +251,8 @@ class COLAVEnvironment(gym.Env):
 
     def _init_render(self) -> None:
         """Initializes the renderer."""
-        self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+        if self.render_mode == "human":
+            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self, step_interval: int = 10) -> None:
         """Renders the environment in 2D at the given step interval.
@@ -224,13 +260,23 @@ class COLAVEnvironment(gym.Env):
         Args:
             step_interval (int): The step interval at which to render the environment. Defaults to 10.
         """
-        if self.steps % step_interval == 0:
+        if self.steps % step_interval == 1:
             self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
 
     @property
     def enc(self) -> senc.ENC:
         """The ENC used for the environment."""
         return self.simulator.enc
+
+    @property
+    def time(self) -> float:
+        """The current simulation time."""
+        return self.simulator.t
+
+    @property
+    def time_step(self) -> float:
+        """The current simulation time step."""
+        return self.simulator.dt
 
     @property
     def dynamic_obstacles(self) -> list:
