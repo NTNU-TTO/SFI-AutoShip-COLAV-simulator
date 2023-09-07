@@ -168,7 +168,7 @@ class COLAVEnvironment(gym.Env):
         info = {
             "speed": self.ownship.csog_state[2],
             "course": self.ownship.csog_state[3],
-            "position": self.ownship.csog_state[0:2],
+            "position": self.ownship.csog_state[:2],
             "collision": self.simulator.determine_ownship_collision(),
             "grounding": self.simulator.determine_ownship_grounding(),
             "action": action,

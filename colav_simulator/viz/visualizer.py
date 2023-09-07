@@ -163,7 +163,7 @@ class Visualizer:
         self.axes = [ax_map]
         plt.show(block=False)
 
-    def find_plot_limits(self, ownship: ship.Ship, buffer: float = 1000.0) -> Tuple[list, list]:
+    def find_plot_limits(self, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
 
         Args:

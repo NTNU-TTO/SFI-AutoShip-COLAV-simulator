@@ -180,7 +180,7 @@ class ControllerBuilder:
         elif config and config.pass_through_cs:
             return PassThroughCS()
         elif config and config.pass_through_inputs:
-            return PassThroughInputs(config.pass_through_inputs)
+            return PassThroughInputs(model_params, config.pass_through_inputs)
         else:
             return PassThroughCS()
 
@@ -222,7 +222,7 @@ class PassThroughInputs(IController):
     def __init__(self, model_params, params: Optional[PassThroughInputsParams] = None) -> None:
         self._model_params = model_params
         if params is None:
-            params = PassThroughInputsParams()
+            self.params = PassThroughInputsParams()
         else:
             self.params = params
 
