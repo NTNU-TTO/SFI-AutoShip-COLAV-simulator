@@ -10,6 +10,7 @@ visualizer:
   show_results: True
   show_target_tracking_results: False
   show_trajectory_tracking_results: True
+  dark_mode_liveplot: True
   figsize: [14, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7

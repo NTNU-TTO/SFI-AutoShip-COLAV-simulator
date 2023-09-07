@@ -38,6 +38,7 @@ class Config:
     show_results: bool = True
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
+    dark_mode_liveplot: bool = True
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
@@ -136,6 +137,14 @@ class Visualizer:
         if enc:
             self.init_figure(enc)
 
+    def toggle_liveplot_visibility(self, show: bool) -> None:
+        """Toggles the visibility of the live plot."""
+        self._config.show_liveplot = show
+
+    def toggle_results_visibility(self, show: bool) -> None:
+        """Toggles the visibility of the result plots."""
+        self._config.show_results = show
+
     def init_figure(self, enc: ENC, extent: Optional[list] = None) -> None:
         """Initialize the figure for live plotting.
 
@@ -148,7 +157,7 @@ class Visualizer:
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(projection=enc.crs)
-        mapf.plot_background(ax_map, enc)
+        mapf.plot_background(ax_map, enc, dark_mode=self._config.dark_mode_liveplot)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
 
         if extent is not None:
@@ -195,7 +204,6 @@ class Visualizer:
             - enc (ENC): ENC object containing the map data.
             - ship_list (list): List of configured ships in the simulation.
         """
-
         if not self._config.show_liveplot:
             return
 
@@ -406,36 +414,37 @@ class Visualizer:
         zorder_patch = 4
         if self._config.show_liveplot_tracks and len(do_estimates) > 0:
             lw = self._config.do_linewidth
-            for j in range(len(do_estimates)):  # pylint: disable=consider-using-enumerate
+            for j, do_estimate in enumerate(do_estimates):  # pylint: disable=consider-using-enumerate
+                plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
                 if n_ships > len(self._config.ship_colors):
                     do_c = self._config.do_colors[1]
                 else:
-                    do_c = self._config.do_colors[do_labels[j] - 1]
+                    do_c = self._config.do_colors[plt_idx]
 
-                if self.ship_plt_handles[0]["track_started"][do_labels[j] - 1]:
+                if self.ship_plt_handles[0]["track_started"][plt_idx]:
                     start_idx_track_line_data = 0
                 else:
                     start_idx_track_line_data = 1
-                    self.ship_plt_handles[0]["track_started"][do_labels[j] - 1] = True
+                    self.ship_plt_handles[0]["track_started"][plt_idx] = True
 
-                self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].set_xdata(
+                self.ship_plt_handles[0]["do_tracks"][plt_idx].set_xdata(
                     [
-                        *self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].get_xdata()[start_idx_track_line_data:],
-                        do_estimates[j][1],
+                        *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_xdata()[start_idx_track_line_data:],
+                        do_estimate[1],
                     ]
                 )
-                self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].set_ydata(
+                self.ship_plt_handles[0]["do_tracks"][plt_idx].set_ydata(
                     [
-                        *self.ship_plt_handles[0]["do_tracks"][do_labels[j] - 1].get_ydata()[start_idx_track_line_data:],
-                        do_estimates[j][0],
+                        *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_ydata()[start_idx_track_line_data:],
+                        do_estimate[0],
                     ]
                 )
 
                 ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
                 ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
-                if self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1] is not None:
-                    self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1].remove()
-                self.ship_plt_handles[0]["do_covariances"][do_labels[j] - 1] = ax_map.add_feature(
+                if self.ship_plt_handles[0]["do_covariances"][plt_idx] is not None:
+                    self.ship_plt_handles[0]["do_covariances"][plt_idx].remove()
+                self.ship_plt_handles[0]["do_covariances"][plt_idx] = ax_map.add_feature(
                     ShapelyFeature(
                         [ell_geometry],
                         linewidth=lw,
@@ -461,6 +470,10 @@ class Visualizer:
                             for meas in measurements:
                                 xdata.append(meas[1])
                                 ydata.append(meas[0])
+
+                        if not xdata or not ydata:
+                            continue
+
                         if sensor.type == "radar":
                             self.ship_plt_handles[0]["radar"].set_xdata(xdata)
                             self.ship_plt_handles[0]["radar"].set_ydata(ydata)
@@ -490,8 +503,8 @@ class Visualizer:
             self.ship_plt_handles[idx]["patch"].remove()
         self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
 
-        self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 300)
-        self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 350)
+        self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
+        self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 50)
 
         self.ship_plt_handles[idx]["trajectory"].set_xdata([*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]])
         self.ship_plt_handles[idx]["trajectory"].set_ydata([*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]])
@@ -734,7 +747,7 @@ class Visualizer:
                     #             linewidth=do_lw,
                     #             color=do_color,
                     #             alpha=0.3,
-                    #             label=f"DO {do_labels[j] - 1} est. cov.",
+                    #             label=f"DO {plt_idx} est. cov.",
                     #             crs=enc.crs,
                     #             zorder=zorder_patch - 2,
                     #         )

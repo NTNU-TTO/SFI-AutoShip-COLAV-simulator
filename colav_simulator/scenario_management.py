@@ -431,16 +431,18 @@ class ScenarioGenerator:
             scenario_data_list.append((scenario_episode_list, enc))
         return scenario_data_list
 
-    def generate(self, config: Optional[ScenarioConfig] = None, config_file: Optional[Path] = None, enc: Optional[senc.ENC] = None) -> Tuple[list, senc.ENC]:
+    def generate(
+        self, config: Optional[ScenarioConfig] = None, config_file: Optional[Path] = None, enc: Optional[senc.ENC] = None, new_load_of_map_data: Optional[bool] = None
+    ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
         If specified, the ENC object provides the geographical environment.
-
 
         Args:
             - config (ScenarioConfig, optional): Scenario config object. Defaults to None.
             - config_file (Path, optional): Absolute path to the scenario config file. Defaults to None.
             - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
+            - new_load_of_map_data (bool, optional): Flag determining whether or not to read ENC data from shapefiles again. Defaults to True.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -461,8 +463,10 @@ class ScenarioGenerator:
             mmsi_list = ais_data_output["mmsi_list"]
             config.map_origin_enu = ais_data_output["map_origin_enu"]
             config.map_size = ais_data_output["map_size"]
-
         config.map_origin_enu, config.map_size = find_global_map_origin_and_size(config)
+        if new_load_of_map_data is not None:
+            config.new_load_of_map_data = new_load_of_map_data
+
         if enc is not None:
             self.enc = enc
             enc_copy = copy.deepcopy(enc)

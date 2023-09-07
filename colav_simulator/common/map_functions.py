@@ -141,7 +141,7 @@ def create_ship_polygon(x: float, y: float, heading: float, length: float, width
     return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
-def plot_background(ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True) -> None:
+def plot_background(ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True, dark_mode: bool = True) -> None:
     """Creates a static background based on the input seacharts
 
     Args:
@@ -153,12 +153,13 @@ def plot_background(ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed
         Tuple[]: Tuple of limits in x and y for the background extent
     """
     # For every layer put in list and assign a color
+
     if enc.land:
-        color = colors.color_picker(enc.land.color)
+        color = "#142c38" if dark_mode else colors.color_picker(enc.land.color)
         ax.add_feature(ShapelyFeature([enc.land.geometry], color=color, zorder=enc.land.z_order, crs=enc.crs))
 
     if show_shore and enc.shore:
-        color = colors.color_picker(enc.shore.color)
+        color = "#142c38" if dark_mode else colors.color_picker(enc.shore.color)
         ax.add_feature(ShapelyFeature([enc.shore.geometry], color=color, zorder=enc.shore.z_order, crs=enc.crs))
 
     if show_seabed and enc.seabed:

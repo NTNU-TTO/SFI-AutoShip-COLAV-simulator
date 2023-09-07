@@ -104,6 +104,7 @@ class COLAVEnvironment(gym.Env):
 
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
+        self.done = False
         self.steps: int = 0
         self.episodes: int = 0
         self.ownship: Optional[Ship] = None
@@ -114,6 +115,7 @@ class COLAVEnvironment(gym.Env):
 
     def close(self):
         """Closes the environment. To be called after usage."""
+        self.done = True
         if self._viewer2d is not None:
             self._viewer2d.close_live_plot()
 
@@ -144,14 +146,17 @@ class COLAVEnvironment(gym.Env):
         """
         return self.simulator.t > self.simulator.t_end
 
-    def _generate(self, scenario_config: Optional[sm.ScenarioConfig] = None, scenario_config_file: Optional[pathlib.Path] = None) -> None:
+    def _generate(
+        self, scenario_config: Optional[sm.ScenarioConfig] = None, scenario_config_file: Optional[pathlib.Path] = None, reload_map: Optional[bool] = None
+    ) -> None:
         """Generate new scenario from the input configuration.
 
         Args:
             scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
             scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
+            reload_map (bool): Whether to reload the scenario map. Defaults to False.
         """
-        self.scenario_data_tup = self.scenario_generator.generate(config=scenario_config, config_file=scenario_config_file)
+        self.scenario_data_tup = self.scenario_generator.generate(config=scenario_config, config_file=scenario_config_file, new_load_of_map_data=reload_map)
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
     def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
@@ -206,11 +211,13 @@ class COLAVEnvironment(gym.Env):
         self.seed(seed=seed, options=options)
         self.steps = 0  # Actions performed
         self.episodes = 0  # Episodes performed
+        self.done = False
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
-        if len(scenario_episode_list) == 0:
-            self._generate(scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file)
+        if not scenario_episode_list:
+            self._generate(scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file, reload_map=False)
+        (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         episode_data = scenario_episode_list.pop(0)
 
         self.simulator.initialize_scenario_episode(
@@ -252,6 +259,7 @@ class COLAVEnvironment(gym.Env):
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "human":
+            self._viewer2d.toggle_liveplot_visibility(show=True)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self, step_interval: int = 10) -> None:
