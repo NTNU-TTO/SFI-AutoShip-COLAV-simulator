@@ -25,6 +25,7 @@ import colav_simulator.common.paths as dp  # Default paths
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import numpy as np
+import scipy.spatial as scipy_spatial
 import seacharts.enc as senc
 import yaml
 
@@ -265,6 +266,7 @@ class ScenarioGenerator:
 
     rng: np.random.Generator
     enc: senc.ENC
+    safe_sea_voronoi_diagram: scipy_spatial.Voronoi
     _config: Config
 
     def __init__(
@@ -472,6 +474,8 @@ class ScenarioGenerator:
             enc_copy = copy.deepcopy(enc)
         else:
             enc_copy = self._configure_enc(config)
+
+        # self.safe_sea_voronoi_diagram = mapf.create_safe_sea_voronoi_diagram(self.enc)
 
         ais_ship_data = self.generate_ships_with_ais_data(
             ais_vessel_data_list,
@@ -716,7 +720,7 @@ class ScenarioGenerator:
         U_min: float = 1.0,
         U_max: float = 15.0,
         draft: float = 2.0,
-        min_land_clearance: float = 10.0,
+        min_land_clearance: float = 50.0,
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective of the first ship/own-ship,
         such that the scenario is of the input type.

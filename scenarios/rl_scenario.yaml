@@ -11,9 +11,9 @@ map_tolerance: 1
 map_buffer: 0
 new_load_of_map_data: True
 type: MS
-n_random_ships: 3
+n_random_ships: 2
 #n_random_ships_range: [1, 2]
-n_episodes: 1
+n_episodes: 2
 rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
   tuple_observation:
@@ -43,9 +43,9 @@ stochasticity:
 ship_list:
   - id: 0
     mmsi: 100
-    csog_state: [6574280.0, -31824.0, 5.0, -45.0]
-    goal_csog_state: [6583580.0, -31824.0, 0.0, 0.0]
-    random_generated: False
+    #csog_state: [6574280.0, -31824.0, 5.0, -45.0]
+    #goal_csog_state: [6583580.0, -31824.0, 0.0, 0.0]
+    random_generated: True
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -83,7 +83,7 @@ ship_list:
       rvgunnerus: ''
   - id: 1
     mmsi: 101
-    csog_state: [6575080.0, -32424.0, 6.0, 120.0]
+    #csog_state: [6575080.0, -32424.0, 6.0, 120.0]
     random_generated: True
     tracker:
       kf:

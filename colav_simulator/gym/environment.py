@@ -262,7 +262,7 @@ class COLAVEnvironment(gym.Env):
             self._viewer2d.toggle_liveplot_visibility(show=True)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
-    def render(self, step_interval: int = 10) -> None:
+    def render(self, step_interval: int = 5) -> None:
         """Renders the environment in 2D at the given step interval.
 
         Args:
