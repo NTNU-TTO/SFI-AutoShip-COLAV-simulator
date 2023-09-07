@@ -1,8 +1,8 @@
 name: "head_on_sbmpc"
 save_scenario: False
 t_start: 0.0
-t_end: 300.0
-dt_sim: 0.1
+t_end: 500.0
+dt_sim: 0.5
 utm_zone: 33
 map_size: [15000.0, 15000.0]
 map_origin_enu: [37000.0, 6950450.0]

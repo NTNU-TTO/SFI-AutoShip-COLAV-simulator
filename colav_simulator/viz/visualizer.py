@@ -857,11 +857,9 @@ class Visualizer:
         os_en_traj[0, :] = os_traj[1, :]
         os_en_traj[1, :] = os_traj[0, :]
         distance_vectors = mapf.compute_distance_vectors_to_grounding(os_en_traj, min_os_depth, enc)
-        dist2closest_grounding_hazard = np.linalg.norm(distance_vectors, axis=0)
+        dist2closest_grounding_hazard = np.linalg.norm(distance_vectors, axis=0)[: sim_times.shape[0]]
         if n_do == 0:
             axes = [axes]
-        # axes[0].plot(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
-        # axes[0].plot(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
         axes[0].semilogy(sim_times, dist2closest_grounding_hazard, "b", label="Distance to closest grounding hazard")
         axes[0].semilogy(sim_times, d_safe_so * np.ones_like(sim_times), "r--", label="Minimum safety margin")
         axes[0].set_ylabel("Distance [m]")
@@ -887,8 +885,8 @@ class Visualizer:
             #     alpha=0.3,
             # )
 
-            est_dist2do_j = np.linalg.norm(do_estimates_j[:2, :] - os_traj[:2, :], axis=0)
-            dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)
+            est_dist2do_j = np.linalg.norm(do_estimates_j[:2, :] - os_traj[:2, :], axis=0)[: sim_times.shape[0]]
+            dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)[: sim_times.shape[0]]
             # axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
             # axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
             axes[j + 1].semilogy(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
