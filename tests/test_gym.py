@@ -20,6 +20,7 @@ def make_multiprocess_environment(env_id: str, rank: int, seed: int = 0, **kwarg
     def _init():
         env_ = gym.make(env_id, **kwargs)
         env_.seed(seed + rank)
+        env.action_space.seed(seed + rank)
         return env_
 
     sb3_utils.set_random_seed(seed)
@@ -34,17 +35,17 @@ if __name__ == "__main__":
     env_id = "COLAVEnvironment-v0"
     env_config = {"scenario_config_file": config_file, "test_mode": True}
     env = gym.make(id=env_id, **env_config)
-    # model_name = "PPO"
-    # num_cpu = 1
-    # if model_name == "DDPG" or model_name == "TD3" or model_name == "SAC":
-    #     vec_env = sb3_vec_env.DummyVecEnv([lambda: gym.make(id=env_id, **env_config)])
-    # else:
-    #     vec_env = sb3_vec_env.SubprocVecEnv([make_multiprocess_environment(env_id, i, **env_config) for i in range(num_cpu)])
+    model_name = "PPO"
+    num_cpu = 2
+    if model_name == "DDPG" or model_name == "TD3" or model_name == "SAC":
+        vec_env = sb3_vec_env.DummyVecEnv([lambda: gym.make(id=env_id, **env_config)])
+    else:
+        vec_env = sb3_vec_env.SubprocVecEnv([make_multiprocess_environment(env_id, i, **env_config) for i in range(num_cpu)])
 
-    # model = PPO("MlpPolicy", vec_env, verbose=1)
-    # model.learn(total_timesteps=10_000, progress_bar=True)
-    # mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
-    # print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
+    model = PPO("MlpPolicy", vec_env, verbose=1)
+    model.learn(total_timesteps=10_000, progress_bar=True)
+    mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
+    print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
 
     converged = False
     env.reset()
