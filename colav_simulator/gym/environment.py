@@ -111,7 +111,7 @@ class COLAVEnvironment(gym.Env):
         self.render_mode = "human"
         self._viewer2d = self.simulator.visualizer
         self.test_mode = test_mode
-        self.verbose = verbose
+        self.verbose: bool = verbose
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -144,7 +144,10 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a truncated state
         """
-        return self.simulator.t > self.simulator.t_end
+        truncated = self.simulator.t > self.simulator.t_end
+        # if self.verbose and truncated:
+        #     print("Time limit reached!")
+        return truncated
 
     def _generate(
         self, scenario_config: Optional[sm.ScenarioConfig] = None, scenario_config_file: Optional[pathlib.Path] = None, reload_map: Optional[bool] = None
@@ -156,6 +159,8 @@ class COLAVEnvironment(gym.Env):
             scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
             reload_map (bool): Whether to reload the scenario map. Defaults to False.
         """
+        # if self.verbose:
+        #     print("Generating new scenario...")
         self.scenario_data_tup = self.scenario_generator.generate(config=scenario_config, config_file=scenario_config_file, new_load_of_map_data=reload_map)
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 

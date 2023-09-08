@@ -77,6 +77,24 @@ def check_if_vessel_is_passed_by(
     return vessel_is_passed
 
 
+def sample_from_triangle_region(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Samples a point from the triangle region defined by p1, p2 and p3.
+    Ref: Osada et. al. 2002:
+
+    Args:
+        p1 (np.ndarray): Vertex 1 coordinate.
+        p2 (np.ndarray): Vertex 2 coordinate.
+        p3 (np.ndarray): Vertex 3 coordinate.
+
+    Returns:
+        np.ndarray: Sampled point.
+    """
+    r_1 = rng.uniform(0, 1)
+    r_2 = rng.uniform(0, 1)
+    p = (1.0 - np.sqrt(r_1)) * p1 + np.sqrt(r_1) * (1.0 - r_2) * p2 + np.sqrt(r_1) * r_2 * p3
+    return p
+
+
 def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray) -> Tuple[float, float, np.ndarray]:
     """Computes the closest point of approach (CPA) between two vessel when assumed to travel with constant velocity.
 

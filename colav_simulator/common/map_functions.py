@@ -141,6 +141,63 @@ def create_point_list_from_polygons(polygons: list) -> Tuple[np.ndarray, np.ndar
     return P1, P2
 
 
+def extract_vertices_from_polygon_list(polygons: list) -> Tuple[np.ndarray, np.ndarray]:
+    """Creates a list of x and y coordinates from a list of polygons.
+
+    Args:
+        polygons (list): List of shapely polygons.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple of two numpy arrays containing the x (north) and y (east) coordinates of the polygons.
+    """
+    px, py = [], []
+    for i, poly in enumerate(polygons):
+        if isinstance(poly, MultiPolygon):
+            for sub_poly in poly:
+                y, x = sub_poly.exterior.coords.xy
+                px.extend(x[:-1].tolist())
+                py.extend(y[:-1].tolist())
+        elif isinstance(poly, Polygon):
+            y, x = poly.exterior.coords.xy
+            px.extend(x[:-1].tolist())
+            py.extend(y[:-1].tolist())
+        else:
+            continue
+    return np.array(px), np.array(py)
+
+
+def extract_safe_sea_area(
+    min_depth: int, enveloping_polygon: Polygon, enc: Optional[ENC] = None, as_polygon_list: bool = False, show_plots: bool = False
+) -> MultiPolygon | list:
+    """Extracts the safe sea area from the ENC as a list of polygons.
+
+    This includes sea polygons that are above the vessel`s minimum depth.
+
+    Args:
+        - min_depth (int): The minimum depth required for the vessel to avoid grounding.
+        - enveloping_polygon (geometry.Polygon): The query polygon.
+        - enc (Optional[senc.ENC]): Electronic Navigational Chart object used for plotting. Defaults to None.
+        - as_polygon_list (bool, optional): Option for returning the safe sea area as a list of polygons. Defaults to False.
+        - show_plots (bool, optional): Option for visualization. Defaults to False.
+
+    Returns:
+        MultiPolygon | list: The safe sea area.
+    """
+    safe_sea = enc.seabed[min_depth].geometry.intersection(enveloping_polygon)
+    if enc is not None and show_plots:
+        enc.start_display()
+        enc.draw_polygon(safe_sea, color="green", alpha=0.25, fill=False)
+
+    if as_polygon_list:
+        if isinstance(safe_sea, MultiPolygon):
+            return [poly for poly in safe_sea.geoms]
+        elif isinstance(safe_sea, Polygon):
+            return [safe_sea]
+        else:
+            return []
+    return safe_sea
+
+
 def create_free_boundary_points_from_enc(enc: ENC, hazards: list) -> Tuple[np.ndarray, np.ndarray]:
     """Creates an array of points on the ENC boundary which is free from grounding hazards.
 
@@ -162,21 +219,17 @@ def create_free_boundary_points_from_enc(enc: ENC, hazards: list) -> Tuple[np.nd
             continue
         points.append(p)
 
-    # [enc.draw_circle((p.x, p.y), radius=0.5, color="yellow") for p in points]
-
     for i in range(n_pts_per_side):
         p = Point(x[i], ymax)
         if any(p.touches(hazard) for hazard in hazards):
             continue
         points.append(p)
-    # [enc.draw_circle((p.x, p.y), radius=0.5, color="yellow") for p in points]
 
     for i in range(n_pts_per_side):
         p = Point(xmin, y[i])
         if any(p.touches(hazard) for hazard in hazards):
             continue
         points.append(p)
-    # [enc.draw_circle((p.x, p.y), radius=0.5, color="yellow") for p in points]
 
     for i in range(n_pts_per_side):
         p = Point(xmax, y[i])
@@ -189,8 +242,53 @@ def create_free_boundary_points_from_enc(enc: ENC, hazards: list) -> Tuple[np.nd
     return X, Y
 
 
+def bbox_to_polygon(bbox: Tuple[float, float, float, float]) -> Polygon:
+    """Converts a bounding box to a polygon.
+
+    Args:
+        bbox (Tuple[float, float, float, float]): The bounding box.
+
+    Returns:
+        Polygon: The polygon.
+    """
+    (xmin, ymin, xmax, ymax) = bbox
+    return Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)])
+
+
+def point_in_polygon_list(point: Point, polygons: list) -> bool:
+    """Checks if a point is in a list of polygons.
+
+    Args:
+        point (Point): The point to check.
+        polygons (list): List of polygons.
+
+    Returns:
+        bool: True if the point is in a hazard, False otherwise.
+    """
+    for poly in polygons:
+        if point.within(poly) or point.touches(poly):
+            return True
+    return False
+
+
+def point_in_point_list(point: Point, points: list) -> bool:
+    """Checks if a point is in a list of points.
+
+    Args:
+        point (Point): The point to check.
+        points (list): List of points.
+
+    Returns:
+        bool: True if the point is in a hazard, False otherwise.
+    """
+    for p in points:
+        if point.within(p) or point.touches(p):
+            return True
+    return False
+
+
 def create_safe_sea_voronoi_diagram(enc: ENC, vessel_min_depth: int = 5) -> Tuple[scipy_spatial.Voronoi, list]:
-    """Creates a Voronoi diagram of the safe sea region.
+    """Creates a Voronoi diagram of the safe sea region (i.e. its vertices).
 
     Args:
         enc (ENC): The Electronic Navigational Chart object.
@@ -199,25 +297,66 @@ def create_safe_sea_voronoi_diagram(enc: ENC, vessel_min_depth: int = 5) -> Tupl
     Returns:
         scipy_spatial.Voronoi: The Voronoi diagram of the safe sea region.
     """
-    hazards = extract_relevant_grounding_hazards_as_union(vessel_min_depth, enc, show_plots=True)
+    bbox = enc.bbox
+    enc_bbox_poly = bbox_to_polygon(bbox)
+    safe_sea = extract_safe_sea_area(vessel_min_depth, enc_bbox_poly, enc, as_polygon_list=True, show_plots=True)
     polygons = []
-    for hazard in hazards:
-        if isinstance(hazard, MultiPolygon):
-            for poly in hazard:
+    for sea_poly in safe_sea:
+        if isinstance(sea_poly, MultiPolygon):
+            for poly in sea_poly:
                 polygons.append(poly)
-        elif isinstance(hazard, Polygon):
-            polygons.append(hazard)
+        elif isinstance(sea_poly, Polygon):
+            polygons.append(sea_poly)
         else:
             continue
-    px, py = create_point_list_from_polygons(polygons)
-    points = np.concatenate((py, px), axis=0)
-    px_free, py_free = create_free_boundary_points_from_enc(enc, polygons)
-    free_points = np.concatenate((py_free, px_free), axis=0)
-    points = np.concatenate((points, free_points), axis=0)
+    px, py = extract_vertices_from_polygon_list(polygons)
+    points = np.vstack((py, px)).T
     vor = scipy_spatial.Voronoi(points)
-    scipy_spatial.voronoi_plot_2d(vor)
-    region_polygons = create_region_polygons_from_voronoi(vor)
-    return scipy_spatial.Voronoi(points), region_polygons
+    region_polygons = create_region_polygons_from_voronoi(vor, enc=enc)
+    for point in points:
+        enc.draw_circle((point[0], point[1]), radius=0.4, color="red")
+
+    # # Keep all voronoi region boundary points that are in the safe sea area
+    # safe_points = []
+    # for region in vor.regions:
+    #     region_vertices = vor.vertices[region]
+    #     for vertex in region_vertices:
+    #         point = Point(vertex)
+    #         if point_in_polygon_list(point, polygons):
+    #             safe_points.append((point.x, point.y))
+    # settt = set(safe_points)
+    # safe_points = list(settt)
+    # for point in safe_points:
+    #     enc.draw_circle((point[0], point[1]), radius=0.4, color="magenta")
+    return vor, region_polygons
+
+
+def create_safe_sea_triangulation(enc: ENC, vessel_min_depth: int = 5, show_plots: bool = True) -> list:
+    """Creates a constrained delaunay triangulation of the safe sea region.
+
+    Args:
+        enc (ENC): Electronic Navigational Chart object.
+        vessel_min_depth (int, optional): The safe minimum depth for the vessel to voyage in. Defaults to 5.
+
+    Returns:
+        list: List of triangles.
+    """
+    safe_sea_poly_list = extract_safe_sea_area(vessel_min_depth, bbox_to_polygon(enc.bbox), enc, as_polygon_list=True, show_plots=True)
+    cdt_list = []
+    largest_poly_area = 0.0
+    for poly in safe_sea_poly_list:
+        enc.draw_polygon(poly, color="orange", alpha=0.5)
+        cdt = constrained_delaunay_triangulation_custom(poly)
+        if poly.area > largest_poly_area:
+            largest_poly_area = poly.area
+            cdt_largest = cdt
+        if show_plots:
+            enc.start_display()
+            for triangle in cdt:
+                enc.draw_polygon(triangle, color="black", fill=False)
+        cdt_list.append(cdt)
+
+    return cdt_largest
 
 
 def create_region_polygons_from_voronoi(vor: scipy_spatial.Voronoi, enc: Optional[ENC] = None) -> list:
@@ -242,6 +381,7 @@ def create_region_polygons_from_voronoi(vor: scipy_spatial.Voronoi, enc: Optiona
             continue
         polygons.append(region_poly)
         if enc:
+            enc.start_display()
             enc.draw_polygon(region_poly, color="yellow", alpha=0.5)
     return polygons
 
@@ -367,15 +507,19 @@ def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC,
     return filtered_relevant_hazards
 
 
-def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_clearance: float = 100.0) -> Tuple[float, float]:
+def generate_random_start_position_from_draft(
+    rng: np.random.Generator, enc: ENC, draft: float, min_land_clearance: float = 100.0, safe_sea_cdt: Optional[list] = None
+) -> Tuple[float, float]:
     """
     Randomly defining starting easting and northing coordinates of a ship
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
 
     Args:
+        - rng (np.random.Generator): Numpy random generator.
         - enc (ENC): Electronic Navigational Chart object
         - draft (float): Ship's draft in meters.
         - min_land_clearance (float): Minimum distance to land in meters.
+        - safe_sea_cdt (Optional[list]): List of triangles defining the safe sea region, used to sample more efficiently. Defaults to None.
 
     Returns:
         - Tuple[float, float]: Tuple of starting x and y coordinates for the ship.
@@ -387,8 +531,12 @@ def generate_random_start_position_from_draft(enc: ENC, draft: float, min_land_c
     is_safe = False
     iter_count = 0
     while not is_safe:
-        easting = random.uniform(bbox[0], bbox[2])
-        northing = random.uniform(bbox[1], bbox[3])
+        if safe_sea_cdt is not None:
+            random_triangle = rng.choice(safe_sea_cdt)
+            random_point = random_triangle.centroid
+            easting, northing = random_point.x, random_point.y
+        easting = rng.uniform(bbox[0], bbox[2])
+        northing = rng.uniform(bbox[1], bbox[3])
         is_ok_clearance = min_distance_to_land(enc, easting, northing) >= min_land_clearance
         if safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance:
             break
@@ -610,12 +758,12 @@ def extract_triangle_boundaries_from_polygon(polygon: Polygon, planning_area_env
     """
     cdt = constrained_delaunay_triangulation_custom(polygon)
     # return cdt
-    envelope_boundary = LineString(planning_area_envelope.exterior.coords).buffer(0.0001)
     original_polygon_boundary = LineString(original_polygon.exterior.coords).buffer(0.0001)
     boundary_triangles = []
     if len(cdt) == 1:
         return cdt
 
+    # Check if triangle has two vertices on the envelope boundary and is inside of the original polygon
     for tri in cdt:
         v_count = 0
         idx_prev = 0
@@ -719,16 +867,17 @@ def constrained_delaunay_triangulation_custom(polygon: Polygon) -> list:
     filtered_triangles = filtered_triangles.geometry.values
     # double check
     cdt_triangles = []
+    area_eps = 1e-4
     for tri in triangles:
         intersection_poly = tri.intersection(polygon)
         if isinstance(intersection_poly, Point) or isinstance(intersection_poly, LineString):
             continue
-        if intersection_poly.area == 0.0:
+        if intersection_poly.area < area_eps:
             continue
 
         if isinstance(intersection_poly, MultiPolygon) or isinstance(intersection_poly, GeometryCollection):
             for sub_poly in intersection_poly.geoms:
-                if sub_poly.area == 0.0 or isinstance(sub_poly, Point) or isinstance(sub_poly, LineString):
+                if sub_poly.area < area_eps or isinstance(sub_poly, Point) or isinstance(sub_poly, LineString):
                     continue
                 cdt_triangles.append(sub_poly)
         else:

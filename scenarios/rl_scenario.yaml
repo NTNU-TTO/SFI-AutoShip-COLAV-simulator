@@ -4,7 +4,7 @@ t_start: 0.0
 t_end: 1000.0
 dt_sim: 0.5
 utm_zone: 33
-map_size: [8000.0, 8000.0]
+map_size: [5000.0, 5000.0]
 map_origin_enu: [-35524.0, 6573000.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
@@ -13,7 +13,7 @@ new_load_of_map_data: False
 type: MS
 n_random_ships: 3
 #n_random_ships_range: [1, 2]
-n_episodes: 2
+n_episodes: 20
 rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
   tuple_observation:

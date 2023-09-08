@@ -257,16 +257,11 @@ class Config:
 
 
 class ScenarioGenerator:
-    """Class for generating maritime traffic scenarios in a given geographical environment.
-
-    Internal variables:
-        enc (ENC): Electronic Navigational Chart object containing the geographical environment.
-        _config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
-    """
+    """Class for generating maritime traffic scenarios in a given geographical environment."""
 
     rng: np.random.Generator
     enc: senc.ENC
-    safe_sea_voronoi_diagram: scipy_spatial.Voronoi
+    safe_sea_cdt: Optional[list] = None
     _config: Config
 
     def __init__(
@@ -285,6 +280,7 @@ class ScenarioGenerator:
             - config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
             - enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
             - init_enc (bool, optional): Flag determining whether or not to initialize the ENC object. Defaults to False.
+            - seed (Optional[int], optional): Integer seed. Defaults to None.
             - **kwargs: Keyword arguments for the ScenarioGenerator, can be e.g.:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
@@ -296,6 +292,7 @@ class ScenarioGenerator:
         else:
             raise ValueError("Either config or config_file must be specified.")
 
+        self.safe_sea_cdt = None
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
@@ -475,7 +472,8 @@ class ScenarioGenerator:
         else:
             enc_copy = self._configure_enc(config)
 
-        # self.safe_sea_voronoi_diagram = mapf.create_safe_sea_voronoi_diagram(self.enc)
+        if self.safe_sea_cdt is None:
+            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
 
         ais_ship_data = self.generate_ships_with_ais_data(
             ais_vessel_data_list,
@@ -826,7 +824,7 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
-        x, y = mapf.generate_random_start_position_from_draft(self.enc, draft, min_land_clearance)
+        x, y = mapf.generate_random_start_position_from_draft(self.rng, self.enc, draft, min_land_clearance, self.safe_sea_cdt)
         speed = self.rng.uniform(U_min, U_max)
         if heading is None:
             heading = self.rng.uniform(0.0, 2.0 * np.pi)

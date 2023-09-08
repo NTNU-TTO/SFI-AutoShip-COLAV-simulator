@@ -6,7 +6,7 @@ visualizer:
   show_measurements: True
   show_liveplot_tracks: True
   show_waypoints: True
-  zoom_in_liveplot_on_ownship: False
+  zoom_in_liveplot_on_ownship: True
   show_results: True
   show_target_tracking_results: False
   show_trajectory_tracking_results: True
