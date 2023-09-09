@@ -533,8 +533,8 @@ def generate_random_start_position_from_draft(
     while not is_safe:
         if safe_sea_cdt is not None:
             random_triangle = rng.choice(safe_sea_cdt)
-            random_point = random_triangle.centroid
-            easting, northing = random_point.x, random_point.y
+
+            random_point = mhm.sample_from_triangle_region(random_triangle)
         easting = rng.uniform(bbox[0], bbox[2])
         northing = rng.uniform(bbox[1], bbox[3])
         is_ok_clearance = min_distance_to_land(enc, easting, northing) >= min_land_clearance
