@@ -90,13 +90,13 @@ if __name__ == "__main__":
     scenario_generator.enc.start_display()
     initial_wind_speed = disturbances[0, 0]
     initial_wind_direction = disturbances[1, 0]
-    if initial_wind_speed > 0.0:
-        wind_arrow_start = (origin[1] + 500.0, origin[0] + 500.0)
-        wind_arrow_end = (
-            wind_arrow_start[0] + 100.0 * initial_wind_speed * np.sin(initial_wind_direction),
-            wind_arrow_start[1] + 100.0 * initial_wind_speed * np.cos(initial_wind_direction),
-        )
-        scenario_generator.enc.draw_arrow(wind_arrow_start, wind_arrow_end, "white", width=15, fill=False, head_size=60, thickness=2)
+    # if initial_wind_speed > 0.0:
+    #     wind_arrow_start = (origin[1] + 500.0, origin[0] + 500.0)
+    #     wind_arrow_end = (
+    #         wind_arrow_start[0] + 100.0 * initial_wind_speed * np.sin(initial_wind_direction),
+    #         wind_arrow_start[1] + 100.0 * initial_wind_speed * np.cos(initial_wind_direction),
+    #     )
+    #     scenario_generator.enc.draw_arrow(wind_arrow_start, wind_arrow_end, "white", width=15, fill=False, head_size=60, thickness=2)
     gcf = plt.gcf()
     gca = gcf.axes[0]
     gca.plot(waypoints[1, :], waypoints[0, :], "rx", label="Waypoints")
