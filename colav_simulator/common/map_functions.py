@@ -533,10 +533,16 @@ def generate_random_start_position_from_draft(
     while not is_safe:
         if safe_sea_cdt is not None:
             random_triangle = rng.choice(safe_sea_cdt)
+            assert isinstance(random_triangle, Polygon) and len(random_triangle.exterior.coords) >= 4, "The safe sea region must be a polygon and triangle."
+            x, y = random_triangle.exterior.coords.xy
+            p1 = np.array([x[0], y[0]])
+            p2 = np.array([x[1], y[1]])
+            p3 = np.array([x[2], y[2]])
+            random_point = mhm.sample_from_triangle_region(p1, p2, p3, rng)
+            easting, northing = random_point[0], random_point[1]
+        else:
+            easting, northing = rng.uniform(bbox[0], bbox[2]), rng.uniform(bbox[1], bbox[3])
 
-            random_point = mhm.sample_from_triangle_region(random_triangle)
-        easting = rng.uniform(bbox[0], bbox[2])
-        northing = rng.uniform(bbox[1], bbox[3])
         is_ok_clearance = min_distance_to_land(enc, easting, northing) >= min_land_clearance
         if safe_sea.geometry.contains(Point(easting, northing)) and is_ok_clearance:
             break

@@ -472,8 +472,8 @@ class ScenarioGenerator:
         else:
             enc_copy = self._configure_enc(config)
 
-        if self.safe_sea_cdt is None:
-            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
+        # if self.safe_sea_cdt is None:
+        #     self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
 
         ais_ship_data = self.generate_ships_with_ais_data(
             ais_vessel_data_list,
