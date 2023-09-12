@@ -216,5 +216,5 @@ if __name__ == "__main__":
         axs["N"].grid()
         axs["N"].legend()
 
-    plt.show(block=False)
+    plt.show()
     print("Done")

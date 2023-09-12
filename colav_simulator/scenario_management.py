@@ -847,6 +847,7 @@ class ScenarioGenerator:
         if n_wps is None:
             n_wps = self.rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
 
+        east_min, north_min, east_max, north_max = self.enc.bbox
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
@@ -857,7 +858,6 @@ class ScenarioGenerator:
                 iter_count += 1
 
                 distance_wp_to_wp = self.rng.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
-                distance_wp_to_wp = mf.sat(distance_wp_to_wp, 0.0, min_dist_to_land)
 
                 alpha = 0.0
                 if i > 1:
@@ -882,6 +882,13 @@ class ScenarioGenerator:
                 break
 
             waypoints[:, i] = new_wp
+            waypoints[:, i - 1 : i + 1], clipped = mhm.clip_waypoint_segment_to_bbox(
+                waypoints[:, i - 1 : i + 1], (float(north_min), float(east_min), float(north_max), float(east_max))
+            )
+
+            if clipped:
+                waypoints = waypoints[:, : i + 1]
+                break
 
         return waypoints
 

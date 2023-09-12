@@ -446,7 +446,7 @@ class Ship(IShip):
         Args:
             references (np.ndarray): References to set. Typically the output of an external COLAV system in e.g. RL-context.
         """
-        self._references = references
+        self._references = references.reshape((9, 1))
 
     def set_colav_system(self, colav: Any | ci.ICOLAV) -> None:
         """Sets the COLAV system to be used by the ship.

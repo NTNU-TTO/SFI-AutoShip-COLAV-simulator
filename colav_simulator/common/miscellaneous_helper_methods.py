@@ -324,6 +324,60 @@ def extract_track_data_from_dataframe(ship_df: pd.DataFrame) -> dict:
     return output
 
 
+def inside_bbox(point: np.ndarray, bbox: Tuple[float, float, float, float]) -> bool:
+    """Checks if a point is inside a bounding box.
+
+    Args:
+        point (np.ndarray): Point to check.
+        bbox (Tuple[float, float, float, float]): Bounding box defined by [xmin, ymin, xmax, ymax].
+
+    Returns:
+        bool: True if point is inside bounding box, False otherwise.
+    """
+    return point[0] >= bbox[0] and point[0] <= bbox[2] and point[1] >= bbox[1] and point[1] <= bbox[3]
+
+
+def clip_waypoint_segment_to_bbox(segment: np.ndarray, bbox: Tuple[float, float, float, float]) -> Tuple[np.ndarray, bool]:
+    """Clips a waypoint segment to within a bounding box.
+
+    Args:
+        segment (np.ndarray): Waypoint segment.
+        bbox (Tuple[float, float, float, float]): Bounding box defined by [xmin, ymin, xmax, ymax].
+
+    Returns:
+        Tuple[np.ndarray, bool: Tuple of the new possibly clipped waypoint segment, and a boolean indicating if it was clipped or not.
+    """
+    segment_linestring = ndarray_to_linestring(segment)
+    p1_inside_bbox = inside_bbox(segment[:, 0], bbox)
+    p2_inside_bbox = inside_bbox(segment[:, 1], bbox)
+    if p1_inside_bbox and p2_inside_bbox:
+        return segment, False
+
+    # check intersection with all bounding box line constraints
+    # lower left corner
+    left_vertical = ndarray_to_linestring(np.array([[bbox[0], bbox[2]], [bbox[1], bbox[1]]]))
+    intersection = segment_linestring.intersection(left_vertical)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    right_vertical = ndarray_to_linestring(np.array([[bbox[0], bbox[2]], [bbox[3], bbox[3]]]))
+    intersection = segment_linestring.intersection(right_vertical)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    top_horizontal = ndarray_to_linestring(np.array([[bbox[2], bbox[2]], [bbox[1], bbox[3]]]))
+    intersection = segment_linestring.intersection(top_horizontal)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    bottom_horizontal = ndarray_to_linestring(np.array([[bbox[0], bbox[0]], [bbox[1], bbox[3]]]))
+    intersection = segment_linestring.intersection(bottom_horizontal)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    return np.array([segment[:, 0], p_clip]).transpose(), True
+
+
 def check_if_trajectory_is_within_xy_limits(trajectory: np.ndarray, xlimits: list, ylimits: list) -> bool:
     """Checks if the trajectory is within the x and y limits.
 

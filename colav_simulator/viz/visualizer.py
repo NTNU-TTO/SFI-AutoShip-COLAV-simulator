@@ -172,10 +172,11 @@ class Visualizer:
         self.axes = [ax_map]
         plt.show(block=False)
 
-    def find_plot_limits(self, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
+    def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
 
         Args:
+            - enc (ENC): ENC object containing the map data
             - ownship (ship.Ship): The own-ship object
             - buffer (float): Buffer to add to the limits
 
@@ -190,6 +191,10 @@ class Visualizer:
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.waypoints, xlimits, ylimits)
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
+
+        enc_ymin, enc_xmin, enc_ymax, enc_xmax = enc.bbox
+        xlimits = [max(xlimits[0], enc_xmin), min(xlimits[1], enc_xmax)]
+        ylimits = [max(ylimits[0], enc_ymin), min(ylimits[1], enc_ymax)]
         return xlimits, ylimits
 
     def close_live_plot(self) -> None:
@@ -211,7 +216,7 @@ class Visualizer:
         matplotlib.rcParams["pdf.fonttype"] = 42
         matplotlib.rcParams["ps.fonttype"] = 42
 
-        xlimits, ylimits = self.find_plot_limits(ship_list[0])
+        xlimits, ylimits = self.find_plot_limits(enc, ship_list[0])
 
         if self._config.zoom_in_liveplot_on_ownship:
             self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])

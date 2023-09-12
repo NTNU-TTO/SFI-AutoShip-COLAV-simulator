@@ -2,12 +2,11 @@
     environment.py
 
     Summary:
-        This file wraps the colav-simulator for use with Gymnasium.
+        This module wraps the colav-simulator for use with Gymnasium.
 
     Author: Trym Tengesdal
 """
 import pathlib
-from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.gym.reward as rw
@@ -19,33 +18,6 @@ import seacharts.enc as senc
 from colav_simulator.core.ship import Ship
 from colav_simulator.gym.action import Action, ActionType, action_factory
 from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
-
-
-@dataclass
-class Config:
-    """Configuration for the environment. This excludes simulator + scenario generator config,"""
-
-    simulator: Optional[cssim.Config] = None
-    scenario_generator: Optional[sm.Config] = None
-    scenario_config: Optional[sm.ScenarioConfig] = None
-    scenario_config_file: Optional[pathlib.Path] = None
-    rewarder: Optional[list] = None
-
-    @classmethod
-    def from_dict(self, config_dict: dict):
-        cfg = Config()
-        cfg.simulator = cssim.Config.from_dict(config_dict["simulator"])
-        cfg.scenario_generator = sm.Config.from_dict(config_dict["scenario_generator"])
-
-        if "scenario_config" in config_dict:
-            cfg.scenario_config = sm.ScenarioConfig.from_dict(config_dict["scenario_config"])
-            cfg.scenario_config_file = None
-
-        if "scenario_config_file" in config_dict:
-            cfg.scenario_config_file = pathlib.Path(config_dict["scenario_config_file"])
-            cfg.scenario_config = None
-        cfg.rewarder = config_dict["rewarder"]
-        return cfg
 
 
 class COLAVEnvironment(gym.Env):
@@ -250,7 +222,7 @@ class COLAVEnvironment(gym.Env):
         # map action from [-1, 1] to colav system/autopilot references ranges
 
         self.action_type.act(action)
-        sim_data_dict = self.simulator.step()
+        sim_data_dict = self.simulator.step(remote_actor=True)
 
         obs = self.observation_type.observe()  # normalized observation
         reward = self.rewarder(obs, action)  # normalized reward
@@ -267,7 +239,7 @@ class COLAVEnvironment(gym.Env):
             self._viewer2d.toggle_liveplot_visibility(show=True)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
-    def render(self, step_interval: int = 5) -> None:
+    def render(self, step_interval: int = 10) -> None:
         """Renders the environment in 2D at the given step interval.
 
         Args:

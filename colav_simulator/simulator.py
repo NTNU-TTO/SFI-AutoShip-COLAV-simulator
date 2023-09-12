@@ -218,8 +218,11 @@ class Simulator:
 
         return pd.DataFrame(sim_data), ship_info, sim_times
 
-    def step(self) -> dict:
+    def step(self, remote_actor: bool = False) -> dict:
         """Step through the simulation by one time step, using the specified action for the own-ship.
+
+        Args:
+            remote_actor (bool, optional): Whether the own-ship is controlled by a remote actor, i.e. references are set externally from the Ship object. Defaults to False.
 
         Returns:
             dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.
@@ -247,7 +250,8 @@ class Simulator:
 
             # Plans a decision for the ship depending on its configuration
             if ship_obj.t_start <= self.t:
-                ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
+                if not (i == 0 and remote_actor):  # Skip own-ship planning step if controlled by remote actor
+                    ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
 
             sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)
             sim_data_dict[f"Ship{i}"]["sensor_measurements"] = self.recent_sensor_measurements[i]
