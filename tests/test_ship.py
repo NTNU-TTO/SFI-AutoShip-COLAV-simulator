@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
-    disturbance._currents = None
+    # disturbance._currents = None
     # disturbance._wind = None
     horizon = 1000.0
     dt = 0.1

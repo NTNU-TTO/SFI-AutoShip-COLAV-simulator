@@ -635,7 +635,7 @@ class Visualizer:
         ax_map = fig_map.add_subplot(projection=enc.crs)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        xlimits, ylimits = self.find_plot_limits(ship_list[0], buffer=0.0)
+        xlimits, ylimits = self.find_plot_limits(enc, ship_list[0], buffer=0.0)
         plt.show(block=False)
 
         figs_tracking: list = []

@@ -683,6 +683,9 @@ def min_distance_to_hazards(hazards: list, x: float, y: float) -> float:
     """
     min_dist = 1e12
     for hazard in hazards:
+        if hazard.is_empty:
+            continue
+
         dist = hazard.distance(Point(x, y))
         if dist < min_dist:
             min_dist = dist
