@@ -235,16 +235,10 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 
 
 ## Future Enhancements (Roadmap)
-
+- Improve random generation of vessel COLREGS scenarios.
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
-<<<<<<< HEAD
 - Add functionality for storing animations from simulation data.
+- Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
-=======
-- Add functionality for storing simulation data and creating animations from simulation data.
-- Create pip package out of `seacharts`, `colav_evaluation_tool` and the `colav_simulator`, to make installation easier.
->>>>>>> main
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
-- Create seacharts functionality to handle scenarios over large map areas that need multiple ENC data files to be loaded and merged.
-- Add functionality for reseting a scenario (new disturbance, initial ship poses, waypoints and speed plans inside the same map area)
 
