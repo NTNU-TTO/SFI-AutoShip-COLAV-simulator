@@ -2,7 +2,14 @@
     observation.py
 
     Summary:
-        This file contains various observation space definitions for a ship agent in the colav-simulator.
+        This file contains various observation type/space definitions for a ship agent in the colav-simulator.
+
+        To add an observation type:
+        1: Create a new class inheriting from ObservationType and implement the abstract methods.
+        2: Add the new class to the `observation_factory` method. Make sure lower case (snake case) string names are used for specifying the action type.
+        3: Add the new observation type to the `rl_observation_type` entry in the scenario schema file (read the Cerberus docs to learn config validation),
+           such that it can be used and validated against in a scenario.
+        4: Add the new observation type to your scenario config file.
 
     Author: Trym Tengesdal
 """
@@ -89,6 +96,9 @@ class LidarLikeObservation(ObservationType):
         true_do_states = [(idx, mhm.convert_csog_state_to_vxvy_state(do.csog_state)) for idx, do in enumerate(dynamic_obstacles)]
         do_tracks = self._ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
         obs = np.zeros(1, dtype=np.float32)
+
+        # TODO: Implement observation
+
         # sector_closenesses, sector_velocities = self.__ownship.get_track_information(self.obstacles)
 
         # obs = np.concatenate([reward_insight, navigation_states, sector_closenesses, sector_velocities])

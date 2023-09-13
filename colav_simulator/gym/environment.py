@@ -3,6 +3,7 @@
 
     Summary:
         This module wraps the colav-simulator for use with Gymnasium.
+        To add your own custom observation or action type, see their respective files observation.py and action.py.
 
     Author: Trym Tengesdal
 """

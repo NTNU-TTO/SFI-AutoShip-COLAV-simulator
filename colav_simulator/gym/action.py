@@ -2,7 +2,12 @@
     action.py
 
     Summary:
-        This file contains various action space definitions for a ship agent in the colav-simulator.
+        This file contains various action type definitions for a ship agent in the colav-simulator.
+
+        To add an action type:
+        1: Create a new class inheriting from ActionType and implement the abstract methods.
+        2: Add the new class to the `action_factory` method. Make sure lower case (snake case) string names are used for specifying the action type.
+        3: Add the new action type to your scenario config file.
 
     Author: Trym Tengesdal
 """
@@ -64,6 +69,7 @@ class ContinuousAutopilotReferenceAction(ActionType):
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
         super().__init__(env)
+        assert self._ownship is not None, "Ownship must be set before creating action space"
         self.size = 2
         self.course_range = (-np.pi, np.pi)
         self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
