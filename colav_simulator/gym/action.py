@@ -42,7 +42,7 @@ class ActionType(ABC):
         """Execute the action on the own-ship
 
         Args:
-            action (Action): The action to execute. Typically the output autopilot references from the COLAV-algorithm.
+            action (Action): The action to execute (normalized). Typically the output autopilot references from the COLAV-algorithm.
         """
 
     @property

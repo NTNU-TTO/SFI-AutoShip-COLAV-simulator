@@ -222,8 +222,8 @@ The class can, as most other main modules, be configured from the example simula
 ### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
 
-- `forward(dt: float) -> np.ndarray` function that allows simple forward simulation of the vessel.
-- `plan(t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system.
+- `forward(dt: float, w = Optional[DisturbanceData] = None) -> np.ndarray` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available.
+- `plan(t: float, dt: float, do_list: list, enc: Optional[ENC] = None, w: Optional[DisturbanceData] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system. A list of dynamic obstacle data, possibly Electronic Navigational Chart (ENC) object and disturbance information can be used by the planner.
 - `track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]` function that tracks nearby dynamic obstacles.
 
 Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out.

@@ -28,9 +28,7 @@ class COLAVEnvironment(gym.Env):
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
 
-    metadata = {
-        "render_modes": ["human"],
-    }
+    metadata = {"render_modes": ["human"], "render_fps": None, "video.frames_per_second": None}
     observation_type: ObservationType
     action_type: ActionType
     scenario_config: sm.ScenarioConfig

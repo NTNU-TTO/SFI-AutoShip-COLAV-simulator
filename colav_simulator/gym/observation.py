@@ -47,7 +47,7 @@ class ObservationType(ABC):
 
     @abstractmethod
     def observe(self) -> Observation:
-        """Get an observation of the environment state."""
+        """Get an observation of the environment state (normalized)."""
 
 
 class LidarLikeObservation(ObservationType):
@@ -243,7 +243,7 @@ class Navigation3DOFStateObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         state = self._ownship.state
         extras = np.empty(0)
-        obs = np.concatenate([state, extras], dtype=np.float32)
+        obs = np.concatenate([state, extras])
         return self.normalize(obs)
 
 
@@ -300,7 +300,7 @@ class NavigationCSOGStateObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         state = self._ownship.csog_state
         extras = np.empty(0)
-        obs = np.concatenate([state, extras], dtype=np.float32)
+        obs = np.concatenate([state, extras])
         return self.normalize(obs)
 
 
