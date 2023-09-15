@@ -10,7 +10,7 @@
 import math
 import os.path
 from datetime import datetime
-from typing import Tuple
+from typing import Any, Tuple
 from zoneinfo import ZoneInfo
 
 import colav_simulator.common.map_functions as mapf
@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import shapely.geometry as geometry
 from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelled
-from colav_simulator.core.ship import Ship
 from scipy.stats import chi2
 
 
@@ -634,7 +633,7 @@ def utc_to_local(utc_dt: datetime) -> datetime:
     return utc_dt.replace(tzinfo=ZoneInfo("localtime"))
 
 
-def write_coast_distances_to_file(dist_port: float, dist_front: float, dist_starboard: float, safety_radius: float, ship_obj: Ship, filepath: str) -> None:
+def write_coast_distances_to_file(dist_port: float, dist_front: float, dist_starboard: float, safety_radius: float, ship_obj: Any, filepath: str) -> None:
     """
     Writes the distance to coast data on-line to the AIS case file
 

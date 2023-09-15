@@ -7,13 +7,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
-import random
-<<<<<<< HEAD
-from math import cos, pi, sin
-from typing import Tuple
-=======
 from typing import Optional, Tuple
->>>>>>> main
 
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import geopandas as gpd
@@ -745,8 +739,8 @@ def generate_ship_sector_polygons(pos_x: float, pos_y: float, chi: float, safety
     ship_center = Point([pos_x, pos_y])
 
     # zone parameters
-    angle = pi / 4  # zone intersection angle
-    offset = pi / 2  # zone offset angle
+    angle = np.pi / 4  # zone intersection angle
+    offset = np.pi / 2  # zone offset angle
     num_points = 100
 
     # Close coast zone port
@@ -792,6 +786,8 @@ def distances_to_coast(poly_port: Polygon, poly_front: Polygon, poly_starboard: 
     dist_starboard = poly_ship.distance(starboard_intersec_land)
 
     return dist_port, dist_front, dist_starboard
+
+
 def extract_boundary_polygons_inside_envelope(poly_tuple_list: list, enveloping_polygon: Polygon, enc: Optional[ENC] = None, show_plots: bool = True) -> list:
     """Extracts the boundary trianguled polygons that are relevant for the trajectory of the vessel, inside the given envelope polygon.
 
