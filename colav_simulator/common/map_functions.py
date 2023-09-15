@@ -8,9 +8,9 @@
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
 import random
+from math import cos, pi, sin
 from typing import Tuple
 
-from math import cos, sin, pi
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import geopy.distance
 import matplotlib.pyplot as plt
@@ -449,63 +449,54 @@ def generate_grounding_hazard_polys(pos_x, pos_y, chi, safety_radius):
         zone_starboard: Polygon of collision zone on starboardside of ship
 
     """
-    
+
     ship_center = Point([pos_x, pos_y])
-    
+
     # zone parameters
-    angle = pi/4 # zone intersection angle
-    offset = pi/2 # zone offset angle
+    angle = pi / 4  # zone intersection angle
+    offset = pi / 2  # zone offset angle
     num_points = 100
-    
+
     # Close coast zone port
-    angle_range_port = np.linspace(-chi + 2*offset - angle,
-                                   -chi + 2*offset + angle, num_points)
-    arc_port = [(ship_center.x + safety_radius * np.cos(angle),
-                 ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_port]
+    angle_range_port = np.linspace(-chi + 2 * offset - angle, -chi + 2 * offset + angle, num_points)
+    arc_port = [(ship_center.x + safety_radius * np.cos(angle), ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_port]
     arc_line_port = LineString(arc_port)
     zone_port = Polygon(list(arc_line_port.coords) + [ship_center])
-    
+
     # Close coast zone front
-    angle_range_front = np.linspace(-chi + offset - angle,
-                                    -chi + offset + angle, num_points)
-    arc_front = [(ship_center.x + safety_radius * np.cos(angle),
-                  ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_front]
+    angle_range_front = np.linspace(-chi + offset - angle, -chi + offset + angle, num_points)
+    arc_front = [(ship_center.x + safety_radius * np.cos(angle), ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_front]
     arc_line_front = LineString(arc_front)
     zone_front = Polygon(list(arc_line_front.coords) + [ship_center])
-    
+
     # Close coast zone starboard
-    angle_range_starboard = np.linspace(-chi - angle,
-                                        -chi + angle, num_points)
-    arc_starboard = [(ship_center.x + safety_radius * np.cos(angle),
-                      ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_starboard]
+    angle_range_starboard = np.linspace(-chi - angle, -chi + angle, num_points)
+    arc_starboard = [(ship_center.x + safety_radius * np.cos(angle), ship_center.y + safety_radius * np.sin(angle)) for angle in angle_range_starboard]
     arc_line_starboard = LineString(arc_starboard)
     zone_starboard = Polygon(list(arc_line_starboard.coords) + [ship_center])
-    
+
     return zone_port, zone_front, zone_starboard
 
-def distances_to_coast(poly_port, poly_front, poly_starboard, poly_ship, poly_land):
-    """Calculates distance to coast based on intersection between collision polygons and land polygon
+
+def distances_to_coast(poly_port: Polygon, poly_front: Polygon, poly_starboard: Polygon, poly_ship: Polygon, poly_land: MultiPolygon) -> Tuple[float, float, float]:
+    """Calculates distance to coast based on intersection between collision polygons and land polygon.
 
     Args:
-        poly_port: Polygon of collision zone on portside of ship
-        poly_front: Polygon of collision zone in front of ship
-        poly_starboard: Polygon of collision zone on starboardside of ship
-        poly_ship: Polygon of ship
-        poly_land: Polygon of land
+        poly_port (Polygon): Polygon of collision zone on portside of ship
+        poly_front (Polygon): Polygon of collision zone in front of ship
+        poly_starboard (Polygon): Polygon of collision zone on starboardside of ship
+        poly_ship (Polygon): Polygon of ship
+        poly_land (MultiPolygon): Polygon of land
 
     Returns:
-        dist_port: Distance to land on portside
-        dist_front: Distance to land in front
-        dist_starboard: Distance to land on starboardside
-
+        Tuple[float, float, float]: Tuple of distances to land on portside, front and starboardside
     """
-    
     port_intersec_land = poly_port.intersection(poly_land)
     front_intersec_land = poly_front.intersection(poly_land)
     starboard_intersec_land = poly_starboard.intersection(poly_land)
-    
+
     dist_port = poly_ship.distance(port_intersec_land)
     dist_front = poly_ship.distance(front_intersec_land)
     dist_starboard = poly_ship.distance(starboard_intersec_land)
-    
+
     return dist_port, dist_front, dist_starboard
