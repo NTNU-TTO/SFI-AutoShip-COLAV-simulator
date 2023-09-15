@@ -7,51 +7,55 @@
     Author: Trym Tengesdal
 """
 
-from typing import Any
+from typing import Any, Callable, Optional
 
 import colav_simulator.common.math_functions as mf
 import numpy as np
 
 
-def erk4_integration_step(f: Any, b: Any, x: np.ndarray, u: np.ndarray, dt: float) -> np.ndarray:
+def erk4_integration_step(f: Callable, b: Callable, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
     """
     Summary:
         Performs a (saturated) single step of a 4th order Runge-Kutta integration scheme.
 
     Args:
-        f (function): Function to be integrated.
-        b (function): Bounds of states and inputs considered in the model dynamics to be integrated.
+        f (Callable): Function to be integrated.
+        b (Callable): Bounds of states and inputs considered in the model dynamics to be integrated.
         x (np.ndarray): State vector.
         u (np.ndarray): Input vector.
-        t (float): Current time.
+        w (Optional[Any]): Disturbance data.
         dt (float): Time step.
 
     Returns:
         np.ndarray: State vector at time t + dt.
     """
     _, _, lbx, ubx = b()
-    k1 = f(x, u)
-    k2 = f(x + 0.5 * dt * k1, u)
-    k3 = f(x + 0.5 * dt * k2, u)
-    k4 = f(x + dt * k3, u)
+    k1 = f(x, u, w)
+    k2 = f(x + 0.5 * dt * k1, u, w)
+    k3 = f(x + 0.5 * dt * k2, u, w)
+    k4 = f(x + dt * k3, u, w)
     x_next = x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
     x_next = mf.sat(x_next, lbx, ubx)
     return x_next
 
 
-def euler_integration_step(f: Any, x: np.ndarray, u: np.ndarray, dt: float) -> np.ndarray:
+def euler_integration_step(f: Callable, b: Callable, x: np.ndarray, u: np.ndarray, w: Optional[Any], dt: float) -> np.ndarray:
     """
     Summary:
         Performs a (saturated) single step of a Euler integration scheme.
 
     Args:
-        f (Any): Function to be integrated.
+        f (Callable): Function to be integrated.
+        b (Callable): Bounds of states and inputs considered in the model dynamics to be integrated.
         x (np.ndarray): State vector.
         u (np.ndarray): Input vector.
-        t (float): Current time.
+        w (Optional[Any]): Disturbance data.
         dt (float): Time step.
 
     Returns:
         np.ndarray: State vector at time t + dt.
     """
-    return x + dt * f(x, u)
+    _, _, lbx, ubx = b()
+    x_next = x + dt * f(x, u, w)
+    x_next = mf.sat(x_next, lbx, ubx)
+    return x_next

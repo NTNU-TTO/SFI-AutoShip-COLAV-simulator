@@ -1,10 +1,11 @@
 # colav-simulator
-This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies.
+This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The framework prototype is described in the [CCTA2023 paper](). As of September 2023, the simulation framework has been wrapped to be compatible with [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version). Note that this feature is unstable due to its recent completion, and needs thorough testing.
 
 The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
 
 [![platform](https://img.shields.io/badge/platform-linux-lightgrey)]()
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
+[![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
 ![Simulation example](./scenarios/example_img/aalesund_random.pdf)
 <img src="./scenarios/example_img/aalesund_random.pdf">
@@ -18,7 +19,6 @@ If you are using the `colav_simulator` for academic work, please use the followi
   journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
   title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
   year    = {2023},
-  note    = {In press},
 }
 ```
 
@@ -40,11 +40,20 @@ Are all outlined in setup.cfg, and listed below:
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are included as submodules in the simulator. Install these first as editable packages using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. If you get troubles installing `gdal`, this might be due to:
+`seacharts`and the `colav_evaluation_tool` are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
+
+To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
+
+If you get troubles installing `gdal`, this might be due to:
 - The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
 - It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
 
-To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
+If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
+
+Test the installation by running any of the files under `tests/` (use these to get familiar with the simulator), e.g.
+```
+python3 tests/test_ship.py
+```
 
 ## Mac OS Apple Slicon Installation
 
@@ -178,8 +187,8 @@ In the status bar above the commit message there is a link for _Pull request_.
 Click that and describe your feature.
 Assign people to it to review the changes, and create the pull request.
 
-The pull request should now be reviewed by someone, and if it's ok, it will be merged into `main`.
-Congratulations! It is now safe to delete the feature branch, and is strongly encouraged in order to keep the repository tidy.
+The pull request should now be reviewed by someone, and if it is ok, it will be merged into `main`.
+Congratulations! It is now safe to delete the feature branch, which is strongly encouraged in order to keep the repository tidy.
 
 
 ## Main modules in the repository
@@ -210,15 +219,26 @@ Class responsible for visualizing scenarios run through by the Simulator, and vi
 
 The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
-#### Ship
+### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
 
-- `forward(dt: float) -> np.ndarray` function that allows simple forward simulation of the vessel.
-- `plan(t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system.
+- `forward(dt: float, w = Optional[DisturbanceData] = None) -> np.ndarray` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available.
+- `plan(t: float, dt: float, do_list: list, enc: Optional[ENC] = None, w: Optional[DisturbanceData] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system. A list of dynamic obstacle data, possibly Electronic Navigational Chart (ENC) object and disturbance information can be used by the planner.
 - `track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]` function that tracks nearby dynamic obstacles.
 
 Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out.
 
 It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
 
-The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`).
+#### COLAV
+The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`). This enables the usage of both internally developed COLAV planners in addition to third-party ones.
+
+
+## Future Enhancements (Roadmap)
+- Improve random generation of vessel COLREGS scenarios.
+- Improve live-visualization in the simulator w.r.t. code readability and run-time.
+- Add functionality for storing animations from simulation data.
+- Add functionality for saving simulation results to file.
+- Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
+- Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
+

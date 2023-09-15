@@ -7,8 +7,23 @@
     Author: Trym Tengesdal
 """
 import math
+from typing import Tuple
 
 import numpy as np
+
+
+def linear_map(v: float, x: Tuple[float, float], y: Tuple[float, float]) -> float:
+    """Linearly maps v from x to y
+
+    Args:
+        v (float): Value to map
+        x (Tuple[float, float]): Input range
+        y (Tuple[float, float]): Output range
+
+    Returns:
+        float: Mapped value
+    """
+    return y[0] + (v - x[0]) * (y[1] - y[0]) / (x[1] - x[0])
 
 
 def wrap_min_max(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndarray) -> float | np.ndarray:
@@ -206,14 +221,44 @@ def sat(x: float | np.ndarray, x_min: float | np.ndarray, x_max: float | np.ndar
     return np.clip(x, x_min, x_max)
 
 
-def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
-    """Calculates coriolis matrix C(v)
-
-    Assumes decoupled surge and sway-yaw dynamics.
-    See eq. (7.12) - (7.15) in Fossen2011
+def coriolis_matrix_rigid_body(M_RB: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates the rigid body Coriolis matrix C_RB(v) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. 7.13 in Fossen (2011).
 
     Args:
-        Mmtrx (np.ndarray): Mass matrix.
+        M_RB (np.ndarray): Rigid body mass matrix
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Coriolis matrix C_RB(v)
+    """
+    c13 = -M_RB[1, 2] * nu[2] - M_RB[1, 1] * nu[1]
+    c23 = M_RB[0, 0] * nu[0]
+    return np.array([[0, 0, c13], [0, 0, c23], [-c13, -c23, 0]])
+
+
+def coriolis_matrix_added_mass(M_A: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates the added mass Coriolis matrix C_A(v) assuming decoupled surge and sway-yaw dynamics,
+    for non-symmetric added mass matrix
+
+    Args:
+        M_A (np.ndarray): Added mass matrix
+        nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
+
+    Returns:
+        np.ndarray: Coriolis matrix C_A(v)
+    """
+    c13 = -M_A[1, 1] * nu[1] - 0.5 * (M_A[2, 1] + M_A[1, 2]) * nu[2]
+    c23 = M_A[0, 0] * nu[0]
+    return np.array([[0, 0, c13], [0, 0, c23], [-c13, -c23, 0]])
+
+
+def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
+    """Calculates coriolis matrix C(v) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. (7.12) - (7.15) in Fossen2011
+
+    Args:
+        Mmtrx (np.ndarray): Mass matrix (M_RB + M_A).
         nu (np.ndarray): Body-frame velocity nu = [u, v, r]^T
 
     Returns:
@@ -226,10 +271,8 @@ def Cmtrx(Mmtrx: np.ndarray, nu: np.ndarray) -> np.ndarray:
 
 
 def Dmtrx(D_l: np.ndarray, D_q: np.ndarray, D_c: np.ndarray, nu: np.ndarray) -> np.ndarray:
-    """Calculates damping matrix D
-
-    Assumes decoupled surge and sway-yaw dynamics.
-    See eq. (7.24) in Fossen2011+
+    """Calculates damping matrix D(nu) assuming decoupled surge and sway-yaw dynamics,
+    as in eq. (7.24) in Fossen2011+
 
     Args:
         D_l (np.ndarray): Linear damping matrix.
@@ -341,22 +384,6 @@ def Tzyx(phi, theta) -> np.ndarray:
         print("Tzyx is singular for theta = +-90 degrees.")
 
     return Tmtrx
-
-
-def attitudeEuler(eta: np.ndarray, nu: np.ndarray, sampleTime: float) -> np.ndarray:
-    """
-    eta = attitudeEuler(eta,nu,sampleTime) computes the generalized
-    position/Euler angles eta[k+1]
-    """
-
-    p_dot = np.matmul(Rzyx(eta[3], eta[4], eta[5]), nu[0:3])
-    v_dot = np.matmul(Tzyx(eta[3], eta[4]), nu[3:6])
-
-    # Forward Euler integration
-    eta[0:3] = eta[0:3] + sampleTime * p_dot
-    eta[3:6] = eta[3:6] + sampleTime * v_dot
-
-    return eta
 
 
 def m2c(M: np.ndarray, nu: np.ndarray) -> np.ndarray:

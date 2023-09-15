@@ -79,6 +79,24 @@ def check_if_vessel_is_passed_by(
     return vessel_is_passed
 
 
+def sample_from_triangle_region(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Samples a point from the triangle region defined by p1, p2 and p3.
+    Ref: Osada et. al. 2002:
+
+    Args:
+        p1 (np.ndarray): Vertex 1 coordinate.
+        p2 (np.ndarray): Vertex 2 coordinate.
+        p3 (np.ndarray): Vertex 3 coordinate.
+
+    Returns:
+        np.ndarray: Sampled point.
+    """
+    r_1 = rng.uniform(0, 1)
+    r_2 = rng.uniform(0, 1)
+    p = (1.0 - np.sqrt(r_1)) * p1 + np.sqrt(r_1) * (1.0 - r_2) * p2 + np.sqrt(r_1) * r_2 * p3
+    return p
+
+
 def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray) -> Tuple[float, float, np.ndarray]:
     """Computes the closest point of approach (CPA) between two vessel when assumed to travel with constant velocity.
 
@@ -306,6 +324,60 @@ def extract_track_data_from_dataframe(ship_df: pd.DataFrame) -> dict:
     output["do_NISes"] = do_NISes
     output["do_labels"] = do_labels
     return output
+
+
+def inside_bbox(point: np.ndarray, bbox: Tuple[float, float, float, float]) -> bool:
+    """Checks if a point is inside a bounding box.
+
+    Args:
+        point (np.ndarray): Point to check.
+        bbox (Tuple[float, float, float, float]): Bounding box defined by [xmin, ymin, xmax, ymax].
+
+    Returns:
+        bool: True if point is inside bounding box, False otherwise.
+    """
+    return point[0] >= bbox[0] and point[0] <= bbox[2] and point[1] >= bbox[1] and point[1] <= bbox[3]
+
+
+def clip_waypoint_segment_to_bbox(segment: np.ndarray, bbox: Tuple[float, float, float, float]) -> Tuple[np.ndarray, bool]:
+    """Clips a waypoint segment to within a bounding box.
+
+    Args:
+        segment (np.ndarray): Waypoint segment.
+        bbox (Tuple[float, float, float, float]): Bounding box defined by [xmin, ymin, xmax, ymax].
+
+    Returns:
+        Tuple[np.ndarray, bool: Tuple of the new possibly clipped waypoint segment, and a boolean indicating if it was clipped or not.
+    """
+    segment_linestring = ndarray_to_linestring(segment)
+    p1_inside_bbox = inside_bbox(segment[:, 0], bbox)
+    p2_inside_bbox = inside_bbox(segment[:, 1], bbox)
+    if p1_inside_bbox and p2_inside_bbox:
+        return segment, False
+
+    # check intersection with all bounding box line constraints
+    # lower left corner
+    left_vertical = ndarray_to_linestring(np.array([[bbox[0], bbox[2]], [bbox[1], bbox[1]]]))
+    intersection = segment_linestring.intersection(left_vertical)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    right_vertical = ndarray_to_linestring(np.array([[bbox[0], bbox[2]], [bbox[3], bbox[3]]]))
+    intersection = segment_linestring.intersection(right_vertical)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    top_horizontal = ndarray_to_linestring(np.array([[bbox[2], bbox[2]], [bbox[1], bbox[3]]]))
+    intersection = segment_linestring.intersection(top_horizontal)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    bottom_horizontal = ndarray_to_linestring(np.array([[bbox[0], bbox[0]], [bbox[1], bbox[3]]]))
+    intersection = segment_linestring.intersection(bottom_horizontal)
+    if intersection.geom_type == "Point":
+        p_clip = np.array([intersection.x, intersection.y])
+
+    return np.array([segment[:, 0], p_clip]).transpose(), True
 
 
 def check_if_trajectory_is_within_xy_limits(trajectory: np.ndarray, xlimits: list, ylimits: list) -> bool:

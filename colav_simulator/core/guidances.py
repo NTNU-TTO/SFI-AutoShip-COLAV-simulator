@@ -8,7 +8,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -31,10 +31,10 @@ class LOSGuidanceParams:
     """
 
     pass_angle_threshold: float = 90.0
-    R_a: float = 10.0
-    K_p: float = 0.03
+    R_a: float = 25.0
+    K_p: float = 0.015
     K_i: float = 0.0
-    e_int_max: float = 100.0
+    e_int_max: float = 200.0
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -66,7 +66,7 @@ class KTPGuidanceParams:
 class Config:
     """Configuration class for managing guidance method parameters."""
 
-    los: Optional[LOSGuidanceParams] = LOSGuidanceParams()
+    los: Optional[LOSGuidanceParams] = field(default_factory=lambda: LOSGuidanceParams())
     ktp: Optional[KTPGuidanceParams] = None
 
     @classmethod
@@ -107,7 +107,7 @@ class IGuidance(ABC):
 
 class GuidanceBuilder:
     @classmethod
-    def construct_guidance(cls, config: Optional[Config] = None) -> IGuidance:
+    def construct_guidance(cls, config: Optional[Config] = None) -> Optional[IGuidance]:
         """Builds a guidance method from the configuration
 
         Args:
@@ -121,7 +121,7 @@ class GuidanceBuilder:
         elif config and config.ktp:
             return KinematicTrajectoryPlanner(config.ktp)
         else:
-            return LOSGuidance()
+            return None
 
 
 class KinematicTrajectoryPlanner(IGuidance):

@@ -17,8 +17,10 @@ output = root / "output"
 schemas = package / "schemas"
 simulator_schema = schemas / "simulator.yaml"
 scenario_schema = schemas / "scenario.yaml"
+scenario_generator_schema = schemas / "scenario_generator.yaml"
 
 simulator_config = config / "simulator.yaml"
+scenario_generator_config = config / "scenario_generator.yaml"
 seacharts_config = config / "seacharts.yaml"
 
 enc_data = root / "data" / "map"

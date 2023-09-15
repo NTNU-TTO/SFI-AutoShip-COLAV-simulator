@@ -2,14 +2,14 @@
     ship.py
 
     Summary:
-        Contains class definitions for ship classes.
+        Contains class definition for the Ship, representing an agent in the simulator.
         Every ship class must adhere to the interface
         IShip and must be built by a ShipBuilder.
 
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 
 import colav_evaluation_tool.vessel as colav_eval_vessel_data
@@ -19,6 +19,7 @@ import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.sensing as sensing
+import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.core.tracking.trackers as trackers
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,11 +32,11 @@ class Config:
     """Configuration class for managing ship parameters."""
 
     colav: Optional[ci.Config] = None
-    guidance: Optional[guidances.Config] = guidances.Config()
-    model: models.Config = models.Config()
-    controller: controllers.Config = controllers.Config()
-    sensors: sensing.Config = sensing.Config()
-    tracker: trackers.Config = trackers.Config()
+    guidance: Optional[guidances.Config] = field(default_factory=lambda: guidances.Config())
+    model: models.Config = field(default_factory=lambda: models.Config())
+    controller: controllers.Config = field(default_factory=lambda: controllers.Config())
+    sensors: sensing.Config = field(default_factory=lambda: sensing.Config())
+    tracker: trackers.Config = field(default_factory=lambda: trackers.Config())
     mmsi: int = -1  # MMSI number of the ship, if configured equal to the MMSI of a ship in AIS data, the ship will be initialized with the data from the AIS data.
     id: int = -1  # Ship identifier
     t_start: Optional[float] = None  # Determines when the ship should start in the simulation
@@ -150,18 +151,20 @@ class ShipBuilder:
     """Class for building all objects needed by a ship with a specific configuration of systems."""
 
     @classmethod
-    def construct_ship(cls, config: Optional[Config] = None):
+    def construct_ship(
+        cls, config: Optional[Config] = None
+    ) -> Tuple[models.IModel, controllers.IController, guidances.IGuidance | None, list, trackers.ITracker, ci.ICOLAV | None]:
         """Builds a ship from the configuration
 
         Args:
             config (Optional[Config]): Ship configuration. Defaults to None.
 
         Returns:
-            Tuple[IModel, IController, IGuidance, list, ITracker, ICOLAV]: The subsystems comprising the ship: model, controller, guidance.
+            Tuple[IModel, IController, IGuidance | None, list, ITracker, ICOLAV | None]: The subsystems comprising the ship: model, controller, guidance.
         """
         if config:
             model = cls.construct_model(config.model)
-            controller = cls.construct_controller(config.controller)
+            controller = cls.construct_controller(model.params, config.controller)
             sensors = cls.construct_sensors(config.sensors)
             tracker = cls.construct_tracker(sensors, config.tracker)
             guidance_alg = None
@@ -172,16 +175,16 @@ class ShipBuilder:
                 colav_alg = cls.construct_colav(config.colav)
         else:
             model = cls.construct_model()
-            controller = cls.construct_controller()
+            controller = cls.construct_controller(model.params)
             sensors = cls.construct_sensors()
             tracker = cls.construct_tracker(sensors)
             guidance_alg = cls.construct_guidance()
-            colav_alg = None
+            colav_alg = cls.construct_colav()
 
         return model, controller, guidance_alg, sensors, tracker, colav_alg
 
     @classmethod
-    def construct_colav(cls, config: Optional[ci.Config] = None) -> ci.ICOLAV:
+    def construct_colav(cls, config: Optional[ci.Config] = None) -> Optional[ci.ICOLAV]:
         return ci.COLAVBuilder.construct_colav(config)
 
     @classmethod
@@ -193,12 +196,12 @@ class ShipBuilder:
         return sensing.SensorSuiteBuilder.construct_sensors(config)
 
     @classmethod
-    def construct_guidance(cls, config: Optional[guidances.Config] = None) -> guidances.IGuidance:
+    def construct_guidance(cls, config: Optional[guidances.Config] = None) -> Optional[guidances.IGuidance]:
         return guidances.GuidanceBuilder.construct_guidance(config)
 
     @classmethod
-    def construct_controller(cls, config: Optional[controllers.Config] = None) -> controllers.IController:
-        return controllers.ControllerBuilder.construct_controller(config)
+    def construct_controller(cls, model_params: Any, config: Optional[controllers.Config] = None) -> controllers.IController:
+        return controllers.ControllerBuilder.construct_controller(model_params, config)
 
     @classmethod
     def construct_model(cls, config: Optional[models.Config] = None) -> models.IModel:
@@ -215,13 +218,7 @@ class IShip(ABC):
         "Track obstacles using the sensor suite, taking the obstacle states as inputs at the current time."
 
     @abstractmethod
-    def plan(
-        self,
-        t: float,
-        dt: float,
-        do_list: list,
-        enc: Optional[senc.ENC] = None,
-    ) -> np.ndarray:
+    def plan(self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
         "Plan a new trajectory for the ship, either using the onboard guidance system or COLAV system employed."
 
 
@@ -268,7 +265,7 @@ class Ship(IShip):
         self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
-        self._model, self._controller, self._guidance, self.sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
+        self._model, self._controller, self._guidance, self._sensors, self._tracker, self._colav = ShipBuilder.construct_ship(config)
 
         if model is not None:
             self._model = model
@@ -323,13 +320,19 @@ class Ship(IShip):
         if config.mmsi != -1:
             self._mmsi = config.mmsi
 
-    def plan(
-        self,
-        t: float,
-        dt: float,
-        do_list: list,
-        enc: Optional[senc.ENC] = None,
-    ) -> np.ndarray:
+    def plan(self, t: float, dt: float, do_list: list, enc: Optional[senc.ENC] = None, w: Optional[stochasticity.DisturbanceData] = None) -> np.ndarray:
+        """Plans a new trajectory for the ship, either using the onboard guidance system or COLAV system employed.
+
+        Args:
+            t (float): Current time (s) relative to the start of the simulation.
+            dt (float): Time step (s) between the current and last planning step.
+            do_list (list): List of dynamic obstacles in the vicinity of the ship.
+            enc (Optional[senc.ENC], optional): Electronic navigational chart object. Defaults to None.
+            w (Optional[stochasticity.DisturbanceData], optional): Disturbance data possibly available to the COLAV system. Defaults to None.
+
+        Returns:
+            np.ndarray: The new planned trajectory for the ship.
+        """
 
         # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
         if self._trajectory.size > 0:
@@ -347,16 +350,17 @@ class Ship(IShip):
                 do_list,
                 enc,
                 self._goal_state,
+                w,
                 os_length=self._model.params.length,
                 os_width=self._model.params.width,
                 os_draft=self._model.params.draft,
             )
-            return self._references
-
-        self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
+        elif self._guidance is not None:
+            self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
+        # If both the COLAV-system and guidance-system is None, the ship is following external commands, e.g. from an RL-agent.
         return self._references
 
-    def forward(self, dt: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def forward(self, dt: float, w: Optional[stochasticity.DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Predicts the ship state dt seconds forward in time.
 
         If the ship is following a predefined trajectory,
@@ -365,6 +369,7 @@ class Ship(IShip):
 
         Args:
             dt (float): Time step (s) in the prediction.
+            w (Optional[stochasticity.DisturbanceData]): The disturbance to apply to the ship. Defaults to None.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: The new state dt seconds ahead,
@@ -390,9 +395,9 @@ class Ship(IShip):
         if dt <= 0.0:
             return self._state, np.empty(3), np.empty(9)
 
-        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt, self._model)
+        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, dt)
+        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, w, dt)
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
@@ -433,6 +438,15 @@ class Ship(IShip):
 
         self._waypoints = waypoints
         self._speed_plan = speed_plan
+
+    def set_references(self, references: np.ndarray) -> None:
+        """Sets the references of the ship (pose, velocity and acceleration).
+        If LOS-guidance is used, the references are [0, 0, chi_d, U_d, 0, 0, 0, 0, 0]^T.
+
+        Args:
+            references (np.ndarray): References to set. Typically the output of an external COLAV system in e.g. RL-context.
+        """
+        self._references = references.reshape((9, 1))
 
     def set_colav_system(self, colav: Any | ci.ICOLAV) -> None:
         """Sets the COLAV system to be used by the ship.
@@ -588,6 +602,18 @@ class Ship(IShip):
             return np.array([self._state[0], self._state[1], speed, cog])
 
     @property
+    def state(self) -> np.ndarray:
+        """Returns the 3DOF ship state if a 3DOF model is used.
+
+        Returns:
+            np.ndarray: Ship state.
+        """
+        if isinstance(self._model, models.KinematicCSOG):
+            raise ValueError("This property is not available for KinematicCSOG as it is not 3DOF.")
+
+        return self._state
+
+    @property
     def max_speed(self) -> float:
         return self._model.params.U_max
 
@@ -644,6 +670,10 @@ class Ship(IShip):
             return np.array([])
         else:
             return self._trajectory[:, self._first_valid_idx : self._last_valid_idx + 1]
+
+    @property
+    def sensors(self) -> list:
+        return self._sensors
 
     def plot_colav_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         """Plots the COLAV data of the ship, if available.

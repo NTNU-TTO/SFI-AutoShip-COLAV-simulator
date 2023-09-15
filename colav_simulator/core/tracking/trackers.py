@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
@@ -37,7 +37,7 @@ class ITracker(ABC):
 class KFParams:
     """Class for holding KF parameters."""
 
-    P_0: np.ndarray = np.diag([49.0, 49.0, 0.1, 0.1])
+    P_0: np.ndarray = field(default_factory=lambda: np.diag([49.0, 49.0, 0.1, 0.1]))
     q: float = 0.15
 
     def to_dict(self):
@@ -53,7 +53,7 @@ class KFParams:
 class Config:
     """Class for holding tracker configuration parameters."""
 
-    kf: Optional[KFParams] = KFParams()
+    kf: Optional[KFParams] = field(default_factory=lambda: KFParams())
 
     def to_dict(self) -> dict:
         output_dict = {}

@@ -5,20 +5,26 @@
         Contains the interface used by all COLAV planning algorithms that
         wants to be run with the COLAV simulator.
 
-        To add a new COLAV planning algorithm:
+        To add a new COLAV planning algorithm internally to the simulator:
 
-        1: Import the algorithm in this file.
+        1: Import necessary algorithm modules in this file.
         2: Add the algorithm name as a type to the COLAVType enum.
         3: Add the algorithm as an optional entry to the LayerConfig class.
         4: Create a new wrapper class for your COLAV algorithm,
-        which implements (inherits as this is python) this interface. It should take in a Config object as input.
+        which implements (inherits as this is python) the ICOLAV interface. It should take in a Config object as input.
         5: Add an entry in the COLAVBuilder class, which builds it from config if the type matches.
-        See an example for the Kuwata VO below.
+        See an example for the Kuwata VO and SBMPC below.
+
+        Alternatively, to be able to use a third-party COLAV planning algorithm:
+
+        1: Import this module in your own code.
+        2: Create a wrapper class for your COLAV algorithm that implements the ICOLAV interface.
+        3: Provide your third-party algorithm to the simulator at run-time (see Simulator class in simulator.py).
 
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -26,6 +32,7 @@ import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
 import colav_simulator.core.colav.sbmpc.sbmpc as sb_mpc
 import colav_simulator.core.guidances as guidance
+import colav_simulator.core.stochasticity as stochasticity
 import matplotlib.pyplot as plt
 import numpy as np
 from seacharts.enc import ENC
@@ -42,7 +49,7 @@ class COLAVType(Enum):
 class LayerConfig:
     """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
 
-    vo: Optional[kvo.VOParams] = kvo.VOParams()
+    vo: Optional[kvo.VOParams] = field(default_factory=lambda: kvo.VOParams())
     los: Optional[guidance.LOSGuidanceParams] = None
     sbmpc: Optional[sb_mpc.SBMPCParams] = None
 
@@ -80,7 +87,7 @@ class Config:
     """Configuration class for managing COLAV system parameters for all considered layers in the COLAV hierarchy."""
 
     name: COLAVType = COLAVType.VO
-    layer1: LayerConfig = LayerConfig()
+    layer1: LayerConfig = field(default_factory=lambda: LayerConfig())
     layer2: Optional[LayerConfig] = None
     layer3: Optional[LayerConfig] = None
 
@@ -119,6 +126,7 @@ class ICOLAV(ABC):
         do_list: list,
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
+        w: Optional[stochasticity.DisturbanceData] = None,
         **kwargs
     ) -> np.ndarray:
         """Plans a (hopefully) collision free trajectory for the ship to follow.
@@ -131,6 +139,7 @@ class ICOLAV(ABC):
             do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
             enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
             goal_state (Optional[np.ndarray]): The goal state [x, y, psi, u, v, r], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
+            w (Optional[stochasticity.DisturbanceData]): The stochastic disturbance data. Defaults to None.
             **kwargs: Additional arguments to the COLAV planning algorithm, e.g. the own-ship length.
 
         Returns:
@@ -189,6 +198,7 @@ class VOWrapper(ICOLAV):
         do_list: list,
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
+        w: Optional[stochasticity.DisturbanceData] = None,
         **kwargs
     ) -> np.ndarray:
         if not self._initialized:
@@ -237,6 +247,7 @@ class SBMPCWrapper(ICOLAV):
         do_list: list,
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
+        w: Optional[stochasticity.DisturbanceData] = None,
         **kwargs
     ) -> np.ndarray:
         if not self._initialized:
@@ -269,7 +280,7 @@ class SBMPCWrapper(ICOLAV):
 
 class COLAVBuilder:
     @classmethod
-    def construct_colav(cls, config: Optional[Config] = None) -> ICOLAV:
+    def construct_colav(cls, config: Optional[Config] = None) -> Optional[ICOLAV]:
         """Builds a colav system from the configuration, if it is specified.
 
         Args:
@@ -279,13 +290,8 @@ class COLAVBuilder:
             ICOLAV: The COLAV system (if any config), e.g. Kuwata VO.
         """
         if config and config.name == COLAVType.VO:
-            colav = VOWrapper(config)
+            return VOWrapper(config)
         elif config and config.name == COLAVType.SBMPC:
-            colav = SBMPCWrapper(config)
+            return SBMPCWrapper(config)
         else:
-            config = Config()
-            config.layer2 = LayerConfig()
-            config.layer2.los = guidance.LOSGuidanceParams()
-            colav = VOWrapper(config)
-
-        return colav
+            return None
