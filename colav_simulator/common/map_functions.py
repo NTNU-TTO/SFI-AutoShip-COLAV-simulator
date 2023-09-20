@@ -20,7 +20,7 @@ import shapely.ops as ops
 from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
-from shapely import affinity
+from shapely import affinity, strtree
 from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon
 
 
@@ -344,12 +344,12 @@ def create_safe_sea_triangulation(enc: ENC, vessel_min_depth: int = 5, show_plot
     cdt_list = []
     largest_poly_area = 0.0
     for poly in safe_sea_poly_list:
-        enc.draw_polygon(poly, color="orange", alpha=0.5)
         cdt = constrained_delaunay_triangulation_custom(poly)
         if poly.area > largest_poly_area:
             largest_poly_area = poly.area
             cdt_largest = cdt
         if show_plots:
+            enc.draw_polygon(poly, color="orange", alpha=0.5)
             enc.start_display()
             for triangle in cdt:
                 enc.draw_polygon(triangle, color="black", fill=False)
@@ -479,31 +479,52 @@ def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
     return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
 
 
-def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC, show_plots: bool = False) -> list:
-    """Extracts the union of the relevant grounding hazards from the ENC as a list of polygons.
+def extract_relevant_grounding_hazards_as_union(vessel_min_depth: int, enc: ENC, buffer: Optional[float] = None, show_plots: bool = False) -> list:
+    """Extracts the relevant grounding hazards from the ENC as a multipolygon.
 
     This includes land, shore and seabed polygons that are below the vessel`s minimum depth.
 
     Args:
-        - vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
-        - enc (senc.ENC): The ENC to check for grounding.
-        - show_plots (bool, optional): Option for visualization. Defaults to False.
+        vessel_min_depth (int): The minimum depth required for the vessel to avoid grounding.
+        enc (senc.ENC): The ENC to check for grounding.
+        buffer (Optional[float], optional): Buffer for polygons. Defaults to None.
+        show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
-        list: The relevant grounding hazards.
+        geometry.MultiPolygon: The relevant grounding hazards.
     """
     dangerous_seabed = enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
     # return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
     relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
     filtered_relevant_hazards = []
     for hazard in relevant_hazards:
-        filtered_relevant_hazards.append(MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon)))
+        poly = MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon))
+        if buffer is not None:
+            poly = poly.buffer(buffer)
+        filtered_relevant_hazards.append(poly)
 
     if show_plots:
         enc.start_display()
         for hazard in filtered_relevant_hazards:
             enc.draw_polygon(hazard, color="red", alpha=0.5)
     return filtered_relevant_hazards
+
+
+def fill_rtree_with_geometries(geometries: list) -> Tuple[strtree.STRtree, list]:
+    """Fills an rtree with the given multipolygon geometries. Used for fast spatial queries.
+
+    Args:
+        - geometries (list): The geometries to fill the rtree with.
+
+    Returns:
+        Tuple[strtree.STRtree, list]: The rtree containing the geometries, and the Polygon objects used to build it.
+    """
+    poly_list = []
+    for poly in geometries:
+        assert isinstance(poly, MultiPolygon), "Only MultiPolygon members are supported"
+        for sub_poly in poly.geoms:
+            poly_list.append(sub_poly)
+    return strtree.STRtree(poly_list), poly_list
 
 
 def generate_random_start_position_from_draft(
@@ -788,6 +809,89 @@ def distances_to_coast(poly_port: Polygon, poly_front: Polygon, poly_starboard: 
     return dist_port, dist_front, dist_starboard
 
 
+def generate_enveloping_polygon(trajectory: np.ndarray, buffer: float) -> Polygon:
+    """Creates an enveloping polygon around the trajectory of the vessel, buffered by the given amount.
+
+    Args:
+        - trajectory (np.ndarray): Trajectory with columns [x, y, psi, u, v, r]
+        - buffer (float): Buffer size
+
+    Returns:
+        Polygon: The query polygon
+    """
+    point_list = []
+    for k in range(trajectory.shape[1]):
+        point_list.append((trajectory[1, k], trajectory[0, k]))
+    trajectory_linestring = LineString(point_list).buffer(buffer)
+    return trajectory_linestring
+
+
+def extract_polygons_near_trajectory(
+    trajectory: np.ndarray, geometry_tree: strtree.STRtree, buffer: float, enc: Optional[ENC] = None, show_plots: bool = False
+) -> Tuple[list, Polygon]:
+    """Extracts the polygons that are relevant for the trajectory of the vessel, inside a corridor of the given buffer size.
+
+    Args:
+        - trajectory (np.ndarray): Trajectory with columns [x, y, psi, u, v, r]
+        - geometry_tree (strtree.STRtree): The rtree containing the relevant grounding hazard polygons.
+        - buffer (float): Buffer size
+        - enc (Optional[ENC]): Electronic Navigational Chart object used for plotting. Defaults to None.
+        - show_plots (bool, optional): Whether to show plots or not. Defaults to False.
+
+    Returns:
+        Tuple[list, Polygon]: List of tuples of relevant polygons inside query/envelope polygon and the corresponding original polygon they belong to. Also returns the query polygon.
+    """
+    enveloping_polygon = generate_enveloping_polygon(trajectory, buffer)
+    polygons_near_trajectory = geometry_tree.query(enveloping_polygon)
+    poly_list = []
+    for poly in polygons_near_trajectory:
+        relevant_poly_list = []
+        intersection_poly = enveloping_polygon.intersection(poly)
+        if intersection_poly.area == 0.0 and intersection_poly.length == 0.0:
+            continue
+
+        if isinstance(intersection_poly, MultiPolygon):
+            for sub_poly in intersection_poly.geoms:
+                relevant_poly_list.append(sub_poly)
+        else:
+            relevant_poly_list.append(intersection_poly)
+        poly_list.append((relevant_poly_list, poly))
+
+    if enc is not None and show_plots:
+        enc.start_display()
+        enc.draw_polygon(enveloping_polygon, color="yellow", alpha=0.2)
+        # for poly_sublist, _ in poly_list:
+        #     for poly in poly_sublist:
+        #         enc.draw_polygon(poly, color="red", fill=False)
+
+    return poly_list, enveloping_polygon
+
+
+def extract_vertices_from_polygon_list(polygons: list) -> Tuple[np.ndarray, np.ndarray]:
+    """Creates a list of x and y coordinates from a list of polygons.
+
+    Args:
+        polygons (list): List of shapely polygons.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple of two numpy arrays containing the x (north) and y (east) coordinates of the polygons.
+    """
+    px, py = [], []
+    for i, poly in enumerate(polygons):
+        if isinstance(poly, MultiPolygon):
+            for sub_poly in poly:
+                y, x = sub_poly.exterior.coords.xy
+                px.extend(x[:-1].tolist())
+                py.extend(y[:-1].tolist())
+        elif isinstance(poly, Polygon):
+            y, x = poly.exterior.coords.xy
+            px.extend(x[:-1].tolist())
+            py.extend(y[:-1].tolist())
+        else:
+            continue
+    return np.array(px), np.array(py)
+
+
 def extract_boundary_polygons_inside_envelope(poly_tuple_list: list, enveloping_polygon: Polygon, enc: Optional[ENC] = None, show_plots: bool = True) -> list:
     """Extracts the boundary trianguled polygons that are relevant for the trajectory of the vessel, inside the given envelope polygon.
 
@@ -956,3 +1060,61 @@ def constrained_delaunay_triangulation_custom(polygon: Polygon) -> list:
         else:
             cdt_triangles.append(intersection_poly)
     return cdt_triangles
+
+
+def plot_trajectory(trajectory: np.ndarray, enc: ENC, color: str) -> None:
+    """Plots the trajectory on the ENC.
+
+    Args:
+        trajectory (np.ndarray): Input trajectory, minimum 2 x n_samples.
+        enc (ENC): Electronic Navigational Chart object
+        color (str): Color of the trajectory
+    """
+    enc.start_display()
+    trajectory_line = []
+    for k in range(trajectory.shape[1]):
+        trajectory_line.append((trajectory[1, k], trajectory[0, k]))
+    enc.draw_line(trajectory_line, color=color, width=0.5, thickness=0.5, marker_type=None)
+
+
+def plot_dynamic_obstacles(dynamic_obstacles: list, enc: ENC, T: float, dt: float) -> None:
+    """Plots the dynamic obstacles as ellipses and ship polygons.
+
+    Args:
+        dynamic_obstacles (list): List of tuples containing (ID, state, cov, length, width)
+        enc (ENC): Electronic Navigational Chart object
+        T (float): Horizon to predict straight line trajectories for the dynamic obstacles
+        dt (float): Time step for the straight line trajectories
+    """
+    N = int(T / dt)
+    enc.start_display()
+    for (ID, state, cov, length, width) in dynamic_obstacles:
+        ellipse_x, ellipse_y = mhm.create_probability_ellipse(cov, 0.99)
+        ell_geometry = Polygon(zip(ellipse_y + state[1], ellipse_x + state[0]))
+        enc.draw_polygon(ell_geometry, color="orange", alpha=0.3)
+
+        for k in range(0, N, 10):
+            do_poly = create_ship_polygon(
+                state[0] + k * dt * state[2], state[1] + k * dt * state[3], np.arctan2(state[3], state[2]), length, width, length_scaling=1.0, width_scaling=1.0
+            )
+            enc.draw_polygon(do_poly, color="red")
+        do_poly = create_ship_polygon(state[0], state[1], np.arctan2(state[3], state[2]), length, width, length_scaling=1.0, width_scaling=1.0)
+        enc.draw_polygon(do_poly, color="red")
+
+
+def plot_rrt_tree(node_list: list, enc: ENC) -> None:
+    """Plots an RRT tree given by the list of nodes containing (state, parent_id, id, trajectory, inputs, cost)
+
+    Args:
+        node_list (list): List of nodes containing (state, parent_id, id, trajectory, inputs, cost)
+        enc (ENC): Electronic Navigational Chart object
+    """
+    enc.start_display()
+    for node in node_list:
+        enc.draw_circle((node["state"][1], node["state"][0]), 2.5, color="green", fill=False, thickness=0.8, edge_style=None)
+        for sub_node in node_list:
+            if node["id"] == sub_node["id"] or sub_node["parent_id"] != node["id"]:
+                continue
+            points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
+            if len(points) > 1:
+                enc.draw_line(points, color="white", width=0.5, thickness=0.5, marker_type=None)
