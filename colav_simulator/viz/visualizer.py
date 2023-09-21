@@ -183,8 +183,8 @@ class Visualizer:
         Returns:
             Tuple[list, list]: The x and y limits of the map
         """
-        xlimits = [1e10, -1e10]
-        ylimits = [1e10, -1e10]
+        xlimits = [-1e10, 1e10]
+        ylimits = [-1e10, 1e10]
         if ownship.trajectory.size > 0:
             xlimits, ylimits = mhm.update_xy_limits_from_trajectory_data(ownship.trajectory, xlimits, ylimits)
         elif ownship.waypoints.size > 0:

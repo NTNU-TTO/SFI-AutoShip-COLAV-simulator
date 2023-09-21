@@ -429,10 +429,7 @@ class Telemetron(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
         nu = xs[3:6]
-        nu[0] = mf.sat(nu[0], -1e10, self._params.U_max)
-        nu[2] = mf.sat(nu[2], -self._params.r_max, self._params.r_max)
 
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
         u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
@@ -445,9 +442,6 @@ class Telemetron(IModel):
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
         ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
-
-        if abs(nu[0]) < 0.1:
-            ode_fun[2] = 0.0
 
         return ode_fun
 

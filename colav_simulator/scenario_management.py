@@ -678,7 +678,7 @@ class ScenarioGenerator:
 
             # Target ship poses are created relative to the own-ship (idx 0).
             csog_state = ship_config.csog_state
-            if ship_config.csog_state is None:
+            if ship_config.csog_state is None and ship_config.random_generated:
                 if cfg_ship_idx == 0:
                     csog_state = self.generate_random_csog_state(U_min=5.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 2.0)
                 else:
@@ -696,7 +696,7 @@ class ScenarioGenerator:
             if cfg_ship_idx == 0:
                 os_csog_state = csog_state
 
-            if ship_config.waypoints is None:
+            if ship_config.waypoints is None and ship_config.random_generated:
                 waypoints = self.generate_random_waypoints(csog_state[0], csog_state[1], csog_state[3], ship_obj.draft)
                 speed_plan = self.generate_random_speed_plan(csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints

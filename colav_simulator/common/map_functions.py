@@ -1062,7 +1062,7 @@ def constrained_delaunay_triangulation_custom(polygon: Polygon) -> list:
     return cdt_triangles
 
 
-def plot_trajectory(trajectory: np.ndarray, enc: ENC, color: str) -> None:
+def plot_trajectory(trajectory: np.ndarray, enc: ENC, color: str, marker_type: Optional[str] = None, edge_style: Optional[str] = None) -> None:
     """Plots the trajectory on the ENC.
 
     Args:
@@ -1074,7 +1074,7 @@ def plot_trajectory(trajectory: np.ndarray, enc: ENC, color: str) -> None:
     trajectory_line = []
     for k in range(trajectory.shape[1]):
         trajectory_line.append((trajectory[1, k], trajectory[0, k]))
-    enc.draw_line(trajectory_line, color=color, width=0.5, thickness=0.5, marker_type=None)
+    enc.draw_line(trajectory_line, color=color, width=0.5, thickness=0.5, marker_type=marker_type, edge_style=edge_style)
 
 
 def plot_dynamic_obstacles(dynamic_obstacles: list, enc: ENC, T: float, dt: float) -> None:
