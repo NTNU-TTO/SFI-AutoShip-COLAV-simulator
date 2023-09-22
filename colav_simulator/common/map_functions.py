@@ -464,7 +464,7 @@ def find_minimum_depth(vessel_draft: float, enc: ENC):
 
 
 def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
-    """Extracts the relevant grounding hazards from the ENC as a list of polygons.
+    """Extracts the relevant grounding hazards from the ENC as a list of (multi) polygons.
 
     This includes land, shore and seabed polygons that are below the vessel`s minimum depth.
 

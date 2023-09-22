@@ -1,7 +1,7 @@
 save_scenario_results: False
 verbose: True
 visualizer:
-  show_liveplot: True
+  show_liveplot: False
   show_colav_results_live: True
   show_measurements: False
   show_liveplot_tracks: False

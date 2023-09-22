@@ -199,7 +199,8 @@ class Visualizer:
 
     def close_live_plot(self) -> None:
         """Closes the live plot."""
-        plt.close(fig=self.fig)
+        if self._config.show_liveplot:
+            plt.close(fig=self.fig)
 
     def init_live_plot(self, enc: ENC, ship_list: list) -> None:
         """Initializes the plot handles of the live plot for a simulation
