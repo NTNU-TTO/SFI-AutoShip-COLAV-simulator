@@ -304,6 +304,21 @@ class NavigationCSOGStateObservation(ObservationType):
         return self.normalize(obs)
 
 
+class ImageObservation(ObservationType):
+    """Observes a map image of the environment, possibly with multiple layers (static obstacles, dynamic obstacles, traffic separation schemes etc.)."""
+
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        super().__init__(env)
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        pass
+
+    def observe(self) -> Observation:
+        """Get an observation of the environment state."""
+        pass
+
+
 class TupleObservation(ObservationType):
     """Observation consisting of multiple observation types."""
 
@@ -335,6 +350,8 @@ def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = 
         return Navigation3DOFStateObservation(env, **kwargs)
     elif observation_type == "navigation_csog_state_observation":
         return NavigationCSOGStateObservation(env, **kwargs)
+    elif observation_type == "image_observation":
+        return ImageObservation(env, **kwargs)
     elif "tuple_observation" in observation_type:
         return TupleObservation(env, observation_type["tuple_observation"], **kwargs)
     else:
