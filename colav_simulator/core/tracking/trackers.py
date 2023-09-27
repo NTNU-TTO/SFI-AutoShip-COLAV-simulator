@@ -241,16 +241,17 @@ class KF(ITracker):
                 relevant_do_states.append((do_idx, do_state))
 
         n_tracked_do = len(self._xs_upd)
-        # TODO: Implement track termination for when covariance is too large.
-        for i in range(n_tracked_do):
-            if np.sqrt(self._P_upd[i][0, 0]) > 50.0 or np.sqrt(self._P_upd[i][1, 1]) > 50.0:
-                self._track_terminated[i] = True
+        # # TODO: Implement track termination for when covariance is too large.
+        # for i in range(n_tracked_do):
+        #     if np.sqrt(self._P_upd[i][0, 0]) > 50.0 or np.sqrt(self._P_upd[i][1, 1]) > 50.0:
+        #         self._track_terminated[i] = True
 
         # Only generate measurements for initialized tracks
         sensor_measurements = []
-        for sensor in self.sensors:
-            z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
-            sensor_measurements.append(z)
+        if relevant_do_states:
+            for sensor in self.sensors:
+                z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
+                sensor_measurements.append(z)
 
         tracks = []
         for i in range(n_tracked_do):
@@ -259,12 +260,13 @@ class KF(ITracker):
                 self._xs_upd[i] = self._xs_p[i]
                 self._P_upd[i] = self._P_p[i]
 
-                for sensor_id in range(len(self.sensors)):
-                    z = sensor_measurements[sensor_id][i]
-                    self._xs_upd[i], self._P_upd[i], NIS_i = self.update(self._xs_upd[i], self._P_upd[i], z, sensor_id)
+                if sensor_measurements:
+                    for sensor_id in range(len(self.sensors)):
+                        z = sensor_measurements[sensor_id][i]
+                        self._xs_upd[i], self._P_upd[i], NIS_i = self.update(self._xs_upd[i], self._P_upd[i], z, sensor_id)
 
-                    if not np.isnan(NIS_i):
-                        self._NIS[i] = NIS_i
+                        if not np.isnan(NIS_i):
+                            self._NIS[i] = NIS_i
 
             tracks.append(
                 (
