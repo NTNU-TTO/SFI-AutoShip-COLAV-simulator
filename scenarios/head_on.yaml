@@ -25,7 +25,7 @@ ship_list:
       #     R_a: 15.0
       #     K_p: 0.015
       #     K_i: 0.0
-      #     e_int_max: 200.0
+      #     max_cross_track_error_int: 200.0
       # layer1:
       #   vo:
       #     length_os: 15.0
@@ -53,7 +53,7 @@ ship_list:
         R_a: 15.0
         K_p: 0.024
         K_i: 0.0
-        e_int_max: 101.0
+        max_cross_track_error_int: 101.0
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -95,7 +95,7 @@ ship_list:
     #       R_a: 15.0
     #       K_p: 0.015
     #       K_i: 0.0
-    #       e_int_max: 200.0
+    #       max_cross_track_error_int: 200.0
     #   layer1:
     #     vo:
     #       length_os: 15.0
@@ -138,7 +138,7 @@ ship_list:
         R_a: 15.0
         K_p: 0.024
         K_i: 0.0
-        e_int_max: 101.0
+        max_cross_track_error_int: 101.0
     controller:
       flsh:
         K_p_u: 3.0

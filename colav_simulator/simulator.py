@@ -86,6 +86,14 @@ class Simulator:
 
         self.visualizer = viz.Visualizer(self._config.visualizer)
 
+    def toggle_liveplot_visibility(self, visible: bool) -> None:
+        """Toggles the visibility of the live plot.
+
+        Args:
+            visible (bool): Whether the live plot should be visible or not.
+        """
+        self.visualizer.toggle_liveplot_visibility(visible)
+
     def initialize_scenario_episode(
         self,
         ship_list: list,

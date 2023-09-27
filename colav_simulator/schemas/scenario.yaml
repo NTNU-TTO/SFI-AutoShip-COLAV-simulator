@@ -337,7 +337,7 @@ ship_list:
               K_i:
                 required: True
                 type: float
-              e_int_max:
+              max_cross_track_error_int:
                 required: True
                 type: float
           ktp:
