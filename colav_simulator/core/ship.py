@@ -402,7 +402,7 @@ class Ship(IShip):
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
         """Tracks obstacles in the vicinity of the ship."""
-        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_csog_state_to_vxvy_state(self.csog_state))
+        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
         return tracks
 
     def set_initial_state(self, csog_state: np.ndarray) -> None:

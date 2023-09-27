@@ -4,11 +4,11 @@ visualizer:
   show_liveplot: False
   show_colav_results_live: True
   show_measurements: False
-  show_liveplot_tracks: False
+  show_liveplot_tracks: True
   show_waypoints: True
-  zoom_in_liveplot_on_ownship: False
+  zoom_in_liveplot_on_ownship: True
   show_results: True
-  show_target_tracking_results: False
+  show_target_tracking_results: True
   show_trajectory_tracking_results: True
   dark_mode_liveplot: True
   figsize: [14, 10]

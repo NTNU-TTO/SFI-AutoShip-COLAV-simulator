@@ -53,21 +53,27 @@ class KFParams:
 class Config:
     """Class for holding tracker configuration parameters."""
 
+    god_tracker: Optional[bool] = False
     kf: Optional[KFParams] = field(default_factory=lambda: KFParams())
 
     def to_dict(self) -> dict:
         output_dict = {}
         if self.kf is not None:
             output_dict["kf"] = self.kf.to_dict()
+        if self.god_tracker is not None:
+            output_dict["god_tracker"] = ""
 
         return output_dict
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config(None)
+        config = Config()
 
         if "kf" in config_dict:
             config.kf = cp.convert_settings_dict_to_dataclass(KFParams, config_dict["kf"])
+        elif "god_tracker" in config_dict:
+            config.god_tracker = True
+            config.kf = None
 
         return config
 
@@ -86,8 +92,90 @@ class TrackerBuilder:
         """
         if config and config.kf:
             return KF(sensors, config.kf)
+        elif config and config.god_tracker:
+            return GodTracker(sensors)
         else:
             return KF(sensors)
+
+
+class GodTracker(ITracker):
+    """This tracker is used to simulate perfect knowledge of dynamic obstacles."""
+
+    def __init__(self, sensor_list: list) -> None:
+        if sensor_list is None:
+            raise ValueError("Sensor list must be provided.")
+
+        self.sensors: list = sensor_list
+
+        self._initialized: bool = False
+        self._labels: list = []
+        self._xs_upd: list = []
+        self._P_upd: list = []
+        self._length_upd: list = []
+        self._width_upd: list = []
+
+    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
+        """Tracks/updates estimates on dynamic obstacles perfectly within the sensor range.
+
+        Args:
+            dt (float): Time since last update
+            t (float): Current time (assumed >= 0)
+            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
+            ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
+
+        Returns:
+            Tuple[list, list]: List of ground truth dynamic obstacle tracks (ID, state, cov, length, width). Also, the sensor measurements list (not used).
+        """
+        relevant_do_states = []
+        max_sensor_range = max([sensor.max_range for sensor in self.sensors])
+        for i, (do_idx, do_state, do_length, do_width) in enumerate(true_do_states):
+            d2ownship = np.linalg.norm(do_state[:2] - ownship_state[:2])
+            if self._initialized and do_idx in self._labels and d2ownship < max_sensor_range:
+                relevant_do_states.append((do_idx, do_state))
+
+        if not self._initialized:
+            for do_idx, do_state, do_length, do_width in true_do_states:
+                self._labels.append(do_idx)
+                self._xs_upd.append(do_state)
+                self._P_upd.append(np.zeros((4, 4)))
+                self._length_upd.append(do_length)
+                self._width_upd.append(do_width)
+            self._initialized = True
+
+        # Only generate measurements for initialized tracks
+        sensor_measurements = []
+        for sensor in self.sensors:
+            z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
+            sensor_measurements.append(z)
+
+        tracks = []
+        n_tracked_do = len(true_do_states)
+        for i in range(n_tracked_do):
+            self._xs_upd[i] = true_do_states[i][1]
+            tracks.append(
+                (
+                    self._labels[i],
+                    self._xs_upd[i],
+                    self._P_upd[i],
+                    self._length_upd[i],
+                    self._width_upd[i],
+                )
+            )
+        return tracks, sensor_measurements
+
+    def get_track_information(self) -> Tuple[list, list]:
+        tracks = []
+        for i, label in enumerate(self._labels):
+            tracks.append(
+                (
+                    label,
+                    self._xs_upd[i],
+                    self._P_upd[i],
+                    self._length_upd[i],
+                    self._width_upd[i],
+                )
+            )
+        return tracks, [0.0 for _ in range(len(tracks))]
 
 
 class KF(ITracker):
@@ -113,8 +201,8 @@ class KF(ITracker):
         self._P_p: list = []
         self._xs_upd: list = []
         self._P_upd: list = []
-        self._length_upd: list = []  # List of DO length estimates. Not used in the KF-tracker, default 20m
-        self._width_upd: list = []  # List of DO width estimates. Not used in the KF-tracker, default 5m
+        self._length_upd: list = []  # List of DO length estimates. Assumed known
+        self._width_upd: list = []  # List of DO width estimates. Assumed known
         self._NIS: list = []
 
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
@@ -126,7 +214,7 @@ class KF(ITracker):
         Args:
             dt (float): Time since last update
             t (float): Current time (assumed >= 0)
-            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy]) x n_do. Used for simulating sensor measurements.
+            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
             ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
 
         Returns:
@@ -134,7 +222,7 @@ class KF(ITracker):
         """
         relevant_do_states = []
         max_sensor_range = max([sensor.max_range for sensor in self.sensors])
-        for do_idx, do_state in true_do_states:
+        for do_idx, do_state, do_length, do_width in true_do_states:
             dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
             if do_idx not in self._labels and dist_ownship_to_do < max_sensor_range:
                 # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
@@ -145,8 +233,8 @@ class KF(ITracker):
                 self._P_upd.append(self._params.P_0)
                 self._xs_p.append(do_state)
                 self._P_p.append(self._params.P_0)
-                self._length_upd.append(20.0)
-                self._width_upd.append(5.0)
+                self._length_upd.append(do_length)
+                self._width_upd.append(do_width)
                 self._NIS.append(np.nan)
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True

@@ -241,8 +241,8 @@ class Simulator:
         true_do_states = []
         for i, ship_obj in enumerate(self.ship_list):
             if ship_obj.t_start <= self.t:
-                vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
-                true_do_states.append((i, vxvy_state))
+                vxvy_state = mhm.convert_state_to_vxvy_state(ship_obj.csog_state)
+                true_do_states.append((i, vxvy_state, ship_obj.length, ship_obj.width))
 
         disturbance_data: Optional[stochasticity.DisturbanceData] = None
         if self.disturbance is not None:

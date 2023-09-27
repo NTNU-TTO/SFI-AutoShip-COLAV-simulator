@@ -16,6 +16,7 @@ import colav_simulator.common.paths as dp
 import colav_simulator.core.ship as ship
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from cartopy.feature import ShapelyFeature
 from matplotlib_scalebar.scalebar import ScaleBar
@@ -729,7 +730,7 @@ class Visualizer:
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
                     do_true_states_j = trajectory_list[do_labels[j]]
-                    do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
+                    do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
 
                     ax_map.plot(
                         do_estimates_j[1, first_valid_idx_track:end_idx_j],
@@ -879,7 +880,7 @@ class Visualizer:
                 continue
 
             do_true_states_j = trajectory_list[do_labels[j]]
-            do_true_states_j = mhm.convert_csog_state_to_vxvy_state(do_true_states_j)
+            do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
 
             # z_val = norm.ppf(confidence_level)
             # std_x = np.sqrt(do_covariances_j[0, 0, :])
@@ -935,12 +936,18 @@ class Visualizer:
         # axes["x"].set_xlabel("Time [s]")
         axes["x"].set_ylabel("North [m]")
         axes["x"].legend()
+        current_values = axes["x"].get_yticks().tolist()
+        axes["x"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["x"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
         axes["y"].plot(sim_times[:n_samples], trajectory[1, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
         axes["y"].plot(sim_times[:n_samples], reference_trajectory[1, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
         # axes["y"].set_xlabel("Time [s]")
         axes["y"].set_ylabel("East [m]")
         axes["y"].legend()
+        current_values = axes["y"].get_yticks().tolist()
+        axes["y"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["y"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
         axes["psi"].plot(sim_times[:n_samples], trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
         axes["psi"].plot(
@@ -1008,8 +1015,8 @@ class Visualizer:
         )
 
         z_val = norm.ppf(confidence_level)
-        axes["x"].plot(sim_times, do_estimates[0, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
-        axes["x"].plot(sim_times, do_true_states[0, :], color="xkcd:red", linewidth=do_lw, label="true")
+        axes["x"].plot(sim_times, do_estimates[0, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["x"].plot(sim_times, do_true_states[0, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true")
         std_x = np.sqrt(do_covariances[0, 0, :])
         axes["x"].fill_between(
             sim_times,
@@ -1021,9 +1028,12 @@ class Visualizer:
         axes["x"].set_xlabel("Time [s]")
         axes["x"].set_ylabel("North [m]")
         axes["x"].legend()
+        current_values = axes["x"].get_yticks().tolist()
+        axes["x"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["x"].set_yticklabels(["{:.1f}".format(x) for x in current_values])
 
-        axes["y"].plot(sim_times, do_estimates[1, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
-        axes["y"].plot(sim_times, do_true_states[1, :], color="xkcd:red", linewidth=do_lw, label="true")
+        axes["y"].plot(sim_times, do_estimates[1, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate")
+        axes["y"].plot(sim_times, do_true_states[1, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true")
         std_y = np.sqrt(do_covariances[1, 1, :])
         axes["y"].fill_between(
             sim_times,
@@ -1035,6 +1045,9 @@ class Visualizer:
         axes["y"].set_xlabel("Time [s]")
         axes["y"].set_ylabel("East [m]")
         axes["y"].legend()
+        current_values = axes["y"].get_yticks().tolist()
+        axes["y"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["y"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
         axes["Vx"].plot(sim_times, do_estimates[2, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
         axes["Vx"].plot(sim_times, do_true_states[2, :], color="xkcd:red", linewidth=do_lw, label="true")
@@ -1049,6 +1062,9 @@ class Visualizer:
         axes["Vx"].set_xlabel("Time [s]")
         axes["Vx"].set_ylabel("North speed [m/s]")
         axes["Vx"].legend()
+        current_values = axes["Vx"].get_yticks().tolist()
+        axes["Vx"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["Vx"].set_yticklabels(["{:.2f}".format(x) for x in current_values])
 
         axes["Vy"].plot(sim_times, do_estimates[3, :], color="xkcd:blue", linewidth=do_lw, label="estimate")
         axes["Vy"].plot(sim_times, do_true_states[3, :], color="xkcd:red", linewidth=do_lw, label="true")
@@ -1063,6 +1079,9 @@ class Visualizer:
         axes["Vy"].set_xlabel("Time [s]")
         axes["Vy"].set_ylabel("East speed [m/s]")
         axes["Vy"].legend()
+        current_values = axes["Vy"].get_yticks().tolist()
+        axes["Vy"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["Vy"].set_yticklabels(["{:.2f}".format(x) for x in current_values])
 
         alpha = 0.05
         CI2 = np.array(chi2.ppf(q=[alpha / 2, 1 - alpha / 2], df=2))
@@ -1086,6 +1105,9 @@ class Visualizer:
         axes["NIS"].plot(do_NIS, color="xkcd:blue", linewidth=do_lw, label="NIS")
         axes["NIS"].set_ylabel("NIS")
         axes["NIS"].legend()
+        current_values = axes["NIS"].get_yticks().tolist()
+        axes["NIS"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["NIS"].set_yticklabels(["{:.2f}".format(x) for x in current_values])
 
         error = do_true_states - do_estimates
         pos_error = np.sqrt(error[0, :] ** 2 + error[1, :] ** 2)
@@ -1094,6 +1116,10 @@ class Visualizer:
         axes["errs"].plot(sim_times, vel_error, color="xkcd:red", linewidth=do_lw, label="vel. error")
         axes["errs"].set_xlabel("Time [s]")
         axes["errs"].legend()
+        current_values = axes["errs"].get_yticks().tolist()
+        axes["errs"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
+        axes["errs"].set_yticklabels(["{:.4f}".format(x) for x in current_values])
+
         plt.show(block=False)
         return fig, axes
 

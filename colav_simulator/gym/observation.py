@@ -93,7 +93,7 @@ class LidarLikeObservation(ObservationType):
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
         dynamic_obstacles = self.env.dynamic_obstacles
-        true_do_states = [(idx, mhm.convert_csog_state_to_vxvy_state(do.csog_state)) for idx, do in enumerate(dynamic_obstacles)]
+        true_do_states = [(idx, mhm.convert_state_to_vxvy_state(do.csog_state)) for idx, do in enumerate(dynamic_obstacles)]
         do_tracks = self._ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
         obs = np.zeros(1, dtype=np.float32)
 

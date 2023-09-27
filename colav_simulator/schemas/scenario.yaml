@@ -254,8 +254,13 @@ ship_list:
         type: dict
         excludes: [default]
         schema:
+          god_tracker:
+            type: string
+            empty: True
+            excludes: [kf]
           kf:
             type: dict
+            excludes: [god_tracker]
             schema:
               P_0:
                 required: True
