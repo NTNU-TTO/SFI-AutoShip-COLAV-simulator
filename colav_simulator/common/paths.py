@@ -13,6 +13,7 @@ config = root / "config"
 package = root / "colav_simulator"
 scenarios = root / "scenarios"
 output = root / "output"
+videos = output / "videos"
 
 schemas = package / "schemas"
 simulator_schema = schemas / "simulator.yaml"

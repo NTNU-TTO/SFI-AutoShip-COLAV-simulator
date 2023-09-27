@@ -28,7 +28,7 @@ class COLAVEnvironment(gym.Env):
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
 
-    metadata = {"render_modes": ["human"], "render_fps": None, "video.frames_per_second": None}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": None, "video.frames_per_second": None}
     observation_type: ObservationType
     action_type: ActionType
     scenario_config: sm.ScenarioConfig
@@ -42,6 +42,7 @@ class COLAVEnvironment(gym.Env):
         scenario_config_file: Optional[pathlib.Path] = None,
         scenario_files: Optional[list] = None,
         rewarder_config: Optional[rw.Config] = None,
+        render_mode: Optional[str] = "human",
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         **kwargs
@@ -79,7 +80,7 @@ class COLAVEnvironment(gym.Env):
         self.steps: int = 0
         self.episodes: int = 0
         self.ownship: Optional[Ship] = None
-        self.render_mode = "human"
+        self.render_mode = render_mode
         self._viewer2d = self.simulator.visualizer
         self.test_mode = test_mode
         self.verbose: bool = verbose
@@ -186,7 +187,6 @@ class COLAVEnvironment(gym.Env):
         """
         self.seed(seed=seed, options=options)
         self.steps = 0  # Actions performed
-        self.episodes = 0  # Episodes performed
         self.done = False
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
@@ -206,6 +206,7 @@ class COLAVEnvironment(gym.Env):
         obs = self.observation_type.observe()
         info = self._info(obs, action=self.action_space.sample())
         self._init_render()
+        self.episodes = +1  # Episodes performed
 
         return obs, info
 
@@ -235,8 +236,8 @@ class COLAVEnvironment(gym.Env):
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "human":
-            self._viewer2d.toggle_liveplot_visibility(show=True)
-            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+        self._viewer2d.toggle_liveplot_visibility(show=True)
+        self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self, step_interval: int = 10) -> None:
         """Renders the environment in 2D at the given step interval.
