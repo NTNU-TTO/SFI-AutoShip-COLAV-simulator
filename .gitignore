@@ -132,7 +132,7 @@ dmypy.json
 .pyre/
 
 # Package main
-output/animation/
+output/animations/
 output/ais/
 output/figures/
 
@@ -140,4 +140,4 @@ main.py
 todo.txt
 .vscode/
 /scenarios/saved/
-/data/map/
+/data/ais/

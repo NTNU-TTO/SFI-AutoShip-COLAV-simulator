@@ -126,13 +126,6 @@ class GodTracker(ITracker):
         Returns:
             Tuple[list, list]: List of ground truth dynamic obstacle tracks (ID, state, cov, length, width). Also, the sensor measurements list (not used).
         """
-        relevant_do_states = []
-        max_sensor_range = max([sensor.max_range for sensor in self.sensors])
-        for i, (do_idx, do_state, do_length, do_width) in enumerate(true_do_states):
-            d2ownship = np.linalg.norm(do_state[:2] - ownship_state[:2])
-            if self._initialized and do_idx in self._labels and d2ownship < max_sensor_range:
-                relevant_do_states.append((do_idx, do_state))
-
         if not self._initialized:
             for do_idx, do_state, do_length, do_width in true_do_states:
                 self._labels.append(do_idx)
@@ -145,7 +138,7 @@ class GodTracker(ITracker):
         # Only generate measurements for initialized tracks
         sensor_measurements = []
         for sensor in self.sensors:
-            z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
+            z = sensor.generate_measurements(t, true_do_states, ownship_state)
             sensor_measurements.append(z)
 
         tracks = []
@@ -220,7 +213,6 @@ class KF(ITracker):
         Returns:
             Tuple[list, list]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
         """
-        relevant_do_states = []
         max_sensor_range = max([sensor.max_range for sensor in self.sensors])
         for do_idx, do_state, do_length, do_width in true_do_states:
             dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
@@ -238,7 +230,6 @@ class KF(ITracker):
                 self._NIS.append(np.nan)
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True
-                relevant_do_states.append((do_idx, do_state))
 
         n_tracked_do = len(self._xs_upd)
         # # TODO: Implement track termination for when covariance is too large.
@@ -248,10 +239,9 @@ class KF(ITracker):
 
         # Only generate measurements for initialized tracks
         sensor_measurements = []
-        if relevant_do_states:
-            for sensor in self.sensors:
-                z = sensor.generate_measurements(t, relevant_do_states, ownship_state)
-                sensor_measurements.append(z)
+        for sensor in self.sensors:
+            z = sensor.generate_measurements(t, true_do_states, ownship_state)
+            sensor_measurements.append(z)
 
         tracks = []
         for i in range(n_tracked_do):

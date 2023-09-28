@@ -135,8 +135,13 @@ class Visualizer:
         else:
             self._config = Config()
 
+        self.xlimits = [-1e10, 1e10]
+        self.ylimits = [-1e10, 1e10]
+
         if enc:
-            self.init_figure(enc)
+            self.xlimits = [enc.bbox[1], enc.bbox[3]]
+            self.ylimits = [enc.bbox[0], enc.bbox[2]]
+            self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
 
     def toggle_liveplot_visibility(self, show: bool) -> None:
         """Toggles the visibility of the live plot."""
@@ -146,7 +151,7 @@ class Visualizer:
         """Toggles the visibility of the result plots."""
         self._config.show_results = show
 
-    def init_figure(self, enc: ENC, extent: Optional[list] = None) -> None:
+    def init_figure(self, enc: ENC, extent: list) -> None:
         """Initialize the figure for live plotting.
 
         Args:
@@ -161,8 +166,7 @@ class Visualizer:
         mapf.plot_background(ax_map, enc, dark_mode=self._config.dark_mode_liveplot)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
 
-        if extent is not None:
-            ax_map.set_extent(extent, crs=enc.crs)
+        ax_map.set_extent(extent, crs=enc.crs)
         ax_map.gridlines(draw_labels=True, dms=True, color="gray", linewidth=1.5, linestyle="--", alpha=0.3, x_inline=False, y_inline=False)
         plt.ion()
 
@@ -171,6 +175,7 @@ class Visualizer:
 
         ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
         self.axes = [ax_map]
+        self.fig.tight_layout()
         plt.show(block=False)
 
     def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
@@ -203,6 +208,15 @@ class Visualizer:
         if self._config.show_liveplot:
             plt.close(fig=self.fig)
 
+    def get_live_plot_image(self) -> np.ndarray:
+        """Returns the live plot image as a numpy array."""
+        if not self._config.show_liveplot:
+            raise ValueError("Live plot is not enabled")
+
+        data = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        return data
+
     def init_live_plot(self, enc: ENC, ship_list: list) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
@@ -218,12 +232,11 @@ class Visualizer:
         matplotlib.rcParams["pdf.fonttype"] = 42
         matplotlib.rcParams["ps.fonttype"] = 42
 
-        xlimits, ylimits = self.find_plot_limits(enc, ship_list[0])
-
+        self.xlimits, self.ylimits = self.find_plot_limits(enc, ship_list[0])
+        self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
         if self._config.zoom_in_liveplot_on_ownship:
-            self.init_figure(enc, [ylimits[0], ylimits[1], xlimits[0], xlimits[1]])
-        else:
-            self.init_figure(enc)
+            self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
+
         ax_map = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
@@ -534,9 +547,11 @@ class Visualizer:
         """
         if not self._config.show_liveplot:
             return
-
         self.fig.canvas.restore_region(self.background)
         self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
+
+        if self._config.zoom_in_liveplot_on_ownship:
+            self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
 
         ax_map = self.axes[0]
         n_ships = len(ship_list)
@@ -565,6 +580,20 @@ class Visualizer:
             plt.legend(loc="upper right")
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
+
+    def zoom_in_live_plot_on_ownship(self, enc: ENC, os_state: np.ndarray) -> None:
+        """Narrows the live plot extent to the own-ship position.
+
+        Args:
+            - enc (ENC): ENC object containing the map data.
+            os_state (np.ndarray): Own-ship CSOG state.
+        """
+        buffer = 1000.0
+        xlimits_os = [os_state[0] - buffer, os_state[0] + buffer]
+        ylimits_os = [os_state[1] - buffer, os_state[1] + buffer]
+        upd_xlimits = [max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
+        upd_ylimits = [max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
+        self.axes[0].set_extent([upd_ylimits[0], upd_ylimits[1], upd_xlimits[0], upd_xlimits[1]], crs=enc.crs)
 
     def visualize_results(
         self,

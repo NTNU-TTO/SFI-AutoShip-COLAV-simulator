@@ -176,7 +176,7 @@ class Radar(ISensor):
         if not self._initialized:
             self._prev_meas_time = [t] * len(true_do_states)
             self._initialized = True
-        for i, (_, xs) in enumerate(true_do_states):
+        for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
             if (t - self._prev_meas_time[i]) >= (1.0 / self._params.measurement_rate) and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
@@ -238,7 +238,7 @@ class AIS(ISensor):
             self._prev_meas_time = [t] * len(true_do_states)
             self._initialized = True
 
-        for i, (_, xs) in enumerate(true_do_states):
+        for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
 
             if (t - self._prev_meas_time[i]) >= (1.0 / self.measurement_rate(xs)) and dist_ownship_to_do <= self._params.max_range:

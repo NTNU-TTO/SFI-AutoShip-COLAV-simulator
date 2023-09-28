@@ -28,7 +28,7 @@ class COLAVEnvironment(gym.Env):
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": None, "video.frames_per_second": None}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30, "video.frames_per_second": 30}
     observation_type: ObservationType
     action_type: ActionType
     scenario_config: sm.ScenarioConfig
@@ -43,6 +43,7 @@ class COLAVEnvironment(gym.Env):
         scenario_files: Optional[list] = None,
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = "human",
+        render_step_interval: Optional[int] = 10,
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         **kwargs
@@ -81,9 +82,11 @@ class COLAVEnvironment(gym.Env):
         self.episodes: int = 0
         self.ownship: Optional[Ship] = None
         self.render_mode = render_mode
+        self.render_step_interval = render_step_interval
         self._viewer2d = self.simulator.visualizer
         self.test_mode = test_mode
         self.verbose: bool = verbose
+        self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -235,18 +238,20 @@ class COLAVEnvironment(gym.Env):
 
     def _init_render(self) -> None:
         """Initializes the renderer."""
-        if self.render_mode == "human":
-        self._viewer2d.toggle_liveplot_visibility(show=True)
-        self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+        if self.render_mode == "human" or self.render_mode == "rgb_array":
+            self._viewer2d.toggle_liveplot_visibility(show=True)
+            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
-    def render(self, step_interval: int = 10) -> None:
-        """Renders the environment in 2D at the given step interval.
-
-        Args:
-            step_interval (int): The step interval at which to render the environment. Defaults to 10.
-        """
-        if self.steps % step_interval == 1:
+    def render(self):
+        """Renders the environment in 2D."""
+        img = None
+        if self.steps % self.render_step_interval == 1:
             self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
+
+        if self.render_mode == "rgb_array":
+            self.current_frame = self._viewer2d.get_live_plot_image()
+            img = self.current_frame
+        return img
 
     @property
     def enc(self) -> senc.ENC:
