@@ -8,7 +8,7 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
 <p align="center">
-    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/teaser.gif"><br/>
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/teaser.gif?raw=true" width="200px"><br/>
     <em>An episode sample from the COLAVEnvironment.</em>
 </p>
 
