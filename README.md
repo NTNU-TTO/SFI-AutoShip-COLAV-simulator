@@ -7,7 +7,13 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
-![Simulation example](./scenarios/example_img/aalesund_random.pdf)
+<p align="center">
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/teaser.gif"><br/>
+    <em>An episode sample from the COLAVEnvironment.</em>
+</p>
+
+
+![Another simulation example](./scenarios/example_img/aalesund_random.pdf)
 <img src="./scenarios/example_img/aalesund_random.pdf">
 
 
@@ -155,7 +161,7 @@ git push -u origin feature/name_of_feature # -u flag with origin only needed fir
 After doing some development and thorough testing, it might be time to merge the feature into the `main` branch.
 Before doing that, make sure that all checkpoints under the heading [_Main branch_](#Main-branch) are satisfied.
 
-To make sure new issues don't arise when merging into `main` later (because of other changes to `main`) we merge `main` into `feature/name_of_feature` first:
+To make sure new issues don't arise when merging into `main` later (because of other changes to `main`), it is important to merge `main` into `feature/name_of_feature` first:
 
 ```bash
 git checkout main   # make sure we have the latest
