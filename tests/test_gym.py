@@ -12,27 +12,28 @@ import numpy as np
 from colav_simulator.gym.environment import COLAVEnvironment
 from matplotlib import animation
 
+# Depending on your OS, you might need to change these paths
 plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
 plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
 
 
-def save_frames_as_gif(frames: list, filename: Path) -> None:
+def save_frames_as_gif(frame_list: list, filename: Path) -> None:
 
     # Mess with this to change frame size
-    fig = plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
+    fig = plt.figure(figsize=(frame_list[0].shape[1] / 72.0, frame_list[0].shape[0] / 72.0), dpi=72)
 
-    patch = plt.imshow(frames[0])
+    patch = plt.imshow(frame_list[0])
     plt.axis("off")
 
     def init():
-        patch.set_data(frames[0])
+        patch.set_data(frame_list[0])
         return (patch,)
 
     def animate(i):
-        patch.set_data(frames[i])
+        patch.set_data(frame_list[i])
         return (patch,)
 
-    anim = animation.FuncAnimation(fig=fig, func=animate, init_func=init, blit=True, frames=len(frames), interval=50, repeat=True)
+    anim = animation.FuncAnimation(fig=fig, func=animate, init_func=init, blit=True, frames=len(frame_list), interval=50, repeat=True)
     anim.save(filename=filename.as_posix(), writer=animation.PillowWriter(fps=20), progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
 
 

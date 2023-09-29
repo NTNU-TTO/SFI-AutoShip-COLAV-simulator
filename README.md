@@ -23,19 +23,8 @@ If you are using the `colav_simulator` for academic work, please use the followi
 ```
 
 ## Dependencies
-Are all outlined in setup.cfg, and listed below:
+Are all outlined in setup.cfg. Non-pip packages to install are
 
-- numpy
-- matplotlib
-- matplotlib_scalebar
-- cartopy
-- scipy
-- pandas
-- shapely
-- pyyaml
-- cerberus
-- geopy
-- dacite
 - seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
@@ -50,10 +39,11 @@ If you get troubles installing `gdal`, this might be due to:
 
 If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
 
-Test the installation by running any of the files under `tests/` (use these to get familiar with the simulator), e.g.
+Test the installation by running any of the files under `tests/`, e.g.
 ```
 python3 tests/test_ship.py
 ```
+use these and the examples to get familiar with the simulator.
 
 ## Mac OS Apple Slicon Installation
 
@@ -193,7 +183,7 @@ Congratulations! It is now safe to delete the feature branch, which is strongly 
 
 ## Main modules in the repository
 
-Each main module have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately.
+Each main module mostly have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately. The following describes these main modules superficially. Rely on the code itself for the documentation.
 
 ### Simulator
 
@@ -237,7 +227,6 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 ## Future Enhancements (Roadmap)
 - Improve random generation of vessel COLREGS scenarios.
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
-- Add functionality for storing animations from simulation data.
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
