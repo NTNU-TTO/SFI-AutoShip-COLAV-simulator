@@ -22,7 +22,7 @@ def save_frames_as_gif(frame_list: list, filename: Path) -> None:
     # Mess with this to change frame size
     fig = plt.figure(figsize=(frame_list[0].shape[1] / 72.0, frame_list[0].shape[0] / 72.0), dpi=72)
 
-    patch = plt.imshow(frame_list[0])
+    patch = plt.imshow(frame_list[0], aspect="auto")
     plt.axis("off")
 
     def init():
