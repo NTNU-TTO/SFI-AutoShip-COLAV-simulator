@@ -221,8 +221,7 @@ class Simulator:
 
             sim_data.append(sim_data_dict)
 
-            if self.t % 10.0 < 0.0001:
-                self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
+            self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
 
         self.visualizer.close_live_plot()
 

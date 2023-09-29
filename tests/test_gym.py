@@ -1,32 +1,66 @@
+"""Test module for gym.py
+
+    Shows how to use the gym environment, and how to save a video + gif of the simulation.
+"""
+from pathlib import Path
+
 import colav_simulator.common.paths as dp
 import gymnasium as gym
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 from colav_simulator.gym.environment import COLAVEnvironment
-from moviepy.editor import VideoFileClip
+from matplotlib import animation
+
+plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
+plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
+
+
+def save_frames_as_gif(frames: list, filename: Path) -> None:
+
+    # Mess with this to change frame size
+    fig = plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
+
+    patch = plt.imshow(frames[0])
+    plt.axis("off")
+
+    def init():
+        patch.set_data(frames[0])
+        return (patch,)
+
+    def animate(i):
+        patch.set_data(frames[i])
+        return (patch,)
+
+    anim = animation.FuncAnimation(fig=fig, func=animate, init_func=init, blit=True, frames=len(frames), interval=50, repeat=True)
+    anim.save(filename=filename.as_posix(), writer=animation.PillowWriter(fps=20), progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
+
 
 if __name__ == "__main__":
     config_file = dp.scenarios / "rl_scenario.yaml"
 
     env_id = "COLAVEnvironment-v0"
-    env_config = {"scenario_config_file": config_file, "render_mode": "rgb_array", "render_step_interval": 5, "test_mode": True}
+    env_config = {"scenario_config_file": config_file, "render_mode": "rgb_array", "render_update_interval": 0.2, "test_mode": True}
     env = gym.make(id=env_id, **env_config)
     record = True
     if record:
-        video_path = dp.animation_output / "demo.gif"
+        video_path = dp.animation_output / "demo.mp4"
         env = gym.wrappers.RecordVideo(env, video_path.as_posix(), episode_trigger=lambda x: x == 0)
 
     env.reset(seed=1)
-    for i in range(300):
+    frames = []
+    for i in range(100):
         obs, reward, terminated, truncated, info = env.step(np.array([-0.2, 0.0]))
 
-        env.render()
+        frames.append(env.render())
 
         if terminated or truncated:
             env.reset()
+
     env.close()
 
-    # store as gif
-    if record:
-        vid = VideoFileClip(video_path.as_posix())
-        vid.write_gif(video_path.as_posix().replace("mp4", "gif"))
+    save_gif = True
+    if save_gif:
+        save_frames_as_gif(frames, dp.animation_output / "demo2.gif")
+
     print("done")

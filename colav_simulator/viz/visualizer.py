@@ -40,6 +40,7 @@ class Config:
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
     dark_mode_liveplot: bool = True
+    update_rate_liveplot: float = 0.2
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
@@ -150,6 +151,11 @@ class Visualizer:
     def toggle_results_visibility(self, show: bool) -> None:
         """Toggles the visibility of the result plots."""
         self._config.show_results = show
+
+    def set_update_rate(self, update_rate: float) -> None:
+        """Sets the update rate of the live plot."""
+        assert self._config.show_liveplot, "Live plot must be enabled to set this parameter"
+        self._config.update_time_interval_liveplot = update_rate
 
     def init_figure(self, enc: ENC, extent: list) -> None:
         """Initialize the figure for live plotting.
@@ -547,6 +553,10 @@ class Visualizer:
         """
         if not self._config.show_liveplot:
             return
+
+        if t % 1.0 / self._config.update_rate_liveplot > 0.0001:
+            return
+
         self.fig.canvas.restore_region(self.background)
         self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
 

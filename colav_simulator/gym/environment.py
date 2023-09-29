@@ -43,10 +43,10 @@ class COLAVEnvironment(gym.Env):
         scenario_files: Optional[list] = None,
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = "human",
-        render_step_interval: Optional[int] = 10,
+        render_update_interval: Optional[float] = 0.2,
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initializes the environment.
 
@@ -59,6 +59,8 @@ class COLAVEnvironment(gym.Env):
             scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
             scenario_files (Optional[list]): List of scenario files. Defaults to None.
             rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
+            render_mode (Optional[str]): Render mode. Defaults to "human".
+            render_update_interval (Optional[float]): Render update interval. Defaults to 0.2.
             test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
             verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
         """
@@ -73,7 +75,7 @@ class COLAVEnvironment(gym.Env):
         self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
         self.scenario_config_file: Optional[pathlib.Path] = scenario_config_file
         self.scenario_files: Optional[list] = scenario_files
-        self._generate(scenario_config=scenario_config, scenario_config_file=scenario_config_file)
+        self._has_init_generated: bool = False
 
         self.rewarder = rw.Rewarder(config=rewarder_config)
 
@@ -82,7 +84,7 @@ class COLAVEnvironment(gym.Env):
         self.episodes: int = 0
         self.ownship: Optional[Ship] = None
         self.render_mode = render_mode
-        self.render_step_interval = render_step_interval
+        self.render_update_interval = render_update_interval
         self._viewer2d = self.simulator.visualizer
         self.test_mode = test_mode
         self.verbose: bool = verbose
@@ -111,6 +113,10 @@ class COLAVEnvironment(gym.Env):
         """
         collided = self.simulator.determine_ownship_collision()
         grounded = self.simulator.determine_ownship_grounding()
+        if self.verbose and collided:
+            print(f"Collision at t = {self.simulator.t}!")
+        if self.verbose and grounded:
+            print(f"Grounding at t = {self.simulator.t}!")
         return collided or grounded
 
     def _is_truncated(self) -> bool:
@@ -120,8 +126,8 @@ class COLAVEnvironment(gym.Env):
             bool: Whether the current state is a truncated state
         """
         truncated = self.simulator.t > self.simulator.t_end
-        # if self.verbose and truncated:
-        #     print("Time limit reached!")
+        if self.verbose and truncated:
+            print("Time limit reached!")
         return truncated
 
     def _generate(
@@ -169,7 +175,7 @@ class COLAVEnvironment(gym.Env):
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
             options (Optional[dict]): Options for the environment. Defaults to None.
         """
-        super().reset(seed=seed, options=options)
+        super().reset(seed=None, options=options)
         self.scenario_generator.seed(seed=seed)
 
     def reset(
@@ -192,6 +198,10 @@ class COLAVEnvironment(gym.Env):
         self.steps = 0  # Actions performed
         self.done = False
 
+        if not self._has_init_generated:
+            self._generate(scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file)
+            self._has_init_generated = True
+
         assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         if not scenario_episode_list:
@@ -210,7 +220,8 @@ class COLAVEnvironment(gym.Env):
         info = self._info(obs, action=self.action_space.sample())
         self._init_render()
         self.episodes = +1  # Episodes performed
-
+        if self.verbose:
+            print(f"Episode {self.episodes} started!")
         return obs, info
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, bool, dict]:
@@ -239,14 +250,14 @@ class COLAVEnvironment(gym.Env):
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "human" or self.render_mode == "rgb_array":
+            self._viewer2d.set_update_rate(self.render_update_interval)
             self._viewer2d.toggle_liveplot_visibility(show=True)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self):
         """Renders the environment in 2D."""
         img = None
-        if self.steps % self.render_step_interval == 1:
-            self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
+        self._viewer2d.update_live_plot(self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements)
 
         if self.render_mode == "rgb_array":
             self.current_frame = self._viewer2d.get_live_plot_image()
