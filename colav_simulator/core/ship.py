@@ -356,6 +356,11 @@ class Ship(IShip):
                 os_draft=self._model.params.draft,
             )
         elif self._guidance is not None:
+            assert (
+                self._waypoints.size > 2
+            ), "Waypoints must be provided for the ship to follow, when you do not provide a nominal trajectory externally or use the onboard colav planner!"
+            assert self._waypoints.ndim == 2 and self._speed_plan.ndim == 1, "Waypoints must be a 2D array and speed plan a 1D array!"
+            assert self._waypoints.shape[1] == self._speed_plan.size, "Waypoints and speed plan must have the same number of columns!"
             self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
         # If both the COLAV-system and guidance-system is None, the ship is following external commands, e.g. from an RL-agent.
         return self._references
