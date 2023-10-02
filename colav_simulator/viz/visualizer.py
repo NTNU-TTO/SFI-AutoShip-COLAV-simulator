@@ -144,6 +144,8 @@ class Visualizer:
             self.ylimits = [enc.bbox[0], enc.bbox[2]]
             self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
 
+        self._t_prev_update = 0.0
+
     def toggle_liveplot_visibility(self, show: bool) -> None:
         """Toggles the visibility of the live plot."""
         self._config.show_liveplot = show
@@ -155,7 +157,7 @@ class Visualizer:
     def set_update_rate(self, update_rate: float) -> None:
         """Sets the update rate of the live plot."""
         assert self._config.show_liveplot, "Live plot must be enabled to set this parameter"
-        self._config.update_time_interval_liveplot = update_rate
+        self._config.update_rate_liveplot = update_rate
 
     def init_figure(self, enc: ENC, extent: list) -> None:
         """Initialize the figure for live plotting.
@@ -234,6 +236,7 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
+        self._t_prev_update = 0.0
         plt.rcParams.update(matplotlib.rcParamsDefault)
         matplotlib.rcParams["pdf.fonttype"] = 42
         matplotlib.rcParams["ps.fonttype"] = 42
@@ -554,9 +557,10 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        if t % 1.0 / self._config.update_rate_liveplot > 0.0001:
+        if t - self._t_prev_update < (1.0 / self._config.update_rate_liveplot):
             return
 
+        self._t_prev_update = t
         self.fig.canvas.restore_region(self.background)
         self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
 
