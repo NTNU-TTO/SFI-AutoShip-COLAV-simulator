@@ -867,31 +867,6 @@ def extract_polygons_near_trajectory(
     return poly_list, enveloping_polygon
 
 
-def extract_vertices_from_polygon_list(polygons: list) -> Tuple[np.ndarray, np.ndarray]:
-    """Creates a list of x and y coordinates from a list of polygons.
-
-    Args:
-        polygons (list): List of shapely polygons.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: A tuple of two numpy arrays containing the x (north) and y (east) coordinates of the polygons.
-    """
-    px, py = [], []
-    for i, poly in enumerate(polygons):
-        if isinstance(poly, MultiPolygon):
-            for sub_poly in poly:
-                y, x = sub_poly.exterior.coords.xy
-                px.extend(x[:-1].tolist())
-                py.extend(y[:-1].tolist())
-        elif isinstance(poly, Polygon):
-            y, x = poly.exterior.coords.xy
-            px.extend(x[:-1].tolist())
-            py.extend(y[:-1].tolist())
-        else:
-            continue
-    return np.array(px), np.array(py)
-
-
 def extract_boundary_polygons_inside_envelope(poly_tuple_list: list, enveloping_polygon: Polygon, enc: Optional[ENC] = None, show_plots: bool = True) -> list:
     """Extracts the boundary trianguled polygons that are relevant for the trajectory of the vessel, inside the given envelope polygon.
 

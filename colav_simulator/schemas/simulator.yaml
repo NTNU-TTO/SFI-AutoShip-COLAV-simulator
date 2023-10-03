@@ -41,7 +41,15 @@ visualizer:
     zoom_in_liveplot_on_ownship:
       required: True
       type: boolean
-
+    zoom_window_width:
+      required: True
+      type: float
+    save_result_figures:
+      required: True
+      type: boolean
+    save_liveplot_animation:
+      required: True
+      type: boolean
     n_snapshots:
       required: False
       type: integer

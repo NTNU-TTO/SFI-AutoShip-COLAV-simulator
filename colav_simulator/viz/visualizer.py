@@ -19,11 +19,15 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 from cartopy.feature import ShapelyFeature
+from matplotlib import animation
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
+
+plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
+plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
 
 
 @dataclass
@@ -32,6 +36,7 @@ class Config:
 
     show_liveplot: bool = True
     zoom_in_liveplot_on_ownship: bool = True
+    zoom_window_width: float = 1000.0
     show_colav_results_live: bool = True
     show_waypoints: bool = False
     show_measurements: bool = False
@@ -41,6 +46,8 @@ class Config:
     show_trajectory_tracking_results: bool = True
     dark_mode_liveplot: bool = True
     update_rate_liveplot: float = 0.2
+    save_result_figures: bool = False
+    save_liveplot_animation: bool = False
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
@@ -114,27 +121,20 @@ class Config:
 
 
 class Visualizer:
-    """Class with functionality for visualizing/animating ship scenarios, and plotting/saving the simulation results.
+    """Class with functionality for visualizing/animating ship scenarios, and plotting/saving the simulation results."""
 
-    Internal variables:
-        - fig (Figure): Matplotlib figure object for the visualization.
-        - axes (list): List of matplotlib axes objects for the visualization.
-
-    """
-
-    _config: Config
-    fig: plt.figure  # handle to figure for live plotting
-    axes: list  # handle to axes for live plotting
     background: Any  # map background in live plotting fig
-    ship_plt_handles: list  # handles used for live plotting
-    misc_plt_handles: dict  # Extra handles used for live plotting
-    t_start: float = 0.0  # start time of the visualization of one scenario
 
     def __init__(self, config: Optional[Config] = None, enc: Optional[ENC] = None) -> None:
         if config:
-            self._config = config
+            self._config: Config = config
         else:
             self._config = Config()
+
+        fig: plt.figure = None  # handle to figure for live plotting
+        axes: list = []  # handle to axes for live plotting
+        ship_plt_handles: list = []  # handles used for live plotting
+        misc_plt_handles: dict = {}  # Extra handles used for live plotting
 
         self.xlimits = [-1e10, 1e10]
         self.ylimits = [-1e10, 1e10]
@@ -145,6 +145,8 @@ class Visualizer:
             self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
 
         self._t_prev_update = 0.0
+        self.t_start = 0.0
+        self.frames = []
 
     def toggle_liveplot_visibility(self, show: bool) -> None:
         """Toggles the visibility of the live plot."""
@@ -167,7 +169,7 @@ class Visualizer:
             - extent (list): List specifying the extent of the map.
         """
         plt.close()
-
+        self.frames = []
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(projection=enc.crs)
@@ -367,9 +369,9 @@ class Visualizer:
                     [0.0],
                     color=c,
                     linewidth=lw,
-                    marker="",
+                    marker="8",
                     markersize=4,
-                    linestyle="--",
+                    linestyle="dotted",
                     label=ship_name + " nom. traj.",
                     transform=enc.crs,
                     zorder=zorder_patch - 2,
@@ -380,9 +382,9 @@ class Visualizer:
                     [0.0],
                     color=c,
                     linewidth=lw,
-                    marker="8",
+                    marker="",
                     markersize=4,
-                    linestyle="dotted",
+                    linestyle="--",
                     label=ship_name + " pred. traj.",
                     transform=enc.crs,
                     zorder=zorder_patch - 2,
@@ -424,6 +426,8 @@ class Visualizer:
             horizontalalignment="left",
             zorder=10,
         )
+
+        self.frames.append(self.get_live_plot_image())
 
     def update_ownship_live_tracking_data(self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC) -> None:
         """Updates tracking-related plots for the own-ship
@@ -594,6 +598,7 @@ class Visualizer:
             plt.legend(loc="upper right")
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
+        self.frames.append(self.get_live_plot_image())
 
     def zoom_in_live_plot_on_ownship(self, enc: ENC, os_state: np.ndarray) -> None:
         """Narrows the live plot extent to the own-ship position.
@@ -602,12 +607,38 @@ class Visualizer:
             - enc (ENC): ENC object containing the map data.
             os_state (np.ndarray): Own-ship CSOG state.
         """
-        buffer = 1000.0
+        buffer = self._config.zoom_window_width / 2.0
         xlimits_os = [os_state[0] - buffer, os_state[0] + buffer]
         ylimits_os = [os_state[1] - buffer, os_state[1] + buffer]
         upd_xlimits = [max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
         upd_ylimits = [max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
         self.axes[0].set_extent([upd_ylimits[0], upd_ylimits[1], upd_xlimits[0], upd_xlimits[1]], crs=enc.crs)
+
+    def save_live_plot_animation(self, filename: Path = dp.animation_output / "liveplot.gif") -> None:
+        """Saves the live plot animation to a file if enabled.
+
+        Args:
+            filename (Path): Path to the file where the animation is saved.
+        """
+        if not self._config.save_liveplot_animation:
+            return
+
+        # Mess with this to change frame size
+        fig = plt.figure(figsize=(self.frames[0].shape[1] / 72.0, self.frames[0].shape[0] / 72.0), dpi=72)
+
+        patch = plt.imshow(self.frames[0], aspect="auto")
+        plt.axis("off")
+
+        def init():
+            patch.set_data(self.frames[0])
+            return (patch,)
+
+        def animate(i):
+            patch.set_data(self.frames[i])
+            return (patch,)
+
+        anim = animation.FuncAnimation(fig=fig, func=animate, init_func=init, blit=True, frames=len(self.frames), interval=50, repeat=True)
+        anim.save(filename=filename.as_posix(), writer=animation.PillowWriter(fps=20), progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
 
     def visualize_results(
         self,
@@ -616,10 +647,9 @@ class Visualizer:
         sim_data: DataFrame,
         sim_times: np.ndarray,
         k_snapshots: Optional[list] = None,
-        save_figs: bool = True,
-        save_file_path: Optional[Path] = None,
+        save_file_path: Optional[Path] = dp.figure_output / "scenario_ne",
     ) -> Tuple[list, list]:
-        """Visualize the results of a scenario simulation.
+        """Visualize the results of a scenario simulation, save figures (only map figure as of now) to file if enabled.
 
         Args:
             - enc (ENC): Electronic Navigational Chart object.
@@ -627,7 +657,6 @@ class Visualizer:
             - sim_data (DataFrame): Dataframe of simulation.
             - sim_times (list): List of simulation times.
             - k_snapshots (Optional[list], optional): List of snapshots to visualize.
-            - save_figs (bool, optional): Whether to save the figures.
             - save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
 
         Returns:
@@ -749,7 +778,7 @@ class Visualizer:
             if i == 0:
 
                 if self._config.show_trajectory_tracking_results and len(nominal_trajectory_list) > 0:
-                    self.plot_trajectory_tracking_results(i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0)
+                    fig_tt, axes_tt = self.plot_trajectory_tracking_results(i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0)
 
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
@@ -758,7 +787,9 @@ class Visualizer:
                 do_labels = track_data["do_labels"]
 
                 # Plot distance to own-ship
-                self.plot_obstacle_distances_to_ownship(sim_times, trajectory_list, do_estimates, do_covariances, do_labels, min_os_depth, enc)
+                fig_obst_dist, axes_obst_dist = self.plot_obstacle_distances_to_ownship(
+                    sim_times, trajectory_list, do_estimates, do_covariances, do_labels, min_os_depth, enc
+                )
 
                 for j, do_estimates_j in enumerate(do_estimates):
                     first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
@@ -857,7 +888,7 @@ class Visualizer:
         ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
         plt.legend()
 
-        if save_figs:
+        if self._config.save_result_figures:
             if not save_file_path.parents[0].exists():
                 save_file_path.parents[0].mkdir(parents=True)
             fig_map.savefig(save_file_path, format="pdf", dpi=300, bbox_inches="tight")

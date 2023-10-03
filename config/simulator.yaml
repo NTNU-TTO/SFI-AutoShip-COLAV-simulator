@@ -7,11 +7,14 @@ visualizer:
   show_liveplot_tracks: True
   show_waypoints: True
   zoom_in_liveplot_on_ownship: True
+  zoom_window_width: 500.0
   show_results: True
   show_target_tracking_results: True
   show_trajectory_tracking_results: True
+  save_result_figures: False
+  save_liveplot_animation: True
   dark_mode_liveplot: True
-  update_rate_liveplot: 0.2 # relative to simulation time, not wall
+  update_rate_liveplot: 0.5 # relative to simulation time, not wall
   figsize: [12, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
