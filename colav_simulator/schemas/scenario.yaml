@@ -94,7 +94,11 @@ rl_observation_type:
       minlength: 1
       schema:
         type: string
-    navigation_state_observation:
+    navigation_3dof_state_observation:
+      required: False
+      type: string
+      empty: True
+    navigation_csog_state_observation:
       required: False
       type: string
       empty: True
