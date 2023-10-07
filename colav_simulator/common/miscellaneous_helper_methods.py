@@ -19,7 +19,37 @@ import numpy as np
 import pandas as pd
 import shapely.geometry as geometry
 from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelled
+from scipy.interpolate import interp1d
 from scipy.stats import chi2
+
+
+def create_arc_length_spline(x: list, y: list) -> Tuple[interp1d, interp1d, np.ndarray]:
+    """Creates a spline for the arc length of the input x and y coordinates.
+
+    Args:
+        - x (list): List of x coordinates.
+        - y (list): List of y coordinates.
+
+    Returns:
+        Tuple[interp1d, interp1d, np.ndarray]: Tuple of arc length splines for x and y coordinates.
+    """
+    # Interpolate the data to get more points => higher accuracy in the arc length spline
+    n_points = len(x)
+    y_interp = interp1d(np.arange(n_points), y, kind="linear")
+    x_interp = interp1d(np.arange(n_points), x, kind="linear")
+
+    n_expanded_points = 500
+    y_expanded = list(y_interp(np.linspace(0, n_points - 1, n_expanded_points)))
+    x_expanded = list(x_interp(np.linspace(0, n_points - 1, n_expanded_points)))
+    arc_length = [0.0]
+    for i in range(1, n_expanded_points):
+        pi = np.array([x_expanded[i - 1], y_expanded[i - 1]])
+        pj = np.array([x_expanded[i], y_expanded[i]])
+        arc_length.append(np.linalg.norm(pi - pj))
+    arc_length = np.cumsum(arc_length)
+    y_interp_arc_length = interp1d(arc_length, y_expanded, kind="linear")
+    x_interp_arc_length = interp1d(arc_length, x_expanded, kind="linear")
+    return x_interp_arc_length, y_interp_arc_length, arc_length
 
 
 def linestring_to_ndarray(line: geometry.LineString) -> np.ndarray:

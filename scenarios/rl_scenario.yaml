@@ -9,7 +9,7 @@ map_origin_enu: [-33324.0, 6573500.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
 map_buffer: 0
-new_load_of_map_data: True
+new_load_of_map_data: False
 type: MS
 n_random_ships: 0
 #n_random_ships_range: [1, 2]
@@ -43,7 +43,7 @@ ship_list:
     mmsi: 100
     csog_state: [6574280.0, -31824.0, 5.0, -45.0]
     goal_csog_state: [6578500.0, -29300.0, 5.0, -45.0] #[6583580.0, -31824.0, 0.0, 0.0]
-    random_generated: False
+    random_generated: True
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
