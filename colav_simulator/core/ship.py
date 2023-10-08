@@ -600,11 +600,7 @@ class Ship(IShip):
         if self._model.dims[0] == 4:
             return np.array([self._state[0], self._state[1], self._state[3], self._state[2]])
         else:  # self._model.dims[0] == 6
-            heading = self._state[2]
-            crab_angle = np.arctan2(self._state[4], self._state[3])
-            cog = heading + crab_angle
-            speed = np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
-            return np.array([self._state[0], self._state[1], speed, cog])
+            return mhm.convert_3dof_state_to_sog_cog_state(self._state)
 
     @property
     def state(self) -> np.ndarray:

@@ -832,7 +832,7 @@ def extract_polygons_near_trajectory(
     """Extracts the polygons that are relevant for the trajectory of the vessel, inside a corridor of the given buffer size.
 
     Args:
-        - trajectory (np.ndarray): Trajectory with columns [x, y, psi, u, v, r]
+        - trajectory (np.ndarray): Trajectory to consider.
         - geometry_tree (strtree.STRtree): The rtree containing the relevant grounding hazard polygons.
         - buffer (float): Buffer size
         - enc (Optional[ENC]): Electronic Navigational Chart object used for plotting. Defaults to None.

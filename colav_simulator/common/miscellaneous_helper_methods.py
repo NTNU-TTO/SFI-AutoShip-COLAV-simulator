@@ -589,6 +589,29 @@ def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
         )
 
 
+def convert_3dof_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from a state [x, y, psi, u, v, r]^T x N to [x, y, U, chi]^T x N.
+
+    Args:
+        xs (np.ndarray): State(s) to convert.
+
+    Returns:
+        np.ndarray: Converted state.
+    """
+    if xs.ndim == 1:
+        heading = xs[2]
+        crab_angle = np.arctan2(xs[4], xs[3])
+        cog = heading + crab_angle
+        speed = np.sqrt(xs[3] ** 2 + xs[4] ** 2)
+        return np.array([xs[0], xs[1], speed, cog])
+    else:
+        heading = xs[2, :]
+        crab_angle = np.arctan2(xs[4, :], xs[3, :])
+        cog = heading + crab_angle
+        speed = np.sqrt(np.multiply(xs[3, :], xs[3, :]) + np.multiply(xs[4, :], xs[4, :]))
+        return np.array([xs[0, :], xs[1, :], speed, cog])
+
+
 def index_of_first_and_last_non_nan(input_list: list | np.ndarray) -> Tuple[int, int]:
     """Returns the index of the first and last non-NaN element in a list or numpy array."""
 

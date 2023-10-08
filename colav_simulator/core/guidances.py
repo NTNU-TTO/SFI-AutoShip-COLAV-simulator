@@ -268,14 +268,16 @@ class KinematicTrajectoryPlanner(IGuidance):
         """
         ref_traj_list = []
         s_copy = self._s
-        while s_copy < 1.0:
+        s_final = self._x_spline.t[-1]
+        eps = 0.0001
+        while abs(s_copy - s_final) > eps:
             s_dot, s_ddot = self._compute_path_variable_derivatives(s_copy)
             eta_ref = self._compute_eta_ref(s_copy)
             eta_dot_ref = self._compute_eta_dot_ref(s_copy, s_dot)
             eta_ddot_ref = self._compute_eta_ddot_ref(s_copy, s_dot, s_ddot)
             references_k = np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
             ref_traj_list.append(references_k.tolist())
-            s_copy = mf.sat(s_copy + dt * s_dot, 0.0, 1.0)
+            s_copy = mf.sat(s_copy + dt * s_dot, 0.0, s_final)
         return np.array(ref_traj_list).T
 
     def get_current_path_variables(self) -> Tuple[float, float]:
