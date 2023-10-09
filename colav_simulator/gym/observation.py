@@ -124,7 +124,7 @@ class LidarLikeObservation(ObservationType):
         # Convert ship objects to polygons
         dynamic_obstacle_polygons = []
         for dynamic_obstacle in dynamic_obstacles:
-            do_state = dynamic_obstacle.state
+            do_state = dynamic_obstacle.csog_state
             dynamic_obstacle_polygons.append(mapf.create_ship_polygon(  x=do_state[0],
                                                                         y=do_state[1],
                                                                         heading=dynamic_obstacle.heading,
@@ -158,7 +158,6 @@ class LidarLikeObservation(ObservationType):
         for i in range(len(obstacle_distances_by_sector)):
             # Closeness of reachable distance
             sector_feasible_distance = self._feasibility_pooling(obstacle_distances_by_sector[i])
-            print(sector_feasible_distance)
             sector_closeness.append(self._get_closeness(sector_feasible_distance))
             
             # Velocities of closest obstacle in sector
