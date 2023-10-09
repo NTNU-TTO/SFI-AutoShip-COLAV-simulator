@@ -21,7 +21,7 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity
-from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon
+from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon, MultiLineString
 
 
 def local2latlon(x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
@@ -956,3 +956,22 @@ def constrained_delaunay_triangulation_custom(polygon: Polygon) -> list:
         else:
             cdt_triangles.append(intersection_poly)
     return cdt_triangles
+
+
+def standardize_polygon_intersections(intersection) -> Point:
+    """Converts a shapely intersection to a point.
+    If intersection contains multiple points, the closest one is returned.
+    
+    Args:
+        - intersection: The intersection to convert
+    
+    Returns:
+        Point: Shapely point object containing the closest point of intersection
+    
+    """
+    if isinstance(intersection, LineString):
+        return Point(intersection.coords[0])
+    elif isinstance(intersection, Point):
+        return intersection
+    elif isinstance(intersection, MultiLineString):
+        return Point(intersection.geoms[0].coords[0])
