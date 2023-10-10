@@ -1,13 +1,13 @@
 name: "head_on1"
 save_scenario: False
 t_start: 0.0
-t_end: 300.0
-dt_sim: 0.1
+t_end: 400.0
+dt_sim: 0.5
 utm_zone: 33
 map_size: [15000.0, 12500.0]
 map_origin_enu: [37000.0, 6950450.0]
 map_data_files: ["More_og_Romsdal_utm33.gdb"]
-new_load_of_map_data: True
+new_load_of_map_data: False
 n_episodes: 1
 type: HO
 n_random_ships: 1
@@ -25,7 +25,7 @@ ship_list:
       #     R_a: 15.0
       #     K_p: 0.015
       #     K_i: 0.0
-      #     e_int_max: 200.0
+      #     max_cross_track_error_int: 200.0
       # layer1:
       #   vo:
       #     length_os: 15.0
@@ -53,11 +53,12 @@ ship_list:
         R_a: 15.0
         K_p: 0.024
         K_i: 0.0
-        e_int_max: 101.0
+        max_cross_track_error_int: 101.0
     tracker:
-      kf:
-        P_0: [49.1, 49.1, 0.11, 0.11]
-        q: 0.15
+      god_tracker: ""
+      # kf:
+      #   P_0: [49.1, 49.1, 0.11, 0.11]
+      #   q: 0.15
     sensors:
       - radar:
           max_range: 2000.0
@@ -95,7 +96,7 @@ ship_list:
     #       R_a: 15.0
     #       K_p: 0.015
     #       K_i: 0.0
-    #       e_int_max: 200.0
+    #       max_cross_track_error_int: 200.0
     #   layer1:
     #     vo:
     #       length_os: 15.0
@@ -138,17 +139,17 @@ ship_list:
         R_a: 15.0
         K_p: 0.024
         K_i: 0.0
-        e_int_max: 101.0
+        max_cross_track_error_int: 101.0
     controller:
       flsh:
-        K_p_u: 3.0
-        K_i_u: 0.1
+        K_p_u: 1.0
+        K_i_u: 0.05
         K_p_psi: 3.0
-        K_d_psi: 1.75
-        K_i_psi: 0.003
-        max_speed_error_int: 2.0
-        speed_error_int_threshold: 1.0
-        max_psi_error_int: 50.0
-        psi_error_int_threshold: 15.0
+        K_d_psi: 3.0
+        K_i_psi: 0.005
+        max_speed_error_int: 0.75
+        speed_error_int_threshold: 0.2
+        max_psi_error_int: 20.0
+        psi_error_int_threshold: 10.0
     model:
       telemetron: ''

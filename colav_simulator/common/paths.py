@@ -27,6 +27,5 @@ enc_data = root / "data" / "map"
 ais_data = root / "data" / "ais"
 saved_scenarios = scenarios / "saved"
 
-simulated_ais_output = output / "ais"
-animation_output = output / "animation"
+animation_output = output / "animations"
 figure_output = output / "figures"

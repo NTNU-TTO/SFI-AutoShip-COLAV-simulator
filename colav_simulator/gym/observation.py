@@ -444,11 +444,11 @@ def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = 
     Returns:
         ObservationType: Observation type to use
     """
-    if observation_type == "lidar_like_observation":
+    if "lidar_like_observation" in observation_type:
         return LidarLikeObservation(env, **kwargs)
-    elif observation_type == "navigation_3dof_state_observation":
+    elif "navigation_3dof_state_observation" in observation_type:
         return Navigation3DOFStateObservation(env, **kwargs)
-    elif observation_type == "navigation_csog_state_observation":
+    elif "navigation_csog_state_observation" in observation_type:
         return NavigationCSOGStateObservation(env, **kwargs)
     elif "tuple_observation" in observation_type:
         return TupleObservation(env, observation_type["tuple_observation"], **kwargs)

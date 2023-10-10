@@ -43,7 +43,9 @@ class RadarParams:
     max_range: float = 500.0
     measurement_rate: float = 1.0
     R: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2]))  # meas cov used by the tracker
-    R_true: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2]))  # meas cov that reflects the true noise characteristics. Used to generate measurements
+    R_true: np.ndarray = field(
+        default_factory=lambda: np.diag([5.0**2, 5.0**2])
+    )  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(self, config_dict: dict):
@@ -74,8 +76,12 @@ class AISParams:
 
     max_range: float = 5000.0
     ais_class: AISClass = AISClass.A
-    R: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2]))  # meas cov for a state vector of [x, y, Vx, Vy], used by the tracker
-    R_true: np.ndarray = field(default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2]))  # meas cov that reflects the true noise characteristics. Used to generate measurements
+    R: np.ndarray = field(
+        default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])
+    )  # meas cov for a state vector of [x, y, Vx, Vy], used by the tracker
+    R_true: np.ndarray = field(
+        default_factory=lambda: np.diag([5.0**2, 5.0**2, 0.1**2, 0.08**2])
+    )  # meas cov that reflects the true noise characteristics. Used to generate measurements
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -153,7 +159,8 @@ class Radar(ISensor):
 
     def __init__(self, params: RadarParams = RadarParams()) -> None:
         self._params: RadarParams = params
-        self._prev_meas_time: float = 0.0
+        self._prev_meas_time: list = []
+        self._initialized: bool = False
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -166,11 +173,14 @@ class Radar(ISensor):
 
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
         measurements = []
-        for _, xs in true_do_states:
+        if not self._initialized:
+            self._prev_meas_time = [t] * len(true_do_states)
+            self._initialized = True
+        for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
-            if (t - self._prev_meas_time) >= (1.0 / self._params.measurement_rate) and dist_ownship_to_do <= self._params.max_range:
+            if (t - self._prev_meas_time[i]) >= (1.0 / self._params.measurement_rate) and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
-                self._prev_meas_time = t
+                self._prev_meas_time[i] = t
             else:
                 z = np.nan * np.ones(2)
             measurements.append(z)
@@ -209,7 +219,8 @@ class AIS(ISensor):
 
     def __init__(self, params: AISParams = AISParams()) -> None:
         self._params: AISParams = params
-        self._prev_meas_time: float = 0.0
+        self._prev_meas_time: list = []
+        self._initialized: bool = False
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -223,12 +234,16 @@ class AIS(ISensor):
 
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
         measurements = []
-        for _, xs in true_do_states:
+        if not self._initialized:
+            self._prev_meas_time = [t] * len(true_do_states)
+            self._initialized = True
+
+        for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
 
-            if (t - self._prev_meas_time) >= (1.0 / self.measurement_rate(xs)) and dist_ownship_to_do <= self._params.max_range:
+            if (t - self._prev_meas_time[i]) >= (1.0 / self.measurement_rate(xs)) and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self._params.R_true)
-                self._prev_meas_time = t
+                self._prev_meas_time[i] = t
             else:
                 z = np.nan * np.ones(4)
             measurements.append(z)

@@ -27,14 +27,14 @@ class LOSGuidanceParams:
         R_a (float): Radius of acceptance, second threshold for switching between wp segments
         K_p (float): Proportional gain in LOS law, K_p = 1 / lookahead distance
         K_i (float): Integral action gain in LOS law.
-        e_int_max (float): Maximum integrated cross-track error when using integral action
+        max_cross_track_error_int (float): Maximum integrated cross-track error when using integral action
     """
 
     pass_angle_threshold: float = 90.0
     R_a: float = 25.0
     K_p: float = 0.015
     K_i: float = 0.0
-    e_int_max: float = 200.0
+    max_cross_track_error_int: float = 200.0
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -460,7 +460,7 @@ class LOSGuidance(IGuidance):
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
         e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (xs[1] - waypoints[1, self._wp_counter]) * np.cos(alpha)
         self._e_int += e * dt
-        if self._e_int >= self._params.e_int_max:
+        if self._e_int >= self._params.max_cross_track_error_int:
             self._e_int -= e * dt
 
         chi_r = np.arctan2(-(self._params.K_p * e + self._params.K_i * self._e_int), 1)

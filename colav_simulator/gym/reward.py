@@ -9,13 +9,16 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Optional, Tuple, TypeVar
 
 import numpy as np
 import seacharts.enc as senc
 from colav_simulator.core.ship import Ship
 from colav_simulator.gym.action import Action
 from colav_simulator.gym.observation import Observation
+
+if TYPE_CHECKING:
+    from colav_simulator.gym.environment import COLAVEnvironment
 
 
 @dataclass
@@ -78,8 +81,9 @@ class TrajectoryTrackingRewardParams:
 class IReward(ABC):
     """Interface/base class for reward functions. The rewarder parameters should be public."""
 
-    def __init__(self, ownship: Ship) -> None:
-        pass
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        self.env = env
+        self._ownship = self.env.ownship
 
     @abstractmethod
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:

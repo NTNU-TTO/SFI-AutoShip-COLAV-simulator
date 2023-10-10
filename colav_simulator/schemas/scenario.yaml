@@ -94,7 +94,11 @@ rl_observation_type:
       minlength: 1
       schema:
         type: string
-    navigation_state_observation:
+    navigation_3dof_state_observation:
+      required: False
+      type: string
+      empty: True
+    navigation_csog_state_observation:
       required: False
       type: string
       empty: True
@@ -254,8 +258,13 @@ ship_list:
         type: dict
         excludes: [default]
         schema:
+          god_tracker:
+            type: string
+            empty: True
+            excludes: [kf]
           kf:
             type: dict
+            excludes: [god_tracker]
             schema:
               P_0:
                 required: True
@@ -337,7 +346,7 @@ ship_list:
               K_i:
                 required: True
                 type: float
-              e_int_max:
+              max_cross_track_error_int:
                 required: True
                 type: float
           ktp:

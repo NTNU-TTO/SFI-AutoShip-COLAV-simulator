@@ -86,6 +86,14 @@ class Simulator:
 
         self.visualizer = viz.Visualizer(self._config.visualizer)
 
+    def toggle_liveplot_visibility(self, visible: bool) -> None:
+        """Toggles the visibility of the live plot.
+
+        Args:
+            visible (bool): Whether the live plot should be visible or not.
+        """
+        self.visualizer.toggle_liveplot_visibility(visible)
+
     def initialize_scenario_episode(
         self,
         ship_list: list,
@@ -169,9 +177,10 @@ class Simulator:
                     ship_list,
                     sim_data,
                     sim_times,
-                    save_figs=True,
                     save_file_path=dp.figure_output / episode_config.name,
                 )
+
+                self.visualizer.save_live_plot_animation(dp.animation_output / (episode_config.name + ".gif"))
 
                 vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, episode_config.utm_zone)
 
@@ -213,8 +222,7 @@ class Simulator:
 
             sim_data.append(sim_data_dict)
 
-            if self.t % 10.0 < 0.0001:
-                self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
+            self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
 
         self.visualizer.close_live_plot()
 
@@ -233,8 +241,8 @@ class Simulator:
         true_do_states = []
         for i, ship_obj in enumerate(self.ship_list):
             if ship_obj.t_start <= self.t:
-                vxvy_state = mhm.convert_csog_state_to_vxvy_state(ship_obj.csog_state)
-                true_do_states.append((i, vxvy_state))
+                vxvy_state = mhm.convert_state_to_vxvy_state(ship_obj.csog_state)
+                true_do_states.append((i, vxvy_state, ship_obj.length, ship_obj.width))
 
         disturbance_data: Optional[stochasticity.DisturbanceData] = None
         if self.disturbance is not None:

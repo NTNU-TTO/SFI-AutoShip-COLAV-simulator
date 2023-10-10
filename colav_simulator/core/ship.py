@@ -41,7 +41,7 @@ class Config:
     id: int = -1  # Ship identifier
     t_start: Optional[float] = None  # Determines when the ship should start in the simulation
     t_end: Optional[float] = None  # Determines when the ship ends its part in the simulation
-    random_generated: Optional[bool] = False  # True if the ship should have randomly generated COG-SOG-state, wps and speed plan. Takes priority over mmsi.
+    random_generated: Optional[bool] = True  # True if the ship should have randomly generated COG-SOG-state, wps and speed plan. Takes priority over mmsi.
     csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
     goal_csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
     waypoints: Optional[np.ndarray] = None
@@ -356,6 +356,11 @@ class Ship(IShip):
                 os_draft=self._model.params.draft,
             )
         elif self._guidance is not None:
+            assert (
+                self._waypoints.size > 2
+            ), "Waypoints must be provided for the ship to follow, when you do not provide a nominal trajectory externally or use the onboard colav planner!"
+            assert self._waypoints.ndim == 2 and self._speed_plan.ndim == 1, "Waypoints must be a 2D array and speed plan a 1D array!"
+            assert self._waypoints.shape[1] == self._speed_plan.size, "Waypoints and speed plan must have the same number of columns!"
             self._references = self._guidance.compute_references(self._waypoints, self._speed_plan, None, self._state, dt)
         # If both the COLAV-system and guidance-system is None, the ship is following external commands, e.g. from an RL-agent.
         return self._references
@@ -402,7 +407,7 @@ class Ship(IShip):
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
         """Tracks obstacles in the vicinity of the ship."""
-        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_csog_state_to_vxvy_state(self.csog_state))
+        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
         return tracks
 
     def set_initial_state(self, csog_state: np.ndarray) -> None:

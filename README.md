@@ -1,5 +1,5 @@
 # colav-simulator
-This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The framework prototype is described in the [CCTA2023 paper](). As of September 2023, the simulation framework has been wrapped to be compatible with [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version). Note that this feature is unstable due to its recent completion, and needs thorough testing.
+This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The initial framework prototype is described in the [CCTA2023 paper](https://ieeexplore.ieee.org/abstract/document/10252863). As of September 2023, the simulation framework has been wrapped to be compatible with [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version). Note that this feature is unstable due to its recent completion, and needs thorough testing.
 
 The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
 
@@ -7,7 +7,13 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
-![Simulation example](./scenarios/example_img/aalesund_random.pdf)
+<p align="center">
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/teaser.gif?raw=true" width="1000px"><br/>
+    <em>An episode sample from the COLAVEnvironment.</em>
+</p>
+
+
+![Another simulation example](./scenarios/example_img/aalesund_random.pdf)
 <img src="./scenarios/example_img/aalesund_random.pdf">
 
 
@@ -23,19 +29,8 @@ If you are using the `colav_simulator` for academic work, please use the followi
 ```
 
 ## Dependencies
-Are all outlined in setup.cfg, and listed below:
+Are all outlined in setup.cfg. Non-pip packages to install are
 
-- numpy
-- matplotlib
-- matplotlib_scalebar
-- cartopy
-- scipy
-- pandas
-- shapely
-- pyyaml
-- cerberus
-- geopy
-- dacite
 - seacharts: https://github.com/trymte/seacharts
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
 
@@ -50,10 +45,11 @@ If you get troubles installing `gdal`, this might be due to:
 
 If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
 
-Test the installation by running any of the files under `tests/` (use these to get familiar with the simulator), e.g.
+Test the installation by running any of the files under `tests/`, e.g.
 ```
 python3 tests/test_ship.py
 ```
+use these and the examples to get familiar with the simulator.
 
 ## Mac OS Apple Slicon Installation
 
@@ -165,7 +161,7 @@ git push -u origin feature/name_of_feature # -u flag with origin only needed fir
 After doing some development and thorough testing, it might be time to merge the feature into the `main` branch.
 Before doing that, make sure that all checkpoints under the heading [_Main branch_](#Main-branch) are satisfied.
 
-To make sure new issues don't arise when merging into `main` later (because of other changes to `main`) we merge `main` into `feature/name_of_feature` first:
+To make sure new issues don't arise when merging into `main` later (because of other changes to `main`), it is important to merge `main` into `feature/name_of_feature` first:
 
 ```bash
 git checkout main   # make sure we have the latest
@@ -193,7 +189,7 @@ Congratulations! It is now safe to delete the feature branch, which is strongly 
 
 ## Main modules in the repository
 
-Each main module have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately.
+Each main module mostly have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately. The following describes these main modules superficially. Rely on the code itself for the documentation.
 
 ### Simulator
 
@@ -237,7 +233,6 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 ## Future Enhancements (Roadmap)
 - Improve random generation of vessel COLREGS scenarios.
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
-- Add functionality for storing animations from simulation data.
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.

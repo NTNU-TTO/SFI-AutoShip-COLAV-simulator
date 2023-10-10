@@ -505,16 +505,16 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
         list: List with all (do_idx, do_state) tuples of input_list except the element idx, if idx is in the tuple list
     """
     output_list = []
-    for do_idx, do_state in input_list:
+    for do_idx, do_state, do_length, do_width in input_list:
         if do_idx != idx:
-            output_list.append((do_idx, do_state))
+            output_list.append((do_idx, do_state, do_length, do_width))
 
     return output_list
 
 
-def convert_csog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
-    """Converts from state(s) [x, y, U, chi] x N to [x, y, Vx, Vy] x N,
-    where U is the speed over ground and chi is the course over ground.
+def convert_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
+    """Converts from state(s) [x, y, U, chi]^T x N or [x, y, psi, u, v, r]^T x N to [x, y, Vx, Vy]^T x N,
+    where U is the speed over ground and chi is the course over ground, psi heading, u surge, v sway, r yaw rate.
 
     Args:
         xs (np.ndarray): State(s) to convert.
@@ -522,11 +522,19 @@ def convert_csog_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Converted state(s).
     """
-
+    dim = xs.shape[0]
     if xs.ndim == 1:
-        return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
+        if dim == 4:
+            return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
+        else:
+            U = np.sqrt(xs[3] ** 2 + xs[4] ** 2)
+            return np.array([xs[0], xs[1], U * np.cos(xs[2]), U * np.sin(xs[2])])
     else:
-        return np.array([xs[0, :], xs[1, :], np.multiply(xs[2, :], np.cos(xs[3, :])), np.multiply(xs[2, :], np.sin(xs[3, :]))])
+        if dim == 4:
+            return np.array([xs[0, :], xs[1, :], xs[2, :] * np.cos(xs[3, :]), xs[2, :] * np.sin(xs[3, :])])
+        else:
+            U = np.sqrt(np.multiply(xs[3, :], xs[3, :]) + np.multiply(xs[4, :], xs[4, :]))
+            return np.array([xs[0, :], xs[1, :], U * np.cos(xs[2, :]), U * np.sin(xs[2, :])])
 
 
 def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
