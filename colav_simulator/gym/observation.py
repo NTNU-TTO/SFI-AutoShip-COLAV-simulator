@@ -295,7 +295,7 @@ class LidarLikeObservation(ObservationType):
                     
                     # Decompose velocity in sensor sector coordinates
                     csog_state = self.env.dynamic_obstacles[idx].csog_state
-                    vxvy_state = mhm.convert_csog_state_to_vxvy_state(csog_state)
+                    vxvy_state = mhm.convert_state_to_vxvy_state(csog_state)
                     closest_obstacle_vel = np.array([vxvy_state[2], vxvy_state[3]]).T
                     closest_obstacle_vel = mf.Rmtrx2D(-sensor_angle - np.pi/2).dot(closest_obstacle_vel)
         
