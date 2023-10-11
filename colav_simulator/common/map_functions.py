@@ -1095,12 +1095,12 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
                 enc.draw_line(points, color="white", width=0.5, thickness=0.5, marker_type=None)
 
 
-def standardize_polygon_intersections(intersection) -> Point:
+def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:
     """Converts a shapely intersection to a point.
     If intersection contains multiple points, the closest one is returned.
     
     Args:
-        - intersection: The intersection to convert
+        - intersection (Point | Linestring | Multilinestring): The intersection to convert
     
     Returns:
         Point: Shapely point object containing the closest point of intersection
