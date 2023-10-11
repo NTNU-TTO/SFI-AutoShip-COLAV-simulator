@@ -239,8 +239,8 @@ class COLAVEnvironment(gym.Env):
         sim_data_dict = self.simulator.step(remote_actor=True)
 
         obs = self.observation_type.observe()  # normalized observation
-        reward = self.rewarder(obs, action)  # normalized reward
         terminated = self._is_terminated()
+        reward = self.rewarder(obs, action, collision=terminated)  # normalized reward
         truncated = self._is_truncated()
         info = self._info(obs, action)
         self.steps += 1
