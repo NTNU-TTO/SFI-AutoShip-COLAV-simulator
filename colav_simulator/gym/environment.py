@@ -219,7 +219,7 @@ class COLAVEnvironment(gym.Env):
         obs = self.observation_type.observe()
         info = self._info(obs, action=self.action_space.sample())
         self._init_render()
-        self.episodes = +1  # Episodes performed
+        self.episodes += 1  # Episodes performed
         if self.verbose:
             print(f"Episode {self.episodes} started!")
         return obs, info
