@@ -233,7 +233,7 @@ It can be configured to use different combinations of collision avoidance algori
 If you want to expand the `Ship` object by adding support for a new model, controller, guidance law etc., a rough recipe is the following (in this example for a new model, but the procedure will be the same for any subsystem or module in the framework):
 
 - 1: Implement the model under `core/models.py`, inherit from the `IModel` interface and implement the required interface functions.
-- 2: Add a parameter class for the model, and add this parameter class entry to the `models.Config` class to add support for parsing the model from configuration files. This also entails that you implement the `from_dict(config_dict: dict) -> ModelParams` and `to_dict() -> dict:` functions, to allow for easy parsing of dictionaries into dataclasses.
+- 2: Add a parameter class for the model, and add this parameter class entry to the `models.Config` class to add support for parsing the model from configuration files. This also entails that you implement the `from_dict(config_dict: dict) -> ModelParams` and `to_dict() -> dict:` functions, to allow for easy parsing of dictionaries into dataclasses. However, note that some of the implemented ship models existing in the framework have fixed and non-configurable parameters. In this case, the configuration entry scheme for the model is an empty string (see e.g. for `Telemetron` under `models` in the scenario schema).
 - 3: Use the new model parameter class as input to the new model object constructor.
 - 4: Add support for the new model by adding its parameter object class to the `models` part of the `schemas/scenario.yaml` files under `ship_list`.
 - 5: Test the new model in a scenario where you specify the model parameters in a scenario configuration file, or directly during run-time (as in `test_ship.py`).
@@ -254,7 +254,7 @@ The ship `plan` step will then only entail that the configured `guidance` object
 
 
 #### Planner Providing Inputs and Not (Pose, Velocity, Acceleration) References
-In case you want to develop a motion planning algorithm that provides low-level inputs (e.g. generalized force inputs) to the ship instead of the standard 9-entry pose, velocity, acceleration reference format, you can specify a `PassThroughInputs` type of controller. This "controller" essentially lets the input references (which are now low-level inputs from your algorithm) go straight through, such that the controller is in practice disabled. An example of this is found in the `scenarios/simple_planning_example.yaml`.
+In case you want to develop a motion planning algorithm that provides low-level inputs (e.g. generalized force inputs) to the ship instead of the standard 9-entry pose, velocity, acceleration reference format, you can specify a `PassThroughInputs` type of controller. This "controller" essentially lets the input references (which are now low-level inputs from your algorithm) go straight through, such that the controller is in practice disabled. An example of this is found in the `scenarios/simple_planning_example.yaml`, where a rudder-propeller mapping with a specificed lever arm is used to map forces in x and y to include the yaw moment as well.
 
 The ship `plan` step will then entail that you use your wrapped `colav` system, that provide `references` that are low-level inputs. When these are passed to the `controller` object during the `forward` call, they will pass straight through and go into the ship model object.
 
