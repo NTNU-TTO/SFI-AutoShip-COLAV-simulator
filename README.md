@@ -189,7 +189,11 @@ Congratulations! It is now safe to delete the feature branch, which is strongly 
 
 ## Main modules in the repository
 
-Each main module mostly have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately. The following describes these main modules superficially. Rely on the code itself for the documentation.
+Each main module mostly have their own test files, to enable easier debug/fixing and also for making yourself familiar with the code. When developing new modules, you are encouraged to simultaneously develop test files for these, such that yourself and others more conveniently can fix/debug and test the modules separately.
+
+A core concept is the usage of Cerberus for configuration validation, where the validation schemas are used to verify configuration keys and fail fast if erroneous settings are provided. Furthermore, another core concept is the usage of dataclasses for keeping parameters and configuration objects. Each scope (models, guidances, ship, etc..) have its own `Config` object containing its local configuration parameters. This leads to better readability of the code by keeping all aspects of a given subsystem in its own scope, as opposed to passing global configuration objects everywhere. Dataclasses also increases readability and reduces bugs related to specifying wrong dictionary string keys that would happen when only using dictionaries for configuration settings.
+
+The following describes the main modules superficially. Rely mainly on the code itself for the documentation.
 
 ### Simulator
 
@@ -224,14 +228,45 @@ The Ship class simulates the behaviour of an individual ship and adheres to the 
 
 Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out.
 
-It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality.
+It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality. Check out the `ship_list` entry under the `schemas/scenario.yaml` to get a clue on what you can configure for the ship. NOTE: The own-ship must always have `ID=0` and is the first ship to configure under `ship_list`.
+
+If you want to expand the `Ship` object by adding support for a new model, controller, guidance law etc., a rough recipe is the following (in this example for a new model, but the procedure will be the same for any subsystem or module in the framework):
+
+- 1: Implement the model under `core/models.py`, inherit from the `IModel` interface and implement the required interface functions.
+- 2: Add a parameter class for the model, and add this parameter class entry to the `models.Config` class to add support for parsing the model from configuration files. This also entails that you implement the `from_dict(config_dict: dict) -> ModelParams` and `to_dict() -> dict:` functions, to allow for easy parsing of dictionaries into dataclasses.
+- 3: Use the new model parameter class as input to the new model object constructor.
+- 4: Add support for the new model by adding its parameter object class to the `models` part of the `schemas/scenario.yaml` files under `ship_list`.
+- 5: Test the new model in a scenario where you specify the model parameters in a scenario configuration file, or directly during run-time (as in `test_ship.py`).
+
+In all these steps, adhere to the used code style and docstring format.
+
+Some common configurations of the ship subsystems are detailed below.
+
+#### Guidance, Navigation and Control With a Kinetic Model
+The `scenarios/head_on.yaml` scenario contains a typical GNC/autopilot-configuration of the own-ship, where LOS-guidance (given waypoints and a speed plan) provides course and speed references to a low-level controller (in this case a feedback-linearizing surge-heading controller).
+
+The ship `plan` step will then only entail that the configured `guidance` object LOS algorithm computes course+speed references, which are provided to the onboard controller during the `forward` call. The onboard controller then computes the required force vector to track the reference setpoints.
+
+#### Guidance, Navigation and Control With a Kinematic Model
+The `scenarios/ais_scenario1.yaml` scenario contains a typical GNC/autopilot-configuration of the own-ship, where LOS-guidance (given waypoints and a speed plan) provides course and speed references that are directly passed through to a simple kinematic ship model. Here, a `PassThroughCS` "controller" is used to allow for passing the guidance system course and speed references straight through the controller step and directly to the ship model.
+
+The ship `plan` step will then only entail that the configured `guidance` object LOS algorithm computes course+speed references, which are provided to the onboard controller and directly forwarded during the `forward` call. The ship model will then directly use the guidance system references as inputs.
+
+
+#### Planner Providing Inputs and Not (Pose, Velocity, Acceleration) References
+In case you want to develop a motion planning algorithm that provides low-level inputs (e.g. generalized force inputs) to the ship instead of the standard 9-entry pose, velocity, acceleration reference format, you can specify a `PassThroughInputs` type of controller. This "controller" essentially lets the input references (which are now low-level inputs from your algorithm) go straight through, such that the controller is in practice disabled. An example of this is found in the `scenarios/simple_planning_example.yaml`.
+
+The ship `plan` step will then entail that you use your wrapped `colav` system, that provide `references` that are low-level inputs. When these are passed to the `controller` object during the `forward` call, they will pass straight through and go into the ship model object.
+
+
+
 
 #### COLAV
 The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`). This enables the usage of both internally developed COLAV planners in addition to third-party ones.
 
 
 ## Future Enhancements (Roadmap)
-- Improve random generation of vessel COLREGS scenarios.
+- Improve random generation of vessel COLREGS scenarios. E.g. use AIS data to sample "realistic" vessel trajectories based on a fitted distribution for historical vessel positions and velocities.
 - Improve live-visualization in the simulator w.r.t. code readability and run-time.
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.

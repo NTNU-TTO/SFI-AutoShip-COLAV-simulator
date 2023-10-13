@@ -14,6 +14,7 @@
         which implements (inherits as this is python) the ICOLAV interface. It should take in a Config object as input.
         5: Add an entry in the COLAVBuilder class, which builds it from config if the type matches.
         See an example for the Kuwata VO and SBMPC below.
+        6: Add configuration support for the algorithm by expanding the `colav` entry under `schemas/scenario.yaml` in the `ship_list` section.
 
         Alternatively, to be able to use a third-party COLAV planning algorithm:
 
@@ -47,7 +48,18 @@ class COLAVType(Enum):
 
 @dataclass
 class LayerConfig:
-    """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy."""
+    """Configuration class for the parameters of a single layer/algorithm in the COLAV planning hierarchy.
+
+    Each layer represent a specific COLAV algorithm, and the parameters are specific to the algorithm. For example with three layers,
+
+    the first layer will be a static obstacle collision-free planner, run e.g. only at the start of the mission,
+    the second layer is a mid-level MPC-based COLAV system, that can handle both static and dynamic obstacles (and the COLREGS),
+    the third layer is a lower level reactive VO-based COLAV, that handles emergency maneuvers and close encounters if the mid-level planner fails.
+
+    NOTE: This class is typically only used when you want to configure the COLAV system parameters from a scenario file. However,
+          an easier option is to configure the COLAV system externally, and pass the COLAV object to the simulator at run-time
+          (see examples/dummy_planner.py for an example of this). This is recommended if you want to use a third-party COLAV algorithm.
+    """
 
     vo: Optional[kvo.VOParams] = field(default_factory=lambda: kvo.VOParams())
     los: Optional[guidance.LOSGuidanceParams] = None
