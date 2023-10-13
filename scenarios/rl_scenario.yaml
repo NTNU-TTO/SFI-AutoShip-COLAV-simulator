@@ -11,12 +11,13 @@ map_tolerance: 1
 map_buffer: 0
 new_load_of_map_data: False
 type: MS
-n_random_ships: 1
+n_random_ships: 2
 #n_random_ships_range: [1, 2]
 n_episodes: 1
 rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
-  navigation_csog_state_observation: ""
+  lidar_like_observation: ""
+  # navigation_csog_state_observation: ""
 stochasticity:
   currents:
     constant: True
@@ -41,9 +42,9 @@ stochasticity:
 ship_list:
   - id: 0
     mmsi: 100
-    csog_state: [6574280.0, -31824.0, 5.0, -45.0]
-    goal_csog_state: [6578500.0, -29300.0, 5.0, -45.0] #[6583580.0, -31824.0, 0.0, 0.0]
-    random_generated: True
+    csog_state: [6574280.0, -31824.0, 5.0, 0.0]
+    goal_csog_state: [6578500.0, -29300.0, 5.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
+    random_generated: False
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -95,6 +96,7 @@ ship_list:
   - id: 1
     mmsi: 101
     #csog_state: [6575080.0, -32424.0, 6.0, 120.0]
+    csog_state: [6574280.0, -31800.0, 5.0, -90.0]
     random_generated: True
     tracker:
       kf:

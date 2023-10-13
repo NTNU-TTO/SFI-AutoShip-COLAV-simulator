@@ -21,7 +21,7 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon
+from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon, MultiLineString
 
 
 def local2latlon(x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
@@ -1093,3 +1093,22 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
             points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
             if len(points) > 1:
                 enc.draw_line(points, color="white", width=0.5, thickness=0.5, marker_type=None)
+
+
+def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:
+    """Converts a shapely intersection to a point.
+    If intersection contains multiple points, the closest one is returned.
+    
+    Args:
+        - intersection (Point | Linestring | Multilinestring): The intersection to convert
+    
+    Returns:
+        Point: Shapely point object containing the closest point of intersection
+    
+    """
+    if isinstance(intersection, LineString):
+        return Point(intersection.coords[0])
+    elif isinstance(intersection, Point):
+        return intersection
+    elif isinstance(intersection, MultiLineString):
+        return Point(intersection.geoms[0].coords[0])
