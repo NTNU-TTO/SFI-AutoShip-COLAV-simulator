@@ -57,6 +57,25 @@ class CollisionRewardParams:
 
     def to_dict(self):
         return {"r_collision": self.r_collision}
+    
+
+@dataclass
+class GroundingRewardParams:
+    """Parameters for the Grounding rewarder."""
+
+    r_grounding: float = -500.0
+
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        cfg = GroundingRewardParams()
+        cfg.r_grounding = config_dict["r_grounding"]
+        return cfg
+
+    def to_dict(self):
+        return {"r_grounding": self.r_grounding}
 
 
 @dataclass
@@ -126,6 +145,8 @@ class Config:
                 cfg.rewarders.append(DistanceToGoalRewardParams.from_dict(rewarder))
             elif "collision_rewarder" in rewarder:
                 cfg.rewarders.append(CollisionRewardParams.from_dict(rewarder))
+            elif "grounding_rewarder" in rewarder:
+                cfg.rewarders.append(GroundingRewardParams.from_dict(rewarder))
         return cfg
 
     def to_dict(self) -> dict:
@@ -136,6 +157,8 @@ class Config:
             elif isinstance(rewarder, DistanceToGoalRewardParams):
                 rewarders.append(rewarder.to_dict())
             elif isinstance(rewarder, CollisionRewardParams):
+                rewarders.append(rewarder.to_dict())
+            elif isinstance(rewarder, GroundingRewardParams):
                 rewarders.append(rewarder.to_dict())
         return {"rewarders": rewarders}
 
@@ -195,36 +218,52 @@ class TrajectoryTrackingRewarder(IReward):
 class CollisionRewarder(IReward):
     """Reward the agent negatively for colliding."""
 
-    def __init__(self, params: Optional[CollisionRewardParams] = None) -> None:
+    def __init__(self, env: "COLAVEnvironment", params: Optional[CollisionRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
+            env (COLAVEnvironment): The environment
             params (CollisionRewardParams): The reward parameters.
         """
+        super().__init__(env)
         self.params = params if params else CollisionRewardParams()
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
-        """Reward for the current state-action pair. Passes additional argument in terms of bool describing if collision has occured.
-                
-        Args:
-            state (Observation): The current state.
-            action (Optional[Action], optional): The current action. Defaults to None.
-            **kwargs: Additional arguments. In this case, collision (bool) is passed.
-        """
-        collision = kwargs.get('collision', False)
-        if collision:
-            collided = 1.0
-        else: collided = 0.0
-        return self.params.r_collision * collided
+        """Reward for the current state-action pair. Calls function from simulator class to get collision or not."""
+        collision = self.env.simulator.determine_ownship_collision()
+        if collision: 
+            return self.params.r_collision 
+        else: return 0.0
 
+
+class GroundingRewarder(IReward):
+    """Reward the agent negatively for grounding."""
+
+    def __init__(self, env: "COLAVEnvironment", params: Optional[CollisionRewardParams] = None) -> None:
+        """Initializes the reward function.
+
+        Args:
+            env (COLAVEnvironment): The environment
+            params (GroundingRewardParams): The reward parameters.
+        """
+        self.params = params if params else GroundingRewardParams()
+        super().__init__(env)
+
+    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+        """Reward for the current state-action pair. Calls function from simulator class to get grounding or not."""
+        grounding = self.env.simulator.determine_ownship_grounding()
+        if grounding: 
+            return self.params.r_grounding
+        else: return 0.0
 
 class Rewarder(IReward):
     """The rewarder class."""
 
-    def __init__(self, config: Optional[Config] = None) -> None:
+    def __init__(self,  env: "COLAVEnvironment", config: Optional[Config] = None) -> None:
         """Initializes the rewarder.
 
         Args:
+            env (COLAVEnvironment): The environment
             config (Config): The rewarder configuration
         """
         self.config = config if config else Config()
@@ -235,7 +274,9 @@ class Rewarder(IReward):
             elif isinstance(rewarder, DistanceToGoalRewardParams):
                 self.rewarders.append(DistanceToGoalRewarder(np.array([0.0, 0.0]), rewarder))
             elif isinstance(rewarder, CollisionRewardParams):
-                self.rewarders.append(CollisionRewarder(rewarder))
+                self.rewarders.append(CollisionRewarder(env, rewarder))
+            elif isinstance(rewarder, GroundingRewardParams):
+                self.rewarders.append(GroundingRewarder(env, rewarder))
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         reward = 0.0

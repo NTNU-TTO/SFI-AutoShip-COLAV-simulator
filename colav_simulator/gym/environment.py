@@ -77,8 +77,6 @@ class COLAVEnvironment(gym.Env):
         self.scenario_files: Optional[list] = scenario_files
         self._has_init_generated: bool = False
 
-        self.rewarder = rw.Rewarder(config=rewarder_config)
-
         self.done = False
         self.steps: int = 0
         self.episodes: int = 0
@@ -89,6 +87,8 @@ class COLAVEnvironment(gym.Env):
         self.test_mode = test_mode
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
+
+        self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -239,8 +239,8 @@ class COLAVEnvironment(gym.Env):
         sim_data_dict = self.simulator.step(remote_actor=True)
 
         obs = self.observation_type.observe()  # normalized observation
+        reward = self.rewarder(obs, action) # normalized reward
         terminated = self._is_terminated()
-        reward = self.rewarder(obs, action, collision=terminated)  # normalized reward
         truncated = self._is_truncated()
         info = self._info(obs, action)
         self.steps += 1
