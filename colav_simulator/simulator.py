@@ -297,6 +297,17 @@ class Simulator:
         ownship_state = self.ownship.csog_state
         d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ownship_state[1], ownship_state[0])
         return d2land <= self.ownship.length
+    
+    def determine_ownship_goal_reached(self) -> bool:
+        """Determines whether the own-ship has reached its goal.
+
+        Returns:
+            bool: True if the own-ship has reached its goal, False otherwise.
+        """
+        ownship_state = self.ownship.csog_state
+        goal_state = self.ownship._goal_csog_state
+        d2goal = np.linalg.norm(ownship_state[:2] - goal_state[:2])
+        return d2goal <= self.ownship.length
 
 
 def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:

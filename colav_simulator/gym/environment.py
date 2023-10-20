@@ -111,13 +111,16 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
+        goal_reached = self.simulator.determine_ownship_goal_reached()
         collided = self.simulator.determine_ownship_collision()
         grounded = self.simulator.determine_ownship_grounding()
         if self.verbose and collided:
             print(f"Collision at t = {self.simulator.t}!")
         if self.verbose and grounded:
             print(f"Grounding at t = {self.simulator.t}!")
-        return collided or grounded
+        if self.verbose and goal_reached:
+            print(f"Goal reached at t = {self.simulator.t}!")
+        return collided or grounded or goal_reached
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
