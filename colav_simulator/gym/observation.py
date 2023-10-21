@@ -433,6 +433,33 @@ class TupleObservation(ObservationType):
         return tuple(obs_type.observe() for obs_type in self.observation_types)
 
 
+class DictObservation(ObservationType):
+    """Observation consisting of multiple observation types.
+    Observations are packed into a gymnasium type dictionary with a key for each
+    observation type.
+    """
+
+    def __init__(self, env: "COLAVEnvironment", observation_configs: list, **kwargs) -> None:
+        super().__init__(env)
+        self.observation_types = [observation_factory(env, obs_config) for obs_config in observation_configs]
+
+    def space(self) -> gym.spaces.Space:
+        obs_space = dict()
+        
+        for obs_type in self.observation_types:
+            obs_space[obs_type.name] = obs_type.space()
+        
+        return gym.spaces.Dict(obs_space)
+        
+    def observe(self) -> Observation:
+        obs = dict()
+        
+        for obs_type in self.observation_types:
+            obs[obs_type.name] = obs_type.observe()
+        
+        return obs
+
+
 def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = "lidar_like_observation", **kwargs) -> ObservationType:
     """Factory for creating observation spaces.
 
@@ -452,5 +479,7 @@ def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = 
         return NavigationCSOGStateObservation(env, **kwargs)
     elif "tuple_observation" in observation_type:
         return TupleObservation(env, observation_type["tuple_observation"], **kwargs)
+    elif "dict_observation" in observation_type:
+        return DictObservation(env, observation_type["dict_observation"], **kwargs)
     else:
         raise ValueError("Unknown observation type")
