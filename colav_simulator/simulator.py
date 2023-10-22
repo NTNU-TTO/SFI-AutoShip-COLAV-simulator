@@ -305,7 +305,7 @@ class Simulator:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
         ownship_state = self.ownship.csog_state
-        goal_state = self.ownship._goal_csog_state
+        goal_state = self.ownship._goal_state
         d2goal = np.linalg.norm(ownship_state[:2] - goal_state[:2])
         return d2goal <= self.ownship.length
 
