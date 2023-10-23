@@ -304,8 +304,13 @@ class Simulator:
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
+        if self.ownship._goal_state.size > 0:
+            goal_state = self.ownship._goal_state
+        elif self.ownship._waypoints.size > 1:
+            goal_state = self.ownship._waypoints[:,-1]
+        else:
+            raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
         ownship_state = self.ownship.csog_state
-        goal_state = self.ownship._goal_state
         d2goal = np.linalg.norm(ownship_state[:2] - goal_state[:2])
         return d2goal <= self.ownship.length
 
