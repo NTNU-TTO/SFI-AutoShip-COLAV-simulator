@@ -181,19 +181,24 @@ class ExistenceRewarder(IReward):
 class DistanceToGoalRewarder(IReward):
     """Reward the agent for getting closer to the goal."""
 
-    def __init__(self, goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None) -> None:
+    def __init__(self, env: "COLAVEnvironment", goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
             goal (np.ndarray): The goal position [x_g, y_g]^T
             params (DistanceToGoalRewardParams): The reward parameters.
         """
-        self.goal = goal
+        super().__init__(env)
         self.params = params if params else DistanceToGoalRewardParams()
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
-
-        return -self.params.r_d2g * float(np.linalg.norm(state[:2] - self.goal))
+        if self.env.ownship._goal_state.size > 0:
+            self.goal = self.env.ownship._goal_state[:2]
+        elif self.env.ownship._waypoints.size > 1: 
+            self.goal = self.env.ownship._waypoints[:, -1]
+        else:
+            raise ValueError("No goal state or waypoints found")
+        return -self.params.r_d2g * float(np.linalg.norm(self.env.ownship.csog_state[:2] - self.goal))
 
 
 class TrajectoryTrackingRewarder(IReward):
@@ -272,7 +277,7 @@ class Rewarder(IReward):
             if isinstance(rewarder, ExistenceRewardParams):
                 self.rewarders.append(ExistenceRewarder(rewarder))
             elif isinstance(rewarder, DistanceToGoalRewardParams):
-                self.rewarders.append(DistanceToGoalRewarder(np.array([0.0, 0.0]), rewarder))
+                self.rewarders.append(DistanceToGoalRewarder(env, rewarder))
             elif isinstance(rewarder, CollisionRewardParams):
                 self.rewarders.append(CollisionRewarder(env, rewarder))
             elif isinstance(rewarder, GroundingRewardParams):
