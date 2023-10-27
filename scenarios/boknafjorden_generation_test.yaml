@@ -14,10 +14,6 @@ type: MS
 n_random_ships: 2
 #n_random_ships_range: [1, 2]
 n_episodes: 1
-rl_action_type: "continuous_autopilot_reference_action"
-rl_observation_type:
-  lidar_like_observation: ""
-  # navigation_csog_state_observation: ""
 stochasticity:
   currents:
     constant: True

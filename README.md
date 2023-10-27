@@ -32,10 +32,10 @@ If you are using the `colav_simulator` for academic work, please use the followi
 Are all outlined in setup.cfg. Non-pip packages to install are
 
 - seacharts: https://github.com/trymte/seacharts
-- colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool
+- colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool (optional dependency only for the `test_simulation_and_evaluation.py` test file)
 
 ## Generic Install Instructions
-`seacharts`and the `colav_evaluation_tool` are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
+`seacharts`and the `colav_evaluation_tool` (optional) are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
 
 To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 

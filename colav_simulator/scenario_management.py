@@ -15,6 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Tuple
 
+import colav_simulator.behavior_generator as bg
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.file_utils as file_utils
 import colav_simulator.common.map_functions as mapf
@@ -217,6 +218,7 @@ class Config:
     """
 
     verbose: bool = False
+    behavior_generation_method: bg.BehaviorGenerationMethod = bg.BehaviorGenerationMethod.ConstantSpeedAndCourse
     n_wps_range: list = field(default_factory=lambda: [2, 4])  # Range of number of waypoints to be generated
     speed_plan_variation_range: list = field(default_factory=lambda: [-1.0, 1.0])  # Determines maximal +- change in speed plan from one segment to the next
     waypoint_dist_range: list = field(default_factory=lambda: [200.0, 1000.0])  # Range of [min, max] change in distance between randomly created waypoints
@@ -259,7 +261,9 @@ class ScenarioGenerator:
 
     rng: np.random.Generator
     enc: senc.ENC
+    behavior_generator: bg.BehaviorGenerator
     safe_sea_cdt: Optional[list] = None
+    rrts: Optional[list] = None
     _config: Config
 
     def __init__(
@@ -287,18 +291,12 @@ class ScenarioGenerator:
             self._config = config
         elif config_file:
             self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
-        else:
-            raise ValueError("Either config or config_file must be specified.")
 
         self.safe_sea_cdt = None
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
         self.rng = np.random.default_rng(seed=seed)
-
-        # self.default_scenario_data_list = self.generate_configured_scenarios()
-        # scenario_data = self._scenario_generator.load_scenario_from_folder(dp.scenarios / "saved", "rogaland_random")
-        # scenario_data_list = [scenario_data]
 
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the random number generator.
@@ -402,8 +400,10 @@ class ScenarioGenerator:
         ship_list = []
         for ship_cfg in config.ship_list:
             assert (
-                ship_cfg.csog_state is not None and ship_cfg.waypoints is not None and ship_cfg.speed_plan is not None and ship_cfg.id is not None
-            ), "A fully specified ship config has an initial csog_state, waypoints, speed_plan and id."
+                ship_cfg.csog_state is not None
+                and ((ship_cfg.waypoints is not None and ship_cfg.speed_plan) or ship_cfg.goal_csog_state) is not None
+                and ship_cfg.id is not None
+            ), "A fully specified ship config has an id, initial csog_state, waypoints + speed_plan or goal state."
             ship_obj = ship.Ship(mmsi=ship_cfg.mmsi, identifier=ship_cfg.id, config=ship_cfg)
             ship_list.append(ship_obj)
 
@@ -470,8 +470,10 @@ class ScenarioGenerator:
         else:
             enc_copy = self._configure_enc(config)
 
-        # if self.safe_sea_cdt is None:
-        #     self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
+        if self.safe_sea_cdt is None:
+            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
+
+        self.behavior_generator.setup(self.enc, self.safe_sea_cdt)
 
         ais_ship_data = self.generate_ships_with_ais_data(
             ais_vessel_data_list,
@@ -611,7 +613,6 @@ class ScenarioGenerator:
                 use_ais_ship_trajectory = False
 
             if ship_config.mmsi in mmsi_list:
-                # use_ais_ship_trajectory = False
                 idx = [i for i in range(len(ais_vessel_data_list)) if ais_vessel_data_list[i].mmsi == ship_config.mmsi][0]
 
             ais_vessel = ais_vessel_data_list.pop(idx)
@@ -626,7 +627,8 @@ class ScenarioGenerator:
                 speed_plan = self.generate_random_speed_plan(ship_obj.csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
-                ship_obj.set_nominal_plan(waypoints, speed_plan)
+
+            ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
 
             csog_state_list.append(ship_obj.csog_state)
             ship_list.append(ship_obj)
@@ -699,8 +701,8 @@ class ScenarioGenerator:
                 speed_plan = self.generate_random_speed_plan(csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
                 ship_config.waypoints = waypoints
                 ship_config.speed_plan = speed_plan
-                ship_obj.set_nominal_plan(waypoints, speed_plan)
 
+            ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
             ship_config.random_generated = True
 
             csog_state_list.append(csog_state)

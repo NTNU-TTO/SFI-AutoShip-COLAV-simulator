@@ -104,6 +104,9 @@ class VesselData:
         This means that some of the data could contain NaN values, due to the vessel AIS data not
         necessarily covering the entire time interval.
 
+        Assumes availability of the following columns in the AIS DataFrame:
+        mmsi;date_time_utc;sog;cog;true_heading;nav_status;calc_speed;lon;lat
+
         Args:
             t_0_global (datetime): Start time, minimum over all considered vessels, from the AIS data.
             t_end_global (datetime): End time, maximum over all considered vessels, from the AIS data.
