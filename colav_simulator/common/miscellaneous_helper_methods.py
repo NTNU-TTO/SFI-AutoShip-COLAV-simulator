@@ -15,12 +15,24 @@ from zoneinfo import ZoneInfo
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.vessel_data as vd
 import numpy as np
 import pandas as pd
 import shapely.geometry as geometry
-from colav_evaluation_tool.vessel import VesselData, compute_total_dist_travelled
 from scipy.interpolate import interp1d
 from scipy.stats import chi2
+
+
+def get_ship_ais_df_list_from_ais_df(df: pd.DataFrame) -> list:
+    """
+     Returns a list of DataFrames, where each DataFrame contains AIS_data for a ship
+    :param df: DataFrame containing AIS_data
+    :type df: pandas DataFrame
+    :return: List of mmsi [DF_mmsi_1, DF_mmsi_2,..., DF_mmsi_n]
+    """
+    mmsi_list = df.mmsi.unique().tolist()
+    mmsi_df_list = [df[df.mmsi == mmsi].reset_index(drop=True) for mmsi in mmsi_list]
+    return mmsi_df_list
 
 
 def create_arc_length_spline(x: list, y: list) -> Tuple[interp1d, interp1d, np.ndarray]:
@@ -165,7 +177,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
     vessels = []
     identifier = 0
     for name, ship_i_info in ship_info.items():
-        vessel = VesselData(
+        vessel = vd.VesselData(
             id=identifier,
             name=name,
             mmsi=ship_i_info["mmsi"],
@@ -181,8 +193,8 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         vessel.xy = np.zeros((2, len(X[0, :])))
         vessel.xy[0, :] = X[1, :]  # ENU frame is used in the evaluator
         vessel.xy[1, :] = X[0, :]
-        vessel.sog = X[2, :]
-        vessel.cog = X[3, :]
+        vessel.sog = X[3, :]
+        vessel.cog = X[2, :]
 
         vessel.latlon = np.zeros(vessel.xy.shape) * np.nan
         (vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1], vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],) = mapf.local2latlon(
@@ -201,7 +213,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
             vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[0, k] - vessel.xy[0, k - 1], vessel.xy[1, k] - vessel.xy[1, k - 1])
         vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[vessel.first_valid_idx]
 
-        vessel.travel_dist = compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
+        vessel.travel_dist = vd.compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
 
         # print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
         # print(f"Vessel status: {vessel.status}")

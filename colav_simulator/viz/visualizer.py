@@ -620,7 +620,7 @@ class Visualizer:
         Args:
             filename (Path): Path to the file where the animation is saved.
         """
-        if not self._config.save_liveplot_animation:
+        if not self._config.save_liveplot_animation or not self._config.show_liveplot:
             return
 
         # Mess with this to change frame size

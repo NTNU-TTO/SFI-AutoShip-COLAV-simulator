@@ -10,22 +10,20 @@
 """
 
 import copy
-import random
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Tuple
 
-import colav_evaluation_tool.common.file_utils as colav_eval_fu
 import colav_simulator.common.config_parsing as cp
+import colav_simulator.common.file_utils as file_utils
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.paths as dp  # Default paths
+import colav_simulator.common.paths as dp
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import numpy as np
-import scipy.spatial as scipy_spatial
 import seacharts.enc as senc
 import yaml
 
@@ -851,7 +849,6 @@ class ScenarioGenerator:
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
         for i in range(1, n_wps):
-            min_dist_to_land = mapf.min_distance_to_land(self.enc, waypoints[1, i - 1], waypoints[0, i - 1])
             crosses_grounding_hazards = True
             iter_count = -1
             while crosses_grounding_hazards:
@@ -1020,5 +1017,5 @@ def process_ais_data(config: ScenarioConfig) -> dict:
     """
     output = {}
     if config.ais_data_file is not None:
-        output = colav_eval_fu.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, config.map_size, config.dt_sim)
+        output = file_utils.read_ais_data(config.ais_data_file, config.ship_data_file, config.utm_zone, config.map_origin_enu, config.map_size, config.dt_sim)
     return output

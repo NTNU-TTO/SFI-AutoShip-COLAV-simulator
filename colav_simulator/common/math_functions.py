@@ -96,6 +96,23 @@ def wrap_angle_to_02pi(angle: float | np.ndarray) -> float | np.ndarray:
         return wrap_min_max(angle, 0, 2 * np.pi)
 
 
+def wrap_angle_diff_to_02pi(a_1: float | np.ndarray, a_2: float | np.ndarray) -> float | np.ndarray:
+    """Wraps angle difference a_1 - a_2 to within [0, 2pi)
+
+    Args:
+        a_1 (float or np.ndarray): Angle in radians
+        a_2 (float or np.ndarray): Angle in radians
+
+    Returns:
+        float or np.ndarray: Wrapped angle difference
+    """
+    diff = wrap_angle_to_02pi(a_1) - wrap_angle_to_02pi(a_2)
+    if isinstance(diff, np.ndarray):
+        return wrap_min_max(diff, np.zeros(diff.size), 2 * np.pi * np.ones(diff.size))
+    else:
+        return wrap_min_max(diff, 0, 2 * np.pi)
+
+
 def wrap_angle_diff_to_pmpi(a_1: float | np.ndarray, a_2: float | np.ndarray) -> float | np.ndarray:
     """Wraps angle difference a_1 - a_2 to within [-pi, pi)
 
