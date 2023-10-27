@@ -37,10 +37,15 @@ class BehaviorGenerationMethod(Enum):
     RapidlyExploringRandomTree = 3  # Use RRT to generate ship trajectories, with constant speed
 
 
+@dataclass
 class Config:
     """Configuration class for the behavior generator."""
 
     method: BehaviorGenerationMethod = BehaviorGenerationMethod.ConstantSpeedAndCourse
+    n_wps_range: list = field(default_factory=lambda: [2, 4])  # Range of number of waypoints to be generated
+    speed_plan_variation_range: list = field(default_factory=lambda: [-1.0, 1.0])  # Determines maximal +- change in speed plan from one segment to the next
+    waypoint_dist_range: list = field(default_factory=lambda: [200.0, 1000.0])  # Range of [min, max] change in distance between randomly created waypoints
+    waypoint_ang_range: list = field(default_factory=lambda: [-45.0, 45.0])  # Range of [min, max] change in angle between randomly created waypoints
 
     @classmethod
     def from_dict(cls, config_dict: dict):

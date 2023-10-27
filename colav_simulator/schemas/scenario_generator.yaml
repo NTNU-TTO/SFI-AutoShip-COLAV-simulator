@@ -12,33 +12,7 @@ scenario_folder:
   required: False
   excludes: [scenario_files]
   type: string
-n_wps_range:
-  required: True
-  type: list
-  maxlength: 2
-  schema:
-    type: integer
-    min: 2
-speed_plan_variation_range:
-  required: True
-  type: list
-  maxlength: 2
-  schema:
-    type: float
-waypoint_dist_range:
-  required: True
-  type: list
-  maxlength: 2
-  schema:
-    type: float
-    min: 50.0
-    max: 10000.0
-waypoint_ang_range:
-  required: True
-  type: list
-  maxlength: 2
-  schema:
-    type: float
+
 ho_bearing_range:
   required: True
   type: list
@@ -95,3 +69,212 @@ dist_between_ships_range:
     type: float
     min: 50.0
     max: 100000.0
+
+
+behavior_generator:
+  required: True
+  type: dict
+  schema:
+    method:
+      required: True
+      type: string
+    n_wps_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: integer
+        min: 2
+    speed_plan_variation_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+    waypoint_dist_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: 50.0
+        max: 10000.0
+    waypoint_ang_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+
+    pq_rrt:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_node_dist:
+              required: True
+              type: float
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
+              required: True
+              type: float
+            max_nn_node_dist:
+              required: True
+              type: float
+            gamma:
+              required: True
+              type: float
+            max_sample_adjustments:
+              required: True
+              type: integer
+            lambda_sample_adjustment:
+              required: True
+              type: float
+            safe_distance:
+              required: True
+              type: float
+            max_ancestry_level:
+              required: True
+              type: integer
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              excludes: [telemetron]
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+              telemetron:
+                type: string
+                empty: True
+                excludes: [csog]
+    rrt:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_node_dist:
+              required: True
+              type: float
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
+              required: True
+              type: float
+            max_nn_node_dist:
+              required: True
+              type: float
+            gamma:
+              required: True
+              type: float
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              excludes: [telemetron]
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+              telemetron:
+                type: string
+                empty: True
+                excludes: [csog]

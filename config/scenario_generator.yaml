@@ -7,10 +7,7 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
 #scenario_folder: "imazu_cases"
-n_wps_range: [3, 5]
-speed_plan_variation_range: [-1.0, 1.0]
-waypoint_dist_range: [200.0, 1000.0]
-waypoint_ang_range: [-45.0, 45.0]
+
 ho_bearing_range: [-20.0, 20.0]
 ho_heading_range: [-15.0, 15.0]
 ot_bearing_range: [-20.0, 20.0]
@@ -18,3 +15,66 @@ ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [15.1, 112.5]
 cr_heading_range: [-15.0, 15.0]
 dist_between_ships_range: [200.0, 1000.0]
+
+# Parameters for the ship behavior (waypoints+speed plan ...) generator
+behavior_generator:
+  method: "constant"
+
+  n_wps_range: [3, 5]
+  speed_plan_variation_range: [-1.0, 1.0]
+  waypoint_dist_range: [200.0, 1000.0]
+  waypoint_ang_range: [-45.0, 45.0]
+
+  pq_rrt:
+    params:
+      max_nodes: 10000
+      max_iter: 20000
+      iter_between_direct_goal_growth: 500
+      min_node_dist: 10.0
+      goal_radius: 100.0
+      step_size: 1.0
+      min_steering_time: 2.0
+      max_steering_time: 20.0
+      steering_acceptance_radius: 10.0
+      max_nn_node_dist: 100.0
+      gamma: 1500.0
+      max_sample_adjustments: 100
+      lambda_sample_adjustment: 1.0
+      safe_distance: 5.0
+      max_ancestry_level: 2
+    model:
+      csog:
+        draft: 0.5
+        length: 10.0
+        width: 3.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 6.0
+        U_min: 0.0
+        U_max: 15.0
+
+  rrt:
+    params:
+      max_nodes: 10000
+      max_iter: 20000
+      iter_between_direct_goal_growth: 500
+      min_node_dist: 10.0
+      goal_radius: 100.0
+      step_size: 1.0
+      min_steering_time: 2.0
+      max_steering_time: 20.0
+      steering_acceptance_radius: 10.0
+      max_nn_node_dist: 100.0
+      gamma: 1500.0
+    model:
+      csog:
+        draft: 0.5
+        length: 10.0
+        width: 3.0
+        T_chi: 3.0
+        T_U: 5.0
+        r_max: 6.0
+        U_min: 0.0
+        U_max: 15.0
+
+

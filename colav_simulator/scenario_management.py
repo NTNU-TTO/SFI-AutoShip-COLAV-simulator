@@ -218,11 +218,7 @@ class Config:
     """
 
     verbose: bool = False
-    behavior_generation_method: bg.BehaviorGenerationMethod = bg.BehaviorGenerationMethod.ConstantSpeedAndCourse
-    n_wps_range: list = field(default_factory=lambda: [2, 4])  # Range of number of waypoints to be generated
-    speed_plan_variation_range: list = field(default_factory=lambda: [-1.0, 1.0])  # Determines maximal +- change in speed plan from one segment to the next
-    waypoint_dist_range: list = field(default_factory=lambda: [200.0, 1000.0])  # Range of [min, max] change in distance between randomly created waypoints
-    waypoint_ang_range: list = field(default_factory=lambda: [-45.0, 45.0])  # Range of [min, max] change in angle between randomly created waypoints
+    behavior_generator: bg.Config = field(default_factory=lambda: bg.Config())
     ho_bearing_range: list = field(default_factory=lambda: [-20.0, 20.0])  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
     ho_heading_range: list = field(
         default_factory=lambda: [-15.0, 15.0]
@@ -241,7 +237,7 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = cls(**config_dict)
+        config = Config()
         if "scenario_files" in config_dict:
             config.scenario_files = config_dict["scenario_files"]
 
@@ -249,10 +245,12 @@ class Config:
             config.scenario_folder = config_dict["scenario_folder"]
             config.scenario_files = None
 
+        config.behavior_generator = bg.Config.from_dict(config_dict["behavior_generator"])
         return config
 
     def to_dict(self):
         output = asdict(self)
+        output.behavior_generator = self.behavior_generator.to_dict()
         return output
 
 
@@ -297,6 +295,7 @@ class ScenarioGenerator:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
         self.rng = np.random.default_rng(seed=seed)
+        self.behavior_generator = bg.BehaviorGenerator(self._config.behavior_generator)
 
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the random number generator.
