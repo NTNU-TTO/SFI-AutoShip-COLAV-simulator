@@ -71,6 +71,7 @@ class LidarLikeObservation(ObservationType):
         self.sensing_range = 1500
 
         self._partition_sensors()
+        self._create_spatial_index()
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -96,7 +97,7 @@ class LidarLikeObservation(ObservationType):
             Observation: Normalized observation.
         """
         
-        normalized_obs = np.concatenate(
+        normalized_obs = np.array(np.concatenate(
             [
                 [
                     mf.linear_map(obs[i], self.observation_range["closeness"], (-1.0, 1.0)) for i in range(self.n_sectors)
@@ -104,7 +105,8 @@ class LidarLikeObservation(ObservationType):
                 [
                     mf.linear_map(obs[j], self.observation_range["do_speed"], (-1.0, 1.0)) for j in range(self.n_sectors, self.n_sectors*3)
                 ]
-            ]
+            ]),
+            dtype=np.float32
         )
         
         return normalized_obs
@@ -118,7 +120,7 @@ class LidarLikeObservation(ObservationType):
         sensor_range = self.sensing_range
         sensor_angles = self._sensor_angles + self._ownship.heading # Rotation of sensor suite
 
-        grounding_hazards = self.env.relevant_grounding_hazards
+        grounding_hazards = self.grounding_hazards
         dynamic_obstacles = self.env.dynamic_obstacles
         
         # Convert ship objects to polygons
@@ -141,7 +143,7 @@ class LidarLikeObservation(ObservationType):
                                                                                 sensor_range=sensor_range,
                                                                                 grounding_hazards=grounding_hazards,
                                                                                 dynamic_obstacles=dynamic_obstacle_polygons
-                                                                                )            
+                                                                                )
             obstacle_distances.append(closest_obstacle_dist)
             obstacle_velocities.append(closest_obstacle_vel)
             
@@ -159,7 +161,6 @@ class LidarLikeObservation(ObservationType):
             # Closeness of reachable distance
             sector_feasible_distance = self._feasibility_pooling(obstacle_distances_by_sector[i])
             sector_closeness.append(self._get_closeness(sector_feasible_distance))
-            
             # Velocities of closest obstacle in sector
             closest_obstacle_index = np.argmin(obstacle_distances_by_sector[i])
             sector_velocities.append(obstacle_velocities_by_sector[i][closest_obstacle_index])
@@ -224,7 +225,7 @@ class LidarLikeObservation(ObservationType):
                 current_sector = sector
         
         self._sector_start_indices = sector_start_indices
-
+        
     def _map_sensor_to_sector(self, isensor):
         """ Maps a sensor index i in {1,...,N} to a sector index k in {1, ..., D}
         
@@ -262,7 +263,7 @@ class LidarLikeObservation(ObservationType):
             - ownship_pos (Point): Ownship coordinates (east, north)
             - sensor_angle (float): Angle of sensor relative to ownships body frame [rad]
             - sensor_range (float): Range of sensor [m]
-            - grounding_hazards (list): List of grounding hazards as polygons
+            - grounding_hazards (list): List of grounding hazards as a list of geometry objects
             - dynamic_obstacles (list): List of dynamic obstacles as polygons
             
         Returns:
@@ -277,14 +278,21 @@ class LidarLikeObservation(ObservationType):
         closest_obstacle_dist = sensor_range
         closest_obstacle_vel = (0,0)
         
-        # Static obstacles
-        for grounding_hazard in grounding_hazards:
-            if shapely.intersects(sensor_ray, grounding_hazard):
-                intersection = sensor_ray.intersection(grounding_hazard)
-                intersection = mapf.standardize_polygon_intersections(intersection)
-                if ownship_pos.distance(intersection) < closest_obstacle_dist:
-                    closest_obstacle_dist = ownship_pos.distance(intersection)
-
+        # Grounding hazards
+        closest_hazard_idx = self.grounding_spatial_index.query_nearest(geometry=sensor_ray,
+                                                                        max_distance=self.sensing_range,
+                                                                        exclusive=True,
+                                                                        all_matches=True
+                                                                        )
+        # Find closest obstacle among query results
+        if np.any(closest_hazard_idx):
+            for idx in closest_hazard_idx:
+                if shapely.intersects(sensor_ray, grounding_hazards[idx]):
+                    intersection = shapely.intersection(sensor_ray, grounding_hazards[idx])
+                    intersection = mapf.standardize_polygon_intersections(shapely.intersection(sensor_ray, grounding_hazards[idx]))
+                    if ownship_pos.distance(intersection) < closest_obstacle_dist:
+                        closest_obstacle_dist = ownship_pos.distance(intersection)
+            
         # Dynamic obstacles
         for idx, dynamic_obstacle in enumerate(dynamic_obstacles):
             if shapely.intersects(sensor_ray, dynamic_obstacle):
@@ -300,7 +308,17 @@ class LidarLikeObservation(ObservationType):
                     closest_obstacle_vel = mf.Rmtrx2D(-sensor_angle - np.pi/2).dot(closest_obstacle_vel)
         
         return closest_obstacle_dist, closest_obstacle_vel
-                
+
+    def _create_spatial_index(self):
+        """Creates a R-tree spatial index of the relevant grounding hazards."""
+        grounding_hazards = np.array([])
+        for poly in self.env.relevant_grounding_hazards:
+            geoms = np.array([geom for geom in poly.geoms])
+            np.concatenate([grounding_hazards, geoms])
+        
+        self.grounding_hazards = geoms
+        self.grounding_spatial_index = shapely.STRtree(geoms)
+         
 
 class Navigation3DOFStateObservation(ObservationType):
     """Observes the current own-ship 3DOF state, i.e. [x, y, psi, u, v, r]."""
@@ -361,7 +379,7 @@ class Navigation3DOFStateObservation(ObservationType):
         obs = np.concatenate([state, extras])
         return self.normalize(obs)
 
-
+    
 class NavigationCSOGStateObservation(ObservationType):
     """Observes the current own-ship CSOG state, i.e. [x, y, SOG, COG]."""
 
@@ -433,6 +451,33 @@ class TupleObservation(ObservationType):
         return tuple(obs_type.observe() for obs_type in self.observation_types)
 
 
+class DictObservation(ObservationType):
+    """Observation consisting of multiple observation types.
+    Observations are packed into a gymnasium type dictionary with a key for each
+    observation type.
+    """
+
+    def __init__(self, env: "COLAVEnvironment", observation_configs: list, **kwargs) -> None:
+        super().__init__(env)
+        self.observation_types = [observation_factory(env, obs_config) for obs_config in observation_configs]
+
+    def space(self) -> gym.spaces.Space:
+        obs_space = dict()
+        
+        for obs_type in self.observation_types:
+            obs_space[obs_type.name] = obs_type.space()
+        
+        return gym.spaces.Dict(obs_space)
+        
+    def observe(self) -> Observation:
+        obs = dict()
+        
+        for obs_type in self.observation_types:
+            obs[obs_type.name] = obs_type.observe()
+        
+        return obs
+
+
 def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = "lidar_like_observation", **kwargs) -> ObservationType:
     """Factory for creating observation spaces.
 
@@ -452,5 +497,7 @@ def observation_factory(env: "COLAVEnvironment", observation_type: str | dict = 
         return NavigationCSOGStateObservation(env, **kwargs)
     elif "tuple_observation" in observation_type:
         return TupleObservation(env, observation_type["tuple_observation"], **kwargs)
+    elif "dict_observation" in observation_type:
+        return DictObservation(env, observation_type["dict_observation"], **kwargs)
     else:
         raise ValueError("Unknown observation type")

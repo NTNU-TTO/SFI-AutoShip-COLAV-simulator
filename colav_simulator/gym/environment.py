@@ -77,8 +77,6 @@ class COLAVEnvironment(gym.Env):
         self.scenario_files: Optional[list] = scenario_files
         self._has_init_generated: bool = False
 
-        self.rewarder = rw.Rewarder(config=rewarder_config)
-
         self.done = False
         self.steps: int = 0
         self.episodes: int = 0
@@ -89,6 +87,8 @@ class COLAVEnvironment(gym.Env):
         self.test_mode = test_mode
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
+
+        self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -111,13 +111,16 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
+        goal_reached = self.simulator.determine_ownship_goal_reached()
         collided = self.simulator.determine_ownship_collision()
         grounded = self.simulator.determine_ownship_grounding()
         if self.verbose and collided:
             print(f"Collision at t = {self.simulator.t}!")
         if self.verbose and grounded:
             print(f"Grounding at t = {self.simulator.t}!")
-        return collided or grounded
+        if self.verbose and goal_reached:
+            print(f"Goal reached at t = {self.simulator.t}!")
+        return collided or grounded or goal_reached
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -239,7 +242,7 @@ class COLAVEnvironment(gym.Env):
         sim_data_dict = self.simulator.step(remote_actor=True)
 
         obs = self.observation_type.observe()  # normalized observation
-        reward = self.rewarder(obs, action)  # normalized reward
+        reward = self.rewarder(obs, action) # normalized reward
         terminated = self._is_terminated()
         truncated = self._is_truncated()
         info = self._info(obs, action)
