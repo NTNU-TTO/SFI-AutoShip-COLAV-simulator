@@ -2,7 +2,7 @@
     behavior_generator.py
 
     Summary:
-        Contains a class for generating random ship behaviors, i.e. trajectories.
+        Contains a class for generating random ship behaviors/waypoints+speed plans/trajectories.
 
     Author: Trym Tengesdal
 """
@@ -10,16 +10,12 @@
 import copy
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Optional, Tuple
 
-import colav_simulator.behavior_generator as tg
 import colav_simulator.common.config_parsing as cp
-import colav_simulator.common.file_utils as file_utils
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.paths as dp
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import numpy as np
@@ -34,7 +30,7 @@ class BehaviorGenerationMethod(Enum):
     ConstantSpeedAndCourse = 0  # Constant ship speed and course
     ConstantSpeedRandomWaypoints = 1  # Constant ship speed, uniform distribution to generate ship waypoints
     RandomWaypoints = 2  # Varying ship speed, uniform distribution to generate ship waypoints
-    RapidlyExploringRandomTree = 3  # Use RRT to generate ship trajectories, with constant speed
+    RapidlyExploringRandomTree = 3  # Use PQRRT*/RRT to generate ship trajectories/waypoints, with constant speed
 
 
 @dataclass
@@ -66,6 +62,8 @@ class BehaviorGenerator:
         self._config: Config = config
         self._enc: senc.ENC = None
         self._safe_sea_cdt: list = None
+        self._rrt_list: list = None
+        self._pqrrt_list: list = None
 
     def setup(self, enc: senc.ENC, safe_sea_cdt: list) -> None:
         """Setup the environment for the behavior generator by e.g. transferring ENC data to the
@@ -77,12 +75,12 @@ class BehaviorGenerator:
         self._enc = copy.deepcopy(enc)
         self._safe_sea_cdt = safe_sea_cdt
 
-    def generate(self, rng: np.random.Generator, ship_obj: ship.Ship, random_method: Optional[bool] = False) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    def generate(self, rng: np.random.Generator, ship_obj: ship.Ship, randomize_method: Optional[bool] = False) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """Generate a random ship behavior in the form of waypoints + speed plan that the ship will follow.
 
         Args:
             xs_start: Start positions of the ships.
-            random_method: If True, use a random method for generating the ship behavior. If False, use the method specified in the config.
+            randomize_method: If True, randomize the method for generating the ship behavior. If False, use the method specified in the config.
         """
         waypoints = np.zeros((0, 2))
         speed_plan = np.zeros((0, 1))

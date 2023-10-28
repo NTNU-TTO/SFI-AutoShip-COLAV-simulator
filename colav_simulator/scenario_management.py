@@ -470,20 +470,40 @@ class ScenarioGenerator:
             enc_copy = self._configure_enc(config)
 
         if self.safe_sea_cdt is None:
-            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc)
+            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc, vessel_min_depth=2, show_plots=False)
 
-        self.behavior_generator.setup(self.enc, self.safe_sea_cdt)
+        if config.n_random_ships is not None:
+            n_random_ships = config.n_random_ships
+        else:
+            n_random_ships = self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1])
+        config.n_random_ships = n_random_ships
 
-        ais_ship_data = self.generate_ships_with_ais_data(
-            ais_vessel_data_list,
-            mmsi_list,
-            config,
-        )
+        # Create partially defined ship objects and ship configurations for all ships
+        ship_list = []
+        ship_config_list = []
+        ship_cfg_idx = 0
+        n_cfg_ships = len(config.ship_list)
+        for s in range(1 + config.n_random_ships):  # +1 for own-ship
+            if ship_cfg_idx < n_cfg_ships and ship_cfg_idx == config.ship_list[ship_cfg_idx].id:
+                ship_config = config.ship_list[ship_cfg_idx]
+            else:
+                ship_config = ship.Config()
+                ship_config.id = ship_cfg_idx
+                ship_config.mmsi = ship_cfg_idx + 1
+
+            ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
+
+            ship_list.append(ship_obj)
+            ship_config_list.append(ship_config)
+
+        config.ship_list = ship_config_list
 
         scenario_episode_list = []
         for ep in range(config.n_episodes):
             episode = {}
-            episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(copy.deepcopy(config), ais_ship_data, enc)
+            episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(
+                copy.deepcopy(config), copy.deepcopy(ship_list), ais_vessel_data_list, mmsi_list, enc
+            )
             episode["config"].name = f"{config.name}_ep{ep + 1}"
             if config.save_scenario:
                 episode["config"].filename = save_scenario_episode_definition(episode["config"])
@@ -492,9 +512,9 @@ class ScenarioGenerator:
         return scenario_episode_list, enc_copy
 
     def generate_episode(
-        self, config: ScenarioConfig, ais_ship_data: Optional[dict] = None, enc: Optional[senc.ENC] = None
+        self, config: ScenarioConfig, ship_list: list, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list], enc: Optional[senc.ENC] = None
     ) -> Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]:
-        """Creates a single maritime scenario episode based on the input config.
+        """Creates a single maritime scenario episode.
 
         Some ships in the episode can be partially or fully specified by the AIS ship data, if not none.
 
@@ -502,44 +522,26 @@ class ScenarioGenerator:
 
         Args:
             - config (ScenarioConfig): Scenario config object.
-            - ais_ship_data (dict, optional): Dictionary containing AIS ship data. Defaults to None.
-            - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment, to override the existing enc being used. Defaults to None.
+            - ship_list (list): List of ships to be considered in simulation.
+            - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
+            - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
+            - enc (Optional[ENC]): Electronic Navigational Chart object containing the geographical environment, to override the existing enc being used. Defaults to None.
 
         Returns:
             - Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the disturbance object for the episode (if specified) and the final scenario config object.
         """
-        if ais_ship_data is None:
-            ship_list = []
-            ship_config_list = []
-            csog_state_list = []
-            non_cfged_ship_indices = []
-            cfg_ship_idx = 0
-        else:
-            ship_list = ais_ship_data["ship_list"].copy()
-            ship_config_list = ais_ship_data["ship_config_list"].copy()
-            csog_state_list = ais_ship_data["csog_state_list"].copy()
-            non_cfged_ship_indices = ais_ship_data["non_cfged_ship_indices"].copy()
-            cfg_ship_idx = ais_ship_data["cfg_ship_idx"]
+        ship_config_list = config.ship_list.copy()
+        csog_state_list = []
+        non_cfged_ship_indices = []
 
         if enc is not None:
             self.enc = enc
 
-        if config.n_random_ships is not None:
-            n_random_ships = config.n_random_ships
-        else:
-            n_random_ships = self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1])
-        config.n_random_ships = n_random_ships
+        ship_list, config = self.transfer_vessel_ais_data(config, ship_list, ais_vessel_data_list, mmsi_list)
 
-        # Ships still non-configured will be generated randomly
-        # Add own-ship (idx 0) if no AIS ships were configured
-        n_ais_cfg_ships = len(ship_list)
-        if n_ais_cfg_ships == 0 and len(non_cfged_ship_indices) == 0:
-            non_cfged_ship_indices.append(0)
-            cfg_ship_idx = 1
+        csog_state_list = self.generate_ship_poses(config, ship_list, enc)
 
-        n_random_ships += len(non_cfged_ship_indices)
-        for i in range(cfg_ship_idx, n_ais_cfg_ships + n_random_ships):
-            non_cfged_ship_indices.append(i)
+        self.behavior_generator.setup(self.enc, self.safe_sea_cdt)
 
         ship_list, ship_config_list, csog_state_list = self.generate_ships_with_random_plans(non_cfged_ship_indices, ship_list, ship_config_list, csog_state_list, config)
         ship_list.sort(key=lambda x: x.id)
@@ -549,8 +551,44 @@ class ScenarioGenerator:
         config.ship_list = ship_config_list
 
         disturbance = self.generate_disturbance(config)
-
         return ship_list, disturbance, config
+
+    def transfer_vessel_ais_data(
+        self, config: ScenarioConfig, ship_list: list, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list]
+    ) -> Tuple[list, ScenarioConfig]:
+        """Transfers AIS vessel data to the ship objects and ship configurations, if available.
+
+        Args:
+            - config (ScenarioConfig): Scenario config object.
+            - ship_list (list): List of ships to be considered in simulation.
+            - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
+            - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
+
+        Returns:
+            - Tuple[list, ScenarioConfig]: List of partially initialized ships in the scenario, and the corresponding updated scenario config object.
+        """
+        for ship_cfg_idx, ship_config in enumerate(config.ship_list):
+            use_ais_ship_trajectory = True
+            if ship_config.random_generated:
+                continue
+
+            # The own-ship (with index 0) will not use the predefined AIS trajectory.
+            idx = 0
+            if ship_cfg_idx == 0:
+                use_ais_ship_trajectory = False
+
+            if ship_config.mmsi in mmsi_list:
+                idx = [i for i in range(len(ais_vessel_data_list)) if ais_vessel_data_list[i].mmsi == ship_config.mmsi][0]
+
+            ais_vessel = ais_vessel_data_list.pop(idx)
+            while ais_vessel.status.value not in config.allowed_nav_statuses:
+                ais_vessel = ais_vessel_data_list.pop(idx)
+
+            ship_list[ship_cfg_idx].transfer_vessel_ais_data(ais_vessel, use_ais_ship_trajectory, ship_config.t_start, ship_config.t_end)
+            ship_config.csog_state = ship_list[ship_cfg_idx].csog_state
+            ship_config.mmsi = ship_list[ship_cfg_idx].mmsi
+
+        return ship_list, config
 
     def generate_disturbance(self, config: ScenarioConfig) -> Optional[stoch.Disturbance]:
         """Generates a disturbance object from the scenario config.
@@ -566,18 +604,48 @@ class ScenarioGenerator:
 
         return stoch.Disturbance(config.stochasticity)
 
-    def generate_ships_with_ais_data(
-        self,
-        ais_vessel_data_list: list,
-        mmsi_list: list,
-        config: ScenarioConfig,
-    ) -> dict:
-        """Generates ships from AIS data. Their plans can be fully or partially be specified by the AIS trajectory data.
+    def generate_ship_csog_states(self, config: ScenarioConfig, ship_list: list, enc: Optional[senc.ENC] = None) -> Tuple[list, ScenarioConfig, list]:
+        """Generates the initial ship poses for the scenario episode.
+
 
         Args:
+            config (ScenarioConfig): Scenario config object.
+            ship_list (list): List of ships to be considered in simulation.
+            enc (Optional[senc.ENC], optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
+
+        Returns:
+            Tuple[list, ScenarioConfig, list]: List of partially initialized ships in the scenario with poses set, the updated scenario config object and list of generated/set csog states.
+        """
+        csog_state_list = []
+        for ship_cfg_idx, ship_config in enumerate(config.ship_list):
+            if ship_config.csog_state is not None:
+                continue
+
+            ship_obj = ship_list[ship_cfg_idx]
+            csog_state = self.generate_random_csog_state(ship_obj.min_speed, ship_obj.max_speed, ship_obj.draft, enc)
+
+            ship_obj.set_initial_state(csog_state)
+
+            ship_config.csog_state = csog_state
+
+            csog_state_list.append(csog_state)
+
+        return ship_list, config, csog_state_list
+
+    def generate_ships(
+        self,
+        config: ScenarioConfig,
+        ship_list: list,
+        ais_vessel_data_list: Optional[list],
+        mmsi_list: Optional[list],
+    ) -> dict:
+        """Generates ships for an episode. Their plans can be fully or partially be specified by the AIS trajectory data if available.
+
+        Args:
+            - config (ScenarioConfig): The scenario configuration.
+            - ship_list (list): List of ships to be considered in simulation.
             - ais_vessel_data_list (list): List of AIS vessel data objects.
             - mmsi_list (list): List of corresponding MMSI numbers for the AIS vessels.
-            - config (ScenarioConfig): The scenario configuration.
 
         Returns:
             - dict: Dictionary containing the list of AIS ships, the list of AIS ship configurations, the list of AIS CSOG states and the updated list
@@ -587,39 +655,14 @@ class ScenarioGenerator:
         cfg_ship_idx = 0
         non_cfged_ship_indices = []
         ship_list = []
-        ship_config_list = []
+        ship_config_list = config.ship_list.copy()
         csog_state_list = []
         n_cfg_ships = len(config.ship_list)
-        while ais_vessel_data_list:
-            use_ais_ship_trajectory = True
-            if cfg_ship_idx < n_cfg_ships and cfg_ship_idx == config.ship_list[cfg_ship_idx].id:
-                ship_config = config.ship_list[cfg_ship_idx]
-            else:
-                ship_config = ship.Config()
-                ship_config.id = cfg_ship_idx
-                ship_config.mmsi = cfg_ship_idx + 1
-
+        for ship_config in config.ship_list[1:]:
             if ship_config.random_generated:
-                non_cfged_ship_indices.append(cfg_ship_idx)
-                cfg_ship_idx += 1
                 continue
 
             ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
-
-            # The own-ship (with index 0) will not use the predefined AIS trajectory.
-            idx = 0
-            if cfg_ship_idx == 0:
-                use_ais_ship_trajectory = False
-
-            if ship_config.mmsi in mmsi_list:
-                idx = [i for i in range(len(ais_vessel_data_list)) if ais_vessel_data_list[i].mmsi == ship_config.mmsi][0]
-
-            ais_vessel = ais_vessel_data_list.pop(idx)
-            if ais_vessel.status.value not in config.allowed_nav_statuses:
-                continue
-
-            ship_obj.transfer_vessel_ais_data(ais_vessel, use_ais_ship_trajectory, ship_config.t_start, ship_config.t_end)
-            ship_config.mmsi = ship_obj.mmsi
 
             if not use_ais_ship_trajectory and ship_config.waypoints is None:
                 waypoints = self.generate_random_waypoints(ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
@@ -714,7 +757,7 @@ class ScenarioGenerator:
         self,
         scenario_type: ScenarioType,
         os_csog_state: np.ndarray,
-        U_min: float = 1.0,
+        U_min: float = 0.0,
         U_max: float = 15.0,
         draft: float = 2.0,
         min_land_clearance: float = 50.0,
