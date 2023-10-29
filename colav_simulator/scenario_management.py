@@ -530,25 +530,18 @@ class ScenarioGenerator:
         Returns:
             - Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the disturbance object for the episode (if specified) and the final scenario config object.
         """
-        ship_config_list = config.ship_list.copy()
-        csog_state_list = []
-        non_cfged_ship_indices = []
-
         if enc is not None:
             self.enc = enc
 
         ship_list, config = self.transfer_vessel_ais_data(config, ship_list, ais_vessel_data_list, mmsi_list)
 
-        csog_state_list = self.generate_ship_poses(config, ship_list, enc)
+        ship_list, config, csog_state_list = self.generate_ship_csog_states(config, ship_list, self.enc)
 
-        self.behavior_generator.setup(self.enc, self.safe_sea_cdt)
+        self.behavior_generator.setup(self.enc, csog_state_list)
+        ship_list, config.ship_list = self.behavior_generator.generate(ship_list, config.ship_list)
 
-        ship_list, ship_config_list, csog_state_list = self.generate_ships_with_random_plans(non_cfged_ship_indices, ship_list, ship_config_list, csog_state_list, config)
         ship_list.sort(key=lambda x: x.id)
-        ship_config_list.sort(key=lambda x: x.id)
-
-        # Overwrite the preliminary ship config list with the final one
-        config.ship_list = ship_config_list
+        config.ship_list.sort(key=lambda x: x.id)
 
         disturbance = self.generate_disturbance(config)
         return ship_list, disturbance, config
@@ -567,6 +560,9 @@ class ScenarioGenerator:
         Returns:
             - Tuple[list, ScenarioConfig]: List of partially initialized ships in the scenario, and the corresponding updated scenario config object.
         """
+        if ais_vessel_data_list is None or mmsi_list is None:
+            return ship_list, config
+
         for ship_cfg_idx, ship_config in enumerate(config.ship_list):
             use_ais_ship_trajectory = True
             if ship_config.random_generated:
@@ -604,14 +600,13 @@ class ScenarioGenerator:
 
         return stoch.Disturbance(config.stochasticity)
 
-    def generate_ship_csog_states(self, config: ScenarioConfig, ship_list: list, enc: Optional[senc.ENC] = None) -> Tuple[list, ScenarioConfig, list]:
+    def generate_ship_csog_states(self, config: ScenarioConfig, ship_list: list) -> Tuple[list, ScenarioConfig, list]:
         """Generates the initial ship poses for the scenario episode.
 
 
         Args:
             config (ScenarioConfig): Scenario config object.
             ship_list (list): List of ships to be considered in simulation.
-            enc (Optional[senc.ENC], optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
 
         Returns:
             Tuple[list, ScenarioConfig, list]: List of partially initialized ships in the scenario with poses set, the updated scenario config object and list of generated/set csog states.
@@ -622,138 +617,24 @@ class ScenarioGenerator:
                 continue
 
             ship_obj = ship_list[ship_cfg_idx]
-            csog_state = self.generate_random_csog_state(ship_obj.min_speed, ship_obj.max_speed, ship_obj.draft, enc)
-
-            ship_obj.set_initial_state(csog_state)
-
+            if ship_cfg_idx == 0:
+                csog_state = self.generate_random_csog_state(U_min=0.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 3.0)
+            else:
+                csog_state = self.generate_target_ship_csog_state(
+                    config.type,
+                    csog_state_list[0],
+                    U_min=ship_obj.min_speed,
+                    U_max=ship_obj.max_speed,
+                    draft=ship_obj.draft,
+                    min_land_clearance=ship_obj.length * 3.0,
+                )
             ship_config.csog_state = csog_state
-
-            csog_state_list.append(csog_state)
+            ship_obj.set_initial_state(ship_config.csog_state)
+            csog_state_list.append(ship_config.csog_state)
 
         return ship_list, config, csog_state_list
 
-    def generate_ships(
-        self,
-        config: ScenarioConfig,
-        ship_list: list,
-        ais_vessel_data_list: Optional[list],
-        mmsi_list: Optional[list],
-    ) -> dict:
-        """Generates ships for an episode. Their plans can be fully or partially be specified by the AIS trajectory data if available.
-
-        Args:
-            - config (ScenarioConfig): The scenario configuration.
-            - ship_list (list): List of ships to be considered in simulation.
-            - ais_vessel_data_list (list): List of AIS vessel data objects.
-            - mmsi_list (list): List of corresponding MMSI numbers for the AIS vessels.
-
-        Returns:
-            - dict: Dictionary containing the list of AIS ships, the list of AIS ship configurations, the list of AIS CSOG states and the updated list
-            of non-configured ship indices. Also, the idx of the next ship to be configured (if any) is stored.
-        """
-        output = {}
-        cfg_ship_idx = 0
-        non_cfged_ship_indices = []
-        ship_list = []
-        ship_config_list = config.ship_list.copy()
-        csog_state_list = []
-        n_cfg_ships = len(config.ship_list)
-        for ship_config in config.ship_list[1:]:
-            if ship_config.random_generated:
-                continue
-
-            ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
-
-            if not use_ais_ship_trajectory and ship_config.waypoints is None:
-                waypoints = self.generate_random_waypoints(ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
-                speed_plan = self.generate_random_speed_plan(ship_obj.csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
-                ship_config.waypoints = waypoints
-                ship_config.speed_plan = speed_plan
-
-            ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
-
-            csog_state_list.append(ship_obj.csog_state)
-            ship_list.append(ship_obj)
-            ship_config_list.append(ship_config)
-            cfg_ship_idx += 1
-
-        output["ship_list"] = ship_list
-        output["ship_config_list"] = ship_config_list
-        output["csog_state_list"] = csog_state_list
-        output["non_cfged_ship_indices"] = non_cfged_ship_indices
-        output["cfg_ship_idx"] = cfg_ship_idx
-        return output
-
-    def generate_ships_with_random_plans(
-        self,
-        non_cfged_ship_indices: list,
-        ship_list: list,
-        ship_config_list: list,
-        csog_state_list: list,
-        config: ScenarioConfig,
-    ) -> Tuple[list, list, list]:
-        """Generates ships with random plans.
-
-        Args:
-            - non_cfged_ship_indices (list): List of indices of ships that are not yet configured.
-            - ship_list (list): List of already configured ships, to which the random ships will be added.
-            - ship_config_list (list): List of final ship configurations, to which the random ships will be added.
-            - csog_state_list (list): List of CSOG states of the already configured ships, to which the random ship initial CSOG states will be added.
-            - config (ScenarioConfig): The scenario configuration.
-
-        Returns:
-            - Tuple[list, list, list]: The list of ships, the list of ship configurations, and the list of CSOG states.
-        """
-        # Number of ships that are configured for the scenario
-        n_cfg_ships = len(config.ship_list)
-        os_csog_state = [x.csog_state for x in ship_list if x.id == 0]
-        while non_cfged_ship_indices:
-            cfg_ship_idx = non_cfged_ship_indices.pop(0)
-            if cfg_ship_idx < n_cfg_ships and cfg_ship_idx == config.ship_list[cfg_ship_idx].id:
-                ship_config = config.ship_list[cfg_ship_idx]
-            else:
-                ship_config = ship.Config()
-                ship_config.id = cfg_ship_idx
-                ship_config.mmsi = cfg_ship_idx + 1
-
-            ship_obj = ship.Ship(mmsi=cfg_ship_idx + 1, identifier=cfg_ship_idx, config=ship_config)
-
-            # Target ship poses are created relative to the own-ship (idx 0).
-            csog_state = ship_config.csog_state
-            if ship_config.csog_state is None and ship_config.random_generated:
-                if cfg_ship_idx == 0:
-                    csog_state = self.generate_random_csog_state(U_min=5.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 2.0)
-                else:
-                    csog_state = self.generate_ts_csog_state(
-                        config.type,
-                        os_csog_state,
-                        U_min=ship_obj.min_speed,
-                        U_max=ship_obj.max_speed,
-                        draft=ship_obj.draft,
-                        min_land_clearance=ship_obj.length * 3.0,
-                    )
-                ship_config.csog_state = csog_state
-                ship_obj.set_initial_state(csog_state)
-
-            if cfg_ship_idx == 0:
-                os_csog_state = csog_state
-
-            if ship_config.waypoints is None and ship_config.random_generated:
-                waypoints = self.generate_random_waypoints(csog_state[0], csog_state[1], csog_state[3], ship_obj.draft)
-                speed_plan = self.generate_random_speed_plan(csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
-                ship_config.waypoints = waypoints
-                ship_config.speed_plan = speed_plan
-
-            ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
-            ship_config.random_generated = True
-
-            csog_state_list.append(csog_state)
-            ship_list.append(ship_obj)
-            ship_config_list.append(ship_config)
-
-        return ship_list, ship_config_list, csog_state_list
-
-    def generate_ts_csog_state(
+    def generate_target_ship_csog_state(
         self,
         scenario_type: ScenarioType,
         os_csog_state: np.ndarray,

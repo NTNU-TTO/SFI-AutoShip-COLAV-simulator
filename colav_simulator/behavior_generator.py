@@ -65,25 +65,60 @@ class BehaviorGenerator:
         self._rrt_list: list = None
         self._pqrrt_list: list = None
 
-    def setup(self, enc: senc.ENC, safe_sea_cdt: list) -> None:
+    def setup(self, enc: senc.ENC, initial_csog_states: list) -> None:
         """Setup the environment for the behavior generator by e.g. transferring ENC data to the
 
         Args:
             enc (senc.ENC): Electronic navigational chart.
-            safe_sea_cdt (list): List of polygons forming the safe sea Constrained Delaunay Triangulation.
+            initial_csog_states (list): List of initial CSOG states for the ships.
         """
         self._enc = copy.deepcopy(enc)
-        self._safe_sea_cdt = safe_sea_cdt
+        self._safe_sea_cdt = mapf.create_safe_sea_triangulation(enc=self._enc, show_plots=False)
 
-    def generate(self, rng: np.random.Generator, ship_obj: ship.Ship, randomize_method: Optional[bool] = False) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """Generate a random ship behavior in the form of waypoints + speed plan that the ship will follow.
+        if self._config.method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
+            for csog_state in initial_csog_states:
+                self._rrt_list.append(rrt_lib.RRT(self._enc, csog_state))
+                self._pqrrt_list.append(rrt_lib.PQRRTStar(self._enc, csog_state))
+
+    def generate(
+        self, rng: np.random.Generator, ship_list: list, ship_config_list: list, randomize_method: Optional[bool] = False
+    ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+        """Generates ship behaviors in the form of waypoints + speed plan that the ships will follow, for ships that have not been configured fully yet.
 
         Args:
-            xs_start: Start positions of the ships.
+            rng (np.random.Generator): Random number generator.
+            ship_list (list): List of ships to be considered in simulation.
+            ship_config_list (list): List of ship configurations.
             randomize_method: If True, randomize the method for generating the ship behavior. If False, use the method specified in the config.
+
+        Returns:
+            - Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]: Tuple containing the waypoints, speed plan and possibly trajectory for the ship.
         """
         waypoints = np.zeros((0, 2))
         speed_plan = np.zeros((0, 1))
         trajectory = None
 
-        return waypoints, speed_plan, trajectory
+        output = {}
+        for ship_cfg_idx, ship_config in enumerate(ship_config_list):
+            if ship_config.random_generated:
+                continue
+
+            if ship_config.waypoints is None and ship_obj.trajectory.size < 1:
+                waypoints = self.generate_random_waypoints(ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
+                speed_plan = self.generate_random_speed_plan(ship_obj.csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
+                ship_config.waypoints = waypoints
+                ship_config.speed_plan = speed_plan
+
+            ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
+
+            csog_state_list.append(ship_obj.csog_state)
+            ship_list.append(ship_obj)
+            ship_config_list.append(ship_config)
+            cfg_ship_idx += 1
+
+        output["ship_list"] = ship_list
+        output["ship_config_list"] = ship_config_list
+        output["csog_state_list"] = csog_state_list
+        output["non_cfged_ship_indices"] = non_cfged_ship_indices
+        output["cfg_ship_idx"] = cfg_ship_idx
+        return output
