@@ -481,18 +481,16 @@ class ScenarioGenerator:
         # Create partially defined ship objects and ship configurations for all ships
         ship_list = []
         ship_config_list = []
-        ship_cfg_idx = 0
         n_cfg_ships = len(config.ship_list)
         for s in range(1 + config.n_random_ships):  # +1 for own-ship
-            if ship_cfg_idx < n_cfg_ships and ship_cfg_idx == config.ship_list[ship_cfg_idx].id:
-                ship_config = config.ship_list[ship_cfg_idx]
+            if s < n_cfg_ships and s == config.ship_list[s].id:
+                ship_config = config.ship_list[s]
             else:
                 ship_config = ship.Config()
-                ship_config.id = ship_cfg_idx
-                ship_config.mmsi = ship_cfg_idx + 1
+                ship_config.id = s
+                ship_config.mmsi = s + 1
 
             ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
-
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
@@ -502,7 +500,7 @@ class ScenarioGenerator:
         for ep in range(config.n_episodes):
             episode = {}
             episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(
-                copy.deepcopy(config), copy.deepcopy(ship_list), ais_vessel_data_list, mmsi_list, enc
+                copy.deepcopy(ship_list), copy.deepcopy(config), ais_vessel_data_list, mmsi_list, enc
             )
             episode["config"].name = f"{config.name}_ep{ep + 1}"
             if config.save_scenario:
@@ -512,7 +510,7 @@ class ScenarioGenerator:
         return scenario_episode_list, enc_copy
 
     def generate_episode(
-        self, config: ScenarioConfig, ship_list: list, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list], enc: Optional[senc.ENC] = None
+        self, ship_list: list, config: ScenarioConfig, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list], enc: Optional[senc.ENC] = None
     ) -> Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]:
         """Creates a single maritime scenario episode.
 
@@ -521,8 +519,8 @@ class ScenarioGenerator:
         Random plans for each ship will be created unless specified in ship_list entries or loaded from AIS data.
 
         Args:
-            - config (ScenarioConfig): Scenario config object.
             - ship_list (list): List of ships to be considered in simulation.
+            - config (ScenarioConfig): Scenario config object.
             - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
             - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
             - enc (Optional[ENC]): Electronic Navigational Chart object containing the geographical environment, to override the existing enc being used. Defaults to None.
@@ -533,12 +531,12 @@ class ScenarioGenerator:
         if enc is not None:
             self.enc = enc
 
-        ship_list, config = self.transfer_vessel_ais_data(config, ship_list, ais_vessel_data_list, mmsi_list)
+        ship_list, config = self.transfer_vessel_ais_data(ship_list, config, ais_vessel_data_list, mmsi_list)
 
-        ship_list, config, csog_state_list = self.generate_ship_csog_states(config, ship_list, self.enc)
+        ship_list, config, csog_state_list = self.generate_ship_csog_states(ship_list, config, self.enc)
 
-        self.behavior_generator.setup(self.enc, csog_state_list)
-        ship_list, config.ship_list = self.behavior_generator.generate(ship_list, config.ship_list)
+        self.behavior_generator.setup(self.rng, ship_list, self.enc, config.t_end - config.t_start)
+        ship_list, config.ship_list = self.behavior_generator.generate(self.rng, ship_list, config.ship_list)
 
         ship_list.sort(key=lambda x: x.id)
         config.ship_list.sort(key=lambda x: x.id)
@@ -547,13 +545,13 @@ class ScenarioGenerator:
         return ship_list, disturbance, config
 
     def transfer_vessel_ais_data(
-        self, config: ScenarioConfig, ship_list: list, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list]
+        self, ship_list: list, config: ScenarioConfig, ais_vessel_data_list: Optional[list], mmsi_list: Optional[list]
     ) -> Tuple[list, ScenarioConfig]:
         """Transfers AIS vessel data to the ship objects and ship configurations, if available.
 
         Args:
-            - config (ScenarioConfig): Scenario config object.
             - ship_list (list): List of ships to be considered in simulation.
+            - config (ScenarioConfig): Scenario config object.
             - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
             - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
 
@@ -600,13 +598,12 @@ class ScenarioGenerator:
 
         return stoch.Disturbance(config.stochasticity)
 
-    def generate_ship_csog_states(self, config: ScenarioConfig, ship_list: list) -> Tuple[list, ScenarioConfig, list]:
+    def generate_ship_csog_states(self, ship_list: list, config: ScenarioConfig) -> Tuple[list, ScenarioConfig, list]:
         """Generates the initial ship poses for the scenario episode.
 
-
         Args:
-            config (ScenarioConfig): Scenario config object.
             ship_list (list): List of ships to be considered in simulation.
+            config (ScenarioConfig): Scenario config object.
 
         Returns:
             Tuple[list, ScenarioConfig, list]: List of partially initialized ships in the scenario with poses set, the updated scenario config object and list of generated/set csog states.
@@ -747,98 +744,12 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
-        x, y = mapf.generate_random_start_position_from_draft(self.rng, self.enc, draft, min_land_clearance, self.safe_sea_cdt)
+        x, y = mapf.generate_random_position_from_draft(self.rng, self.enc, draft, min_land_clearance, self.safe_sea_cdt)
         speed = self.rng.uniform(U_min, U_max)
         if heading is None:
             heading = self.rng.uniform(0.0, 2.0 * np.pi)
 
         return np.array([x, y, speed, heading])
-
-    def generate_random_waypoints(self, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None) -> np.ndarray:
-        """Creates random waypoints starting from a ship position and heading.
-
-        Args:
-            - x (float): x position (north) of the ship.
-            - y (float): y position (east) of the ship.
-            - psi (float): heading of the ship in radians.
-            - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
-            - n_wps (Optional[int]): Number of waypoints to create.
-
-        Returns:
-            - np.ndarray: 2 x n_wps array of waypoints.
-        """
-        if n_wps is None:
-            n_wps = self.rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
-
-        east_min, north_min, east_max, north_max = self.enc.bbox
-        waypoints = np.zeros((2, n_wps))
-        waypoints[:, 0] = np.array([x, y])
-        for i in range(1, n_wps):
-            crosses_grounding_hazards = True
-            iter_count = -1
-            while crosses_grounding_hazards:
-                iter_count += 1
-
-                distance_wp_to_wp = self.rng.uniform(self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1])
-
-                alpha = 0.0
-                if i > 1:
-                    alpha = np.deg2rad(self.rng.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1]))
-
-                new_wp = np.array(
-                    [
-                        waypoints[0, i - 1] + distance_wp_to_wp * np.cos(psi + alpha),
-                        waypoints[1, i - 1] + distance_wp_to_wp * np.sin(psi + alpha),
-                    ],
-                )
-
-                crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(self.enc, new_wp, waypoints[:, i - 1], draft)
-
-                if iter_count >= 20:
-                    break
-
-            if iter_count >= 20:
-                waypoints = waypoints[:, 0:i]
-                if i == 1:  # stand-still, no waypoints under given parameters that avoids grounding hazards
-                    waypoints = np.append(waypoints, waypoints, axis=1)
-                break
-
-            waypoints[:, i] = new_wp
-            waypoints[:, i - 1 : i + 1], clipped = mhm.clip_waypoint_segment_to_bbox(
-                waypoints[:, i - 1 : i + 1], (float(north_min), float(east_min), float(north_max), float(east_max))
-            )
-
-            if clipped:
-                waypoints = waypoints[:, : i + 1]
-                break
-
-        return waypoints
-
-    def generate_random_speed_plan(self, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None) -> np.ndarray:
-        """Creates a random speed plan using the input speed and min/max speed of the ship.
-
-        Args:
-            - U (float): The ship's speed.
-            - U_min (float, optional): The ship's minimum speed. Defaults to 1.0.
-            - U_max (float, optional): The ship's maximum speed. Defaults to 15.0.
-            - n_wps (Optional[int]): Number of waypoints to create.
-
-        Returns:
-            - np.ndarray: 1 x n_wps array containing the speed plan.
-        """
-        if n_wps is None:
-            n_wps = self.rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
-
-        speed_plan = np.zeros(n_wps)
-        speed_plan[0] = U
-        for i in range(1, n_wps):
-            U_mod = self.rng.uniform(self._config.speed_plan_variation_range[0], self._config.speed_plan_variation_range[1])
-            speed_plan[i] = mf.sat(speed_plan[i - 1] + U_mod, U_min, U_max)
-
-            if i == n_wps - 1:
-                speed_plan[i] = 0.0
-
-        return speed_plan
 
     @property
     def enc_bbox(self) -> np.ndarray:

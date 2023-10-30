@@ -21,7 +21,7 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon, MultiLineString
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 
 def local2latlon(x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
@@ -527,11 +527,48 @@ def fill_rtree_with_geometries(geometries: list) -> Tuple[strtree.STRtree, list]
     return strtree.STRtree(poly_list), poly_list
 
 
-def generate_random_start_position_from_draft(
+def generate_random_goal_position(
+    rng: np.random.Generator, enc: ENC, xs_start: np.ndarray, safe_sea_cdt: list, distance_from_start: float = 100.0
+) -> Tuple[float, float]:
+    """Generates a random goal position for the ship, given its starting state (position, speed and heading).
+
+    Args:
+        rng (np.random.Generator): Numpy random generator.
+        enc (ENC): Electronic Navigational Chart object.
+        xs_start (np.ndarray): Starting state of the ship [x, y, U, chi]^T.
+        safe_sea_cdt (list): List of triangles defining the safe sea region, used to sample more efficiently. Defaults to None.
+        distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
+
+    Returns:
+        Tuple[float, float]: Goal position (northing, easting) for the ship.
+    """
+    accepted = False
+    northing, easting = xs_start[0] + distance_from_start * np.cos(xs_start[3]), xs_start[1] + distance_from_start * np.sin(xs_start[3])
+    max_iter = 3000
+    for iter in range(max_iter):
+        random_triangle = rng.choice(safe_sea_cdt)
+        assert isinstance(random_triangle, Polygon) and len(random_triangle.exterior.coords) >= 4, "The safe sea region must be a polygon and triangle."
+        x, y = random_triangle.exterior.coords.xy
+        p1 = np.array([x[0], y[0]])
+        p2 = np.array([x[1], y[1]])
+        p3 = np.array([x[2], y[2]])
+        random_point = mhm.sample_from_triangle_region(p1, p2, p3, rng)
+        easting, northing = random_point[0], random_point[1]
+
+        dist2start = np.linalg.norm(np.array([easting, northing]) - np.array([xs_start[0], xs_start[1]]))
+        L_start_to_goal = np.array([easting, northing]) - np.array([xs_start[0], xs_start[1]])
+        beta = np.arctan2(L_start_to_goal[1], L_start_to_goal[0]) - xs_start[3]
+        if dist2start > distance_from_start and beta < 120.0 * np.pi / 180.0:
+            break
+
+    return northing, easting
+
+
+def generate_random_position_from_draft(
     rng: np.random.Generator, enc: ENC, draft: float, min_land_clearance: float = 100.0, safe_sea_cdt: Optional[list] = None
 ) -> Tuple[float, float]:
     """
-    Randomly defining starting easting and northing coordinates of a ship
+    Randomly defining easting and northing coordinates of a ship
     inside the safe sea region by considering a ship draft, with an optional land clearance distance.
 
     Args:
@@ -569,7 +606,7 @@ def generate_random_start_position_from_draft(
 
         iter_count += 1
         if iter_count > 1000:
-            raise Exception("Could not find a valid start position. Check the map data of your ENC object.")
+            raise Exception("Could not find a valid start position.")
 
     return northing, easting
 
@@ -686,6 +723,9 @@ def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
         float: Minimum distance to land in meters.
     """
     position = Point(y, x)
+    if enc.land.is_empty:
+        return 1e12
+
     distance = enc.land.geometry.distance(position)
     return distance
 
@@ -1098,13 +1138,13 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
 def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:
     """Converts a shapely intersection to a point.
     If intersection contains multiple points, the closest one is returned.
-    
+
     Args:
         - intersection (Point | Linestring | Multilinestring): The intersection to convert
-    
+
     Returns:
         Point: Shapely point object containing the closest point of intersection
-    
+
     """
     if isinstance(intersection, LineString):
         return Point(intersection.coords[0])
