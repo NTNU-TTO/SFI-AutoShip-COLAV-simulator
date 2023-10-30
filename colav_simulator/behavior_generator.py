@@ -154,7 +154,7 @@ class BehaviorGenerator:
             rng (np.random.Generator): Random number generator.
             ship_list (list): List of target/obstacle ships to be considered in simulation.
             enc (senc.ENC): Electronic navigational chart.
-            t_sim (float): Simulation timespan.
+            simulation_timespan (float): Simulation timespan.
         """
         self._enc = copy.deepcopy(enc)
 
@@ -187,29 +187,50 @@ class BehaviorGenerator:
                 self._rrt_list.append(rrt)
                 self._pqrrt_list.append(pqrrt)
 
-    def generate(self, rng: np.random.Generator, ship_list: list, ship_config_list: list) -> Tuple[list, list]:
+    def generate(self, rng: np.random.Generator, ship_list: list, ship_config_list: list, simulation_timespan: float) -> Tuple[list, list]:
         """Generates ship behaviors in the form of waypoints + speed plan that the ships will follow, for ships that have not been configured fully yet.
 
         Args:
             rng (np.random.Generator): Random number generator.
             ship_list (list): List of ships to be considered in simulation.
             ship_config_list (list): List of ship configurations.
+            simulation_timespan (float): Simulation timespan.
 
         Returns:
             - Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]: Tuple containing the waypoints, speed plan and possibly trajectory for the ship.
         """
         waypoints = np.zeros((0, 2))
         speed_plan = np.zeros((0, 1))
-
+        method = self._config.method
         for ship_cfg_idx, ship_config in enumerate(ship_config_list):
 
             ship_obj = ship_list[ship_cfg_idx]
-            if ship_config.waypoints is None and ship_obj.trajectory.size < 1:
+            if ship_config.waypoints is not None or ship_obj.trajectory.size < 1:
+                continue
+
+            if method == BehaviorGenerationMethod.Any:
+                method = BehaviorGenerationMethod(rng.integers(0, 3))
+
+            if method == BehaviorGenerationMethod.ConstantSpeedAndCourse:
+                waypoints = np.zeros((2, 2))
+                waypoints[:, 0] = ship_obj.csog_state[0:2]
+                U = ship_obj.csog_state[2]
+                chi = ship_obj.csog_state[3]
+                waypoints[:, 1] = waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan
+            elif method == BehaviorGenerationMethod.ConstantSpeedRandomWaypoints:
+                waypoints = self.generate_random_waypoints(rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
+                speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
+            elif method == BehaviorGenerationMethod.RandomWaypoints:
                 waypoints = self.generate_random_waypoints(rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft)
                 speed_plan = self.generate_random_speed_plan(rng, ship_obj.csog_state[2], U_min=ship_obj.min_speed, U_max=ship_obj.max_speed, n_wps=waypoints.shape[1])
-                ship_config.waypoints = waypoints
-                ship_config.speed_plan = speed_plan
+            elif method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
+                rrt = self._rrt_list[ship_cfg_idx]
+                pqrrt = self._pqrrt_list[ship_cfg_idx]
 
+                U_d = ship_obj.csog_state[2]
+
+            ship_config.waypoints = waypoints
+            ship_config.speed_plan = speed_plan
             ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
 
             ship_list.append(ship_obj)
