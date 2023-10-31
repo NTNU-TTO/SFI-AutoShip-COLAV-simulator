@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.spatial as scipy_spatial
 import seacharts.display.colors as colors
+import shapely
 import shapely.ops as ops
 from cartopy.feature import ShapelyFeature
 from osgeo import osr
@@ -567,15 +568,14 @@ def generate_random_goal_position(
     Returns:
         Tuple[float, float]: Goal position (northing, easting) for the ship.
     """
-    northing, easting = xs_start[0] + distance_from_start * np.cos(xs_start[3]), xs_start[
-        1
-    ] + distance_from_start * np.sin(xs_start[3])
+    northing = xs_start[0] + distance_from_start * np.cos(xs_start[3])
+    easting = xs_start[1] + distance_from_start * np.sin(xs_start[3])
     max_iter = 3000
     for iter in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt)
         easting, northing = p[0], p[1]
 
-        dist2start = np.linalg.norm(np.array([easting, northing]) - np.array([xs_start[0], xs_start[1]]))
+        dist2start = np.linalg.norm(np.array([northing, easting]) - np.array([xs_start[0], xs_start[1]]))
         L_start_to_goal = np.array([easting, northing]) - np.array([xs_start[0], xs_start[1]])
         beta = np.arctan2(L_start_to_goal[1], L_start_to_goal[0]) - xs_start[3]
         if dist2start > distance_from_start and beta < 120.0 * np.pi / 180.0:
@@ -1159,32 +1159,37 @@ def plot_trajectory(
 
 def plot_waypoints(
     waypoints: np.ndarray,
+    draft: float,
     enc: ENC,
     color: str,
-    marker_type: Optional[str] = None,
-    marker_size: Optional[float] = None,
-    edge_style: Optional[str] = None,
-    buffer: Optional[float] = 0.5,
-    linewidth: Optional[float] = 1.0,
-    alpha: Optional[float] = 1.0,
+    point_buffer: Optional[float] = 10,
+    disk_buffer: Optional[float] = 80,
+    hole_buffer: Optional[float] = 10,
+    linewidth: Optional[float] = None,
+    alpha: Optional[float] = None,
+    show_annuluses: Optional[bool] = True,
 ):
-    lines = [LineString([wp1.xy, wp2.xy]).buffer(40) for wp1, wp2 in zip(waypoints, waypoints[1:])]
-    if links:
-        points = [geo.Point(wp.xy) for wp in waypoints]
-        disks = [p.buffer(120) for p in points]
-        holes = [p.buffer(40) for p in points]
-        path = unary_union(lines + disks)
+    lines = [
+        LineString([(wp1[1], wp1[0]), (wp2[1], wp2[0])]).buffer(point_buffer)
+        for wp1, wp2 in zip(waypoints.T, waypoints[:, 1:].T)
+    ]
+    if show_annuluses:
+        points = [Point((wp[1], wp[0])) for wp in waypoints.T]
+        disks = [p.buffer(disk_buffer) for p in points]
+        holes = [p.buffer(hole_buffer) for p in points]
+        path = shapely.unary_union(lines + disks)
         for i, hole in enumerate(holes):
             path = path.difference(hole)
     else:
         lines.pop(1)
-        path = unary_union(lines)
-    if collision:
-        overlap = path.intersection(route.obstacles)
-        enc.draw_polygon(overlap, "red")
-        path = path.difference(route.obstacles)
-    if fig_number < 6:
-        enc.draw_polygon(path, "green")
+        path = shapely.unary_union(lines)
+
+    hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)[0]
+    if path.intersects(hazards):
+        overlap = path.intersection(hazards)
+        enc.draw_polygon(overlap, "red", thickness=linewidth, alpha=alpha)
+        path = path.difference(hazards)
+    enc.draw_polygon(path, color, thickness=linewidth, alpha=alpha)
 
 
 def plot_dynamic_obstacles(dynamic_obstacles: list, enc: ENC, T: float, dt: float) -> None:

@@ -18,7 +18,7 @@ dist_between_ships_range: [200.0, 2000.0]
 
 # Parameters for the ship behavior (waypoints+speed plan ...) generator
 behavior_generator:
-  method: "ConstantSpeedRandomWaypoints"
+  method: "RapidlyExploringRandomTree"
 
   n_wps_range: [3, 5]
   speed_plan_variation_range: [-1.0, 1.0]

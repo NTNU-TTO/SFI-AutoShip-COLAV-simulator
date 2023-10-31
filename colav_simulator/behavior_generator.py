@@ -109,7 +109,7 @@ class BehaviorGenerationMethod(Enum):
 
     ConstantSpeedAndCourse = 0  # Constant ship speed and course
     ConstantSpeedRandomWaypoints = 1  # Constant ship speed, uniform distribution to generate ship waypoints
-    RandomWaypoints = 2  # Uniformly varying ship speed, uniform distribution to generate ship waypoints
+    VaryingSpeedRandomWaypoints = 2  # Uniformly varying ship speed, uniform distribution to generate ship waypoints
     RapidlyExploringRandomTree = 3  # Use PQRRT*/RRT to generate ship trajectories/waypoints, with constant speed
     Any = 4  # Any of the above methods
 
@@ -197,15 +197,16 @@ class BehaviorGenerator:
                 self._config.rrt is not None or self._config.pqrrt is not None
             ), "RRT/PQRRT config must be provided if method is set to RRT/PQRRT"
             for ship_obj in ship_list:
-                goal_state = mapf.generate_random_goal_position(
+                goal_position = mapf.generate_random_goal_position(
                     rng=rng,
                     enc=self._enc,
                     xs_start=ship_obj.csog_state,
                     safe_sea_cdt=self._safe_sea_cdt,
                     distance_from_start=ship_obj.max_speed * simulation_timespan,
                 )
-                if ship_obj.goal_csog_state is not None:
-                    goal_state = ship_obj.goal_csog_state
+                goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
+                if ship_obj.goal_state.size > 0:
+                    goal_state = ship_obj.goal_state
 
                 if ship_obj.id > 0:  # Only generate RRTs for target ships
                     rrt = rrt_star_lib.RRT(self._config.rrt.los, self._config.rrt.model, self._config.rrt.params)
@@ -291,7 +292,7 @@ class BehaviorGenerator:
                     rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
-            elif method == BehaviorGenerationMethod.RandomWaypoints:
+            elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
                 waypoints = self.generate_random_waypoints(
                     rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft
                 )
@@ -358,15 +359,14 @@ class BehaviorGenerator:
                 )
                 self._enc.draw_polygon(ship_poly, color=color)
                 color = "orange" if ship_obj.id > 0 else "pink"
-                mapf.plot_trajectory(
+                mapf.plot_waypoints(
                     waypoints,
+                    ship_obj.draft,
                     self._enc,
                     color=color,
-                    marker_type="o",
-                    buffer=2.0,
-                    linewidth=0.5,
-                    marker_size=25.0,
-                    alpha=0.6,
+                    point_buffer=5.0,
+                    disk_buffer=15.0,
+                    hole_buffer=5.0,
                 )
 
             ship_config.waypoints = waypoints
