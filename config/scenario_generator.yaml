@@ -8,24 +8,24 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
 #scenario_folder: "imazu_cases"
 
-ho_bearing_range: [-20.0, 20.0]
+ho_bearing_range: [-22.5, 22.5]
 ho_heading_range: [-15.0, 15.0]
 ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [15.1, 112.5]
 cr_heading_range: [-15.0, 15.0]
-dist_between_ships_range: [200.0, 1000.0]
+dist_between_ships_range: [200.0, 2000.0]
 
 # Parameters for the ship behavior (waypoints+speed plan ...) generator
 behavior_generator:
-  method: "constant"
+  method: "ConstantSpeedRandomWaypoints"
 
   n_wps_range: [3, 5]
   speed_plan_variation_range: [-1.0, 1.0]
-  waypoint_dist_range: [200.0, 1000.0]
-  waypoint_ang_range: [-45.0, 45.0]
+  waypoint_dist_range: [100.0, 2000.0]
+  waypoint_ang_range: [-60.0, 60.0]
 
-  pq_rrt:
+  pqrrt:
     params:
       max_nodes: 10000
       max_iter: 20000
@@ -47,11 +47,17 @@ behavior_generator:
         draft: 0.5
         length: 10.0
         width: 3.0
-        T_chi: 3.0
-        T_U: 5.0
-        r_max: 6.0
+        T_chi: 10.0
+        T_U: 7.0
+        r_max: 4.0
         U_min: 0.0
         U_max: 15.0
+    los:
+      pass_angle_threshold: 90.0
+      R_a: 25.0
+      K_p: 0.035
+      K_i: 0.0
+      max_cross_track_error_int: 200.0
 
   rrt:
     params:
@@ -76,5 +82,11 @@ behavior_generator:
         r_max: 6.0
         U_min: 0.0
         U_max: 15.0
+    los:
+      pass_angle_threshold: 90.0
+      R_a: 25.0
+      K_p: 0.035
+      K_i: 0.0
+      max_cross_track_error_int: 200.0
 
 

@@ -19,8 +19,8 @@ ho_bearing_range:
   maxlength: 2
   schema:
     type: float
-    min: -20.0
-    max: 20.0
+    min: -30.0
+    max: 30.0
 ho_heading_range:
   required: True
   type: list
@@ -106,7 +106,7 @@ behavior_generator:
       schema:
         type: float
 
-    pq_rrt:
+    pqrrt:
       required: True
       type: dict
       schema:
@@ -165,7 +165,6 @@ behavior_generator:
           schema:
             csog:
               type: dict
-              excludes: [telemetron]
               schema:
                 draft:
                   required: True
@@ -194,10 +193,24 @@ behavior_generator:
                 U_max:
                   required: True
                   type: float
-              telemetron:
-                type: string
-                empty: True
-                excludes: [csog]
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float
     rrt:
       required: True
       type: dict
@@ -245,7 +258,6 @@ behavior_generator:
           schema:
             csog:
               type: dict
-              excludes: [telemetron]
               schema:
                 draft:
                   required: True
@@ -274,7 +286,21 @@ behavior_generator:
                 U_max:
                   required: True
                   type: float
-              telemetron:
-                type: string
-                empty: True
-                excludes: [csog]
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float

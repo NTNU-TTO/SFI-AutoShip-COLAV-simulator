@@ -90,7 +90,12 @@ def ndarray_to_linestring(array: np.ndarray) -> geometry.LineString:
 
 
 def check_if_vessel_is_passed_by(
-    p_os: np.ndarray, v_os: np.ndarray, p_do: np.ndarray, v_do: np.ndarray, threshold_angle: float = 100.0, threshold_distance: float = 50.0
+    p_os: np.ndarray,
+    v_os: np.ndarray,
+    p_do: np.ndarray,
+    v_do: np.ndarray,
+    threshold_angle: float = 100.0,
+    threshold_distance: float = 50.0,
 ) -> bool:
     """Checks if a vessel is passed by another vessel.
 
@@ -120,11 +125,34 @@ def check_if_vessel_is_passed_by(
     return vessel_is_passed
 
 
-def sample_from_triangle_region(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+def sample_from_triangulation(rng: np.random.Generator, triangulation: list) -> np.ndarray:
+    """Samples a point from a triangulation.
+
+    Args:
+        rng (np.random.Generator): Numpy random generator.
+        triangulation (list): List of triangles (polygons).
+
+    Returns:
+        np.ndarray: Sampled point.
+    """
+    random_triangle = rng.choice(triangulation)
+    assert (
+        isinstance(random_triangle, geometry.Polygon) and len(random_triangle.exterior.coords) >= 4
+    ), "The triangulation must be a polygon and triangle."
+    x, y = random_triangle.exterior.coords.xy
+    p1 = np.array([x[0], y[0]])
+    p2 = np.array([x[1], y[1]])
+    p3 = np.array([x[2], y[2]])
+    random_point = sample_from_triangle_region(rng, p1, p2, p3)
+    return random_point
+
+
+def sample_from_triangle_region(rng: np.random.Generator, p1: np.ndarray, p2: np.ndarray, p3: np.ndarray) -> np.ndarray:
     """Samples a point from the triangle region defined by p1, p2 and p3.
     Ref: Osada et. al. 2002:
 
     Args:
+        rng (np.random.Generator): Numpy random generator.
         p1 (np.ndarray): Vertex 1 coordinate.
         p2 (np.ndarray): Vertex 2 coordinate.
         p3 (np.ndarray): Vertex 3 coordinate.
@@ -138,7 +166,59 @@ def sample_from_triangle_region(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, 
     return p
 
 
-def compute_vessel_pair_cpa(p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray) -> Tuple[float, float, np.ndarray]:
+def parse_rrt_solution(soln: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parses the RRT solution.
+
+    Args:
+        soln (dict): Solution dictionary.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Tuple of waypoints, trajectory, inputs and times from the solution.
+    """
+    times = np.array(soln["times"])
+    n_samples = len(times)
+    trajectory = np.zeros((6, n_samples))
+    inputs = np.zeros((3, n_samples - 1))
+    n_wps = len(soln["waypoints"])
+    waypoints = np.zeros((3, n_wps))
+    if n_samples > 0:
+        for k in range(n_wps):
+            waypoints[:, k] = np.array(soln["waypoints"][k])
+        for k in range(n_samples):
+            trajectory[:, k] = np.array(soln["states"][k])
+            if k < n_samples - 1:
+                inputs[:, k] = np.array(soln["inputs"][k])
+    return waypoints, trajectory, inputs, times
+
+
+def sample_from_waypoint_corridor(rng: np.random.Generator, waypoints: np.ndarray, corridor_width: float) -> np.ndarray:
+    """Samples a point from a random segment of the waypoint corridor.
+
+    Args:
+        rng (np.random.Generator): Numpy random generator.
+        waypoints (np.ndarray): Waypoint data (2 x n_waypoints).
+        corridor_width (float): Width of the corridor.
+
+    Returns:
+        np.ndarray: Sampled point.
+    """
+    assert waypoints.shape[0] == 2, "Waypoints must be 2 x n_waypoints"
+    n_wps = waypoints.shape[1]
+    assert n_wps > 1, "Must have at least 2 waypoints"
+    segment_idx = rng.integers(0, n_wps - 1)
+    segment_length = np.linalg.norm(waypoints[:, segment_idx + 1] - waypoints[:, segment_idx])
+    x = rng.uniform(0, segment_length)
+    y = rng.uniform(-corridor_width / 2.0, corridor_width / 2.0)
+    alpha = np.arctan2(
+        waypoints[1, segment_idx + 1] - waypoints[1, segment_idx],
+        waypoints[0, segment_idx + 1] - waypoints[0, segment_idx],
+    )
+    return mf.Rmtrx2D(alpha) @ np.array([x, y]) + waypoints[:, segment_idx]
+
+
+def compute_vessel_pair_cpa(
+    p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray
+) -> Tuple[float, float, np.ndarray]:
     """Computes the closest point of approach (CPA) between two vessel when assumed to travel with constant velocity.
 
     Args:
@@ -197,7 +277,10 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         vessel.cog = X[2, :]
 
         vessel.latlon = np.zeros(vessel.xy.shape) * np.nan
-        (vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1], vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],) = mapf.local2latlon(
+        (
+            vessel.latlon[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+            vessel.latlon[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
+        ) = mapf.local2latlon(
             vessel.xy[0, vessel.first_valid_idx : vessel.last_valid_idx + 1],
             vessel.xy[1, vessel.first_valid_idx : vessel.last_valid_idx + 1],
             utm_zone,
@@ -206,14 +289,24 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         vessel.forward_heading_estimate = np.zeros(n_msgs) * np.nan
         vessel.backward_heading_estimate = np.zeros(n_msgs) * np.nan
         for k in range(vessel.first_valid_idx, vessel.last_valid_idx):
-            vessel.forward_heading_estimate[k] = np.arctan2(vessel.xy[0, k + 1] - vessel.xy[0, k], vessel.xy[1, k + 1] - vessel.xy[1, k])
-        vessel.forward_heading_estimate[vessel.last_valid_idx] = vessel.forward_heading_estimate[vessel.last_valid_idx - 1]
+            vessel.forward_heading_estimate[k] = np.arctan2(
+                vessel.xy[0, k + 1] - vessel.xy[0, k], vessel.xy[1, k + 1] - vessel.xy[1, k]
+            )
+        vessel.forward_heading_estimate[vessel.last_valid_idx] = vessel.forward_heading_estimate[
+            vessel.last_valid_idx - 1
+        ]
 
         for k in range(vessel.first_valid_idx + 1, vessel.last_valid_idx):
-            vessel.backward_heading_estimate[k] = np.arctan2(vessel.xy[0, k] - vessel.xy[0, k - 1], vessel.xy[1, k] - vessel.xy[1, k - 1])
-        vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[vessel.first_valid_idx]
+            vessel.backward_heading_estimate[k] = np.arctan2(
+                vessel.xy[0, k] - vessel.xy[0, k - 1], vessel.xy[1, k] - vessel.xy[1, k - 1]
+            )
+        vessel.backward_heading_estimate[vessel.first_valid_idx] = vessel.forward_heading_estimate[
+            vessel.first_valid_idx
+        ]
 
-        vessel.travel_dist = vd.compute_total_dist_travelled(vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1])
+        vessel.travel_dist = vd.compute_total_dist_travelled(
+            vessel.xy[:, vessel.first_valid_idx : vessel.last_valid_idx + 1]
+        )
 
         # print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
         # print(f"Vessel status: {vessel.status}")
@@ -380,7 +473,9 @@ def inside_bbox(point: np.ndarray, bbox: Tuple[float, float, float, float]) -> b
     return point[0] >= bbox[0] and point[0] <= bbox[2] and point[1] >= bbox[1] and point[1] <= bbox[3]
 
 
-def clip_waypoint_segment_to_bbox(segment: np.ndarray, bbox: Tuple[float, float, float, float]) -> Tuple[np.ndarray, bool]:
+def clip_waypoint_segment_to_bbox(
+    segment: np.ndarray, bbox: Tuple[float, float, float, float]
+) -> Tuple[np.ndarray, bool]:
     """Clips a waypoint segment to within a bounding box.
 
     Args:
@@ -706,7 +801,9 @@ def utc_to_local(utc_dt: datetime) -> datetime:
     return utc_dt.replace(tzinfo=ZoneInfo("localtime"))
 
 
-def write_coast_distances_to_file(dist_port: float, dist_front: float, dist_starboard: float, safety_radius: float, ship_obj: Any, filepath: str) -> None:
+def write_coast_distances_to_file(
+    dist_port: float, dist_front: float, dist_starboard: float, safety_radius: float, ship_obj: Any, filepath: str
+) -> None:
     """
     Writes the distance to coast data on-line to the AIS case file
 
@@ -727,7 +824,11 @@ def write_coast_distances_to_file(dist_port: float, dist_front: float, dist_star
 
     columns = ["dcoast_port", "dcoast_front", "dcoast_starboard"]
 
-    if "dcoast_port" not in old_data.columns or "dcoast_front" not in old_data.columns or "dcoast_starboard" not in old_data.columns:
+    if (
+        "dcoast_port" not in old_data.columns
+        or "dcoast_front" not in old_data.columns
+        or "dcoast_starboard" not in old_data.columns
+    ):
         old_data[columns[0]] = np.zeros(old_data.index.max() + 1)
         old_data[columns[1]] = np.zeros(old_data.index.max() + 1)
         old_data[columns[2]] = np.zeros(old_data.index.max() + 1)
