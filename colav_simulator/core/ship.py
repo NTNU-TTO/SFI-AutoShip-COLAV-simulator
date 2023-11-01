@@ -657,9 +657,6 @@ class Ship(IShip):
         Returns:
             np.ndarray: Ship state.
         """
-        if isinstance(self._model, models.KinematicCSOG):
-            raise ValueError("This property is not available for KinematicCSOG as it is not 3DOF.")
-
         return self._state
 
     @property

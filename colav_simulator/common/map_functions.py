@@ -1242,7 +1242,7 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
                 continue
             points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
             if len(points) > 1:
-                enc.draw_line(points, color="white", width=0.5, thickness=0.5, marker_type=None)
+                enc.draw_line(points, color="white", buffer=0.5, linewidth=0.5)
 
 
 def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:

@@ -170,6 +170,7 @@ class BehaviorGenerator:
         enc: senc.ENC,
         simulation_timespan: float,
         show_plots: bool = True,
+        seed: Optional[int] = None,
     ) -> None:
         """Setup the environment for the behavior generator by e.g. transferring ENC data to
         the RRTs if configured, and creating a safe sea triangulation for more efficient sampling.
@@ -196,6 +197,8 @@ class BehaviorGenerator:
             assert (
                 self._config.rrt is not None or self._config.pqrrt is not None
             ), "RRT/PQRRT config must be provided if method is set to RRT/PQRRT"
+            self._rrt_list = []
+            self._pqrrt_list = []
             for ship_obj in ship_list:
                 goal_position = mapf.generate_random_goal_position(
                     rng=rng,
@@ -208,6 +211,14 @@ class BehaviorGenerator:
                 if ship_obj.goal_state.size > 0:
                     goal_state = ship_obj.goal_state
 
+                x_min_planning = min(ship_obj.csog_state[0], goal_state[0], self._enc.bbox[1])
+                x_max_planning = max(ship_obj.csog_state[0], goal_state[0], self._enc.bbox[3])
+                y_min_planning = min(ship_obj.csog_state[1], goal_state[1], self._enc.bbox[0])
+                y_max_planning = max(ship_obj.csog_state[1], goal_state[1], self._enc.bbox[2])
+                relevant_hazards = mapf.extract_hazards_within_bbox(
+                    self._grounding_hazards, (y_min_planning, x_min_planning, y_max_planning, x_max_planning)
+                )
+
                 if ship_obj.id > 0:  # Only generate RRTs for target ships
                     rrt = rrt_star_lib.RRT(self._config.rrt.los, self._config.rrt.model, self._config.rrt.params)
                     rrt.transfer_enc_hazards(self._grounding_hazards[0])
@@ -215,15 +226,20 @@ class BehaviorGenerator:
                     rrt.set_init_state(ship_obj.state.tolist())
                     rrt.set_goal_state(goal_state.tolist())
                     U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+                    rrt.reset(seed)
                     rrt.grow_towards_goal(
                         ownship_state=ship_obj.state.tolist(),
                         U_d=U_d,
                         do_list=[],
                         initialized=False,
-                        return_on_first_solution=True,
+                        return_on_first_solution=False,
+                    )
+                    mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
+                    self._enc.draw_circle(
+                        (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
                     )
 
-                    pqrrt = rrt_star_lib.PQRRT(
+                    pqrrt = rrt_star_lib.PQRRTStar(
                         self._config.pqrrt.los, self._config.pqrrt.model, self._config.pqrrt.params
                     )
                     pqrrt.transfer_enc_hazards(self._grounding_hazards[0])
