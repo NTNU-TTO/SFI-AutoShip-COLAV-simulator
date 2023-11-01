@@ -17,6 +17,7 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
+import colav_simulator.core.ship as ship
 import numpy as np
 import rrt_star_lib
 import seacharts.enc as senc
@@ -199,30 +200,35 @@ class BehaviorGenerator:
             ), "RRT/PQRRT config must be provided if method is set to RRT/PQRRT"
             self._rrt_list = []
             self._pqrrt_list = []
-            for ship_obj in ship_list:
+            for ship_obj in ship_list[1:]:  # Only generate RRTs for target ships
                 goal_position = mapf.generate_random_goal_position(
                     rng=rng,
                     enc=self._enc,
                     xs_start=ship_obj.csog_state,
                     safe_sea_cdt=self._safe_sea_cdt,
-                    distance_from_start=ship_obj.max_speed * simulation_timespan,
+                    min_distance_from_start=300.0,
+                    max_distance_from_start=ship_obj.max_speed * simulation_timespan,
                 )
                 goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
                 if ship_obj.goal_state.size > 0:
                     goal_state = ship_obj.goal_state
 
-                x_min_planning = min(ship_obj.csog_state[0], goal_state[0], self._enc.bbox[1])
-                x_max_planning = max(ship_obj.csog_state[0], goal_state[0], self._enc.bbox[3])
-                y_min_planning = min(ship_obj.csog_state[1], goal_state[1], self._enc.bbox[0])
-                y_max_planning = max(ship_obj.csog_state[1], goal_state[1], self._enc.bbox[2])
-                relevant_hazards = mapf.extract_hazards_within_bbox(
-                    self._grounding_hazards, (y_min_planning, x_min_planning, y_max_planning, x_max_planning)
-                )
-
                 if ship_obj.id > 0:  # Only generate RRTs for target ships
+                    bbox = mapf.create_bbox_from_points(
+                        self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=500.0
+                    )
+                    relevant_hazards = mapf.extract_hazards_within_bounding_box(
+                        self._grounding_hazards, bbox, self._enc, show_plots=True
+                    )
+                    planning_cdt = mapf.create_safe_sea_triangulation(
+                        self._enc,
+                        bbox=bbox,
+                        show_plots=False,
+                    )
+
                     rrt = rrt_star_lib.RRT(self._config.rrt.los, self._config.rrt.model, self._config.rrt.params)
-                    rrt.transfer_enc_hazards(self._grounding_hazards[0])
-                    rrt.transfer_safe_sea_triangulation(self._safe_sea_cdt)
+                    rrt.transfer_enc_hazards(relevant_hazards[0])
+                    rrt.transfer_safe_sea_triangulation(planning_cdt)
                     rrt.set_init_state(ship_obj.state.tolist())
                     rrt.set_goal_state(goal_state.tolist())
                     U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
@@ -242,8 +248,8 @@ class BehaviorGenerator:
                     pqrrt = rrt_star_lib.PQRRTStar(
                         self._config.pqrrt.los, self._config.pqrrt.model, self._config.pqrrt.params
                     )
-                    pqrrt.transfer_enc_hazards(self._grounding_hazards[0])
-                    pqrrt.transfer_safe_sea_triangulation(self._safe_sea_cdt)
+                    pqrrt.transfer_enc_hazards(relevant_hazards[0])
+                    pqrrt.transfer_safe_sea_triangulation(planning_cdt)
                     pqrrt.set_init_state(ship_obj.state.tolist())
                     pqrrt.set_goal_state(goal_state.tolist())
                     # pqrrt.grow_towards_goal(
@@ -280,13 +286,6 @@ class BehaviorGenerator:
         speed_plan = np.zeros((0, 1))
         method = self._config.method
         ownship = ship_list[0]
-        p_os = ownship.csog_state[0:2]
-        v_os = np.array(
-            [
-                ownship.csog_state[2] * np.cos(ownship.csog_state[3]),
-                ownship.csog_state[2] * np.sin(ownship.csog_state[3]),
-            ]
-        )
 
         for ship_cfg_idx, ship_config in enumerate(ship_config_list):
             ship_obj = ship_list[ship_cfg_idx]
@@ -294,15 +293,12 @@ class BehaviorGenerator:
                 continue
 
             if method == BehaviorGenerationMethod.Any:
-                method = BehaviorGenerationMethod(rng.integers(0, 3))
+                method = BehaviorGenerationMethod(rng.integers(0, 4))
 
             if method == BehaviorGenerationMethod.ConstantSpeedAndCourse:
-                waypoints = np.zeros((2, 2))
-                waypoints[:, 0] = ship_obj.csog_state[0:2]
-                U = ship_obj.csog_state[2]
-                chi = ship_obj.csog_state[3]
-                waypoints[:, 1] = waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan
-                speed_plan = U * np.ones(2)
+                waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
+                    ship_obj.csog_state, simulation_timespan
+                )
             elif method == BehaviorGenerationMethod.ConstantSpeedRandomWaypoints:
                 waypoints = self.generate_random_waypoints(
                     rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft
@@ -320,44 +316,9 @@ class BehaviorGenerator:
                     n_wps=waypoints.shape[1],
                 )
             elif method == BehaviorGenerationMethod.RapidlyExploringRandomTree and ship_cfg_idx > 0:
-                os_waypoints = (
-                    ownship.waypoints
-                    if ownship.waypoints is not None
-                    else np.array([ownship.csog_state[0:2], ownship.goal_csog_state[0:2]])
+                waypoints, speed_plan = self.generate_rrt_behavior(
+                    rng, ship_obj, ship_cfg_idx, ownship, show_plots=True
                 )
-
-                rrt = self._rrt_list[ship_cfg_idx]
-                pqrrt = self._pqrrt_list[ship_cfg_idx]
-
-                choice = 2
-                if choice == 0:
-                    # Draw random trajectory/waypoint sample from RRT/PQRRT with leaf node near the own-ship
-                    # 1) Ownship goal state
-                    p_rand = rng.multivariate_normal(mean=os_waypoints[:, -1], cov=np.diag([25.0**2, 25.0**2]))
-                elif choice == 1:
-                    # 2) Ownship trajectory/waypoints
-                    p_rand = mhm.sample_from_waypoint_corridor(rng, os_waypoints, 100.0)
-                elif choice == 2:
-                    # 3) Minimum dCPA between ownship and target ship
-                    p_target = ship_obj.csog_state[0:2]
-                    v_target = np.array(
-                        [
-                            ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
-                            ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
-                        ]
-                    )
-
-                    t_cpa, d_cpa = mf.cpa(p_target, v_target, p_os, v_os)
-                    p_target_cpa = p_target + v_target * t_cpa
-                    p_rand = rng.multivariate_normal(mean=p_target_cpa, cov=np.diag([25.0**2, 25.0**2]))
-                random_solution = rrt.nearest_solution(p_rand.tolist())
-                waypoints, _, _, _ = mhm.parse_rrt_solution(random_solution)
-                speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
-                if self._enc is not None and show_plots:
-                    self._enc.draw_circle(
-                        center=(os_waypoints[1, -1], os_waypoints[0, -1]), radius=20.0, color="green", alpha=0.3
-                    )
-                    self._enc.draw_circle(center=(p_rand[1], p_rand[0]), radius=20.0, color="orange", alpha=0.6)
 
             if self._enc is not None and show_plots:
                 color = "yellow" if ship_obj.id > 0 else "magenta"
@@ -393,6 +354,87 @@ class BehaviorGenerator:
             ship_config_list.append(ship_config)
 
         return ship_list, ship_config_list
+
+    def generate_rrt_behavior(
+        self, rng: np.random.Generator, ship_obj: ship.Ship, ship_idx: int, ownship: ship.Ship, show_plots: bool = True
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Generates a ship behavior using RRT/PQRRT.
+
+        Args:
+            rng (np.random.Generator): Random number generator.
+            ship_obj (ship.Ship): The ship to generate a behavior for.
+            ship_idx (int): The index of the ship in the ship list.
+            ownship (ship.Ship): The ownship.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Tuple containing the resulting waypoints and speed plan.
+        """
+        p_os = ownship.csog_state[0:2]
+        v_os = np.array(
+            [
+                ownship.csog_state[2] * np.cos(ownship.csog_state[3]),
+                ownship.csog_state[2] * np.sin(ownship.csog_state[3]),
+            ]
+        )
+        os_waypoints = (
+            ownship.waypoints
+            if ownship.waypoints is not None
+            else np.array([ownship.csog_state[0:2], ownship.goal_csog_state[0:2]])
+        )
+
+        rrt = self._rrt_list[ship_idx]
+        pqrrt = self._pqrrt_list[ship_idx]
+
+        choice = 2
+        if choice == 0:
+            # Draw random trajectory/waypoint sample from RRT/PQRRT with leaf node near the own-ship
+            # 1) Ownship goal state
+            p_rand = rng.multivariate_normal(mean=os_waypoints[:, -1], cov=np.diag([25.0**2, 25.0**2]))
+        elif choice == 1:
+            # 2) Ownship trajectory/waypoints
+            p_rand = mhm.sample_from_waypoint_corridor(rng, os_waypoints, 100.0)
+        elif choice == 2:
+            # 3) Minimum dCPA between ownship and target ship
+            p_target = ship_obj.csog_state[0:2]
+            v_target = np.array(
+                [
+                    ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
+                    ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
+                ]
+            )
+
+            t_cpa, d_cpa = mf.cpa(p_target, v_target, p_os, v_os)
+            p_target_cpa = p_target + v_target * t_cpa
+            p_rand = rng.multivariate_normal(mean=p_target_cpa, cov=np.diag([25.0**2, 25.0**2]))
+        random_solution = rrt.nearest_solution(p_rand.tolist())
+        waypoints, _, _, _ = mhm.parse_rrt_solution(random_solution)
+        speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
+        if self._enc is not None and show_plots:
+            self._enc.draw_circle(
+                center=(os_waypoints[1, -1], os_waypoints[0, -1]), radius=20.0, color="green", alpha=0.3
+            )
+            self._enc.draw_circle(center=(p_rand[1], p_rand[0]), radius=20.0, color="orange", alpha=0.6)
+        return waypoints, speed_plan
+
+    def generate_constant_speed_and_course_waypoints(
+        self, csog_state: np.ndarray, simulation_timespan: float
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Generates waypoints and speed plan for a ship with constant speed and course.
+
+        Args:
+            csog_state (np.ndarray): The ship's CSOG state.
+            simulation_timespan (float): Simulation timespan.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Tuple containing the waypoints and speed plan.
+        """
+        waypoints = np.zeros((2, 2))
+        waypoints[:, 0] = csog_state[0:2]
+        U = csog_state[2]
+        chi = csog_state[3]
+        waypoints[:, 1] = waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan
+        speed_plan = U * np.ones(2)
+        return waypoints, speed_plan
 
     def generate_random_waypoints(
         self, rng: np.random.Generator, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None

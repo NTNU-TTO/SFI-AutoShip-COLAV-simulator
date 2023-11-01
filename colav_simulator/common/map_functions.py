@@ -28,6 +28,29 @@ from shapely import affinity, strtree
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 
+def create_bbox_from_points(
+    enc: ENC, p1: np.ndarray, p2: np.ndarray, buffer: float = 200.0
+) -> Tuple[float, float, float, float]:
+    """Creates a bounding box from two diagonal corner points.
+
+    Args:
+        p1 (np.ndarray): First corner point.
+        p2 (np.ndarray): Second corner point.
+
+    Returns:
+        Tuple[float, float, float, float]: Bounding box (xmin, ymin, xmax, ymax), with x being easting.
+    """
+    xmin = min(p1[0], p2[0]) - buffer
+    xmax = max(p1[0], p2[0]) + buffer
+    ymin = min(p1[1], p2[1]) - buffer
+    ymax = max(p1[1], p2[1]) + buffer
+    xmin = max(xmin, enc.bbox[1])
+    xmax = min(xmax, enc.bbox[3])
+    ymin = max(ymin, enc.bbox[0])
+    ymax = min(ymax, enc.bbox[2])
+    return ymin, xmin, ymax, xmax
+
+
 def local2latlon(
     x: float | list | np.ndarray, y: float | list | np.ndarray, utm_zone: int
 ) -> Tuple[float | list | np.ndarray, float | list | np.ndarray]:
@@ -342,18 +365,28 @@ def create_safe_sea_voronoi_diagram(enc: ENC, vessel_min_depth: int = 5) -> Tupl
     return vor, region_polygons
 
 
-def create_safe_sea_triangulation(enc: ENC, vessel_min_depth: int = 5, show_plots: bool = True) -> list:
+def create_safe_sea_triangulation(
+    enc: ENC,
+    vessel_min_depth: int = 5,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
+    show_plots: bool = True,
+) -> list:
     """Creates a constrained delaunay triangulation of the safe sea region.
 
     Args:
         enc (ENC): Electronic Navigational Chart object.
         vessel_min_depth (int, optional): The safe minimum depth for the vessel to voyage in. Defaults to 5.
+        bbox (Optional[Tuple[float, float, float, float]]): Bounding box of the safe sea region to constrain the cdt within. Defaults to None.
+        show_plots (bool, optional): Option for visualization. Defaults to True.
 
     Returns:
         list: List of triangles.
     """
+    if bbox is None:
+        bbox = enc.bbox
+
     safe_sea_poly_list = extract_safe_sea_area(
-        vessel_min_depth, bbox_to_polygon(enc.bbox), enc, as_polygon_list=True, show_plots=show_plots
+        vessel_min_depth, bbox_to_polygon(bbox), enc, as_polygon_list=True, show_plots=show_plots
     )
     cdt_list = []
     largest_poly_area = 0.0
@@ -554,31 +587,50 @@ def fill_rtree_with_geometries(geometries: list) -> Tuple[strtree.STRtree, list]
 
 
 def generate_random_goal_position(
-    rng: np.random.Generator, enc: ENC, xs_start: np.ndarray, safe_sea_cdt: list, distance_from_start: float = 100.0
+    rng: np.random.Generator,
+    enc: ENC,
+    xs_start: np.ndarray,
+    safe_sea_cdt: list,
+    min_distance_from_start: float = 100.0,
+    max_distance_from_start: float = 10000.0,
 ) -> Tuple[float, float]:
     """Generates a random goal position for the ship, given its starting state (position, speed and heading).
 
     Args:
         rng (np.random.Generator): Numpy random generator.
         enc (ENC): Electronic Navigational Chart object.
-        xs_start (np.ndarray): Starting state of the ship [x, y, U, chi]^T.
+        xs_start (np.ndarray): Starting CSOG state of the ship [x, y, U, chi]^T.
         safe_sea_cdt (list): List of triangles defining the safe sea region, used to sample more efficiently. Defaults to None.
-        distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
+        min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
+        max_distance_from_start (float, optional): Maximum distance from the starting position. Defaults to 10000.0.
 
     Returns:
         Tuple[float, float]: Goal position (northing, easting) for the ship.
     """
-    northing = xs_start[0] + distance_from_start * np.cos(xs_start[3])
-    easting = xs_start[1] + distance_from_start * np.sin(xs_start[3])
+    bbox_poly = bbox_to_polygon(enc.bbox)
+    northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
+    easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
+    sector_width = 120.0 * np.pi / 180.0
+    sector_radius = max_distance_from_start
+    n_points = 100
+    angle_range_port = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)
+    arc_port = [
+        (xs_start[1] + sector_radius * np.sin(angle), xs_start[0] + sector_radius * np.cos(angle))
+        for angle in angle_range_port
+    ]
+    arc_line_port = LineString(arc_port)
+    sector_poly = Polygon(list(arc_line_port.coords) + [(xs_start[1], xs_start[0])])
+    sector_poly = sector_poly.intersection(bbox_poly)
+    enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
     max_iter = 3000
     for iter in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt)
         easting, northing = p[0], p[1]
 
         dist2start = np.linalg.norm(np.array([northing, easting]) - np.array([xs_start[0], xs_start[1]]))
-        L_start_to_goal = np.array([easting, northing]) - np.array([xs_start[0], xs_start[1]])
-        beta = np.arctan2(L_start_to_goal[1], L_start_to_goal[0]) - xs_start[3]
-        if dist2start > distance_from_start and beta < 120.0 * np.pi / 180.0:
+        if (min_distance_from_start <= dist2start <= max_distance_from_start) and sector_poly.contains(
+            Point(easting, northing)
+        ):
             break
 
     return northing, easting
@@ -894,6 +946,40 @@ def generate_enveloping_polygon(trajectory: np.ndarray, buffer: float) -> Polygo
         point_list.append((trajectory[1, k], trajectory[0, k]))
     trajectory_linestring = LineString(point_list).buffer(buffer)
     return trajectory_linestring
+
+
+def extract_hazards_within_bounding_box(
+    hazards: list, bbox: Tuple[float, float, float, float], enc: Optional[ENC] = None, show_plots: bool = False
+) -> list:
+    """Extracts the hazards that are inside the given bounding box.
+
+    Args:
+        hazards (list): List of Multipolygon hazards to consider.
+        bbox (Tuple[float, float, float, float]): Bounding box to consider in the form (x_min, y_min, x_max, y_max), x = easting, y = northing.
+        enc (Optional[ENC], optional): Electronic Navigational Chart object. Defaults to None.
+        show_plots (bool, optional): Whether to show plots or not. Defaults to False.
+
+    Returns:
+        list: List of hazards inside the bounding box.
+    """
+    bbox_poly = bbox_to_polygon(bbox)
+    intersections = []
+    for hazard in hazards:
+        if bbox_poly.intersects(hazard):
+            overlap = bbox_poly.intersection(hazard)
+            if isinstance(overlap, Polygon):
+                overlap = MultiPolygon([overlap])
+            elif isinstance(overlap, Point):
+                overlap = MultiPolygon([overlap.buffer(0.1)])
+            elif isinstance(overlap, LineString):
+                overlap = MultiPolygon([overlap.buffer(0.1)])
+            intersections.append(overlap)
+
+    if enc:
+        enc.start_display()
+        for intersection in intersections:
+            enc.draw_polygon(intersection, color="full_horizon", fill=True, alpha=0.5)
+    return intersections
 
 
 def extract_polygons_near_trajectory(
