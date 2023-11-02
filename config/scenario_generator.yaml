@@ -9,16 +9,17 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_folder: "imazu_cases"
 
 ho_bearing_range: [-22.5, 22.5]
-ho_heading_range: [-15.0, 15.0]
+ho_heading_range: [-10.0, 10.0]
 ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [15.1, 112.5]
 cr_heading_range: [-15.0, 15.0]
-dist_between_ships_range: [200.0, 2000.0]
+dist_between_ships_range: [200.0, 1000.0]
 
 # Parameters for the ship behavior (waypoints+speed plan ...) generator
 behavior_generator:
-  method: "RapidlyExploringRandomTree"
+  ownship_method: "ConstantSpeedRandomWaypoints"
+  target_ship_method: "RapidlyExploringRandomTree"
 
   n_wps_range: [3, 5]
   speed_plan_variation_range: [-1.0, 1.0]
@@ -31,7 +32,7 @@ behavior_generator:
       max_iter: 20000
       iter_between_direct_goal_growth: 5000000
       min_node_dist: 10.0
-      goal_radius: 20.0
+      goal_radius: 100.0
       step_size: 1.0
       min_steering_time: 2.0
       max_steering_time: 20.0
@@ -47,9 +48,9 @@ behavior_generator:
         draft: 0.5
         length: 10.0
         width: 3.0
-        T_chi: 10.0
-        T_U: 7.0
-        r_max: 4.0
+        T_chi: 5.0
+        T_U: 5.0
+        r_max: 6.0
         U_min: 0.0
         U_max: 15.0
     los:
@@ -65,7 +66,7 @@ behavior_generator:
       max_iter: 20000
       iter_between_direct_goal_growth: 500000
       min_node_dist: 10.0
-      goal_radius: 20.0
+      goal_radius: 100.0
       step_size: 1.0
       min_steering_time: 2.0
       max_steering_time: 20.0
@@ -77,7 +78,7 @@ behavior_generator:
         draft: 0.5
         length: 10.0
         width: 3.0
-        T_chi: 3.0
+        T_chi: 5.0
         T_U: 5.0
         r_max: 6.0
         U_min: 0.0

@@ -19,7 +19,6 @@ import colav_simulator.behavior_generator as bg
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.file_utils as file_utils
 import colav_simulator.common.map_functions as mapf
-import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import colav_simulator.core.ship as ship
@@ -331,6 +330,7 @@ class ScenarioGenerator:
             seed (Optional[int]): Integer seed. Defaults to None.
         """
         self.rng = np.random.default_rng(seed=seed)
+        self.behavior_generator.seed(seed=seed)
 
     def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.
@@ -499,10 +499,9 @@ class ScenarioGenerator:
             enc_copy = copy.deepcopy(enc)
         else:
             enc_copy = self._configure_enc(config)
-        assert not self.enc.land.geometry.is_empty, "Land geometry is empty."
 
         if self.safe_sea_cdt is None:
-            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc, vessel_min_depth=2, show_plots=False)
+            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc, vessel_min_depth=5, show_plots=False)
 
         if config.n_random_ships is not None:
             n_random_ships = config.n_random_ships
@@ -570,7 +569,7 @@ class ScenarioGenerator:
 
         ship_list, config = self.transfer_vessel_ais_data(ship_list, config, ais_vessel_data_list, mmsi_list)
 
-        ship_list, config, csog_state_list = self.generate_ship_csog_states(ship_list, config)
+        ship_list, config, _ = self.generate_ship_csog_states(ship_list, config)
 
         self.behavior_generator.setup(self.rng, ship_list, self.enc, config.t_end - config.t_start, show_plots=True)
         ship_list, config.ship_list = self.behavior_generator.generate(
@@ -605,7 +604,8 @@ class ScenarioGenerator:
             if ship_config.random_generated:
                 continue
 
-            # The own-ship (with index 0) will not use the predefined AIS trajectory.
+            # The own-ship (with index 0) will not use the predefined AIS trajectory, but can use the AIS data
+            # for the initial state.
             idx = 0
             if ship_cfg_idx == 0:
                 use_ais_ship_trajectory = False

@@ -668,6 +668,13 @@ class Ship(IShip):
         return self._model.params.U_min
 
     @property
+    def speed(self) -> float:
+        if self._model.dims[0] == 4:
+            return self._state[3]
+        else:
+            return np.sqrt(self._state[3] ** 2 + self._state[4] ** 2)
+
+    @property
     def max_turn_rate(self) -> float:
         return self._model.params.r_max
 

@@ -13,9 +13,10 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 </p>
 
 
-![Another simulation example](./scenarios/example_img/aalesund_random.pdf)
-<img src="./scenarios/example_img/aalesund_random.pdf">
-
+<p align="center">
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/scenarios/example_img/aalesund_random.pdf" width="500px"><br/>
+    <em>Simulation screenshot.</em>
+</p>
 
 ## Citation
 If you are using the `colav_simulator` for academic work, please use the following citation:
@@ -214,7 +215,7 @@ Seacharts is used to provide access to Electronic Navigational Charts, and an `E
 
 Troubles with "freezing" when you generate a scenario? Check if you have specified `new_load_of_map_data=True`in the scenario configuration file. If this is false, and the map data is not loaded/wrong data is used, errors can happen.
 
-In addition to random waypoint generation and/or straight line motion generation, the `rrt-rs` library can optionally be used for generating random ship behaviors, where Rapidly-exploring Random Trees (RRTs) are built for each ship initial state. Check the source code for the `BehaviorGenerator` for more information.
+In addition to random waypoint generation and/or straight line motion generation for the own-ship and/or target ships through the `BehaviorGenerator` class, the `rrt-rs` library can optionally be used for generating random ship behaviors, where Rapidly-exploring Random Trees (RRTs) are built for each ship initial state. See the source code for the `BehaviorGenerator` for more information.
 
 ### Visualizer
 

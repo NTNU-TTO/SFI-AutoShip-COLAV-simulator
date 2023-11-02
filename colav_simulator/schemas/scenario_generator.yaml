@@ -75,7 +75,10 @@ behavior_generator:
   required: True
   type: dict
   schema:
-    method:
+    ownship_method:
+      required: True
+      type: string
+    target_ship_method:
       required: True
       type: string
     n_wps_range:

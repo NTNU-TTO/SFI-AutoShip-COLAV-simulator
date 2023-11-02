@@ -178,7 +178,8 @@ def parse_rrt_solution(soln: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
     times = np.array(soln["times"])
     n_samples = len(times)
     trajectory = np.zeros((6, n_samples))
-    inputs = np.zeros((3, n_samples - 1))
+    n_inputs = len(soln["inputs"])
+    inputs = np.zeros((3, n_inputs))
     n_wps = len(soln["waypoints"])
     waypoints = np.zeros((3, n_wps))
     if n_samples > 0:
@@ -186,8 +187,10 @@ def parse_rrt_solution(soln: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
             waypoints[:, k] = np.array(soln["waypoints"][k])
         for k in range(n_samples):
             trajectory[:, k] = np.array(soln["states"][k])
-            if k < n_samples - 1:
-                inputs[:, k] = np.array(soln["inputs"][k])
+        for k in range(n_inputs):
+            inputs[:, k] = np.array(soln["inputs"][k])
+    if n_wps == 1:
+        waypoints = np.array([waypoints[:, 0], waypoints[:, 0]]).T
     return waypoints, trajectory, inputs, times
 
 

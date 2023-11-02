@@ -280,7 +280,7 @@ def bbox_to_polygon(bbox: Tuple[float, float, float, float]) -> Polygon:
     """Converts a bounding box to a polygon.
 
     Args:
-        bbox (Tuple[float, float, float, float]): The bounding box.
+        bbox (Tuple[float, float, float, float]): The bounding box (xmin, ymin, xmax, ymax), with x being easting.
 
     Returns:
         Polygon: The polygon.
@@ -621,7 +621,7 @@ def generate_random_goal_position(
     arc_line_port = LineString(arc_port)
     sector_poly = Polygon(list(arc_line_port.coords) + [(xs_start[1], xs_start[0])])
     sector_poly = sector_poly.intersection(bbox_poly)
-    enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
+    # enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
     max_iter = 3000
     for iter in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt)
@@ -935,7 +935,7 @@ def generate_enveloping_polygon(trajectory: np.ndarray, buffer: float) -> Polygo
     """Creates an enveloping polygon around the trajectory of the vessel, buffered by the given amount.
 
     Args:
-        - trajectory (np.ndarray): Trajectory with columns [x, y, psi, u, v, r]
+        - trajectory (np.ndarray): Trajectory with min shape 2 x n_samples
         - buffer (float): Buffer size
 
     Returns:
@@ -975,7 +975,7 @@ def extract_hazards_within_bounding_box(
                 overlap = MultiPolygon([overlap.buffer(0.1)])
             intersections.append(overlap)
 
-    if enc:
+    if enc and show_plots:
         enc.start_display()
         for intersection in intersections:
             enc.draw_polygon(intersection, color="full_horizon", fill=True, alpha=0.5)
