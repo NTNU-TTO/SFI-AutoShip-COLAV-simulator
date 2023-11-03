@@ -172,6 +172,7 @@ class BehaviorGenerator:
         self._enc: senc.ENC = None
         self._safe_sea_cdt: list = None
 
+        self._simulation_timespan: float = 0.0
         self._planning_bbox_list: list = []
         self._planning_hazard_list: list = []
         self._planning_cdt_list: list = []
@@ -211,6 +212,7 @@ class BehaviorGenerator:
             simulation_timespan (float): Simulation timespan.
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
+        ownship = ship_list[0]
         self._enc = copy.deepcopy(enc)
 
         # Assume equal min depth = 5 for all ships, for now
@@ -218,6 +220,7 @@ class BehaviorGenerator:
         self._grounding_hazards = mapf.extract_relevant_grounding_hazards_as_union(
             vessel_min_depth=5, enc=self._enc, buffer=None, show_plots=show_plots
         )
+        self._simulation_timespan = simulation_timespan
 
         self._planning_bbox_list = []
         self._planning_hazard_list = []
@@ -238,17 +241,33 @@ class BehaviorGenerator:
                 print("RRT* library not found, exiting...")
                 exit(0)
 
+            ownship_bbox = None
+            # if ship_obj.id > 0:
+            #     ownship_waypoints = (
+            #         ownship.waypoints
+            #         if ownship.waypoints.size > 0
+            #         else np.concatenate(
+            #             [ownship.csog_state[0:2].reshape(-1, 1), ownship.goal_csog_state[0:2].reshape(-1, 1)]
+            #         )
+            #     )
+
+            #     ownship_bbox = mapf.create_bbox_from_points(
+            #         self._enc, ownship_waypoints[:, 0], ownship_waypoints[:, 1], buffer=500.0
+            #     )
+
             goal_position = mapf.generate_random_goal_position(
                 rng=rng,
                 enc=self._enc,
                 xs_start=ship_obj.csog_state,
                 safe_sea_cdt=self._safe_sea_cdt,
+                bbox=ownship_bbox,
                 min_distance_from_start=300.0,
                 max_distance_from_start=ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
+            ship_obj.set_goal_state(goal_state)
 
             bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=500.0)
             relevant_hazards = mapf.extract_hazards_within_bounding_box(
@@ -257,7 +276,7 @@ class BehaviorGenerator:
             planning_cdt = mapf.create_safe_sea_triangulation(
                 self._enc,
                 bbox=bbox,
-                show_plots=True,
+                show_plots=False,
             )
 
             self._planning_bbox_list.append(bbox)
@@ -297,9 +316,9 @@ class BehaviorGenerator:
                 return_on_first_solution=False,
             )
             mapf.plot_rrt_tree(pqrrt.get_tree_as_list_of_dicts(), self._enc)
-            self._enc.draw_circle(
-                (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
-            )
+            # self._enc.draw_circle(
+            #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
+            # )
 
             self._pqrrt_list.append(pqrrt)
 
@@ -370,9 +389,9 @@ class BehaviorGenerator:
                     ship_obj.draft,
                     self._enc,
                     color=color,
-                    point_buffer=3.0,
-                    disk_buffer=7.0,
-                    hole_buffer=3.0,
+                    point_buffer=2.0,
+                    disk_buffer=6.0,
+                    hole_buffer=2.0,
                 )
                 # if RRT_LIB_FOUND and method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
                 #     mapf.plot_trajectory(trajectory, self._enc, color="grey")
@@ -399,6 +418,34 @@ class BehaviorGenerator:
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
 
+        if self._enc is not None and show_plots:
+            color = "pink"
+            mapf.plot_waypoints(
+                ownship.waypoints,
+                ownship.draft,
+                self._enc,
+                color=color,
+                point_buffer=2.0,
+                disk_buffer=6.0,
+                hole_buffer=2.0,
+            )
+            # if RRT_LIB_FOUND and method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
+            #     mapf.plot_trajectory(trajectory, self._enc, color="grey")
+
+            color = "magenta"
+            # self._enc.draw_line(
+            #     [(p[1], p[0]) for p in waypoints.T], color=color, width=0.0, thickness=5.0, edge_style="dashdot"
+            # )
+            ship_poly = mapf.create_ship_polygon(
+                ownship.csog_state[0],
+                ownship.csog_state[1],
+                mf.wrap_angle_to_pmpi(ownship.csog_state[3]),
+                ownship.length,
+                ownship.width,
+                5.0,
+                5.0,
+            )
+            self._enc.draw_polygon(ship_poly, color=color)
         return ship_list, ship_config_list
 
     def generate_rrt_behavior(
@@ -422,6 +469,14 @@ class BehaviorGenerator:
                 ownship.csog_state[2] * np.sin(ownship.csog_state[3]),
             ]
         )
+        p_target = ship_obj.csog_state[0:2]
+        v_target = np.array(
+            [
+                ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
+                ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
+            ]
+        )
+
         ownship_waypoints = (
             ownship.waypoints
             if ownship.waypoints is not None
@@ -436,58 +491,58 @@ class BehaviorGenerator:
         rrt = self._rrt_list[idx]
         pqrrt = self._pqrrt_list[idx]
 
-        choice = 3
+        choice = 0
         if ship_obj.id == ownship.id == 0:
             choice = 0
 
         n_samples = 100
+        max_iter = 1000
         sample_runtimes = np.zeros(n_samples)
         for s in range(n_samples):
             time_now = time.time()
-            # Test different sampling methods
-            if choice == 0:
-                # Draw random trajectory/waypoint sample from RRT/PQRRT with leaf node near the own-ship end goal position
-                # 1) Ownship goal state
-                p_rand = rng.multivariate_normal(mean=ownship_waypoints[:, -1], cov=np.diag([25.0**2, 25.0**2]))
-            elif choice == 1:
-                # 2) Ownship trajectory/waypoints
-                p_rand = mhm.sample_from_waypoint_corridor(rng, ownship_waypoints, 300.0)
-            elif choice == 2:
-                # 3) Minimum dCPA between ownship and target ship
-                p_target = ship_obj.csog_state[0:2]
-                v_target = np.array(
-                    [
-                        ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
-                        ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
-                    ]
-                )
+            for iter in range(10):
+                # Test different sampling methods
+                if choice == 0:
+                    # Draw random trajectory/waypoint sample from RRT/PQRRT with leaf node near the own-ship end goal position
+                    # 1) Ownship goal state
+                    p_rand = rng.multivariate_normal(mean=ownship_waypoints[:, -1], cov=np.diag([50.0**2, 50.0**2]))
+                elif choice == 1:
+                    # 2) Ownship trajectory/waypoints
+                    p_rand = mhm.sample_from_waypoint_corridor(rng, ownship_waypoints, 300.0)
+                elif choice == 2:
+                    # 3) Minimum dCPA between ownship and target ship
+                    p_target = ship_obj.csog_state[0:2]
+                    v_target = np.array(
+                        [
+                            ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
+                            ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
+                        ]
+                    )
 
-                t_cpa, d_cpa = mf.cpa(p_target, v_target, p_os, v_os)
-                p_target_cpa = p_target + v_target * t_cpa
-                p_rand = rng.multivariate_normal(mean=p_target_cpa, cov=np.diag([100.0**2, 100.0**2]))
-            elif choice == 3:
-                # 4) Sample from waypoint corridor along initial heading
-                p_target = ship_obj.csog_state[0:2]
-                v_target = np.array(
-                    [
-                        ship_obj.csog_state[2] * np.cos(ship_obj.csog_state[3]),
-                        ship_obj.csog_state[2] * np.sin(ship_obj.csog_state[3]),
-                    ]
-                )
-                p_end = p_target + v_target * 1000.0
-                corridor_waypoints, _ = mhm.clip_waypoint_segment_to_bbox(
-                    np.array([p_target, p_end]).T,
-                    (planning_bbox[1], planning_bbox[0], planning_bbox[3], planning_bbox[2]),
-                )
-                corridor_poly = mapf.generate_enveloping_polygon(corridor_waypoints, 200.0)
-                bbox_poly = mapf.bbox_to_polygon(planning_bbox)
-                corridor_poly_inside_bbox = corridor_poly.intersection(bbox_poly)
-                if s == 0:
-                    self._enc.draw_polygon(corridor_poly_inside_bbox, color="black", alpha=0.4)
-                p_rand = mhm.sample_from_waypoint_corridor(rng, corridor_waypoints, 200.0)
+                    t_cpa, d_cpa = mf.cpa(p_target, v_target, p_os, v_os)
+                    p_target_cpa = p_target + v_target * t_cpa
+                    p_rand = rng.multivariate_normal(mean=p_target_cpa, cov=np.diag([50.0**2, 50.0**2]))
+                elif choice == 3:
+                    # 4) Sample from waypoint corridor along initial heading
+                    p_end = p_target + v_target * 1000.0
+                    corridor_waypoints, _ = mhm.clip_waypoint_segment_to_bbox(
+                        np.array([p_target, p_end]).T,
+                        (planning_bbox[1], planning_bbox[0], planning_bbox[3], planning_bbox[2]),
+                    )
+                    corridor_poly = mapf.generate_enveloping_polygon(corridor_waypoints, 200.0)
+                    bbox_poly = mapf.bbox_to_polygon(planning_bbox)
+                    corridor_poly_inside_bbox = corridor_poly.intersection(bbox_poly)
+                    if s == 0:
+                        self._enc.draw_polygon(corridor_poly_inside_bbox, color="black", alpha=0.4)
+                    p_rand = mhm.sample_from_waypoint_corridor(rng, corridor_waypoints, 200.0)
 
-            random_solution = pqrrt.nearest_solution(p_rand.tolist())
+                # Distance from start to sample must be at least 30% of ship speed * simulation timespan
+                if np.linalg.norm(p_rand - p_target) > ship_obj.speed * self._simulation_timespan * 0.3:
+                    break
+
+            random_solution = rrt.nearest_solution(p_rand.tolist())
             waypoints, trajectory, _, _ = mhm.parse_rrt_solution(random_solution)
+
             speed_plan = waypoints[2, :]
             waypoints = waypoints[0:2, :]
             t_elapsed = time.time() - time_now

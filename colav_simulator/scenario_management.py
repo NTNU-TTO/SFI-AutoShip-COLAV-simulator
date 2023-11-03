@@ -19,6 +19,7 @@ import colav_simulator.behavior_generator as bg
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.file_utils as file_utils
 import colav_simulator.common.map_functions as mapf
+import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
 import colav_simulator.core.ship as ship
@@ -263,7 +264,17 @@ class Config:
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config()
+        config = Config(
+            verbose=config_dict["verbose"],
+            behavior_generator=bg.Config.from_dict(config_dict["behavior_generator"]),
+            ho_bearing_range=config_dict["ho_bearing_range"],
+            ho_heading_range=config_dict["ho_heading_range"],
+            ot_bearing_range=config_dict["ot_bearing_range"],
+            ot_heading_range=config_dict["ot_heading_range"],
+            cr_bearing_range=config_dict["cr_bearing_range"],
+            cr_heading_range=config_dict["cr_heading_range"],
+            dist_between_ships_range=config_dict["dist_between_ships_range"],
+        )
         if "scenario_files" in config_dict:
             config.scenario_files = config_dict["scenario_files"]
 
@@ -699,6 +710,8 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Target ship position = [x, y].
         """
+        if U_min < 3.0:
+            U_min = 3.0
 
         if any(np.isnan(os_csog_state)):
             return self.generate_random_csog_state(
@@ -728,7 +741,7 @@ class ScenarioGenerator:
 
         depth = mapf.find_minimum_depth(draft, self.enc)
         safe_sea = self.enc.seabed[depth]
-        max_iter = 3000
+        max_iter = 1000
         y_min, x_min, y_max, x_max = self.enc.bbox
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
@@ -787,7 +800,7 @@ class ScenarioGenerator:
             #     self.enc, np.array([x, y]), os_csog_state[:2]
             # )
 
-            if safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox:
+            if safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox:  # and not hazard_between_ships:
                 break
 
         return np.array([x, y, speed, heading])
@@ -814,10 +827,14 @@ class ScenarioGenerator:
         """
         x, y = mapf.generate_random_position_from_draft(self.rng, self.enc, draft, self.safe_sea_cdt)
         speed = self.rng.uniform(U_min, U_max)
+        _, dist_vec, _ = mapf.compute_closest_grounding_dist(
+            np.array([y, x]).reshape(-1, 1), mapf.find_minimum_depth(draft, self.enc), self.enc
+        )
+        angle_to_land = np.arctan2(dist_vec[0], dist_vec[1])
         if heading is None:
-            heading = self.rng.uniform(0.0, 2.0 * np.pi)
+            heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
 
-        return np.array([x, y, speed, heading])
+        return np.array([x, y, speed, mf.wrap_angle_to_pmpi(heading)])
 
     @property
     def enc_bbox(self) -> np.ndarray:

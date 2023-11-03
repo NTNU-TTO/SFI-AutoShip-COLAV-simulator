@@ -591,6 +591,7 @@ def generate_random_goal_position(
     enc: ENC,
     xs_start: np.ndarray,
     safe_sea_cdt: list,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
     min_distance_from_start: float = 100.0,
     max_distance_from_start: float = 10000.0,
 ) -> Tuple[float, float]:
@@ -736,26 +737,34 @@ def compute_closest_grounding_dist(
         - enc (senc.ENC): The ENC to check for grounding.
 
     Returns:
-        - Tuple[float, int]: The closest distance to grounding, corresponding distance vector and the index of the trajectory point.
+        - Tuple[float, int]: The closest distance to grounding, corresponding distance vector (east, north) and the index of the trajectory point.
     """
     relevant_hazards = extract_relevant_grounding_hazards(minimum_vessel_depth, enc)
-    vessel_traj_linestring = mhm.ndarray_to_linestring(vessel_trajectory)
     if enc and show_enc:
         enc.start_display()
         for hazard in relevant_hazards:
             enc.draw_polygon(hazard, color="red")
     # intersection_points = find_intersections_line_polygon(vessel_traj_linestring, relevant_hazards, enc)
 
-    # Will find the closest grounding point.
+    n_samples = vessel_trajectory.shape[1]
     min_dist = 1e12
-    for idx, point in enumerate(vessel_traj_linestring.coords):
+    if n_samples > 1:
+        vessel_traj_linestring = mhm.ndarray_to_linestring(vessel_trajectory)
+        for idx, point in enumerate(vessel_traj_linestring.coords):
+            for hazard in relevant_hazards:
+                dist = hazard.distance(Point(point))
+                if dist < min_dist:
+                    min_dist = dist
+                    min_idx = idx
+        closest_point = Point(vessel_traj_linestring.coords[min_idx])
+    else:
+        min_idx = 0
+        closest_point = Point(vessel_trajectory[0, 0], vessel_trajectory[1, 0])
         for hazard in relevant_hazards:
-            dist = hazard.distance(Point(point))
+            dist = hazard.distance(closest_point)
             if dist < min_dist:
                 min_dist = dist
-                min_idx = idx
 
-    closest_point = Point(vessel_traj_linestring.coords[min_idx])
     nearest_poly_points = []
     for hazard in relevant_hazards:
         nearest_point = ops.nearest_points(closest_point, hazard)[1]
@@ -821,13 +830,13 @@ def min_distance_to_hazards(hazards: list, x: float, y: float) -> float:
     return min_dist
 
 
-def check_if_segment_crosses_grounding_hazards(enc: ENC, p2: np.ndarray, p1: np.ndarray, draft: float = 5.0) -> bool:
+def check_if_segment_crosses_grounding_hazards(enc: ENC, p1: np.ndarray, p2: np.ndarray, draft: float = 5.0) -> bool:
     """Checks if a line segment between two positions/points crosses nearby grounding hazards (land, shore).
 
     Args:
         enc (ENC): Electronic Navigational Chart object
+        p1 (np.ndarray): First position [x1, y1]^T. x = north, y = east.
         p2 (np.ndarray): Second position.
-        p1 (np.ndarray): First position.
         draft (float): Ship's draft in meters.
 
     Returns:
@@ -1271,10 +1280,10 @@ def plot_waypoints(
         path = shapely.unary_union(lines)
 
     hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)[0]
-    if path.intersects(hazards):
-        overlap = path.intersection(hazards)
-        enc.draw_polygon(overlap, "red", thickness=linewidth, alpha=alpha)
-        path = path.difference(hazards)
+    # if path.intersects(hazards):
+    #     overlap = path.intersection(hazards)
+    #     enc.draw_polygon(overlap, "red", thickness=linewidth, alpha=alpha)
+    #     path = path.difference(hazards)
     enc.draw_polygon(path, color, thickness=linewidth, alpha=alpha)
 
 

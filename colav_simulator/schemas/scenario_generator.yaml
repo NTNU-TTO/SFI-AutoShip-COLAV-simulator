@@ -19,48 +19,48 @@ ho_bearing_range:
   maxlength: 2
   schema:
     type: float
-    min: -30.0
-    max: 30.0
+    min: -22.5
+    max: 22.5
 ho_heading_range:
   required: True
   type: list
   maxlength: 2
   schema:
     type: float
-    min: -15.0
-    max: 15.0
+    min: -22.5
+    max: 22.5
 ot_bearing_range:
   required: True
   type: list
   maxlength: 2
   schema:
     type: float
-    min: -20.0
-    max: 20.0
+    min: -22.5
+    max: 22.5
 ot_heading_range:
   required: True
   type: list
   maxlength: 2
   schema:
     type: float
-    min: -15.0
-    max: 15.0
+    min: -22.5
+    max: 22.5
 cr_bearing_range:
   required: True
   type: list
   maxlength: 2
   schema:
     type: float
-    min: 15.1
-    max: 112.5
+    min: 0.0
+    max: 120.0
 cr_heading_range:
   required: True
   type: list
   maxlength: 2
   schema:
     type: float
-    min: -15.0
-    max: 15.0
+    min: -50.0
+    max: 50.0
 dist_between_ships_range:
   required: True
   type: list

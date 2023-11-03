@@ -166,6 +166,23 @@ def sample_from_triangle_region(rng: np.random.Generator, p1: np.ndarray, p2: np
     return p
 
 
+def compute_path_length(path: np.ndarray) -> float:
+    """Computes the length of a path.
+
+    Args:
+        path (np.ndarray): Path coordinates 2 x n_samples.
+
+    Returns:
+        float: Length of the path.
+    """
+    assert path.shape[0] == 2, "Path must be 2 x n_samples"
+    assert path.shape[1] > 1, "Path must have at least 2 samples"
+    length = 0.0
+    for k in range(1, path.shape[1]):
+        length += np.linalg.norm(path[:, k] - path[:, k - 1])
+    return length
+
+
 def parse_rrt_solution(soln: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Parses the RRT solution.
 
