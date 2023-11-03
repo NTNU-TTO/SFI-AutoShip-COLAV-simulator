@@ -491,7 +491,7 @@ class BehaviorGenerator:
         rrt = self._rrt_list[idx]
         pqrrt = self._pqrrt_list[idx]
 
-        choice = 0
+        choice = 2
         if ship_obj.id == ownship.id == 0:
             choice = 0
 
@@ -508,7 +508,7 @@ class BehaviorGenerator:
                     p_rand = rng.multivariate_normal(mean=ownship_waypoints[:, -1], cov=np.diag([50.0**2, 50.0**2]))
                 elif choice == 1:
                     # 2) Ownship trajectory/waypoints
-                    p_rand = mhm.sample_from_waypoint_corridor(rng, ownship_waypoints, 300.0)
+                    p_rand = mhm.sample_from_waypoint_corridor(rng, ownship_waypoints, 200.0)
                 elif choice == 2:
                     # 3) Minimum dCPA between ownship and target ship
                     p_target = ship_obj.csog_state[0:2]
@@ -540,7 +540,7 @@ class BehaviorGenerator:
                 if np.linalg.norm(p_rand - p_target) > ship_obj.speed * self._simulation_timespan * 0.3:
                     break
 
-            random_solution = rrt.nearest_solution(p_rand.tolist())
+            random_solution = pqrrt.nearest_solution(p_rand.tolist())
             waypoints, trajectory, _, _ = mhm.parse_rrt_solution(random_solution)
 
             speed_plan = waypoints[2, :]
