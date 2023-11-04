@@ -350,7 +350,11 @@ class BehaviorGenerator:
 
         for ship_cfg_idx, ship_config in enumerate(ship_config_list):
             ship_obj = ship_list[ship_cfg_idx]
-            if ship_config.waypoints is not None or ship_obj.trajectory.size > 1:
+            if (
+                ship_config.waypoints is not None
+                or ship_obj.trajectory.size > 1
+                or ship_config.goal_csog_state is not None
+            ):
                 continue
 
             method = target_ship_method if ship_obj.id > 0 else ownship_method

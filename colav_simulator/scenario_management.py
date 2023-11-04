@@ -582,9 +582,9 @@ class ScenarioGenerator:
 
         ship_list, config, _ = self.generate_ship_csog_states(ship_list, config)
 
-        self.behavior_generator.setup(self.rng, ship_list, self.enc, config.t_end - config.t_start, show_plots=True)
+        self.behavior_generator.setup(self.rng, ship_list, self.enc, config.t_end - config.t_start, show_plots=False)
         ship_list, config.ship_list = self.behavior_generator.generate(
-            self.rng, ship_list, config.ship_list, simulation_timespan=config.t_end - config.t_start, show_plots=True
+            self.rng, ship_list, config.ship_list, simulation_timespan=config.t_end - config.t_start, show_plots=False
         )
 
         ship_list.sort(key=lambda x: x.id)
@@ -665,6 +665,7 @@ class ScenarioGenerator:
         csog_state_list = []
         for ship_cfg_idx, ship_config in enumerate(config.ship_list):
             if ship_config.csog_state is not None:
+                csog_state_list.append(ship_config.csog_state)
                 continue
 
             ship_obj = ship_list[ship_cfg_idx]
