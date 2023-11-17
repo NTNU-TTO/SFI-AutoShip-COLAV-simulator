@@ -560,6 +560,9 @@ def extract_relevant_grounding_hazards_as_union(
         poly = MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon))
         if buffer is not None:
             poly = poly.buffer(buffer)
+        # remove interior
+        if isinstance(poly, MultiPolygon):
+            poly = MultiPolygon(Polygon(p.exterior) for p in poly.geoms if isinstance(p, Polygon))
         filtered_relevant_hazards.append(poly)
 
     if show_plots:
@@ -1329,15 +1332,16 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
     """
     enc.start_display()
     for node in node_list:
-        enc.draw_circle(
-            (node["state"][1], node["state"][0]), 2.5, color="green", fill=False, thickness=0.8, edge_style=None
-        )
+        # enc.draw_circle(
+        #     (node["state"][1], node["state"][0]), 2.5, color="green", fill=False, thickness=0.8, edge_style=None
+        # )
         for sub_node in node_list:
             if node["id"] == sub_node["id"] or sub_node["parent_id"] != node["id"]:
                 continue
             points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
+            n_points = len(points)
             if len(points) > 1:
-                enc.draw_line(points, color="white", buffer=0.5, linewidth=0.5)
+                enc.draw_line(points[0:n_points:1], color="white", buffer=0.5, linewidth=0.5)
 
 
 def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:

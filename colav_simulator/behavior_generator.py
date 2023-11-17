@@ -38,6 +38,7 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 class PQRRTStarParams:
     max_nodes: int = 10000
     max_iter: int = 25000
+    max_time: float = 5000.0
     iter_between_direct_goal_growth: int = 100000
     min_node_dist: float = 10.0
     goal_radius: float = 50.0
@@ -65,6 +66,7 @@ class PQRRTStarParams:
 class RRTParams:
     max_nodes: int = 10000
     max_iter: int = 20000
+    max_time: float = 5000.0
     iter_between_direct_goal_growth: int = 100000
     min_node_dist: float = 10.0
     goal_radius: float = 50.0
