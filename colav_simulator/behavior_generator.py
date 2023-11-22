@@ -46,7 +46,6 @@ class PQRRTStarParams:
     min_steering_time: float = 2.0
     max_steering_time: float = 20.0
     steering_acceptance_radius: float = 10.0
-    max_nn_node_dist: float = 100.0
     gamma: float = 1500.0
     max_sample_adjustments: int = 100
     lambda_sample_adjustment: float = 1.0
@@ -63,9 +62,9 @@ class PQRRTStarParams:
 
 
 @dataclass
-class RRTParams:
+class RRTStarParams:
     max_nodes: int = 10000
-    max_iter: int = 20000
+    max_iter: int = 25000
     max_time: float = 5000.0
     iter_between_direct_goal_growth: int = 100000
     min_node_dist: float = 10.0
@@ -74,7 +73,28 @@ class RRTParams:
     min_steering_time: float = 2.0
     max_steering_time: float = 20.0
     steering_acceptance_radius: float = 10.0
-    max_nn_node_dist: float = 100.0
+    gamma: float = 1500.0
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = cls(**config_dict)
+        return config
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class RRTParams:
+    max_nodes: int = 10000
+    max_iter: int = 20000
+    max_time: float = 5000.0
+    iter_between_direct_goal_growth: int = 100000
+    goal_radius: float = 50.0
+    step_size: float = 1.0
+    min_steering_time: float = 2.0
+    max_steering_time: float = 20.0
+    steering_acceptance_radius: float = 10.0
     gamma: float = 1500.0
 
     @classmethod
@@ -88,17 +108,17 @@ class RRTParams:
 
 @dataclass
 class RRTConfig:
-    params: RRTParams | PQRRTStarParams = RRTParams()
+    params: RRTParams | RRTStarParams | PQRRTStarParams = RRTParams()
     model: models.KinematicCSOGParams = models.KinematicCSOGParams(
         name="KinematicCSOG",
         draft=0.5,
-        length=10.0,
-        width=3.0,
-        T_chi=10.0,
-        T_U=7.0,
-        r_max=np.deg2rad(4),
+        length=15.0,
+        width=4.0,
+        T_chi=6.0,
+        T_U=6.0,
+        r_max=np.deg2rad(10),
         U_min=0.0,
-        U_max=15.0,
+        U_max=10.0,
     )
     los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
         K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
@@ -109,6 +129,8 @@ class RRTConfig:
         config = RRTConfig()
         if "max_sample_adjustments" in config_dict["params"]:
             config.params = PQRRTStarParams.from_dict(config_dict["params"])
+        elif "gamma" in config_dict["params"]:
+            config.params = RRTStarParams.from_dict(config_dict["params"])
         else:
             config.params = RRTParams.from_dict(config_dict["params"])
         config.model = models.KinematicCSOGParams.from_dict(config_dict["model"]["csog"])
@@ -122,8 +144,10 @@ class BehaviorGenerationMethod(Enum):
     ConstantSpeedAndCourse = 0  # Constant ship speed and course
     ConstantSpeedRandomWaypoints = 1  # Constant ship speed, uniform distribution to generate ship waypoints
     VaryingSpeedRandomWaypoints = 2  # Uniformly varying ship speed, uniform distribution to generate ship waypoints
-    RapidlyExploringRandomTree = 3  # Use PQRRT*/RRT to generate ship trajectories/waypoints, with constant speed
-    Any = 4  # Any of the above methods
+    RRT = 3  # Use baseline RRT to generate ship trajectories/waypoints, with constant speed
+    RRTStar = 4  # Use RRT* to generate ship trajectories/waypoints, with constant speed
+    PQRRTStar = 5  # Use PQ-RRT* to generate ship trajectories/waypoints, with constant speed
+    Any = 6  # Any of the above methods
 
 
 @dataclass
@@ -143,15 +167,25 @@ class Config:
         default_factory=lambda: [-45.0, 45.0]
     )  # Range of [min, max] change in angle between randomly created waypoints
     rrt: Optional[RRTConfig] = None
-    pqrrt: Optional[RRTConfig] = None
+    rrtstar: Optional[RRTConfig] = None
+    pqrrtstar: Optional[RRTConfig] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config()
-        config.ownship_method = BehaviorGenerationMethod[config_dict["ownship_method"]]
-        config.target_ship_method = BehaviorGenerationMethod[config_dict["target_ship_method"]]
-        if "pqrrt" in config_dict:
-            config.pqrrt = RRTConfig.from_dict(config_dict["pqrrt"])
+        config = Config(
+            ownship_method=BehaviorGenerationMethod[config_dict["ownship_method"]],
+            target_ship_method=BehaviorGenerationMethod[config_dict["target_ship_method"]],
+            n_wps_range=config_dict["n_wps_range"],
+            speed_plan_variation_range=config_dict["speed_plan_variation_range"],
+            waypoint_dist_range=config_dict["waypoint_dist_range"],
+            waypoint_ang_range=config_dict["waypoint_ang_range"],
+        )
+
+        if "pqrrtstar" in config_dict:
+            config.pqrrtstar = RRTConfig.from_dict(config_dict["pqrrtstar"])
+
+        if "rrtstar" in config_dict:
+            config.rrtstar = RRTConfig.from_dict(config_dict["rrtstar"])
 
         if "rrt" in config_dict:
             config.rrt = RRTConfig.from_dict(config_dict["rrt"])
@@ -159,8 +193,9 @@ class Config:
 
     def to_dict(self):
         output = asdict(self)
-        output.rrt = self.rrt.to_dict()
-        output.pqrrt = self.pqrrt.to_dict()
+        output["rrt"] = self.rrt.to_dict()
+        output["rrtstar"] = self.rrtstar.to_dict()
+        output["pqrrtstar"] = self.pqrrtstar.to_dict()
         output["ownship_method"] = self.ownship_method.name
         output["target_ship_method"] = self.target_ship_method.name
         return output
@@ -179,12 +214,13 @@ class BehaviorGenerator:
         self._planning_hazard_list: list = []
         self._planning_cdt_list: list = []
         self._rrt_list: list = []
-        self._pqrrt_list: list = []
+        self._rrtstar_list: list = []
+        self._pqrrtstar_list: list = []
         self._grounding_hazards: list = []
         self._seed: Optional[int] = None
 
     def seed(self, seed: Optional[int] = None) -> None:
-        """Seeds the behavior generator, i.e. all RRTs/PQRRTs.
+        """Seeds the behavior generator, i.e. all RRTs/pqrrtstars.
 
         Args:
             seed (Optional[int]): Integer seed. Defaults to None.
@@ -193,8 +229,10 @@ class BehaviorGenerator:
         if len(self._rrt_list) > 0:
             for rrt in self._rrt_list:
                 rrt.reset(seed)
-            for pqrrt in self._pqrrt_list:
-                pqrrt.reset(seed)
+            for rrtstar in self._rrtstar_list:
+                rrtstar.reset(seed)
+            for pqrrtstar in self._pqrrtstar_list:
+                pqrrtstar.reset(seed)
 
     def setup(
         self,
@@ -214,6 +252,7 @@ class BehaviorGenerator:
             simulation_timespan (float): Simulation timespan.
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
+        # self._seed = 1
         ownship = ship_list[0]
         self._enc = copy.deepcopy(enc)
 
@@ -228,15 +267,11 @@ class BehaviorGenerator:
         self._planning_hazard_list = []
         self._planning_cdt_list = []
         self._rrt_list = []
-        self._pqrrt_list = []
+        self._rrtstar_list = []
+        self._pqrrtstar_list = []
         for ship_obj in ship_list:  # Only generate RRTs for target ships
-            if ship_obj.id == 0 and self._config.ownship_method != BehaviorGenerationMethod.RapidlyExploringRandomTree:
-                continue
-
-            if (
-                ship_obj.id > 0
-                and self._config.target_ship_method != BehaviorGenerationMethod.RapidlyExploringRandomTree
-            ):
+            method = self._config.target_ship_method if ship_obj.id > 0 else self._config.ownship_method
+            if method.value < BehaviorGenerationMethod.RRT.value:
                 continue
 
             if not RRT_LIB_FOUND:
@@ -263,15 +298,15 @@ class BehaviorGenerator:
                 xs_start=ship_obj.csog_state,
                 safe_sea_cdt=self._safe_sea_cdt,
                 bbox=ownship_bbox,
-                min_distance_from_start=300.0,
-                max_distance_from_start=ship_obj.speed * simulation_timespan,
+                min_distance_from_start=400.0,
+                max_distance_from_start=0.5 * ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
             ship_obj.set_goal_state(goal_state)
 
-            bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=500.0)
+            bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=400.0)
             relevant_hazards = mapf.extract_hazards_within_bounding_box(
                 self._grounding_hazards, bbox, self._enc, show_plots=True
             )
@@ -296,33 +331,52 @@ class BehaviorGenerator:
             rrt.grow_towards_goal(
                 ownship_state=ship_obj.state.tolist(),
                 U_d=U_d,
-                do_list=[],
                 initialized=False,
                 return_on_first_solution=False,
             )
-            # mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
+            mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
             self._rrt_list.append(rrt)
 
-            pqrrt = rrt_star_lib.PQRRTStar(self._config.pqrrt.los, self._config.pqrrt.model, self._config.pqrrt.params)
-            pqrrt.transfer_bbox(bbox)
-            pqrrt.transfer_enc_hazards(relevant_hazards[0])
-            pqrrt.transfer_safe_sea_triangulation(planning_cdt)
-            pqrrt.set_init_state(ship_obj.state.tolist())
-            pqrrt.set_goal_state(goal_state.tolist())
-            pqrrt.reset(self._seed)
-            pqrrt.grow_towards_goal(
+            rrtstar = rrt_star_lib.RRTStar(
+                self._config.rrtstar.los, self._config.rrtstar.model, self._config.rrtstar.params
+            )
+            rrtstar.transfer_bbox(bbox)
+            rrtstar.transfer_enc_hazards(relevant_hazards[0])
+            rrtstar.transfer_safe_sea_triangulation(planning_cdt)
+            rrtstar.set_init_state(ship_obj.state.tolist())
+            rrtstar.set_goal_state(goal_state.tolist())
+            U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+            rrtstar.reset(self._seed)
+            rrtstar.grow_towards_goal(
                 ownship_state=ship_obj.state.tolist(),
                 U_d=U_d,
-                do_list=[],
                 initialized=False,
                 return_on_first_solution=False,
             )
-            mapf.plot_rrt_tree(pqrrt.get_tree_as_list_of_dicts(), self._enc)
+            # mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
+            self._rrtstar_list.append(rrtstar)
+
+            pqrrtstar = rrt_star_lib.PQRRTStar(
+                self._config.pqrrtstar.los, self._config.pqrrtstar.model, self._config.pqrrtstar.params
+            )
+            pqrrtstar.transfer_bbox(bbox)
+            pqrrtstar.transfer_enc_hazards(relevant_hazards[0])
+            pqrrtstar.transfer_safe_sea_triangulation(planning_cdt)
+            pqrrtstar.set_init_state(ship_obj.state.tolist())
+            pqrrtstar.set_goal_state(goal_state.tolist())
+            pqrrtstar.reset(self._seed)
+            pqrrtstar.grow_towards_goal(
+                ownship_state=ship_obj.state.tolist(),
+                U_d=U_d,
+                initialized=False,
+                return_on_first_solution=False,
+            )
+            # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
             # self._enc.draw_circle(
             #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
             # )
 
-            self._pqrrt_list.append(pqrrt)
+            self._pqrrtstar_list.append(pqrrtstar)
 
     def generate(
         self,
@@ -361,7 +415,7 @@ class BehaviorGenerator:
 
             method = target_ship_method if ship_obj.id > 0 else ownship_method
             if method == BehaviorGenerationMethod.Any:
-                method = BehaviorGenerationMethod(rng.integers(0, 4))
+                method = BehaviorGenerationMethod(rng.integers(0, BehaviorGenerationMethod.Any.value))
 
             if method == BehaviorGenerationMethod.ConstantSpeedAndCourse:
                 waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
@@ -383,9 +437,12 @@ class BehaviorGenerator:
                     U_max=ship_obj.max_speed,
                     n_wps=waypoints.shape[1],
                 )
-            elif RRT_LIB_FOUND and method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
+            elif (
+                RRT_LIB_FOUND
+                and BehaviorGenerationMethod.RRT.value <= method.value <= BehaviorGenerationMethod.PQRRTStar.value
+            ):
                 waypoints, speed_plan, trajectory = self.generate_rrt_behavior(
-                    rng, ship_obj, ship_cfg_idx, ownship, show_plots=True
+                    rng, ship_obj, ship_cfg_idx, ownship, method, ownship_method, show_plots=True
                 )
 
             if self._enc is not None and show_plots:
@@ -421,8 +478,8 @@ class BehaviorGenerator:
             ship_config.speed_plan = speed_plan
             ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
 
-            ship_list.append(ship_obj)
-            ship_config_list.append(ship_config)
+            ship_list[ship_cfg_idx] = ship_obj
+            ship_config_list[ship_cfg_idx] = ship_config
 
         if self._enc is not None and show_plots:
             color = "pink"
@@ -455,19 +512,33 @@ class BehaviorGenerator:
         return ship_list, ship_config_list
 
     def generate_rrt_behavior(
-        self, rng: np.random.Generator, ship_obj: ship.Ship, ship_idx: int, ownship: ship.Ship, show_plots: bool = True
+        self,
+        rng: np.random.Generator,
+        ship_obj: ship.Ship,
+        ship_idx: int,
+        ownship: ship.Ship,
+        rrt_method: BehaviorGenerationMethod,
+        ownship_bg_method: BehaviorGenerationMethod,
+        show_plots: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Generates a ship behavior using RRT/PQRRT.
+        """Generates a ship behavior using RRT/pqrrtstar.
 
         Args:
             rng (np.random.Generator): Random number generator.
             ship_obj (ship.Ship): The ship to generate a behavior for.
             ship_idx (int): The index of the ship in the ship list.
             ownship (ship.Ship): The ownship.
+            rrt_method (BehaviorGenerationMethod): The RRT method to use.
+            ownship_bg_method (BehaviorGenerationMethod): The method used to generate the ownship behavior.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Tuple containing the resulting waypoints, speed plan and trajectory.
         """
+        assert (
+            rrt_method == BehaviorGenerationMethod.RRT
+            or rrt_method == BehaviorGenerationMethod.RRTStar
+            or rrt_method == BehaviorGenerationMethod.PQRRTStar
+        )
         p_os = ownship.csog_state[0:2]
         v_os = np.array(
             [
@@ -490,26 +561,33 @@ class BehaviorGenerator:
         )
 
         idx = ship_idx - 1
-        if self._config.ownship_method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
+        if BehaviorGenerationMethod.RRT.value <= ownship_bg_method.value <= BehaviorGenerationMethod.PQRRTStar.value:
             idx += 1
 
         planning_bbox = self._planning_bbox_list[idx]
-        rrt = self._rrt_list[idx]
-        pqrrt = self._pqrrt_list[idx]
+        rrt_alg = self._rrt_list[idx]
+        if rrt_method == BehaviorGenerationMethod.RRT:
+            rrt_alg = self._rrt_list[idx]
+            print("Using RRT for behavior generation...")
+        elif rrt_method == BehaviorGenerationMethod.RRTStar:
+            rrt_alg = self._rrtstar_list[idx]
+            print("Using RRT* for behavior generation...")
+        elif rrt_method == BehaviorGenerationMethod.PQRRTStar:
+            rrt_alg = self._pqrrtstar_list[idx]
+            print("Using PQ-RRT* for behavior generation...")
 
         choice = 2
         if ship_obj.id == ownship.id == 0:
             choice = 0
 
         n_samples = 100
-        max_iter = 1000
         sample_runtimes = np.zeros(n_samples)
         for s in range(n_samples):
             time_now = time.time()
-            for iter in range(10):
+            for iter in range(1):
                 # Test different sampling methods
                 if choice == 0:
-                    # Draw random trajectory/waypoint sample from RRT/PQRRT with leaf node near the own-ship end goal position
+                    # Draw random trajectory/waypoint sample from RRT/pqrrtstar with leaf node near the own-ship end goal position
                     # 1) Ownship goal state
                     p_rand = rng.multivariate_normal(mean=ownship_waypoints[:, -1], cov=np.diag([50.0**2, 50.0**2]))
                 elif choice == 1:
@@ -530,7 +608,7 @@ class BehaviorGenerator:
                     p_rand = rng.multivariate_normal(mean=p_target_cpa, cov=np.diag([50.0**2, 50.0**2]))
                 elif choice == 3:
                     # 4) Sample from waypoint corridor along initial heading
-                    p_end = p_target + v_target * 1000.0
+                    p_end = p_target + v_target * 0.6 * self._simulation_timespan
                     corridor_waypoints, _ = mhm.clip_waypoint_segment_to_bbox(
                         np.array([p_target, p_end]).T,
                         (planning_bbox[1], planning_bbox[0], planning_bbox[3], planning_bbox[2]),
@@ -539,14 +617,14 @@ class BehaviorGenerator:
                     bbox_poly = mapf.bbox_to_polygon(planning_bbox)
                     corridor_poly_inside_bbox = corridor_poly.intersection(bbox_poly)
                     if s == 0:
-                        self._enc.draw_polygon(corridor_poly_inside_bbox, color="black", alpha=0.4)
-                    p_rand = mhm.sample_from_waypoint_corridor(rng, corridor_waypoints, 200.0)
+                        self._enc.draw_polygon(corridor_poly_inside_bbox, color="black", alpha=0.3)
+                    p_rand = mhm.sample_from_waypoint_corridor(rng, corridor_waypoints, 100.0)
 
-                # Distance from start to sample must be at least 30% of ship speed * simulation timespan
-                if np.linalg.norm(p_rand - p_target) > ship_obj.speed * self._simulation_timespan * 0.3:
+                # Distance from start to sample must be at least 50m
+                if np.linalg.norm(p_rand - p_target) > 50.0:
                     break
 
-            random_solution = pqrrt.nearest_solution(p_rand.tolist())
+            random_solution = rrt_alg.nearest_solution(p_rand.tolist())
             waypoints, trajectory, _, _ = mhm.parse_rrt_solution(random_solution)
 
             speed_plan = waypoints[2, :]
@@ -609,7 +687,7 @@ class BehaviorGenerator:
             - np.ndarray: 2 x n_wps array of waypoints.
         """
         if n_wps is None:
-            n_wps = rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
+            n_wps = rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1] + 1)
 
         east_min, north_min, east_max, north_max = self._enc.bbox
         waypoints = np.zeros((2, n_wps))
@@ -624,7 +702,11 @@ class BehaviorGenerator:
                     self._config.waypoint_dist_range[0], self._config.waypoint_dist_range[1]
                 )
 
-                alpha = np.deg2rad(rng.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1]))
+                alpha = 0
+                if i > 1:
+                    alpha = np.deg2rad(
+                        rng.uniform(self._config.waypoint_ang_range[0], self._config.waypoint_ang_range[1])
+                    )
 
                 new_wp = np.array(
                     [
@@ -654,7 +736,7 @@ class BehaviorGenerator:
             if clipped:
                 waypoints = waypoints[:, : i + 1]
                 break
-
+        waypoints = np.unique(waypoints, axis=1)
         return waypoints
 
     def generate_random_speed_plan(
@@ -673,7 +755,7 @@ class BehaviorGenerator:
             - np.ndarray: 1 x n_wps array containing the speed plan.
         """
         if n_wps is None:
-            n_wps = rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1])
+            n_wps = rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1] + 1)
 
         speed_plan = np.zeros(n_wps)
         speed_plan[0] = U

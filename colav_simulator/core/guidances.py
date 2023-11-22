@@ -102,7 +102,9 @@ class IGuidance(ABC):
     """
 
     @abstractmethod
-    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
+    def compute_references(
+        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
+    ) -> np.ndarray:
         "Computes guidance reference states for the ship controller to track. 9 x n_samples (typically n_samples = 1) array of reference states are returned, consisting of reference pose, velocity and acceleration."
 
 
@@ -159,7 +161,11 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._heading_waypoints: np.ndarray = np.array([])
 
     def compute_splines(
-        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray] = None, arc_length_parameterization: bool = True
+        self,
+        waypoints: np.ndarray,
+        speed_plan: np.ndarray,
+        times: Optional[np.ndarray] = None,
+        arc_length_parameterization: bool = True,
     ) -> Tuple[interp.BSpline, interp.BSpline, interp.PchipInterpolator, interp.PchipInterpolator]:
         """Converts waypoints and speed plan into C² cubic splines.
 
@@ -178,6 +184,22 @@ class KinematicTrajectoryPlanner(IGuidance):
         """
         _, n_wps = waypoints.shape
 
+        if n_wps == 2:
+            waypoints = np.insert(waypoints, 1, np.mean(waypoints, axis=1), axis=1)
+            speed_plan = np.insert(speed_plan, 1, np.mean(speed_plan))
+
+            if times:
+                times = np.insert(times, 1, np.mean(times))
+                times = np.insert(times, 1, np.mean(times[:2]))
+            n_wps += 1
+
+        if n_wps == 3:
+            waypoints = np.insert(waypoints, 1, np.mean(waypoints[:, :2], axis=1), axis=1)
+            speed_plan = np.insert(speed_plan, 1, np.mean(speed_plan[:2]))
+            if times:
+                times = np.insert(times, 1, np.mean(times[:2]))
+            n_wps += 1
+
         if times:
             linspace = times
         else:
@@ -192,7 +214,9 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._speed_spline = interp.PchipInterpolator(linspace, speed_plan)
 
         if arc_length_parameterization:
-            x_arc_spline, y_arc_spline, arc_lengths = mhm.create_arc_length_spline(waypoints[0, :].tolist(), waypoints[1, :].tolist())
+            x_arc_spline, y_arc_spline, arc_lengths = mhm.create_arc_length_spline(
+                waypoints[0, :].tolist(), waypoints[1, :].tolist()
+            )
             expanded_x_values = x_arc_spline(arc_lengths)
             expanded_y_values = y_arc_spline(arc_lengths)
             t_x, c_x, k_x = interp.splrep(arc_lengths, expanded_x_values, s=smoothing, k=3)
@@ -223,7 +247,9 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._s_dot, self._s_ddot = self._compute_path_variable_derivatives(self._s)
         self._s = mf.sat(self._s + dt * self._s_dot, 0.0, 1.0)
 
-    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
+    def compute_references(
+        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
+    ) -> np.ndarray:
         """Converts waypoints and speed plan into C² cubic spline,
          from which 3DOF reference states (not necessarily feasible) are computed.
 
@@ -287,14 +313,19 @@ class KinematicTrajectoryPlanner(IGuidance):
         return self._x_spline, self._y_spline, self._heading_spline, self._speed_spline
 
     def _compute_path_variable_derivatives(self, s: float) -> Tuple[float, float]:
-        s_dot = self._speed_spline(s) / np.sqrt(self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0))
+        s_dot = self._speed_spline(s) / np.sqrt(
+            self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)
+        )
 
         s_ddot = s_dot * (
-            self._speed_spline(s, 1) / np.sqrt(self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0))
+            self._speed_spline(s, 1)
+            / np.sqrt(self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0))
             - self._speed_spline(s)
             * (self._x_spline(s, 1) * self._x_spline(s, 2) + self._y_spline(s, 1) * self._y_spline(s, 2))
             / np.power(
-                np.sqrt(self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)),
+                np.sqrt(
+                    self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)
+                ),
                 3.0,
             )
         )
@@ -322,7 +353,9 @@ class KinematicTrajectoryPlanner(IGuidance):
             ]
         )
 
-    def plot_reference_trajectory(self, waypoints: np.ndarray, times: Optional[np.ndarray], arc_length_parameterization: bool = True) -> None:
+    def plot_reference_trajectory(
+        self, waypoints: np.ndarray, times: Optional[np.ndarray], arc_length_parameterization: bool = True
+    ) -> None:
         """Plots the trajectory of the reference vehicle.
 
         Args:
@@ -387,7 +420,12 @@ class KinematicTrajectoryPlanner(IGuidance):
         axs["y"].legend()
         axs["y"].grid()
 
-        axs["psi"].plot(np.linspace(0, final_s, len(self._heading_waypoints)), 180.0 * np.unwrap(self._heading_waypoints) / np.pi, "rx", label="Waypoints")
+        axs["psi"].plot(
+            np.linspace(0, final_s, len(self._heading_waypoints)),
+            180.0 * np.unwrap(self._heading_waypoints) / np.pi,
+            "rx",
+            label="Waypoints",
+        )
         heading_spline_vals = self._heading_spline(np.linspace(0.0, final_s, 300))
         axs["psi"].plot(
             np.linspace(0.0, final_s, 300),
@@ -449,7 +487,9 @@ class LOSGuidance(IGuidance):
         """Resets the waypoint counter to zero."""
         self._wp_counter = 0
 
-    def compute_references(self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float) -> np.ndarray:
+    def compute_references(
+        self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
+    ) -> np.ndarray:
         """Computes references in course and speed using the LOS guidance law.
 
         Args:
@@ -475,7 +515,9 @@ class LOSGuidance(IGuidance):
             L_wp_segment = waypoints[:, self._wp_counter + 1] - waypoints[:, self._wp_counter]
 
         alpha = np.arctan2(L_wp_segment[1], L_wp_segment[0])
-        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (xs[1] - waypoints[1, self._wp_counter]) * np.cos(alpha)
+        e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
+            xs[1] - waypoints[1, self._wp_counter]
+        ) * np.cos(alpha)
         self._e_int += e * dt
         if self._e_int >= self._params.max_cross_track_error_int:
             self._e_int -= e * dt

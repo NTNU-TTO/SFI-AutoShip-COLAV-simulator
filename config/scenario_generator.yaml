@@ -8,86 +8,113 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
 #scenario_folder: "imazu_cases"
 
-ho_bearing_range: [-22.5, 22.5]
-ho_heading_range: [-10.0, 10.0]
+ho_bearing_range: [-10.0, 10.0]
+ho_heading_range: [-5.0, 5.0]
 ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [10.1, 90.5]
 cr_heading_range: [-10.0, 10.0]
 dist_between_ships_range: [200.0, 1000.0]
 
-# Parameters for the ship behavior (waypoints+speed plan ...) generator
 behavior_generator:
-  ownship_method: "ConstantSpeedRandomWaypoints"
-  target_ship_method: "RapidlyExploringRandomTree"
+  ownship_method: "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
+  target_ship_method: "RRT" # "RRT" # "PQRRTStar"
 
   n_wps_range: [3, 5]
   speed_plan_variation_range: [-1.0, 1.0]
-  waypoint_dist_range: [100.0, 1000.0]
+  waypoint_dist_range: [200.0, 1000.0]
   waypoint_ang_range: [-60.0, 60.0]
 
-  pqrrt:
+  # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, RRT* and RRT:
+  pqrrtstar:
     params:
       max_nodes: 3000
-      max_iter: 10000
-      iter_between_direct_goal_growth: 5000000
-      min_node_dist: 10.0
-      goal_radius: 50.0
-      step_size: 1.0
-      min_steering_time: 2.0
-      max_steering_time: 20.0
-      steering_acceptance_radius: 10.0
-      max_nn_node_dist: 100.0
-      gamma: 1500.0
-      max_sample_adjustments: 100
-      lambda_sample_adjustment: 1.0
-      safe_distance: 0.0
-      max_ancestry_level: 2
-    model:
-      csog:
-        draft: 0.5
-        length: 10.0
-        width: 3.0
-        T_chi: 10.0
-        T_U: 7.0
-        r_max: 4.0
-        U_min: 0.0
-        U_max: 15.0
-    los:
-      pass_angle_threshold: 90.0
-      R_a: 25.0
-      K_p: 0.035
-      K_i: 0.0
-      max_cross_track_error_int: 200.0
-
-  rrt:
-    params:
-      max_nodes: 3000
-      max_iter: 10000
+      max_iter: 25000
+      max_time: 50000.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 10.0
       goal_radius: 50.0
-      step_size: 1.0
-      min_steering_time: 2.0
-      max_steering_time: 20.0
+      step_size: 0.5
+      min_steering_time: 1.0
+      max_steering_time: 30.0
       steering_acceptance_radius: 10.0
-      max_nn_node_dist: 100.0
-      gamma: 1500.0
+      gamma: 2000.0
+      max_sample_adjustments: 50
+      lambda_sample_adjustment: 1.0
+      safe_distance: 1.0
+      max_ancestry_level: 1
     model:
       csog:
         draft: 0.5
-        length: 10.0
-        width: 3.0
-        T_chi: 10.0
-        T_U: 7.0
-        r_max: 4.0
+        length: 15.0
+        width: 4.0
+        T_chi: 6.0
+        T_U: 6.0
+        r_max: 10.0
         U_min: 0.0
-        U_max: 15.0
+        U_max: 10.0
     los:
       pass_angle_threshold: 90.0
       R_a: 25.0
       K_p: 0.035
       K_i: 0.0
-      max_cross_track_error_int: 200.0
+      max_cross_track_error_int: 30.0
+  rrtstar:
+    params:
+      max_nodes: 5000
+      max_iter: 25000
+      max_time: 50000.0
+      iter_between_direct_goal_growth: 500000
+      min_node_dist: 10.0
+      goal_radius: 50.0
+      step_size: 0.5
+      min_steering_time: 1.0
+      max_steering_time: 30.0
+      steering_acceptance_radius: 10.0
+      gamma: 2000.0
+    model:
+      csog:
+        draft: 0.5
+        length: 15.0
+        width: 4.0
+        T_chi: 6.0
+        T_U: 6.0
+        r_max: 10.0
+        U_min: 0.0
+        U_max: 10.0
+    los:
+      pass_angle_threshold: 90.0
+      R_a: 25.0
+      K_p: 0.035
+      K_i: 0.0
+      max_cross_track_error_int: 30.0
+
+  rrt:
+    params:
+      max_nodes: 5000
+      max_iter: 25000
+      max_time: 50000.0
+      iter_between_direct_goal_growth: 500000
+      goal_radius: 50.0
+      step_size: 0.5
+      min_steering_time: 1.0
+      max_steering_time: 30.0
+      steering_acceptance_radius: 10.0
+    model:
+      csog:
+        draft: 0.5
+        length: 15.0
+        width: 4.0
+        T_chi: 6.0
+        T_U: 6.0
+        r_max: 10.0
+        U_min: 0.0
+        U_max: 10.0
+    los:
+      pass_angle_threshold: 90.0
+      R_a: 25.0
+      K_p: 0.035
+      K_i: 0.0
+      max_cross_track_error_int: 30.0
 
 

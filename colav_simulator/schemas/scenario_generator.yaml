@@ -109,7 +109,7 @@ behavior_generator:
       schema:
         type: float
 
-    pqrrt:
+    pqrrtstar:
       required: True
       type: dict
       schema:
@@ -123,6 +123,9 @@ behavior_generator:
             max_nodes:
               required: True
               type: integer
+            max_time:
+              required: True
+              type: float
             iter_between_direct_goal_growth:
               required: True
               type: integer
@@ -142,9 +145,6 @@ behavior_generator:
               required: True
               type: float
             steering_acceptance_radius:
-              required: True
-              type: float
-            max_nn_node_dist:
               required: True
               type: float
             gamma:
@@ -214,7 +214,7 @@ behavior_generator:
             max_cross_track_error_int:
               required: True
               type: float
-    rrt:
+    rrtstar:
       required: True
       type: dict
       schema:
@@ -228,6 +228,9 @@ behavior_generator:
             max_nodes:
               required: True
               type: integer
+            max_time:
+              required: True
+              type: float
             iter_between_direct_goal_growth:
               required: True
               type: integer
@@ -249,10 +252,94 @@ behavior_generator:
             steering_acceptance_radius:
               required: True
               type: float
-            max_nn_node_dist:
+            gamma:
               required: True
               type: float
-            gamma:
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float
+    rrt:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            max_time:
+              required: True
+              type: float
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
               required: True
               type: float
         model:

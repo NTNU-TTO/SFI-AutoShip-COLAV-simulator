@@ -25,7 +25,8 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
+from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
+                              MultiPolygon, Point, Polygon)
 
 
 def create_bbox_from_points(
@@ -557,9 +558,16 @@ def extract_relevant_grounding_hazards_as_union(
     relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
     filtered_relevant_hazards = []
     for hazard in relevant_hazards:
-        poly = MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon))
+        if isinstance(hazard, MultiPolygon):
+            poly = MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon))
+        elif isinstance(hazard, Polygon):
+            poly = MultiPolygon([Polygon(hazard.exterior)])
+        else:
+            continue
+
         if buffer is not None:
             poly = poly.buffer(buffer)
+
         # remove interior
         if isinstance(poly, MultiPolygon):
             poly = MultiPolygon(Polygon(p.exterior) for p in poly.geoms if isinstance(p, Polygon))
@@ -1014,7 +1022,8 @@ def extract_polygons_near_trajectory(
         Tuple[list, Polygon]: List of tuples of relevant polygons inside query/envelope polygon and the corresponding original polygon they belong to. Also returns the query polygon.
     """
     enveloping_polygon = generate_enveloping_polygon(trajectory, buffer)
-    polygons_near_trajectory = geometry_tree.query(enveloping_polygon)
+    polygons_near_trajectory_indices = geometry_tree.query(enveloping_polygon)
+    polygons_near_trajectory = [geometry_tree.geometries[idx] for idx in polygons_near_trajectory_indices]
     poly_list = []
     for poly in polygons_near_trajectory:
         relevant_poly_list = []
@@ -1290,21 +1299,27 @@ def plot_waypoints(
     enc.draw_polygon(path, color, thickness=linewidth, alpha=alpha)
 
 
-def plot_dynamic_obstacles(dynamic_obstacles: list, enc: ENC, T: float, dt: float) -> None:
+def plot_dynamic_obstacles(
+    dynamic_obstacles: list, color: str, enc: ENC, T: float, dt: float, map_origin: Optional[np.ndarray] = None
+) -> None:
     """Plots the dynamic obstacles as ellipses and ship polygons.
 
     Args:
         dynamic_obstacles (list): List of tuples containing (ID, state, cov, length, width)
+        color (string): Color of the ellipses
         enc (ENC): Electronic Navigational Chart object
         T (float): Horizon to predict straight line trajectories for the dynamic obstacles
         dt (float): Time step for the straight line trajectories
+        map_origin (np.ndarray, optional): Origin of the map in the form [x, y]^T
     """
     N = int(T / dt)
     enc.start_display()
     for ID, state, cov, length, width in dynamic_obstacles:
+        if map_origin is not None:
+            state[:2] += map_origin
         ellipse_x, ellipse_y = mhm.create_probability_ellipse(cov, 0.99)
         ell_geometry = Polygon(zip(ellipse_y + state[1], ellipse_x + state[0]))
-        enc.draw_polygon(ell_geometry, color="orange", alpha=0.3)
+        enc.draw_polygon(ell_geometry, color=color, alpha=0.4)
 
         for k in range(0, N, 10):
             do_poly = create_ship_polygon(
@@ -1316,11 +1331,11 @@ def plot_dynamic_obstacles(dynamic_obstacles: list, enc: ENC, T: float, dt: floa
                 length_scaling=1.0,
                 width_scaling=1.0,
             )
-            enc.draw_polygon(do_poly, color="red")
+            enc.draw_polygon(do_poly, color=color)
         do_poly = create_ship_polygon(
             state[0], state[1], np.arctan2(state[3], state[2]), length, width, length_scaling=1.0, width_scaling=1.0
         )
-        enc.draw_polygon(do_poly, color="red")
+        enc.draw_polygon(do_poly, color=color)
 
 
 def plot_rrt_tree(node_list: list, enc: ENC) -> None:
@@ -1341,7 +1356,7 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
             points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
             n_points = len(points)
             if len(points) > 1:
-                enc.draw_line(points[0:n_points:1], color="white", buffer=0.5, linewidth=0.5)
+                enc.draw_line(points, color="white", buffer=0.5, linewidth=0.5)
 
 
 def standardize_polygon_intersections(intersection: Point | LineString | MultiLineString) -> Point:
