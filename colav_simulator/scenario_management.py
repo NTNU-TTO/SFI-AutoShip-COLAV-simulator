@@ -297,9 +297,6 @@ class ScenarioGenerator:
     rng: np.random.Generator
     enc: senc.ENC
     behavior_generator: bg.BehaviorGenerator
-    safe_sea_cdt: Optional[list] = None
-    rrts: Optional[list] = None
-    _config: Config
 
     def __init__(
         self,
@@ -321,13 +318,15 @@ class ScenarioGenerator:
             - **kwargs: Keyword arguments for the ScenarioGenerator, can be e.g.:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
-        self._config = Config()
+        self._config: Config = Config()
         if config:
             self._config = config
         elif config_file:
             self._config = cp.extract(Config, config_file, dp.scenario_generator_schema)
 
-        self.safe_sea_cdt = None
+        self.safe_sea_cdt: Optional[list] = None
+        self.safe_sea_cdt_weights: Optional[list] = None
+
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
 
@@ -492,7 +491,7 @@ class ScenarioGenerator:
         if config is None and config_file is None:
             config = cp.extract(ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
 
-        assert config is not None, "config should not be none here."
+        assert config is not None, "Config should not be none here."
         ais_vessel_data_list = []
         mmsi_list = []
         ais_data_output = process_ais_data(config)
@@ -513,10 +512,11 @@ class ScenarioGenerator:
 
         if self.safe_sea_cdt is None:
             self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc, vessel_min_depth=5, show_plots=False)
+            self.safe_sea_cdt_weights = mhm.compute_triangulation_weights(self.safe_sea_cdt)
 
         if config.n_random_ships is not None:
             n_random_ships = config.n_random_ships
-        else:
+        elif config.n_random_ships_range is not None:
             n_random_ships = self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1])
         config.n_random_ships = n_random_ships
 
@@ -535,7 +535,6 @@ class ScenarioGenerator:
             ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
             ship_list.append(ship_obj)
             ship_config_list.append(ship_config)
-
         config.ship_list = ship_config_list
 
         scenario_episode_list = []
@@ -582,7 +581,15 @@ class ScenarioGenerator:
 
         ship_list, config, _ = self.generate_ship_csog_states(ship_list, config)
 
-        self.behavior_generator.setup(self.rng, ship_list, self.enc, config.t_end - config.t_start, show_plots=False)
+        self.behavior_generator.setup(
+            self.rng,
+            ship_list,
+            self.enc,
+            self.safe_sea_cdt,
+            self.safe_sea_cdt_weights,
+            config.t_end - config.t_start,
+            show_plots=False,
+        )
         ship_list, config.ship_list = self.behavior_generator.generate(
             self.rng, ship_list, config.ship_list, simulation_timespan=config.t_end - config.t_start, show_plots=False
         )
@@ -826,11 +833,14 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
-        x, y = mapf.generate_random_position_from_draft(self.rng, self.enc, draft, self.safe_sea_cdt)
+        x, y = mapf.generate_random_position_from_draft(
+            self.rng, self.enc, draft, self.safe_sea_cdt, self.safe_sea_cdt_weights, min_land_clearance
+        )
         speed = self.rng.uniform(U_min, U_max)
-        _, dist_vec, _ = mapf.compute_closest_grounding_dist(
+        distance_vectors = mapf.compute_distance_vectors_to_grounding(
             np.array([y, x]).reshape(-1, 1), mapf.find_minimum_depth(draft, self.enc), self.enc
         )
+        dist_vec = distance_vectors[:, 0]
         angle_to_land = np.arctan2(dist_vec[0], dist_vec[1])
         if heading is None:
             heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)

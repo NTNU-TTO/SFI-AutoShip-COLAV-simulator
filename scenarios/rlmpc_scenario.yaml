@@ -42,7 +42,7 @@ stochasticity:
 ship_list:
   - id: 0
     mmsi: 100
-    csog_state: [6574280.0, -31824.0, 4.0, 0.0]
+    # csog_state: [6574280.0, -31824.0, 4.0, 0.0]
     # goal_csog_state: [6578500.0, -29300.0, 4.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
     random_generated: False
     tracker:
@@ -63,36 +63,23 @@ ship_list:
     guidance:
       los:
         pass_angle_threshold: 90.0
-        R_a: 75.0
-        K_p: 0.015
+        R_a: 50.0
+        K_p: 0.03
         K_i: 0.0
         max_cross_track_error_int: 200.0
     controller:
       flsh:
-        K_p_u: 3.0
-        K_i_u: 0.1
-        K_p_psi: 3.0
-        K_d_psi: 1.75
-        K_i_psi: 0.003
+        K_p_u: 0.35
+        K_i_u: 0.05
+        K_p_psi: 0.1
+        K_d_psi: 0.6
+        K_i_psi: 0.0
         max_speed_error_int: 2.0
         speed_error_int_threshold: 1.0
         max_psi_error_int: 50.0
         psi_error_int_threshold: 15.0
     model:
-      telemetron: ''
-    # controller:
-    #   flsh:
-    #     K_p_u: 0.5
-    #     K_i_u: 0.1
-    #     K_p_psi: 0.15
-    #     K_d_psi: 0.5
-    #     K_i_psi: 0.001
-    #     max_speed_error_int: 2.0
-    #     speed_error_int_threshold: 1.0
-    #     max_psi_error_int: 50.0
-    #     psi_error_int_threshold: 15.0
-    # model:
-    #   rvgunnerus: ''
+      rvgunnerus: ''
   - id: 1
     mmsi: 101
     #csog_state: [6575080.0, -32424.0, 6.0, 120.0]

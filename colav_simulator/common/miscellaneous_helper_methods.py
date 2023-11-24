@@ -125,17 +125,38 @@ def check_if_vessel_is_passed_by(
     return vessel_is_passed
 
 
-def sample_from_triangulation(rng: np.random.Generator, triangulation: list) -> np.ndarray:
+def compute_triangulation_weights(cdt: list) -> list:
+    """Computes the weights of the triangulation.
+
+    Args:
+        cdt (list): Constrained Delaunay triangulation.
+
+    Returns:
+        list: List of weights for each triangle.
+    """
+    weights = []
+    for triangle in cdt:
+        assert (
+            isinstance(triangle, geometry.Polygon) and len(triangle.exterior.coords) >= 4
+        ), "The triangulation must be a polygon and triangle."
+        weights.append(triangle.area)
+    total_area = np.sum(np.array(weights))
+    normalized_weights_arr = np.array(weights) / total_area
+    return normalized_weights_arr.tolist()
+
+
+def sample_from_triangulation(rng: np.random.Generator, triangulation: list, triangulation_weights: list) -> np.ndarray:
     """Samples a point from a triangulation.
 
     Args:
         rng (np.random.Generator): Numpy random generator.
         triangulation (list): List of triangles (polygons).
+        triangulation_weights (list): List of weights for each triangle.
 
     Returns:
         np.ndarray: Sampled point.
     """
-    random_triangle = rng.choice(triangulation)
+    random_triangle = rng.choice(triangulation, p=triangulation_weights)
     assert (
         isinstance(random_triangle, geometry.Polygon) and len(random_triangle.exterior.coords) >= 4
     ), "The triangulation must be a polygon and triangle."

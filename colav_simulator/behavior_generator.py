@@ -239,6 +239,8 @@ class BehaviorGenerator:
         rng: np.random.Generator,
         ship_list: list,
         enc: senc.ENC,
+        safe_sea_cdt: list,
+        safe_sea_cdt_weights: list,
         simulation_timespan: float,
         show_plots: bool = True,
     ) -> None:
@@ -249,15 +251,17 @@ class BehaviorGenerator:
             rng (np.random.Generator): Random number generator.
             ship_list (list): List of ships to be considered in simulation.
             enc (senc.ENC): Electronic navigational chart.
+            safe_sea_cdt (list): Safe sea triangulation.
+            safe_sea_cdt_weights (list): Weights for the safe sea triangulation.
             simulation_timespan (float): Simulation timespan.
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
-        # self._seed = 1
         ownship = ship_list[0]
         self._enc = copy.deepcopy(enc)
 
         # Assume equal min depth = 5 for all ships, for now
-        self._safe_sea_cdt = mapf.create_safe_sea_triangulation(enc=self._enc, vessel_min_depth=5, show_plots=False)
+        self._safe_sea_cdt = safe_sea_cdt
+        self._safe_sea_cdt_weights = safe_sea_cdt_weights
         self._grounding_hazards = mapf.extract_relevant_grounding_hazards_as_union(
             vessel_min_depth=5, enc=self._enc, buffer=None, show_plots=show_plots
         )
@@ -297,6 +301,7 @@ class BehaviorGenerator:
                 enc=self._enc,
                 xs_start=ship_obj.csog_state,
                 safe_sea_cdt=self._safe_sea_cdt,
+                safe_sea_cdt_weights=self._safe_sea_cdt_weights,
                 bbox=ownship_bbox,
                 min_distance_from_start=400.0,
                 max_distance_from_start=0.5 * ship_obj.speed * simulation_timespan,
@@ -422,13 +427,24 @@ class BehaviorGenerator:
                     ship_obj.csog_state, simulation_timespan
                 )
             elif method == BehaviorGenerationMethod.ConstantSpeedRandomWaypoints:
-                waypoints = self.generate_random_waypoints(
-                    rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft
+                waypoints, clipped = self.generate_random_waypoints(
+                    rng,
+                    ship_obj.csog_state[0],
+                    ship_obj.csog_state[1],
+                    ship_obj.csog_state[3],
+                    ship_obj.draft,
+                    ship_obj.length,
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
+                speed_plan[-1] = 0.0
             elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
-                waypoints = self.generate_random_waypoints(
-                    rng, ship_obj.csog_state[0], ship_obj.csog_state[1], ship_obj.csog_state[3], ship_obj.draft
+                waypoints, clipped = self.generate_random_waypoints(
+                    rng,
+                    ship_obj.csog_state[0],
+                    ship_obj.csog_state[1],
+                    ship_obj.csog_state[3],
+                    ship_obj.draft,
+                    ship_obj.length,
                 )
                 speed_plan = self.generate_random_speed_plan(
                     rng,
@@ -671,8 +687,15 @@ class BehaviorGenerator:
         return waypoints, speed_plan
 
     def generate_random_waypoints(
-        self, rng: np.random.Generator, x: float, y: float, psi: float, draft: float = 5.0, n_wps: Optional[int] = None
-    ) -> np.ndarray:
+        self,
+        rng: np.random.Generator,
+        x: float,
+        y: float,
+        psi: float,
+        draft: float = 2.0,
+        length: float = 5.0,
+        n_wps: Optional[int] = None,
+    ) -> Tuple[np.ndarray, bool]:
         """Creates random waypoints starting from a ship position and heading.
 
         Args:
@@ -681,10 +704,11 @@ class BehaviorGenerator:
             - y (float): y position (east) of the ship.
             - psi (float): heading of the ship in radians.
             - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
+            - length (float, optional): Length of the ship. Defaults to 5.0.
             - n_wps (Optional[int]): Number of waypoints to create.
 
         Returns:
-            - np.ndarray: 2 x n_wps array of waypoints.
+            - Tuple[np.ndarray, bool]: 2 x n_wps array containing the waypoints, and a boolean indicating whether the waypoints were clipped to the ENC bbox.
         """
         if n_wps is None:
             n_wps = rng.integers(self._config.n_wps_range[0], self._config.n_wps_range[1] + 1)
@@ -692,10 +716,11 @@ class BehaviorGenerator:
         east_min, north_min, east_max, north_max = self._enc.bbox
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
+        clipped = False
+        max_iter = 100
         for i in range(1, n_wps):
-            crosses_grounding_hazards = True
             iter_count = -1
-            while crosses_grounding_hazards:
+            for _ in range(max_iter):
                 iter_count += 1
 
                 distance_wp_to_wp = rng.uniform(
@@ -716,17 +741,17 @@ class BehaviorGenerator:
                 )
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
-                    self._enc, new_wp, waypoints[:, i - 1], draft
+                    self._enc, waypoints[:, i - 1], new_wp, draft, self._grounding_hazards
                 )
 
-                if iter_count >= 200 or not crosses_grounding_hazards:
+                if not crosses_grounding_hazards:
                     break
 
-            if iter_count >= 50:
-                waypoints = waypoints[:, 0:i]
-                if i == 1:  # stand-still, no waypoints under given parameters that avoids grounding hazards
-                    waypoints = np.append(waypoints, waypoints, axis=1)
-                break
+            if crosses_grounding_hazards:
+                new_wp = mapf.find_closest_collision_free_point_on_segment(
+                    self._enc, waypoints[:, i - 1], new_wp, draft, self._grounding_hazards, min_dist=0.6 * length
+                )
+                clipped = True
 
             waypoints[:, i] = new_wp
             waypoints[:, i - 1 : i + 1], clipped = mhm.clip_waypoint_segment_to_bbox(
@@ -736,8 +761,17 @@ class BehaviorGenerator:
             if clipped:
                 waypoints = waypoints[:, : i + 1]
                 break
+
         waypoints = np.unique(waypoints, axis=1)
-        return waypoints
+        if waypoints.shape[1] < 2:
+            new_wp = np.array(
+                [
+                    waypoints[0, i - 1] + 1000.0 * np.cos(psi),
+                    waypoints[1, i - 1] + 1000.0 * np.sin(psi),
+                ],
+            ).reshape(2, 1)
+            waypoints = np.append(waypoints, new_wp, axis=1)
+        return waypoints, clipped
 
     def generate_random_speed_plan(
         self, rng: np.random.Generator, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None

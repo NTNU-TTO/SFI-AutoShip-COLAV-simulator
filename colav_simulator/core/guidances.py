@@ -205,7 +205,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             linspace = np.linspace(0.0, 1.0, n_wps)
 
-        smoothing = 1.0
+        smoothing = 0.1
         t_x, c_x, k_x = interp.splrep(linspace, waypoints[0, :], s=smoothing, k=3)
         self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
 
@@ -224,7 +224,9 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
             self._y_spline = interp.BSpline(t_y, c_y, k_y, extrapolate=False)
 
-            self._speed_spline = interp.PchipInterpolator(np.linspace(0.0, arc_lengths[-1], n_wps), speed_plan)
+            expanded_speed_values = self._speed_spline(np.linspace(0.0, 1.0, len(arc_lengths)))
+            t_speed, c_speed, k_speed = interp.splrep(arc_lengths, expanded_speed_values, s=smoothing, k=3)
+            self._speed_spline = interp.BSpline(t_speed, c_speed, k_speed, extrapolate=False)
             x_der_values = self._x_spline(arc_lengths, 1)
             y_der_values = self._y_spline(arc_lengths, 1)
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
@@ -235,7 +237,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
             self._heading_spline = interp.PchipInterpolator(linspace, self._heading_waypoints)
 
-        # self.plot_reference_trajectory(waypoints, times)
+        self.plot_reference_trajectory(waypoints, times)
         return self._x_spline, self._y_spline, self._heading_spline, self._speed_spline
 
     def update_path_variable(self, dt: float) -> None:
