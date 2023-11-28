@@ -65,7 +65,9 @@ class Simulator:
     dt: float
     timestamp_start: int
 
-    def __init__(self, config: Optional[Config] = None, config_file: Optional[Path] = dp.simulator_config, **kwargs) -> None:
+    def __init__(
+        self, config: Optional[Config] = None, config_file: Optional[Path] = dp.simulator_config, **kwargs
+    ) -> None:
         """Initializes the simulator.
 
         Additional key-value arguments can be passed to override the settings in the config file:
@@ -164,13 +166,17 @@ class Simulator:
                 episode_config = episode_data["config"]
                 scenario_episode_file = episode_config.filename
 
-                self.initialize_scenario_episode(ship_list, episode_config, scenario_enc, episode_disturbance, ownship_colav_system)
+                self.initialize_scenario_episode(
+                    ship_list, episode_config, scenario_enc, episode_disturbance, ownship_colav_system
+                )
 
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
                 sim_data, ship_info, sim_times = self.run_scenario_episode()
                 if self._config.verbose:
-                    print(f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}.")
+                    print(
+                        f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}."
+                    )
 
                 self.visualizer.visualize_results(
                     scenario_enc,
@@ -200,6 +206,40 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
+    def is_terminated(self, verbose: bool = False) -> bool:
+        """Check whether the current own-ship state is a terminal state.
+
+        Args:
+            verbose (bool): Whether to print out the reason for the termination.
+
+        Returns:
+            bool: Whether the current own-ship state is a terminal state
+        """
+        goal_reached = self.determine_ownship_goal_reached()
+        collided = self.determine_ownship_collision()
+        grounded = self.determine_ownship_grounding()
+        if verbose and collided:
+            print(f"Collision at t = {self.t}!")
+        if verbose and grounded:
+            print(f"Grounding at t = {self.t}!")
+        if verbose and goal_reached:
+            print(f"Goal reached at t = {self.t}!")
+        return collided or grounded or goal_reached
+
+    def is_truncated(self, verbose: bool = False) -> bool:
+        """Check whether the current own-ship state is a truncated state (time limit reached).
+
+        Args:
+            verbose (bool): Whether to print out the reason for the truncation.
+
+        Returns:
+            bool: Whether the current own-ship state is a truncated state
+        """
+        truncated = self.t > self.t_end
+        if verbose and truncated:
+            print("Time limit reached!")
+        return truncated
+
     def run_scenario_episode(self) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
@@ -216,7 +256,7 @@ class Simulator:
         for i, ship_obj in enumerate(self.ship_list):
             ship_info[f"Ship{i}"] = ship_obj.get_ship_info()
 
-        sim_times = np.arange(self.t, self.sconfig.t_end, self.dt)
+        t_end = self.t_end
         while self.t < self.t_end:
             sim_data_dict = self.step()
 
@@ -224,8 +264,15 @@ class Simulator:
 
             self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
 
+            terminated = self.is_terminated(verbose=True)
+            truncated = self.is_truncated(verbose=True)
+            if terminated or truncated:
+                t_end = self.t
+                break
+
         self.visualizer.close_live_plot()
 
+        sim_times = np.arange(self.t, t_end, self.dt)
         return pd.DataFrame(sim_data), ship_info, sim_times
 
     def step(self, remote_actor: bool = False) -> dict:
@@ -256,7 +303,9 @@ class Simulator:
             relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
             tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
 
-            self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(self.t, self.recent_sensor_measurements[i], sensor_measurements_i)
+            self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(
+                self.t, self.recent_sensor_measurements[i], sensor_measurements_i
+            )
 
             # Plans a decision for the ship depending on its configuration
             if ship_obj.t_start <= self.t:
@@ -284,7 +333,7 @@ class Simulator:
             if ship_obj.t_start <= self.t:
                 ship_state = ship_obj.csog_state
                 d2ship = np.linalg.norm(ownship_state[:2] - ship_state[:2])
-                if d2ship <= self.ownship.length:
+                if d2ship <= self.ownship.length / 2.0:
                     return True
         return False
 
@@ -296,7 +345,7 @@ class Simulator:
         """
         ownship_state = self.ownship.csog_state
         d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ownship_state[1], ownship_state[0])
-        return d2land <= self.ownship.length
+        return d2land <= self.ownship.length / 2.0
 
     def determine_ownship_goal_reached(self) -> bool:
         """Determines whether the own-ship has reached its goal.
@@ -309,10 +358,12 @@ class Simulator:
         elif self.ownship._waypoints.size > 1:
             goal_state = self.ownship._waypoints[:, -1]
         else:
-            raise ValueError("Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!")
+            raise ValueError(
+                "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
+            )
         ownship_state = self.ownship.csog_state
         d2goal = np.linalg.norm(ownship_state[:2] - goal_state[:2])
-        return d2goal <= self.ownship.length
+        return d2goal <= self.ownship.length / 2.0
 
 
 def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:

@@ -185,8 +185,9 @@ class KinematicTrajectoryPlanner(IGuidance):
         _, n_wps = waypoints.shape
 
         if n_wps == 2:
-            waypoints = np.insert(waypoints, 1, np.mean(waypoints, axis=1), axis=1)
-            speed_plan = np.insert(speed_plan, 1, np.mean(speed_plan))
+            wp_near_last = waypoints[:, -2] + 0.9 * (waypoints[:, -1] - waypoints[:, -2])
+            waypoints = np.insert(waypoints, 1, wp_near_last, axis=1)
+            speed_plan = np.insert(speed_plan, 1, speed_plan[0])
 
             if times:
                 times = np.insert(times, 1, np.mean(times))
@@ -205,7 +206,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             linspace = np.linspace(0.0, 1.0, n_wps)
 
-        smoothing = 0.1
+        smoothing = 0.01
         t_x, c_x, k_x = interp.splrep(linspace, waypoints[0, :], s=smoothing, k=3)
         self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
 
@@ -213,19 +214,20 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._y_spline = interp.BSpline(t_y, c_y, k_y, extrapolate=False)
         self._speed_spline = interp.PchipInterpolator(linspace, speed_plan)
 
+        order = 3
         if arc_length_parameterization:
             x_arc_spline, y_arc_spline, arc_lengths = mhm.create_arc_length_spline(
                 waypoints[0, :].tolist(), waypoints[1, :].tolist()
             )
             expanded_x_values = x_arc_spline(arc_lengths)
             expanded_y_values = y_arc_spline(arc_lengths)
-            t_x, c_x, k_x = interp.splrep(arc_lengths, expanded_x_values, s=smoothing, k=3)
-            t_y, c_y, k_y = interp.splrep(arc_lengths, expanded_y_values, s=smoothing, k=3)
+            t_x, c_x, k_x = interp.splrep(arc_lengths, expanded_x_values, s=smoothing, k=order)
+            t_y, c_y, k_y = interp.splrep(arc_lengths, expanded_y_values, s=smoothing, k=order)
             self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
             self._y_spline = interp.BSpline(t_y, c_y, k_y, extrapolate=False)
 
             expanded_speed_values = self._speed_spline(np.linspace(0.0, 1.0, len(arc_lengths)))
-            t_speed, c_speed, k_speed = interp.splrep(arc_lengths, expanded_speed_values, s=smoothing, k=3)
+            t_speed, c_speed, k_speed = interp.splrep(arc_lengths, expanded_speed_values, s=smoothing, k=order)
             self._speed_spline = interp.BSpline(t_speed, c_speed, k_speed, extrapolate=False)
             x_der_values = self._x_spline(arc_lengths, 1)
             y_der_values = self._y_spline(arc_lengths, 1)
@@ -237,7 +239,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
             self._heading_spline = interp.PchipInterpolator(linspace, self._heading_waypoints)
 
-        self.plot_reference_trajectory(waypoints, times)
+        # self.plot_reference_trajectory(waypoints, times)
         return self._x_spline, self._y_spline, self._heading_spline, self._speed_spline
 
     def update_path_variable(self, dt: float) -> None:
@@ -297,7 +299,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         ref_traj_list = []
         s_copy = self._s
         s_final = self._x_spline.t[-1]
-        eps = 0.0001
+        eps = 0.2 * dt
         while abs(s_copy - s_final) > eps:
             s_dot, s_ddot = self._compute_path_variable_derivatives(s_copy)
             eta_ref = self._compute_eta_ref(s_copy)
@@ -306,6 +308,8 @@ class KinematicTrajectoryPlanner(IGuidance):
             references_k = np.concatenate((eta_ref, eta_dot_ref, eta_ddot_ref))
             ref_traj_list.append(references_k.tolist())
             s_copy = mf.sat(s_copy + dt * s_dot, 0.0, s_final)
+            if s_dot < 1e12 and len(ref_traj_list) > 1000:
+                break
         return np.array(ref_traj_list).T
 
     def get_current_path_variables(self) -> Tuple[float, float]:
@@ -377,22 +381,18 @@ class KinematicTrajectoryPlanner(IGuidance):
             final_s = 1.0
             linspace = np.linspace(0.0, final_s, n_wps)
 
-        figgca = plt.gcf()
-        if figgca.axes:
-            gca = figgca.axes[0]
-        else:
-            gca = figgca.add_subplot(111)
-        gca.plot(waypoints[1, :], waypoints[0, :], "kx", label="Waypoints", linewidth=2.0)
-        gca.plot(
+        fig, ax = plt.subplots()
+        ax.plot(waypoints[1, :], waypoints[0, :], "kx", label="Waypoints", linewidth=2.0)
+        ax.plot(
             self._y_spline(np.linspace(0.0, final_s, 300)),
             self._x_spline(np.linspace(0.0, final_s, 300)),
             "b",
             label="Spline",
         )
-        gca.set_xlabel("East (m)")
-        gca.set_ylabel("North (m)")
-        gca.legend()
-        gca.grid()
+        ax.set_xlabel("East (m)")
+        ax.set_ylabel("North (m)")
+        ax.legend()
+        ax.grid()
 
         fig = plt.figure(figsize=(5, 10))
         axs = fig.subplot_mosaic(

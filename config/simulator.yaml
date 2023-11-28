@@ -1,7 +1,7 @@
 save_scenario_results: False
 verbose: True
 visualizer:
-  show_liveplot: False
+  show_liveplot: True
   show_colav_results_live: True
   show_measurements: False
   show_liveplot_tracks: True
@@ -14,11 +14,11 @@ visualizer:
   save_result_figures: False
   save_liveplot_animation: True
   dark_mode_liveplot: True
-  update_rate_liveplot: 0.5 # relative to simulation time, not wall
+  update_rate_liveplot: 1.0 # relative to simulation time, not wall
   figsize: [12, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
-  ship_scaling: [2.0, 2.0]
+  ship_scaling: [1.0, 1.0]
   ship_info_fontsize: 10
   ship_colors: ["xkcd:black",
               "xkcd:red",

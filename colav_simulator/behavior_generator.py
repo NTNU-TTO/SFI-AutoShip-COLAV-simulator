@@ -436,7 +436,7 @@ class BehaviorGenerator:
                     ship_obj.length,
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
-                speed_plan[-1] = 0.0
+                # speed_plan[-1] = 0.0
             elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
                 waypoints, clipped = self.generate_random_waypoints(
                     rng,
@@ -762,7 +762,6 @@ class BehaviorGenerator:
                 waypoints = waypoints[:, : i + 1]
                 break
 
-        waypoints = np.unique(waypoints, axis=1)
         if waypoints.shape[1] < 2:
             new_wp = np.array(
                 [

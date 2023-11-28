@@ -733,7 +733,11 @@ def find_closest_collision_free_point_on_segment(
 
 
 def compute_distance_vectors_to_grounding(
-    vessel_trajectory: np.ndarray, min_vessel_depth: int, enc: ENC, show_plots: bool = False
+    vessel_trajectory: np.ndarray,
+    min_vessel_depth: int,
+    enc: ENC,
+    disable_bbox_check: bool = False,
+    show_plots: bool = False,
 ) -> np.ndarray:
     """Computes the distance vectors to grounding at each step of the given vessel trajectory or point
     if n_samples = 1.
@@ -742,13 +746,15 @@ def compute_distance_vectors_to_grounding(
         - vessel_trajectory (np.ndarray): The vessel`s trajectory, 2 x n_samples.
         - min_vessel_depth (int): The minimum depth required for the vessel to avoid grounding.
         - enc (ENC): The ENC to check for grounding.
+        - disable_bbox_check (bool, optional): Option for disabling the inside bounding box check for a position. Defaults to False.
         - show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
         - np.ndarray: The distance to grounding at each step of the vessel trajectory.
     """
     n_samples = vessel_trajectory.shape[1]
-    bbox_poly = bbox_to_polygon(enc.bbox)
+    x_min, y_min, x_max, y_max = enc.bbox
+    bbox_poly = bbox_to_polygon((float(x_min), float(y_min), float(x_max), float(y_max)))
     if show_plots:
         enc.start_display()
     relevant_hazards = extract_relevant_grounding_hazards_as_union(min_vessel_depth, enc)
@@ -756,7 +762,7 @@ def compute_distance_vectors_to_grounding(
     for idx in range(n_samples):
         point = Point(vessel_trajectory[0, idx], vessel_trajectory[1, idx])
         for hazard in relevant_hazards:
-            if not bbox_poly.contains(Point(point)):
+            if not bbox_poly.contains(point) and not disable_bbox_check:
                 distance_vectors[:, idx] = np.array([0.0, 0.0])
                 break
             nearest_poly_points = []
@@ -781,6 +787,43 @@ def compute_distance_vectors_to_grounding(
                     min_dist = np.linalg.norm(min_dist_vec)
             distance_vectors[:, idx] = min_dist_vec
     return distance_vectors
+
+
+def compute_distance_vector_to_bbox(
+    x: float, y: float, bbox: Tuple[float, float, float, float], enc: Optional[ENC] = None
+) -> np.ndarray:
+    """Computes the distance vector to the closest point on the bounding box.
+
+    Args:
+        x (float): Easting coordinate.
+        y (float): Northing coordinate.
+        bbox (Tuple[float, float, float, float]): Bounding box (xmin, ymin, xmax, ymax).
+
+    Returns:
+        np.ndarray: Distance vector to the closest point on the bounding box.
+    """
+    south_line = LineString([(bbox[0], bbox[1]), (bbox[2], bbox[1])])
+    east_line = LineString([(bbox[2], bbox[1]), (bbox[2], bbox[3])])
+    north_line = LineString([(bbox[2], bbox[3]), (bbox[0], bbox[3])])
+    west_line = LineString([(bbox[0], bbox[3]), (bbox[0], bbox[1])])
+    lines = [north_line, east_line, south_line, west_line]
+    min_dist = 1e12
+    distance_vector = np.array([1e6, 1e6])
+    # if enc is not None:
+    #     enc.start_display()
+
+    for line in lines:
+        d2line = line.distance(Point(x, y))
+        line_point = ops.nearest_points(Point(x, y), line)[1]
+        if d2line < min_dist:
+            min_dist = d2line
+            distance_vector = np.array([line_point.x - x, line_point.y - y])
+        # if enc is not None:
+        #     enc.draw_line([(x, y), (line_point.x, line_point.y)], color="red")
+        #     enc.draw_circle((line_point.x, line_point.y), radius=0.5, color="red")
+        #     enc.draw_circle((x, y), radius=0.5, color="blue")
+
+    return distance_vector
 
 
 def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
@@ -1275,7 +1318,7 @@ def plot_dynamic_obstacles(
         ell_geometry = Polygon(zip(ellipse_y + state[1], ellipse_x + state[0]))
         enc.draw_polygon(ell_geometry, color=color, alpha=0.4)
 
-        for k in range(0, N, 10):
+        for k in range(0, N, 5):
             do_poly = create_ship_polygon(
                 state[0] + k * dt * state[2],
                 state[1] + k * dt * state[3],

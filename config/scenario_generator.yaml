@@ -14,15 +14,15 @@ ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [10.1, 90.5]
 cr_heading_range: [-10.0, 10.0]
-dist_between_ships_range: [200.0, 1000.0]
+dist_between_ships_range: [200.0, 600.0]
 
 behavior_generator:
   ownship_method: "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
-  target_ship_method: "RRT" # "RRT" # "PQRRTStar"
+  target_ship_method: "ConstantSpeedAndCourse" # "RRT" # "PQRRTStar"
 
-  n_wps_range: [3, 5]
+  n_wps_range: [2, 2]
   speed_plan_variation_range: [-1.0, 1.0]
-  waypoint_dist_range: [200.0, 1000.0]
+  waypoint_dist_range: [300.0, 1000.0]
   waypoint_ang_range: [-60.0, 60.0]
 
   # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, RRT* and RRT:

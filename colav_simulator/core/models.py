@@ -610,7 +610,8 @@ class RVGunnerus(IModel):
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
         ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind)
 
-        if abs(nu[0]) < 0.1:
+        U = np.sqrt(nu[0] ** 2 + nu[1] ** 2)
+        if U < 0.1:
             ode_fun[2] = 0.0
 
         return ode_fun

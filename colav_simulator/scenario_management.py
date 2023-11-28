@@ -678,16 +678,16 @@ class ScenarioGenerator:
             ship_obj = ship_list[ship_cfg_idx]
             if ship_cfg_idx == 0:
                 csog_state = self.generate_random_csog_state(
-                    U_min=1.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 3.0
+                    U_min=2.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 2.0
                 )
             else:
                 csog_state = self.generate_target_ship_csog_state(
                     config.type,
                     csog_state_list[0],
-                    U_min=ship_obj.min_speed,
+                    U_min=2.0,
                     U_max=ship_obj.max_speed,
                     draft=ship_obj.draft,
-                    min_land_clearance=ship_obj.length * 3.0,
+                    min_land_clearance=ship_obj.length * 2.0,
                 )
             ship_config.csog_state = csog_state
             ship_obj.set_initial_state(ship_config.csog_state)
@@ -718,9 +718,6 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Target ship position = [x, y].
         """
-        if U_min < 3.0:
-            U_min = 3.0
-
         if any(np.isnan(os_csog_state)):
             return self.generate_random_csog_state(
                 U_min=U_min, U_max=U_max, draft=draft, min_land_clearance=min_land_clearance
@@ -842,8 +839,15 @@ class ScenarioGenerator:
         )
         dist_vec = distance_vectors[:, 0]
         angle_to_land = np.arctan2(dist_vec[0], dist_vec[1])
+        dist_vec_to_bbox = mapf.compute_distance_vector_to_bbox(y, x, self.enc.bbox, self.enc)
+        angle_to_bbox = np.arctan2(dist_vec_to_bbox[0], dist_vec_to_bbox[1])
         if heading is None:
-            heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
+            heading = self.rng.uniform(0.0, 2.0 * np.pi)
+            if np.linalg.norm(dist_vec) < 2.0 * min_land_clearance:
+                heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
+
+            if np.linalg.norm(dist_vec_to_bbox) < 2.0 * min_land_clearance:
+                heading = angle_to_bbox + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
 
         return np.array([x, y, speed, mf.wrap_angle_to_pmpi(heading)])
 
