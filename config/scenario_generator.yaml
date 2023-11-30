@@ -8,7 +8,7 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
 #scenario_folder: "imazu_cases"
 
-ho_bearing_range: [-10.0, 10.0]
+ho_bearing_range: [-3.0, 3.0]
 ho_heading_range: [-5.0, 5.0]
 ot_bearing_range: [-20.0, 20.0]
 ot_heading_range: [-15.0, 15.0]

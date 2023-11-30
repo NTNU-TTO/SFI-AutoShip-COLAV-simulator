@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
+import copy
 import os
 from typing import Optional, Tuple
 
@@ -25,7 +26,8 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
+from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
+                              MultiPolygon, Point, Polygon)
 
 
 def create_bbox_from_points(
@@ -1311,12 +1313,13 @@ def plot_dynamic_obstacles(
     """
     N = int(T / dt)
     enc.start_display()
-    for ID, state, cov, length, width in dynamic_obstacles:
+    dynamic_obstacles_copy = copy.deepcopy(dynamic_obstacles)
+    for ID, state, cov, length, width in dynamic_obstacles_copy:
         if map_origin is not None:
             state[:2] += map_origin
-        ellipse_x, ellipse_y = mhm.create_probability_ellipse(cov, 0.99)
+        ellipse_x, ellipse_y = mhm.create_probability_ellipse(cov, 0.67)
         ell_geometry = Polygon(zip(ellipse_y + state[1], ellipse_x + state[0]))
-        enc.draw_polygon(ell_geometry, color=color, alpha=0.4)
+        # enc.draw_polygon(ell_geometry, color=color, alpha=0.4)
 
         for k in range(0, N, 5):
             do_poly = create_ship_polygon(

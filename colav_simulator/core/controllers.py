@@ -452,7 +452,7 @@ class FLSH(IController):
             + Dvv[0]
             + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
         )
-        Fy = (Mmtrx[2, 2] / l_r) * (
+        Fy = -(Mmtrx[2, 2] / l_r) * (
             self._params.K_p_psi * psi_error
             + self._params.K_d_psi * (r_d - nu[2])
             + self._params.K_i_psi * self._psi_error_int

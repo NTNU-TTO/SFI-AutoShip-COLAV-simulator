@@ -7,7 +7,7 @@ visualizer:
   show_liveplot_tracks: True
   show_waypoints: True
   zoom_in_liveplot_on_ownship: True
-  zoom_window_width: 500.0
+  zoom_window_width: 1000.0
   show_results: True
   show_target_tracking_results: True
   show_trajectory_tracking_results: True

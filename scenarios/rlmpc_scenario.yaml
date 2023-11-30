@@ -10,7 +10,7 @@ map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
 map_buffer: 0
 new_load_of_map_data: False
-type: MS
+type: HO
 n_random_ships: 1
 #n_random_ships_range: [1, 2]
 n_episodes: 1
@@ -46,9 +46,10 @@ ship_list:
     # goal_csog_state: [6578500.0, -29300.0, 4.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
     random_generated: False
     tracker:
-      kf:
-        P_0: [49.1, 49.1, 0.11, 0.11]
-        q: 1.0
+      # kf:
+      #   P_0: [49.1, 49.1, 0.11, 0.11]
+      #   q: 1.0
+      god_tracker: ""
     sensors:
       - radar:
           max_range: 5000.0
