@@ -355,6 +355,9 @@ ship_list:
               max_cross_track_error_int:
                 required: True
                 type: float
+              cross_track_error_int_threshold:
+                required: True
+                type: float
           ktp:
             type: dict
             excludes: [los]

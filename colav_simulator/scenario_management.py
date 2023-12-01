@@ -329,6 +329,7 @@ class ScenarioGenerator:
 
         if init_enc:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
+            self._setup_cdt(show_plots=False)
 
         self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator = bg.BehaviorGenerator(self._config.behavior_generator)
@@ -341,6 +342,17 @@ class ScenarioGenerator:
         """
         self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator.seed(seed=seed)
+
+    def _setup_cdt(self, vessel_min_depth: int = 5, show_plots: bool = False) -> None:
+        """Sets up the constrained Delaunay triangulation for the ENC map, for a vessel minimum depth.
+
+        Args:
+            show_plots (bool, optional): Wether to show cdt plots or not. Defaults to False.
+        """
+        self.safe_sea_cdt = mapf.create_safe_sea_triangulation(
+            self.enc, vessel_min_depth=vessel_min_depth, show_plots=show_plots
+        )
+        self.safe_sea_cdt_weights = mhm.compute_triangulation_weights(self.safe_sea_cdt)
 
     def _configure_enc(self, scenario_config: ScenarioConfig) -> senc.ENC:
         """Configures the ENC object based on the scenario config file.
@@ -366,6 +378,25 @@ class ScenarioGenerator:
         )
 
         return copy.deepcopy(self.enc)
+
+    def setup_behavior_generator(
+        self, ship_list: list, enc: Optional[senc.ENC] = None, timespan: Optional[float] = None
+    ) -> None:
+        """Sets up the behavior generator with the ship list and ENC object.
+
+        Args:
+            ship_list (list): List of ships to be considered in simulation.
+            enc (senc.ENC, optional): Electronic Navigational Chart object containing the geographical environment.
+        """
+        self.behavior_generator.setup(
+            self.rng,
+            ship_list,
+            enc if enc is not None else self.enc,
+            self.safe_sea_cdt,
+            self.safe_sea_cdt_weights,
+            timespan if timespan is not None else 500.0,
+            show_plots=False,
+        )
 
     def create_file_path_list_from_config(self) -> list:
         """Creates a list of file paths from the config file scenario files or scenario folder.
@@ -510,9 +541,7 @@ class ScenarioGenerator:
         else:
             enc_copy = self._configure_enc(config)
 
-        if self.safe_sea_cdt is None:
-            self.safe_sea_cdt = mapf.create_safe_sea_triangulation(self.enc, vessel_min_depth=5, show_plots=False)
-            self.safe_sea_cdt_weights = mhm.compute_triangulation_weights(self.safe_sea_cdt)
+        self._setup_cdt(show_plots=False)
 
         if config.n_random_ships is not None:
             n_random_ships = config.n_random_ships

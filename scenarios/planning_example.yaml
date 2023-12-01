@@ -77,10 +77,11 @@ ship_list:
     guidance:
       los:
         pass_angle_threshold: 80.0
-        R_a: 40.0
-        K_p: 0.015
+        R_a: 25.0
+        K_p: 0.03
         K_i: 0.0
-        max_cross_track_error_int: 200.0
+        max_cross_track_error_int: 1000.0
+        cross_track_error_int_threshold: 30.0
     controller:
       flsh:
         K_p_u: 3.0

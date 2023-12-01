@@ -36,6 +36,7 @@ class LOSGuidanceParams:
     K_p: float = 0.015
     K_i: float = 0.0
     max_cross_track_error_int: float = 200.0
+    cross_track_error_int_threshold: float = 50.0
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -520,14 +521,24 @@ class LOSGuidance(IGuidance):
         e = -(xs[0] - waypoints[0, self._wp_counter]) * np.sin(alpha) + (
             xs[1] - waypoints[1, self._wp_counter]
         ) * np.cos(alpha)
-        self._e_int += e * dt
-        if self._e_int >= self._params.max_cross_track_error_int:
-            self._e_int -= e * dt
+
+        if abs(e) < self._params.cross_track_error_int_threshold:
+            self._e_int += e * dt
+
+        if abs(e) < 0.5:
+            self._e_int = 0.0
+
+        self._e_int = mf.sat(
+            self._e_int, -self._params.max_cross_track_error_int, self._params.max_cross_track_error_int
+        )
 
         chi_r = np.arctan2(-(self._params.K_p * e + self._params.K_i * self._e_int), 1)
         chi_d = mf.wrap_angle_to_pmpi(alpha + chi_r)
-
         U_d = speed_plan[self._wp_counter]
+
+        print(
+            f"e_int: {self._e_int} | e: {e} | chi_r: {chi_r * 180.0 / np.pi} | Kp_b: {self._params.K_p * e} | Ki_b: {self._params.K_i * self._e_int}"
+        )
 
         references = np.zeros((9, 1))
         references[:, 0] = np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])

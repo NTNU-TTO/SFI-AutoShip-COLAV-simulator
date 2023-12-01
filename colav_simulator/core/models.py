@@ -152,8 +152,8 @@ class RVGunnerusParams:
     )  # Thruster position in BODY coordinates
     T_azimuth_angle: float = 1.0  # Time constant for azimuth angle
     T_propeller_speed: float = 1.0  # Time constant for propeller speed
-    max_azimuth_angle_der: float = 0.17453292519943295  # Max azimuth angle derivative (rad/s)
-    max_propeller_speed_der: float = 10.0 / 60.0  # Max propeller speed derivative (rad/s)
+    max_azimuth_angle_der: float = float(np.pi / 6.0)  # Max azimuth angle derivative (rad/s)
+    max_propeller_speed_der: float = 20.0 / 60.0  # Max propeller speed derivative (rad/s)
     rudder_area: float = 9.0
 
     # The limits are guesstimates based on the real ship main propeller power (500 kW) and max speed (12.6 knots)
@@ -166,7 +166,7 @@ class RVGunnerusParams:
 
     U_min: float = 0.0  # Min speed
     U_max: float = mf.knots2ms(12.6)  # Max speed
-    r_max: float = 10.0 * np.pi / 180.0  # Max yaw rate, just a guess
+    r_max: float = 6.0 * np.pi / 180.0  # Max yaw rate, just a guess
 
     A_Fw: float = 12.0 * 9.6  # guesstimate of frontal area
     A_Lw: float = 12.0 * 31.25  # guesstimate of lateral area

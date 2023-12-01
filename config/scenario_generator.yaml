@@ -22,8 +22,8 @@ behavior_generator:
 
   n_wps_range: [2, 2]
   speed_plan_variation_range: [-1.0, 1.0]
-  waypoint_dist_range: [300.0, 1000.0]
-  waypoint_ang_range: [-60.0, 60.0]
+  waypoint_dist_range: [200.0, 400.0]
+  waypoint_ang_range: [-90.0, 90.0]
 
   # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, RRT* and RRT:
   pqrrtstar:

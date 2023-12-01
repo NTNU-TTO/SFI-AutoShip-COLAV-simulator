@@ -45,6 +45,7 @@ ship_list:
         K_p: 0.015
         K_i: 0.0
         max_cross_track_error_int: 200.0
+        cross_track_error_int_threshold: 30.0
     controller:
       pass_through_cs: ''
     model:

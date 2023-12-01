@@ -242,7 +242,7 @@ class BehaviorGenerator:
         safe_sea_cdt: list,
         safe_sea_cdt_weights: list,
         simulation_timespan: float,
-        show_plots: bool = True,
+        show_plots: bool = False,
     ) -> None:
         """Setup the environment for the behavior generator by e.g. transferring ENC data to
         the RRTs if configured, and creating a safe sea triangulation for more efficient sampling.
@@ -257,7 +257,7 @@ class BehaviorGenerator:
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
         ownship = ship_list[0]
-        self._enc = copy.deepcopy(enc)
+        self._enc = enc
 
         # Assume equal min depth = 5 for all ships, for now
         self._safe_sea_cdt = safe_sea_cdt

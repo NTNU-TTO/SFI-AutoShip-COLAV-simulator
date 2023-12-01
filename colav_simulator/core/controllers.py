@@ -376,16 +376,21 @@ class FLSH(IController):
         if abs(speed_error) <= self._params.speed_error_int_threshold:
             self._speed_error_int += speed_error * dt
 
-        if abs(self._speed_error_int) > self._params.max_speed_error_int:
-            self._speed_error_int -= speed_error * dt
+        if abs(speed_error) < 0.05:
+            self._speed_error_int = 0.0
 
         if abs(psi_error) <= self._params.psi_error_int_threshold:
             self._psi_error_int = mf.unwrap_angle(self._psi_error_int, psi_error * dt)
 
-        if abs(self._psi_error_int) > self._params.max_speed_error_int:
-            self._psi_error_int = mf.unwrap_angle(self._psi_error_int, -psi_error * dt)
+        if abs(psi_error) < 0.5 * np.pi / 180.0:
+            self._psi_error_int = 0.0
 
-        self._psi_error_int = mf.wrap_angle_to_pmpi(self._psi_error_int)
+        self._speed_error_int = mf.sat(
+            self._speed_error_int, -self._params.max_speed_error_int, self._params.max_speed_error_int
+        )
+        self._psi_error_int = mf.sat(
+            self._psi_error_int, -self._params.max_psi_error_int, self._params.max_psi_error_int
+        )
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the proposed control law.
@@ -443,9 +448,9 @@ class FLSH(IController):
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
         self.update_integrators(speed_error, psi_error, dt)
 
-        # print(f"speed error int: {self._speed_error_int} | speed error: {speed_error} | psi error int: {self._psi_error_int} | psi error: {psi_error}")
-        # if abs(speed_error) < 0.01:
-        #     print(f"speed error int: {self._speed_error_int} | speed error: {speed_error}")
+        # print(
+        #     f"speed error int: {self._speed_error_int} | speed error: {speed_error} | psi error int: {self._psi_error_int} | psi error: {psi_error}"
+        # )
 
         Fx = (
             Cvv[0]

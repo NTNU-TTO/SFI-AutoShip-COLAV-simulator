@@ -26,8 +26,7 @@ from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
-                              MultiPolygon, Point, Polygon)
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 
 def create_bbox_from_points(
@@ -1265,7 +1264,6 @@ def plot_trajectory(
 
 def plot_waypoints(
     waypoints: np.ndarray,
-    draft: float,
     enc: ENC,
     color: str,
     point_buffer: Optional[float] = 10,
@@ -1274,6 +1272,7 @@ def plot_waypoints(
     linewidth: Optional[float] = None,
     alpha: Optional[float] = None,
     show_annuluses: Optional[bool] = True,
+    draft: Optional[float] = 5.0,
 ):
     lines = [
         LineString([(wp1[1], wp1[0]), (wp2[1], wp2[0])]).buffer(point_buffer)
@@ -1290,7 +1289,7 @@ def plot_waypoints(
         lines.pop(1)
         path = shapely.unary_union(lines)
 
-    hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)[0]
+    # hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)[0]
     # if path.intersects(hazards):
     #     overlap = path.intersection(hazards)
     #     enc.draw_polygon(overlap, "red", thickness=linewidth, alpha=alpha)
