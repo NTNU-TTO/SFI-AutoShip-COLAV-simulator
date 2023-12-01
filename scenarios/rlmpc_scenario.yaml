@@ -64,21 +64,21 @@ ship_list:
     guidance:
       los:
         pass_angle_threshold: 80.0
-        R_a: 25.0
-        K_p: 0.03
-        K_i: 0.0005
+        R_a: 80.0
+        K_p: 0.02
+        K_i: 0.0002
         max_cross_track_error_int: 1000.0
         cross_track_error_int_threshold: 30.0
     controller:
       flsh:
-        K_p_u: 0.35
-        K_i_u: 0.05
-        K_p_psi: 0.15
+        K_p_u: 1.0
+        K_i_u: 0.005
+        K_p_psi: 0.4
         K_d_psi: 0.6
-        K_i_psi: 0.0
-        max_speed_error_int: 2.0
-        speed_error_int_threshold: 1.0
-        max_psi_error_int: 50.0
+        K_i_psi: 0.02
+        max_speed_error_int: 0.5
+        speed_error_int_threshold: 0.5
+        max_psi_error_int: 15.0
         psi_error_int_threshold: 15.0
     model:
       rvgunnerus: ''

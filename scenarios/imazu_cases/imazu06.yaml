@@ -53,6 +53,7 @@ ship_list:
         K_p: 0.024
         K_i: 0.0
         max_cross_track_error_int: 101.0
+        cross_track_error_int_threshold: 30.0
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -123,6 +124,7 @@ ship_list:
         K_p: 0.024
         K_i: 0.0
         max_cross_track_error_int: 101.0
+        cross_track_error_int_threshold: 30.0
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]
@@ -193,6 +195,7 @@ ship_list:
         K_p: 0.024
         K_i: 0.0
         max_cross_track_error_int: 101.0
+        cross_track_error_int_threshold: 30.0
     tracker:
       kf:
         P_0: [49.1, 49.1, 0.11, 0.11]

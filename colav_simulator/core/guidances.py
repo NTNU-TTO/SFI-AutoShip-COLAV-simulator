@@ -564,6 +564,7 @@ class LOSGuidance(IGuidance):
             segment_passed = self._check_for_wp_segment_switch(L_wp_segment, d_0wp_vec)
             if segment_passed:
                 self._wp_counter += 1
+                # self._e_int = 0.0
                 # print(f"Segment {i} passed!")
             else:
                 break

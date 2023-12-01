@@ -32,7 +32,7 @@ if __name__ == "__main__":
     ctrl_params = controllers.FLSHParams(
         K_p_u=1.0,
         K_i_u=0.005,
-        K_p_psi=0.6,
+        K_p_psi=0.4,
         K_d_psi=0.6,
         K_i_psi=0.02,
         max_speed_error_int=0.5,
@@ -44,9 +44,9 @@ if __name__ == "__main__":
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(
-        K_p=0.03,
-        K_i=0.0005,
-        R_a=25.0,
+        K_p=0.02,
+        K_i=0.0003,
+        R_a=80.0,
         max_cross_track_error_int=1000.0,
         cross_track_error_int_threshold=30.0,
         pass_angle_threshold=90.0,
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
     # disturbance._currents = None
-    disturbance._wind = None
+    # disturbance._wind = None
 
     rng = np.random.default_rng(seed=1)
     horizon = 500.0
