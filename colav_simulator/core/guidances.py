@@ -536,9 +536,9 @@ class LOSGuidance(IGuidance):
         chi_d = mf.wrap_angle_to_pmpi(alpha + chi_r)
         U_d = speed_plan[self._wp_counter]
 
-        print(
-            f"e_int: {self._e_int} | e: {e} | chi_r: {chi_r * 180.0 / np.pi} | Kp_b: {self._params.K_p * e} | Ki_b: {self._params.K_i * self._e_int}"
-        )
+        # print(
+        #     f"e_int: {self._e_int} | e: {e} | chi_r: {chi_r * 180.0 / np.pi} | Kp_b: {self._params.K_p * e} | Ki_b: {self._params.K_i * self._e_int}"
+        # )
 
         references = np.zeros((9, 1))
         references[:, 0] = np.array([0.0, 0.0, chi_d, U_d, 0.0, 0.0, 0.0, 0.0, 0.0])

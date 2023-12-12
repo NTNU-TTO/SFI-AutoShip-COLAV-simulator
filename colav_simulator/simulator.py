@@ -272,7 +272,7 @@ class Simulator:
 
         self.visualizer.close_live_plot()
 
-        sim_times = np.arange(self.t, t_end, self.dt)
+        sim_times = np.arange(self.t_start, t_end, self.dt)
         return pd.DataFrame(sim_data), ship_info, sim_times
 
     def step(self, remote_actor: bool = False) -> dict:

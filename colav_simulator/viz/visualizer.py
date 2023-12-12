@@ -6,6 +6,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
+import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -28,6 +29,8 @@ from shapely.geometry import Polygon
 
 plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
 plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
+
+warnings.filterwarnings("ignore", module="matplotlib\..*")
 
 
 @dataclass
@@ -177,13 +180,33 @@ class Visualizer:
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
 
         ax_map.set_extent(extent, crs=enc.crs)
-        ax_map.gridlines(draw_labels=True, dms=True, color="gray", linewidth=1.5, linestyle="--", alpha=0.3, x_inline=False, y_inline=False)
+        ax_map.gridlines(
+            draw_labels=True,
+            dms=True,
+            color="gray",
+            linewidth=1.5,
+            linestyle="--",
+            alpha=0.3,
+            x_inline=False,
+            y_inline=False,
+        )
         plt.ion()
 
         self.misc_plt_handles = {}
         self.ship_plt_handles = []
 
-        ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
+        ax_map.add_artist(
+            ScaleBar(
+                1,
+                units="m",
+                location="lower left",
+                frameon=False,
+                color="white",
+                box_alpha=0.0,
+                pad=0.5,
+                font_properties={"size": 12},
+            )
+        )
         self.axes = [ax_map]
         self.fig.tight_layout()
         plt.show(block=False)
@@ -356,12 +379,20 @@ class Visualizer:
                 zorder=5,
             )
 
-            ship_i_handles["patch"] = ax_map.add_feature(ShapelyFeature([], edgecolor="k", facecolor=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch))
+            ship_i_handles["patch"] = ax_map.add_feature(
+                ShapelyFeature([], edgecolor="k", facecolor=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch)
+            )
 
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
-            ship_i_handles["trajectory"] = ax_map.plot([0.0], [0.0], color=c, linewidth=lw, label=ship_name + " true traj.", transform=enc.crs, zorder=zorder_patch - 2)[
-                0
-            ]
+            ship_i_handles["trajectory"] = ax_map.plot(
+                [0.0],
+                [0.0],
+                color=c,
+                linewidth=lw,
+                label=ship_name + " true traj.",
+                transform=enc.crs,
+                zorder=zorder_patch - 2,
+            )[0]
 
             if self._config.show_colav_results_live:
                 ship_i_handles["colav_nominal_trajectory"] = ax_map.plot(
@@ -391,10 +422,14 @@ class Visualizer:
                 )[0]
 
                 ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
-                    ShapelyFeature([], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1)
+                    ShapelyFeature(
+                        [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                    )
                 )
                 ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
-                    ShapelyFeature([], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1)
+                    ShapelyFeature(
+                        [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                    )
                 )
 
             if self._config.show_waypoints and ship_obj.waypoints.size > 0:
@@ -429,7 +464,9 @@ class Visualizer:
 
         self.frames.append(self.get_live_plot_image())
 
-    def update_ownship_live_tracking_data(self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC) -> None:
+    def update_ownship_live_tracking_data(
+        self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC
+    ) -> None:
         """Updates tracking-related plots for the own-ship
 
         Args:
@@ -530,17 +567,29 @@ class Visualizer:
         zorder_patch = 3
         csog_state = ship_obj.csog_state
         ship_poly = mapf.create_ship_polygon(
-            csog_state[0], csog_state[1], csog_state[3], ship_obj.length, ship_obj.width, self._config.ship_scaling[0], self._config.ship_scaling[1]
+            csog_state[0],
+            csog_state[1],
+            csog_state[3],
+            ship_obj.length,
+            ship_obj.width,
+            self._config.ship_scaling[0],
+            self._config.ship_scaling[1],
         )
         if self.ship_plt_handles[idx]["patch"] is not None:
             self.ship_plt_handles[idx]["patch"].remove()
-        self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch))
+        self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(
+            ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch)
+        )
 
         self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
         self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 50)
 
-        self.ship_plt_handles[idx]["trajectory"].set_xdata([*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]])
-        self.ship_plt_handles[idx]["trajectory"].set_ydata([*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]])
+        self.ship_plt_handles[idx]["trajectory"].set_xdata(
+            [*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]]
+        )
+        self.ship_plt_handles[idx]["trajectory"].set_ydata(
+            [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
+        )
 
         if self._config.show_waypoints and ship_obj.waypoints.size > 0:
             self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
@@ -637,8 +686,14 @@ class Visualizer:
             patch.set_data(self.frames[i])
             return (patch,)
 
-        anim = animation.FuncAnimation(fig=fig, func=animate, init_func=init, blit=True, frames=len(self.frames), interval=50, repeat=True)
-        anim.save(filename=filename.as_posix(), writer=animation.PillowWriter(fps=20), progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"))
+        anim = animation.FuncAnimation(
+            fig=fig, func=animate, init_func=init, blit=True, frames=len(self.frames), interval=50, repeat=True
+        )
+        anim.save(
+            filename=filename.as_posix(),
+            writer=animation.PillowWriter(fps=20),
+            progress_callback=lambda i, n: print(f"Saving frame {i} of {n}"),
+        )
 
     def visualize_results(
         self,
@@ -694,7 +749,12 @@ class Visualizer:
                 cost_vals.append(mpc_soln["cost_val"])
                 n_iters.append(mpc_soln["n_iter"])
                 final_residuals.append(mpc_soln["final_residuals"])
-            os_colav_stats = {"t_solve": t_solve, "cost_vals": cost_vals, "n_iters": n_iters, "final_residuals": final_residuals}
+            os_colav_stats = {
+                "t_solve": t_solve,
+                "cost_vals": cost_vals,
+                "n_iters": n_iters,
+                "final_residuals": final_residuals,
+            }
 
         cpa_indices = ship_data["cpa_indices"]
         min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
@@ -745,7 +805,9 @@ class Visualizer:
             else:
                 ship_name = "DO " + str(i - 1)
                 zorder_patch = 3
-                is_inside_map = mhm.check_if_trajectory_is_within_xy_limits(X[:, first_valid_idx:end_idx], xlimits, ylimits)
+                is_inside_map = mhm.check_if_trajectory_is_within_xy_limits(
+                    X[:, first_valid_idx:end_idx], xlimits, ylimits
+                )
                 if not is_inside_map:
                     continue
 
@@ -776,9 +838,10 @@ class Visualizer:
 
             # If the ship is the own-ship: Also plot dynamic obstacle tracks, and trajectory tracking results
             if i == 0:
-
                 if self._config.show_trajectory_tracking_results and len(nominal_trajectory_list) > 0:
-                    fig_tt, axes_tt = self.plot_trajectory_tracking_results(i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0)
+                    fig_tt, axes_tt = self.plot_trajectory_tracking_results(
+                        i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0
+                    )
 
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
@@ -792,7 +855,9 @@ class Visualizer:
                 )
 
                 for j, do_estimates_j in enumerate(do_estimates):
-                    first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(do_estimates_j[0, :])
+                    first_valid_idx_track, last_valid_idx_track = mhm.index_of_first_and_last_non_nan(
+                        do_estimates_j[0, :]
+                    )
 
                     end_idx_j = k_snapshots[-1]
                     if last_valid_idx_track < end_idx_j:
@@ -885,7 +950,18 @@ class Visualizer:
 
         ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
         ax_map.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
-        ax_map.add_artist(ScaleBar(1, units="m", location="lower left", frameon=False, color="white", box_alpha=0.0, pad=0.5, font_properties={"size": 12}))
+        ax_map.add_artist(
+            ScaleBar(
+                1,
+                units="m",
+                location="lower left",
+                frameon=False,
+                color="white",
+                box_alpha=0.0,
+                pad=0.5,
+                font_properties={"size": 12},
+            )
+        )
         plt.legend()
 
         if self._config.save_result_figures:
@@ -979,7 +1055,12 @@ class Visualizer:
         return fig, axes
 
     def plot_trajectory_tracking_results(
-        self, ship_idx: int, sim_times: np.ndarray, trajectory: np.ndarray, reference_trajectory: np.ndarray, linewidth: float = 1.0
+        self,
+        ship_idx: int,
+        sim_times: np.ndarray,
+        trajectory: np.ndarray,
+        reference_trajectory: np.ndarray,
+        linewidth: float = 1.0,
     ) -> Tuple[plt.Figure, list]:
         """Plots the trajectory tracking results of a ship.
 
@@ -1005,8 +1086,17 @@ class Visualizer:
             ]
         )
 
-        axes["x"].plot(sim_times[:n_samples], trajectory[0, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["x"].plot(sim_times[:n_samples], reference_trajectory[0, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
+        axes["x"].plot(
+            sim_times[:n_samples], trajectory[0, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual"
+        )
+        axes["x"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[0, :n_samples],
+            color="xkcd:red",
+            linestyle="--",
+            linewidth=linewidth,
+            label="nominal",
+        )
         # axes["x"].set_xlabel("Time [s]")
         axes["x"].set_ylabel("North [m]")
         axes["x"].legend()
@@ -1014,8 +1104,17 @@ class Visualizer:
         axes["x"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
         axes["x"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
-        axes["y"].plot(sim_times[:n_samples], trajectory[1, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["y"].plot(sim_times[:n_samples], reference_trajectory[1, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
+        axes["y"].plot(
+            sim_times[:n_samples], trajectory[1, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual"
+        )
+        axes["y"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[1, :n_samples],
+            color="xkcd:red",
+            linestyle="--",
+            linewidth=linewidth,
+            label="nominal",
+        )
         # axes["y"].set_xlabel("Time [s]")
         axes["y"].set_ylabel("East [m]")
         axes["y"].legend()
@@ -1023,28 +1122,70 @@ class Visualizer:
         axes["y"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
         axes["y"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
-        axes["psi"].plot(sim_times[:n_samples], trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
         axes["psi"].plot(
-            sim_times[:n_samples], reference_trajectory[2, :n_samples] * 180.0 / np.pi, color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal"
+            sim_times[:n_samples],
+            trajectory[2, :n_samples] * 180.0 / np.pi,
+            color="xkcd:blue",
+            linewidth=linewidth,
+            label="actual",
+        )
+        axes["psi"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[2, :n_samples] * 180.0 / np.pi,
+            color="xkcd:red",
+            linestyle="--",
+            linewidth=linewidth,
+            label="nominal",
         )
         # axes["psi"].set_xlabel("Time [s]")
         axes["psi"].set_ylabel("Heading [deg]")
         axes["psi"].legend()
 
-        axes["u"].plot(sim_times[:n_samples], trajectory[3, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["u"].plot(sim_times[:n_samples], reference_trajectory[3, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
+        axes["u"].plot(
+            sim_times[:n_samples], trajectory[3, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual"
+        )
+        axes["u"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[3, :n_samples],
+            color="xkcd:red",
+            linestyle="--",
+            linewidth=linewidth,
+            label="nominal",
+        )
         # axes["u"].set_xlabel("Time [s]")
         axes["u"].set_ylabel("Surge [m/s]")
         axes["u"].legend()
 
-        axes["v"].plot(sim_times[:n_samples], trajectory[4, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["v"].plot(sim_times[:n_samples], reference_trajectory[4, :n_samples], color="xkcd:red", linestyle="--", linewidth=linewidth, label="nominal")
+        axes["v"].plot(
+            sim_times[:n_samples], trajectory[4, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual"
+        )
+        axes["v"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[4, :n_samples],
+            color="xkcd:red",
+            linestyle="--",
+            linewidth=linewidth,
+            label="nominal",
+        )
         # axes["v"].set_xlabel("Time [s]")
         axes["v"].set_ylabel("Sway [m/s]")
         axes["v"].legend()
 
-        axes["r"].plot(sim_times[:n_samples], trajectory[5, :n_samples] * 180.0 / np.pi, color="xkcd:blue", linewidth=linewidth, label="actual")
-        axes["r"].plot(sim_times[:n_samples], reference_trajectory[5, :n_samples] * 180.0 / np.pi, linestyle="--", color="xkcd:red", linewidth=linewidth, label="nominal")
+        axes["r"].plot(
+            sim_times[:n_samples],
+            trajectory[5, :n_samples] * 180.0 / np.pi,
+            color="xkcd:blue",
+            linewidth=linewidth,
+            label="actual",
+        )
+        axes["r"].plot(
+            sim_times[:n_samples],
+            reference_trajectory[5, :n_samples] * 180.0 / np.pi,
+            linestyle="--",
+            color="xkcd:red",
+            linewidth=linewidth,
+            label="nominal",
+        )
         axes["r"].set_xlabel("Time [s]")
         axes["r"].set_ylabel("Yaw [deg/s]")
         axes["r"].legend()
@@ -1089,8 +1230,12 @@ class Visualizer:
         )
 
         z_val = norm.ppf(confidence_level)
-        axes["x"].plot(sim_times, do_estimates[0, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate")
-        axes["x"].plot(sim_times, do_true_states[0, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true")
+        axes["x"].plot(
+            sim_times, do_estimates[0, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate"
+        )
+        axes["x"].plot(
+            sim_times, do_true_states[0, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true"
+        )
         std_x = np.sqrt(do_covariances[0, 0, :])
         axes["x"].fill_between(
             sim_times,
@@ -1106,8 +1251,12 @@ class Visualizer:
         axes["x"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
         axes["x"].set_yticklabels(["{:.1f}".format(x) for x in current_values])
 
-        axes["y"].plot(sim_times, do_estimates[1, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate")
-        axes["y"].plot(sim_times, do_true_states[1, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true")
+        axes["y"].plot(
+            sim_times, do_estimates[1, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate"
+        )
+        axes["y"].plot(
+            sim_times, do_true_states[1, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true"
+        )
         std_y = np.sqrt(do_covariances[1, 1, :])
         axes["y"].fill_between(
             sim_times,

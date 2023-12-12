@@ -630,14 +630,20 @@ class RVGunnerus(IModel):
             CD_l = self._params.CD_l_AF_0 / A_ratio
         elif abs(gamma_rw) > np.pi / 2.0:
             CD_l = self._params.CD_l_AF_pi / A_ratio
-        CD_ratio = CD_l / self._params.CD_t
+        CD_t = self._params.CD_t
+        CD_ratio = CD_l / CD_t
         C_X = (
             -CD_l
             * A_ratio
-            * (np.cos(gamma_rw) / (1 - 0.5 * self._params.delta_crossforce * (1 - CD_ratio) * np.sin(gamma_rw) ** 2))
+            * (
+                np.cos(gamma_rw)
+                / (1.0 - 0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * np.sin(2.0 * gamma_rw) ** 2)
+            )
         )
         C_Y = (
-            CD_l * np.cos(gamma_rw) / (1 - 0.5 * self._params.delta_crossforce * (1 - CD_ratio) * np.sin(gamma_rw) ** 2)
+            CD_t
+            * np.cos(gamma_rw)
+            / (1.0 - 0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * np.sin(2.0 * gamma_rw) ** 2)
         )
         C_N = (self._params.s_L / self._params.length - 0.18 * (gamma_rw - 0.5 * np.pi)) * C_Y
         return C_X, C_Y, C_N

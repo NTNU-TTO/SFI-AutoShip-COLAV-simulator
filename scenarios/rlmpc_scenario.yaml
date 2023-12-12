@@ -1,7 +1,7 @@
 name: "rlmpc_scenario"
 save_scenario: False
 t_start: 0.0
-t_end: 100.0
+t_end: 150.0
 dt_sim: 0.5
 utm_zone: 33
 map_size: [1800.0, 1800.0]
@@ -73,8 +73,8 @@ ship_list:
       flsh:
         K_p_u: 1.0
         K_i_u: 0.005
-        K_p_psi: 0.4
-        K_d_psi: 0.6
+        K_p_psi: 1.0
+        K_d_psi: 3.0
         K_i_psi: 0.02
         max_speed_error_int: 0.5
         speed_error_int_threshold: 0.5

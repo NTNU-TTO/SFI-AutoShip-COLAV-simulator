@@ -283,18 +283,19 @@ class BehaviorGenerator:
                 exit(0)
 
             ownship_bbox = None
-            # if ship_obj.id > 0:
-            #     ownship_waypoints = (
-            #         ownship.waypoints
-            #         if ownship.waypoints.size > 0
-            #         else np.concatenate(
-            #             [ownship.csog_state[0:2].reshape(-1, 1), ownship.goal_csog_state[0:2].reshape(-1, 1)]
-            #         )
-            #     )
+            if ship_obj.id > 0:
+                if ownship.waypoints.size > 0:
+                    ownship_waypoints = ownship.waypoints
+                elif ownship.goal_csog_state.size > 0:
+                    ownship_waypoints = np.concatenate(
+                        [ownship.csog_state[0:2].reshape(-1, 1), ownship.goal_csog_state[0:2].reshape(-1, 1)]
+                    )
+                else:
+                    ownship_waypoints = np.array([ownship.csog_state[0:2], ownship.csog_state[0:2] + 100.0])
 
-            #     ownship_bbox = mapf.create_bbox_from_points(
-            #         self._enc, ownship_waypoints[:, 0], ownship_waypoints[:, 1], buffer=500.0
-            #     )
+                ownship_bbox = mapf.create_bbox_from_points(
+                    self._enc, ownship_waypoints[:, 0], ownship_waypoints[:, 1], buffer=500.0
+                )
 
             goal_position = mapf.generate_random_goal_position(
                 rng=rng,
@@ -307,6 +308,8 @@ class BehaviorGenerator:
                 max_distance_from_start=0.5 * ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
+            # self._enc.start_display()
+            # self._enc.draw_circle((goal_state[1], goal_state[0]), 20.0, color="orange", alpha=0.4)
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
             ship_obj.set_goal_state(goal_state)
@@ -339,6 +342,7 @@ class BehaviorGenerator:
                 initialized=False,
                 return_on_first_solution=False,
             )
+            print("RRT tree size: ", rrt.get_num_nodes())
             mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
             self._rrt_list.append(rrt)
 
@@ -358,6 +362,7 @@ class BehaviorGenerator:
                 initialized=False,
                 return_on_first_solution=False,
             )
+            print("RRT* tree size: ", rrtstar.get_num_nodes())
             # mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
             self._rrtstar_list.append(rrtstar)
 
@@ -376,6 +381,7 @@ class BehaviorGenerator:
                 initialized=False,
                 return_on_first_solution=False,
             )
+            print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
             # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
             # self._enc.draw_circle(
             #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
@@ -465,7 +471,6 @@ class BehaviorGenerator:
                 color = "orange" if ship_obj.id > 0 else "pink"
                 mapf.plot_waypoints(
                     waypoints,
-                    ship_obj.draft,
                     self._enc,
                     color=color,
                     point_buffer=2.0,
@@ -501,7 +506,6 @@ class BehaviorGenerator:
             color = "pink"
             mapf.plot_waypoints(
                 ownship.waypoints,
-                ownship.draft,
                 self._enc,
                 color=color,
                 point_buffer=2.0,
@@ -629,7 +633,7 @@ class BehaviorGenerator:
                         np.array([p_target, p_end]).T,
                         (planning_bbox[1], planning_bbox[0], planning_bbox[3], planning_bbox[2]),
                     )
-                    corridor_poly = mapf.generate_enveloping_polygon(corridor_waypoints, 200.0)
+                    corridor_poly = mapf.generate_enveloping_polygon(corridor_waypoints, 300.0)
                     bbox_poly = mapf.bbox_to_polygon(planning_bbox)
                     corridor_poly_inside_bbox = corridor_poly.intersection(bbox_poly)
                     if s == 0:
@@ -652,7 +656,6 @@ class BehaviorGenerator:
                 color = "orange" if ship_obj.id > 0 else "pink"
                 mapf.plot_waypoints(
                     waypoints,
-                    ship_obj.draft,
                     self._enc,
                     color=color,
                     point_buffer=3.0,

@@ -202,6 +202,7 @@ def extract_safe_sea_area(
     enveloping_polygon: Polygon,
     enc: Optional[ENC] = None,
     as_polygon_list: bool = False,
+    buffer: Optional[float] = None,
     show_plots: bool = False,
 ) -> MultiPolygon | list:
     """Extracts the safe sea area from the ENC as a list of polygons.
@@ -213,12 +214,17 @@ def extract_safe_sea_area(
         - enveloping_polygon (geometry.Polygon): The query polygon.
         - enc (Optional[senc.ENC]): Electronic Navigational Chart object used for plotting. Defaults to None.
         - as_polygon_list (bool, optional): Option for returning the safe sea area as a list of polygons. Defaults to False.
+        - buffer (Optional[float], optional): Safety buffer for polygons. Defaults to None.
         - show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
         MultiPolygon | list: The safe sea area.
     """
-    safe_sea = enc.seabed[min_depth].geometry.intersection(enveloping_polygon)
+    seabed = enc.seabed[min_depth].geometry
+    if buffer is not None:
+        seabed = seabed.buffer(-buffer)
+    safe_sea = seabed.intersection(enveloping_polygon)
+
     if enc is not None and show_plots:
         enc.start_display()
         enc.draw_polygon(safe_sea, color="green", alpha=0.25, fill=False)
@@ -370,6 +376,7 @@ def create_safe_sea_triangulation(
     enc: ENC,
     vessel_min_depth: int = 5,
     bbox: Optional[Tuple[float, float, float, float]] = None,
+    buffer: Optional[float] = None,
     show_plots: bool = True,
 ) -> list:
     """Creates a constrained delaunay triangulation of the safe sea region.
@@ -378,6 +385,7 @@ def create_safe_sea_triangulation(
         enc (ENC): Electronic Navigational Chart object.
         vessel_min_depth (int, optional): The safe minimum depth for the vessel to voyage in. Defaults to 5.
         bbox (Optional[Tuple[float, float, float, float]]): Bounding box of the safe sea region to constrain the cdt within. Defaults to None.
+        buffer (Optional[float], optional): Safety buffer for polygons. Defaults to None.
         show_plots (bool, optional): Option for visualization. Defaults to True.
 
     Returns:
@@ -387,7 +395,7 @@ def create_safe_sea_triangulation(
         bbox = enc.bbox
 
     safe_sea_poly_list = extract_safe_sea_area(
-        vessel_min_depth, bbox_to_polygon(bbox), enc, as_polygon_list=True, show_plots=show_plots
+        vessel_min_depth, bbox_to_polygon(bbox), enc, as_polygon_list=True, buffer=buffer, show_plots=show_plots
     )
     cdt_list = []
     largest_poly_area = 0.0
@@ -397,10 +405,10 @@ def create_safe_sea_triangulation(
             largest_poly_area = poly.area
             cdt_largest = cdt
         if show_plots:
-            enc.draw_polygon(poly, color="orange", alpha=0.5)
+            # enc.draw_polygon(poly, color="blue", alpha=0.2)
             enc.start_display()
             for triangle in cdt:
-                enc.draw_polygon(triangle, color="black", fill=False)
+                enc.draw_polygon(triangle, color="green", fill=False)
         cdt_list.append(cdt)
 
     return cdt_largest
@@ -627,7 +635,7 @@ def generate_random_goal_position(
 
     northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
-    sector_width = 120.0 * np.pi / 180.0
+    sector_width = 100.0 * np.pi / 180.0
     sector_radius = max_distance_from_start
     n_points = 100
     angle_range_port = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)

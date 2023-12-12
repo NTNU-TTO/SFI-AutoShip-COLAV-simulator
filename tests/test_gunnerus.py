@@ -32,7 +32,7 @@ if __name__ == "__main__":
     ctrl_params = controllers.FLSHParams(
         K_p_u=1.0,
         K_i_u=0.005,
-        K_p_psi=0.4,
+        K_p_psi=1.0,
         K_d_psi=0.6,
         K_i_psi=0.02,
         max_speed_error_int=0.5,
