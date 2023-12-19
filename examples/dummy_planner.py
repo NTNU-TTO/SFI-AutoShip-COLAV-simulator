@@ -19,7 +19,9 @@ from colav_simulator.simulator import Simulator
 
 @dataclass
 class DummyPlannerParams:
-    los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0)
+    los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
+        K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+    )
 
 
 class DummyPlanner(ci.ICOLAV):
@@ -46,7 +48,9 @@ class DummyPlanner(ci.ICOLAV):
 
         # Insert all your fancy planning here
 
-        self._references = self._los.compute_references(waypoints, speed_plan, times=None, xs=ownship_state, dt=t - self._t_prev)
+        self._references = self._los.compute_references(
+            waypoints, speed_plan, times=None, xs=ownship_state, dt=t - self._t_prev
+        )
         self._t_prev = t
         return self._references
 
@@ -70,7 +74,7 @@ if __name__ == "__main__":
 
     scenario_file = dp.scenarios / "head_on.yaml"
     scenario_generator = ScenarioGenerator()
-    scenario_data = scenario_generator.generate(config_file=scenario_file)
+    scenario_data = scenario_generator.generate(config_file=scenario_file, new_load_of_map_data=True)
     simulator = Simulator()
     simulator.toggle_liveplot_visibility(True)
     output = simulator.run([scenario_data], ownship_colav_system=dummy_planner)
