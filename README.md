@@ -25,13 +25,17 @@ If you are using the `colav_simulator` for academic work, please use the followi
   author  = {Trym Tengesdal and Tor A. Johansen},
   journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
   title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
-  year    = {2023},
+  year={2023},
+  volume={},
+  number={},
+  pages={186-193},
+  doi={10.1109/CCTA54093.2023.10252863},
 }
 ```
 
 If you are using `RRTs` for ship behavior generation in academic work, please also use the following citation:
 ```
-@Article{Tengesdal2023,
+@Article{Tengesdal2024csrrt,
   author  = {Trym Tengesdal and Tom A. Pedersen and Tor A. Johansen},
   journal = {Ocean Engineering},
   title   = {A Comparative Study of Rapidly-exploring Random Tree Algorithms Applied to Ship Trajectory Planning and Behavior Generation},
