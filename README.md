@@ -21,7 +21,7 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 ## Citation
 If you are using the `colav_simulator` for academic work, please use the following citation:
 ```
-@Article{Tengesdal2023_sim,
+@Article{Tengesdal2023sfse,
   author  = {Trym Tengesdal and Tor A. Johansen},
   journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
   title   = {Simulation Framework and Software Environment for Evaluating Automatic Ship Collision Avoidance Algorithms},
