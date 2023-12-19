@@ -501,6 +501,7 @@ class ScenarioGenerator:
         config_file: Optional[Path] = None,
         enc: Optional[senc.ENC] = None,
         new_load_of_map_data: Optional[bool] = None,
+        show_plots: Optional[bool] = False,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
@@ -511,6 +512,7 @@ class ScenarioGenerator:
             - config_file (Path, optional): Absolute path to the scenario config file. Defaults to None.
             - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
             - new_load_of_map_data (bool, optional): Flag determining whether or not to read ENC data from shapefiles again. Defaults to True.
+            - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -570,7 +572,12 @@ class ScenarioGenerator:
         for ep in range(config.n_episodes):
             episode = {}
             episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(
-                copy.deepcopy(ship_list), copy.deepcopy(config), ais_vessel_data_list, mmsi_list, enc
+                copy.deepcopy(ship_list),
+                copy.deepcopy(config),
+                ais_vessel_data_list,
+                mmsi_list,
+                enc,
+                show_plots=show_plots,
             )
             episode["config"].name = f"{config.name}_ep{ep + 1}"
             if config.save_scenario:
@@ -586,6 +593,7 @@ class ScenarioGenerator:
         ais_vessel_data_list: Optional[list],
         mmsi_list: Optional[list],
         enc: Optional[senc.ENC] = None,
+        show_plots: Optional[bool] = False,
     ) -> Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]:
         """Creates a single maritime scenario episode.
 
@@ -599,6 +607,7 @@ class ScenarioGenerator:
             - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
             - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
             - enc (Optional[ENC]): Electronic Navigational Chart object containing the geographical environment, to override the existing enc being used. Defaults to None.
+            - show_plots (Optional[bool]): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
 
         Returns:
             - Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the disturbance object for the episode (if specified) and the final scenario config object.
@@ -617,10 +626,14 @@ class ScenarioGenerator:
             self.safe_sea_cdt,
             self.safe_sea_cdt_weights,
             config.t_end - config.t_start,
-            show_plots=False,
+            show_plots=show_plots,
         )
         ship_list, config.ship_list = self.behavior_generator.generate(
-            self.rng, ship_list, config.ship_list, simulation_timespan=config.t_end - config.t_start, show_plots=False
+            self.rng,
+            ship_list,
+            config.ship_list,
+            simulation_timespan=config.t_end - config.t_start,
+            show_plots=show_plots,
         )
 
         ship_list.sort(key=lambda x: x.id)

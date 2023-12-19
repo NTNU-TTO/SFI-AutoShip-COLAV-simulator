@@ -6,13 +6,12 @@ from colav_simulator.scenario_management import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 
 if __name__ == "__main__":
-
     scenario_generator = ScenarioGenerator()
     simulator = Simulator()
     evaluator = Evaluator()
 
     scenario_list = scenario_generator.generate_configured_scenarios()
-
+    simulator.toggle_liveplot_visibility(False)
     framework_exec_times = []
     n_runs = 1
     for i in range(n_runs):

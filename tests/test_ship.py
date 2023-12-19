@@ -15,7 +15,6 @@ fig_size = [25, 13]  # figure1 size in cm
 dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
-
     n_wps = 8
 
     utm_zone = 33
@@ -24,46 +23,81 @@ if __name__ == "__main__":
     map_data_files = ["Rogaland_utm33.gdb"]
 
     # Put new_data to True to load map data in ENC if it is not already loaded
-    scenario_generator = ScenarioGenerator(init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files)
+    scenario_generator = ScenarioGenerator(
+        init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
+    )
     origin = scenario_generator.enc_origin
 
     model = models.RVGunnerus()
     ctrl_params = controllers.FLSHParams(
-        K_p_u=0.35,
-        K_i_u=0.05,
-        K_p_psi=0.1,
+        K_p_u=1.0,
+        K_i_u=0.005,
+        K_p_psi=1.0,
         K_d_psi=0.6,
-        K_i_psi=0.0,
-        max_speed_error_int=2.0,
-        speed_error_int_threshold=1.0,
-        max_psi_error_int=50.0 * np.pi / 180.0,
+        K_i_psi=0.02,
+        max_speed_error_int=0.5,
+        speed_error_int_threshold=0.5,
+        max_psi_error_int=15.0 * np.pi / 180.0,
         psi_error_int_threshold=15.0 * np.pi / 180.0,
     )
     controller = controllers.FLSH(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
-    guidance_params = guidances.LOSGuidanceParams(K_p=0.01, K_i=0.00015, R_a=25.0, max_cross_track_error_int=200.0, pass_angle_threshold=90.0)
+    guidance_params = guidances.LOSGuidanceParams(
+        K_p=0.02,
+        K_i=0.0001,
+        R_a=80.0,
+        max_cross_track_error_int=1000.0,
+        cross_track_error_int_threshold=30.0,
+        pass_angle_threshold=90.0,
+    )
     guidance_method = guidances.LOSGuidance(guidance_params)
 
-    ownship = ship.Ship(mmsi=1, identifier=0, model=model, controller=controller, tracker=tracker, sensors=sensor_list, guidance=guidance_method)
+    ownship = ship.Ship(
+        mmsi=1,
+        identifier=0,
+        model=model,
+        controller=controller,
+        tracker=tracker,
+        sensors=sensor_list,
+        guidance=guidance_method,
+    )
 
-    csog_state = scenario_generator.generate_random_csog_state(draft=ownship.draft, min_land_clearance=400.0, U_min=1.0, U_max=6.0)
-    waypoints = scenario_generator.generate_random_waypoints(x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps)
-    speed_plan = 4.0 * np.ones(waypoints.shape[1])  # = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
-    # csog_state[3] += 15.0 * np.pi / 180.0
-    # waypoints = np.array([[6581585.0, 6581585.0, 6581690.0, 6581790.0, 6581850.0, 6582000.0], [-33700.0, -33615.0, -33600.0, -33620.0, -33615.0, -33495.0]])
-    # speed_plan = np.array([4.0, 4.0, 4.0, 4.0, 4.0, 4.0])
-    # csog_state = np.array([6581585.0, -33700.0, 4.0, np.deg2rad(120.0)])
-
-    # csog_state[3] += 90.0 * np.pi / 180.0
+    scenario_generator.seed(1)
+    csog_state = scenario_generator.generate_random_csog_state(
+        draft=ownship.draft, min_land_clearance=100.0, U_min=2.0, U_max=ownship.max_speed
+    )
     ownship.set_initial_state(csog_state)
+
+    disturbance_config = stochasticity.Config()
+    disturbance = stochasticity.Disturbance(disturbance_config)
+    # disturbance._currents = None
+    # disturbance._wind = None
+
+    rng = np.random.default_rng(seed=1)
+    horizon = 500.0
+    dt = 0.5
+    enc = scenario_generator.enc
+    safe_sea_cdt = scenario_generator.safe_sea_cdt
+    safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
+    scenario_generator.behavior_generator.setup(
+        rng, [ownship], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
+    )
+
+    n_wps = 4
+    waypoints, _ = scenario_generator.behavior_generator.generate_random_waypoints(
+        rng, x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps
+    )
+    speed_plan = 4.0 * np.ones(
+        waypoints.shape[1]
+    )  # = scenario_generator.generate_random_speed_plan(U=5.0, n_wps=waypoints.shape[1])
     ownship.set_nominal_plan(waypoints=waypoints, speed_plan=speed_plan)
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
     # disturbance._currents = None
     # disturbance._wind = None
-    horizon = 1000.0
+    horizon = 700.0
     dt = 0.1
     n_x, n_u = model.dims
     n_r = 9

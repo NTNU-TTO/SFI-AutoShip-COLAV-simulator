@@ -41,6 +41,7 @@ class COLAVEnvironment(gym.Env):
         scenario_config: Optional[sm.ScenarioConfig] = None,
         scenario_config_file: Optional[pathlib.Path] = None,
         scenario_files: Optional[list] = None,
+        reload_map: Optional[bool] = True,
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = "human",
         render_update_interval: Optional[float] = 0.2,
@@ -58,6 +59,7 @@ class COLAVEnvironment(gym.Env):
             scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
             scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
             scenario_files (Optional[list]): List of scenario files. Defaults to None.
+            reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False.
             rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
             render_update_interval (Optional[float]): Render update interval. Defaults to 0.2.
@@ -75,6 +77,7 @@ class COLAVEnvironment(gym.Env):
         self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
         self.scenario_config_file: Optional[pathlib.Path] = scenario_config_file
         self.scenario_files: Optional[list] = scenario_files
+        self.reload_map: bool = reload_map
         self._has_init_generated: bool = False
 
         self.done = False
@@ -195,7 +198,11 @@ class COLAVEnvironment(gym.Env):
         self.done = False
 
         if not self._has_init_generated:
-            self._generate(scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file)
+            self._generate(
+                scenario_config=self.scenario_config,
+                scenario_config_file=self.scenario_config_file,
+                reload_map=self.reload_map,
+            )
             self._has_init_generated = True
 
         assert self.scenario_config is not None, "Scenario config not initialized!"

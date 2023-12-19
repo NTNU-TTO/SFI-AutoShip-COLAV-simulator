@@ -7,7 +7,6 @@
     Author: Trym Tengesdal
 """
 
-import copy
 import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -26,8 +25,7 @@ RRT_LIB_FOUND = True
 try:
     import rrt_star_lib
 except ModuleNotFoundError as err:
-    # Error handling
-    print(err)
+    print(f"Warning: rrt_star_lib not found! Error msg: {err}")
     RRT_LIB_FOUND = False
 
 
@@ -166,9 +164,15 @@ class Config:
     waypoint_ang_range: list = field(
         default_factory=lambda: [-45.0, 45.0]
     )  # Range of [min, max] change in angle between randomly created waypoints
-    rrt: Optional[RRTConfig] = None
-    rrtstar: Optional[RRTConfig] = None
-    pqrrtstar: Optional[RRTConfig] = None
+    rrt: Optional[RRTConfig] = RRTConfig(
+        params=RRTParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+    )
+    rrtstar: Optional[RRTConfig] = RRTConfig(
+        params=RRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+    )
+    pqrrtstar: Optional[RRTConfig] = RRTConfig(
+        params=PQRRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+    )
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -234,6 +238,22 @@ class BehaviorGenerator:
             for pqrrtstar in self._pqrrtstar_list:
                 pqrrtstar.reset(seed)
 
+    def set_ownship_method(self, method: BehaviorGenerationMethod) -> None:
+        """Sets the ownship method.
+
+        Args:
+            method (BehaviorGenerationMethod): The ownship method.
+        """
+        self._config.ownship_method = method
+
+    def set_target_ship_method(self, method: BehaviorGenerationMethod) -> None:
+        """Sets the target ship method.
+
+        Args:
+            method (BehaviorGenerationMethod): The target ship method.
+        """
+        self._config.target_ship_method = method
+
     def setup(
         self,
         rng: np.random.Generator,
@@ -279,7 +299,9 @@ class BehaviorGenerator:
                 continue
 
             if not RRT_LIB_FOUND:
-                print("RRT* library not found, exiting...")
+                print(
+                    "You specified usage of RRT for ship behavior generation, but the RRT library is not found. Exiting..."
+                )
                 exit(0)
 
             ownship_bbox = None
@@ -343,7 +365,6 @@ class BehaviorGenerator:
                 return_on_first_solution=False,
             )
             print("RRT tree size: ", rrt.get_num_nodes())
-            mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
             self._rrt_list.append(rrt)
 
             rrtstar = rrt_star_lib.RRTStar(
@@ -363,7 +384,6 @@ class BehaviorGenerator:
                 return_on_first_solution=False,
             )
             print("RRT* tree size: ", rrtstar.get_num_nodes())
-            # mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
             self._rrtstar_list.append(rrtstar)
 
             pqrrtstar = rrt_star_lib.PQRRTStar(
@@ -382,12 +402,18 @@ class BehaviorGenerator:
                 return_on_first_solution=False,
             )
             print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
-            # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
+
+            self._pqrrtstar_list.append(pqrrtstar)
+
+            if method == BehaviorGenerationMethod.RRT:
+                mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
+            elif method == BehaviorGenerationMethod.RRTStar:
+                mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
+            elif method == BehaviorGenerationMethod.PQRRTStar:
+                mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
             # self._enc.draw_circle(
             #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
             # )
-
-            self._pqrrtstar_list.append(pqrrtstar)
 
     def generate(
         self,
@@ -541,7 +567,7 @@ class BehaviorGenerator:
         ownship_bg_method: BehaviorGenerationMethod,
         show_plots: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Generates a ship behavior using RRT/pqrrtstar.
+        """Generates a ship behavior using an RRT-variant.
 
         Args:
             rng (np.random.Generator): Random number generator.
