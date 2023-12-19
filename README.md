@@ -29,6 +29,17 @@ If you are using the `colav_simulator` for academic work, please use the followi
 }
 ```
 
+If you are using `RRTs` for ship behavior generation in academic work, please also use the following citation:
+```
+@Article{Tengesdal2023,
+  author  = {Trym Tengesdal and Tom A. Pedersen and Tor A. Johansen},
+  journal = {Ocean Engineering},
+  title   = {A Comparative Study of Rapidly-exploring Random Tree Algorithms Applied to Ship Trajectory Planning and Behavior Generation},
+  year    = {2023},
+  note    = {Submitted},
+}
+```
+
 ## Dependencies
 Are all outlined in setup.cfg. Non-pip packages to install are
 
@@ -37,7 +48,7 @@ Are all outlined in setup.cfg. Non-pip packages to install are
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool (optional dependency only for the `test_simulation_and_evaluation.py` test file)
 
 ## Generic Install Instructions
-`seacharts`, `rrt-rs` and the `colav_evaluation_tool` (optional) are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
+`seacharts` and the `colav_evaluation_tool` (optional) are non-pip package dependencies in the simulator. Install these first as editable packages first using `pip install -e .` in their respective root folders. For `rrt-rs` (also optional), follow the install instructions at <https://github.com/NTNU-Autoship-Internal/rrt-rs>. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
 
 To use `seacharts` in the simulator, you should download `.gdb` files from <https://kartkatalog.geonorge.no> in UTM 32 or 33 (see <https://github.com/trymte/seacharts> for instructions), and put into the `data/external` folder in the seacharts package directory. Otherwise, the module will not find any ENC data to use.
 
@@ -82,6 +93,7 @@ git clone https://github.com/trymte/colav_evaluation_tool.git
 cd colav_evaluation_tool
 pip install -e .
 ```
+and rrt-rs using instructions at <https://github.com/NTNU-Autoship-Internal/rrt-rs>.
 
 Install dependencies for the simulator. Go to the colav_simulator directory and run
 `pip install -e .`
