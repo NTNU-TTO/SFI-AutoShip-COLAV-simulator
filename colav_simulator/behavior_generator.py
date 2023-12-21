@@ -293,7 +293,7 @@ class BehaviorGenerator:
         self._rrt_list = []
         self._rrtstar_list = []
         self._pqrrtstar_list = []
-        for ship_obj in ship_list:  # Only generate RRTs for target ships
+        for ship_obj in ship_list:
             method = self._config.target_ship_method if ship_obj.id > 0 else self._config.ownship_method
             if method.value < BehaviorGenerationMethod.RRT.value:
                 continue
@@ -356,7 +356,7 @@ class BehaviorGenerator:
             rrt.transfer_safe_sea_triangulation(planning_cdt)
             rrt.set_init_state(ship_obj.state.tolist())
             rrt.set_goal_state(goal_state.tolist())
-            U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+            U_d = ship_obj.csog_state[2]
             rrt.reset(self._seed)
             rrt.grow_towards_goal(
                 ownship_state=ship_obj.state.tolist(),
@@ -375,7 +375,7 @@ class BehaviorGenerator:
             rrtstar.transfer_safe_sea_triangulation(planning_cdt)
             rrtstar.set_init_state(ship_obj.state.tolist())
             rrtstar.set_goal_state(goal_state.tolist())
-            U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+            U_d = ship_obj.csog_state[2]
             rrtstar.reset(self._seed)
             rrtstar.grow_towards_goal(
                 ownship_state=ship_obj.state.tolist(),

@@ -742,7 +742,7 @@ class ScenarioGenerator:
         scenario_type: ScenarioType,
         os_csog_state: np.ndarray,
         U_min: float = 1.0,
-        U_max: float = 15.0,
+        U_max: float = 10.0,
         draft: float = 2.0,
         min_land_clearance: float = 50.0,
     ) -> np.ndarray:
@@ -753,7 +753,7 @@ class ScenarioGenerator:
             - scenario_type (ScenarioType): Type of scenario.
             - os_csog_state (np.ndarray): Own-ship COG-SOG state = [x, y, speed, heading].
             - U_min (float, optional): Obstacle minimum speed. Defaults to 1.0.
-            - U_max (float, optional): Obstacle maximum speed. Defaults to 15.0.
+            - U_max (float, optional): Obstacle maximum speed. Defaults to 10.0.
             - draft (float, optional): Draft of target ship. Defaults to 2.0.
             - min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
 
@@ -796,6 +796,7 @@ class ScenarioGenerator:
         x = os_csog_state[0] + distance_os_ts * np.cos(os_csog_state[3] + np.pi / 2.0)
         y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + np.pi / 2.0)
         speed = self.rng.uniform(U_min, U_max)
+        safe = False
         for i in range(max_iter):
             if scenario_type == ScenarioType.HO:
                 bearing = self.rng.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
@@ -848,14 +849,16 @@ class ScenarioGenerator:
             # )
 
             if safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox:  # and not hazard_between_ships:
+                safe = True
                 break
-
+        if not safe:
+            print("WARNING: Could not find a safe position for the target ship. Using random position...")
         return np.array([x, y, speed, heading])
 
     def generate_random_csog_state(
         self,
         U_min: float = 1.0,
-        U_max: float = 15.0,
+        U_max: float = 10.0,
         draft: float = 5.0,
         heading: Optional[float] = None,
         min_land_clearance: float = 50.0,
@@ -864,7 +867,7 @@ class ScenarioGenerator:
 
         Args:
             - U_min (float, optional): Minimum speed of the ship. Defaults to 1.0.
-            - U_max (float, optional): Maximum speed of the ship. Defaults to 15.0.
+            - U_max (float, optional): Maximum speed of the ship. Defaults to 10.0.
             - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
             - heading (Optional[float]): Heading of the ship in radians. Defaults to None.
             - min_land_clearance (float, optional): Minimum distance between ship and land. Defaults to 50.0.
