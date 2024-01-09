@@ -102,7 +102,7 @@ class Simulator:
         sconfig: sm.ScenarioConfig,
         enc: senc.ENC,
         disturbance: Optional[stochasticity.Disturbance] = None,
-        ownship_colav_system: Optional[Any | ci.ICOLAV] = None,
+        colav_systems: Optional[list] = None,
     ) -> None:
         """Initializes the simulation through setting relevant internal state objects.
 
@@ -113,15 +113,18 @@ class Simulator:
             - sconfig (ScenarioConfig): Scenario episode configuration object.
             - enc (senc.ENC): ENC object relevant for the scenario.
             - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
-            - ownship_colav_system (Optional[Any | ci.ICOLAV], optional): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
+            - colav_systems (Optional[Any | ci.ICOLAV], optional): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
         """
         self.ship_list = ship_list
         self.sconfig = sconfig
         self.enc = enc
         self.disturbance = disturbance
         self.ownship = ship_list[0]
-        if ownship_colav_system is not None:
-            self.ownship.set_colav_system(ownship_colav_system)
+        if colav_systems is not None:
+            for ship_id, colav_system in colav_systems:
+                for _, ship_obj in enumerate(self.ship_list):
+                    if ship_obj.id == ship_id:
+                        ship_obj.set_colav_system(colav_system)
 
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
@@ -285,11 +288,7 @@ class Simulator:
             dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.
         """
         sim_data_dict = {}
-        true_do_states = []
-        for i, ship_obj in enumerate(self.ship_list):
-            if ship_obj.t_start <= self.t:
-                vxvy_state = mhm.convert_state_to_vxvy_state(ship_obj.csog_state)
-                true_do_states.append((i, vxvy_state, ship_obj.length, ship_obj.width))
+        true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
 
         disturbance_data: Optional[stochasticity.DisturbanceData] = None
         if self.disturbance is not None:

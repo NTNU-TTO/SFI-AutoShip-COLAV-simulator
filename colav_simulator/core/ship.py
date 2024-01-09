@@ -450,7 +450,7 @@ class Ship(IShip):
         return self._state, u, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
-        """Tracks obstacles in the vicinity of the ship."""
+        """Tracks obstacles in the vicinity of the ship. Returns the obstacle tracks and sensor measurements."""
         tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
         return tracks
 

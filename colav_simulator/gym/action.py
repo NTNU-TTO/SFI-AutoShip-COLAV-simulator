@@ -69,7 +69,7 @@ class ContinuousAutopilotReferenceAction(ActionType):
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
         super().__init__(env)
-        assert self._ownship is not None, "Ownship must be set before creating action space"
+        assert self._ownship is not None, "Ownship must be set before using the action space"
         self.size = 2
         self.course_range = (-np.pi, np.pi)
         self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
@@ -94,7 +94,9 @@ class ContinuousAutopilotReferenceAction(ActionType):
         self._ownship.set_references(refs)
 
 
-def action_factory(env: "COLAVEnvironment", action_type: Optional[str] = "continuous_autopilot_reference_action") -> ActionType:
+def action_factory(
+    env: "COLAVEnvironment", action_type: Optional[str] = "continuous_autopilot_reference_action"
+) -> ActionType:
     """Factory for creating action spaces.
 
     Args:

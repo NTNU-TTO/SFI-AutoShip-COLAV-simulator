@@ -106,6 +106,14 @@ rl_observation_type:
       required: False
       type: string
       empty: True
+    tracking_observation:
+      required: False
+      type: string
+      empty: True
+    time_observation:
+      required: False
+      type: string
+      empty: True
     dict_observation:
       required: False
       type: list

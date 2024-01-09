@@ -16,8 +16,9 @@ n_random_ships: 1
 n_episodes: 1
 rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
-  lidar_like_observation: ""
-  # navigation_csog_state_observation: ""
+  dict_observation:
+    - "navigation_3dof_state_observation"
+    - "lidar_like_observation"
 stochasticity:
   currents:
     constant: True

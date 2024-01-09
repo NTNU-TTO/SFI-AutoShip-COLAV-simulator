@@ -676,7 +676,7 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
     , with all elements of input_list except the element <idx>, if this index is in the tuple list.
 
     Args:
-        input_list (list): List of (do_idx, do_state) to get elements from
+        input_list (list): List of (do_idx, do_state, do_length, do_width) to get elements from
         idx (int): Index of element to exclude
 
     Returns:
@@ -688,6 +688,24 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
             output_list.append((do_idx, do_state, do_length, do_width))
 
     return output_list
+
+
+def extract_do_states_from_ship_list(t: float, ship_list: list) -> list:
+    """Extracts the dynamic obstacle states from the ship list.
+
+    Args:
+        t (float): Current time
+        ship_list (list): List of Ship objects
+
+    Returns:
+        list: List of dynamic obstacle states on the form (do_idx, do_state, do_length, do_width)
+    """
+    true_do_states = []
+    for i, ship_obj in enumerate(ship_list):
+        if ship_obj.t_start <= t:
+            vxvy_state = convert_state_to_vxvy_state(ship_obj.csog_state)
+            true_do_states.append((i, vxvy_state, ship_obj.length, ship_obj.width))
+    return true_do_states
 
 
 def convert_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:

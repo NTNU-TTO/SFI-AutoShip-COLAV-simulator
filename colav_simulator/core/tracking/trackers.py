@@ -21,7 +21,7 @@ class ITracker(ABC):
     @abstractmethod
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
-        generated from the input true dynamic obstacle states."""
+        generated from the input true dynamic obstacle states. Returns tracks and sensor measurements (if any)"""
 
     def get_track_information(self) -> Tuple[list, list]:
         """Returns the dynamic obstacle track information (ID, state, cov, length, width).
@@ -253,7 +253,9 @@ class KF(ITracker):
                 if sensor_measurements:
                     for sensor_id in range(len(self.sensors)):
                         z = sensor_measurements[sensor_id][i]
-                        self._xs_upd[i], self._P_upd[i], NIS_i = self.update(self._xs_upd[i], self._P_upd[i], z, sensor_id)
+                        self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
+                            self._xs_upd[i], self._P_upd[i], z, sensor_id
+                        )
 
                         if not np.isnan(NIS_i):
                             self._NIS[i] = NIS_i
@@ -292,7 +294,9 @@ class KF(ITracker):
 
         return v, S
 
-    def update(self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int) -> Tuple[np.ndarray, np.ndarray, float]:
+    def update(
+        self, xs_p: np.ndarray, P_p: np.ndarray, z: np.ndarray, sensor_id: int
+    ) -> Tuple[np.ndarray, np.ndarray, float]:
         if any(np.isnan(z)):
             return xs_p, P_p, np.nan
 

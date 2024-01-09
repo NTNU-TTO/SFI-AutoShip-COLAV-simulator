@@ -83,6 +83,7 @@ class COLAVEnvironment(gym.Env):
         self.done = False
         self.steps: int = 0
         self.episodes: int = 0
+        self.n_episodes: int = 0
         self.ownship: Optional[Ship] = None
         self.render_mode = render_mode
         self.render_update_interval = render_update_interval
@@ -92,6 +93,24 @@ class COLAVEnvironment(gym.Env):
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
 
         self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
+
+        if self.scenario_config is None:
+            self._generate(scenario_config_file=self.scenario_config_file, reload_map=self.reload_map)
+            self._has_init_generated = True
+            self.n_episodes = self.scenario_config.n_episodes
+
+        (scenario_episode_list, scenario_enc) = self.scenario_data_tup
+        episode_data = scenario_episode_list[0]
+
+        self.simulator.initialize_scenario_episode(
+            ship_list=episode_data["ship_list"],
+            sconfig=episode_data["config"],
+            enc=scenario_enc,
+            disturbance=episode_data["disturbance"],
+            ownship_colav_system=None,
+        )
+        self.ownship = self.simulator.ownship
+        self._define_spaces()
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -114,7 +133,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
-        return self.simulator.is_terminated(self.verbose)
+        return bool(self.simulator.is_terminated(self.verbose))
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -203,14 +222,15 @@ class COLAVEnvironment(gym.Env):
                 scenario_config_file=self.scenario_config_file,
                 reload_map=self.reload_map,
             )
+            self.episodes = 0
             self._has_init_generated = True
-
-        assert self.scenario_config is not None, "Scenario config not initialized!"
-        (scenario_episode_list, scenario_enc) = self.scenario_data_tup
-        if not scenario_episode_list:
+        elif self.episodes == self.n_episodes:
             self._generate(
                 scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file, reload_map=False
             )
+            self.episodes = 0
+
+        assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         episode_data = scenario_episode_list.pop(0)
 
@@ -292,7 +312,7 @@ class COLAVEnvironment(gym.Env):
 
     @property
     def dynamic_obstacles(self) -> list:
-        """The dynamic obstacles in the environment."""
+        """The dynamic obstacles in the environment, seen from the own-ship perspective (which has ID 0)."""
         return self.simulator.ship_list[1:]
 
     @property
