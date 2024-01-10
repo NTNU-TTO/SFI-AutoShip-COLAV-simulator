@@ -243,5 +243,5 @@ if __name__ == "__main__":
     scenario_generator = ScenarioGenerator()
     scenario_data = scenario_generator.generate(config_file=scenario_file, new_load_of_map_data=True)
     simulator = Simulator()
-    output = simulator.run([scenario_data], ownship_colav_system=rrt)
+    output = simulator.run([scenario_data], colav_systems=[(0, rrt)])
     print("done")

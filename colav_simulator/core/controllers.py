@@ -346,7 +346,8 @@ def pole_placement(
 
 @dataclass
 class FLSH(IController):
-    """Implements a feedback-linearizing surge-heading (FLSH) controller for a single thruster+rudder Telemetron vessel using
+    """Implements a feedback-linearizing surge-course (FLSH) controller for a single thruster+rudder
+    (NOT true in practice, as the vessel has an outboard engine) Telemetron vessel using
 
     Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * (K_p,u * (u_d - u) + int_0^t K_i,u * (u_d - u))
     Fy = (M[2, 2] / l_r) * (K_p,psi * (psi_d - psi) + K_d,psi * (r_d - r) + int_0^t K_i,psi * (psi_d - psi))
@@ -357,8 +358,9 @@ class FLSH(IController):
     M * nu_dot + C(nu) * nu + D(nu) * nu = tau
 
     with a rudder placed l_r units away from CG, such that tau = [Fx, Fy, Fy * l_r]^T.
-
     Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
+
+    NOTE: We typically feed in and control the COURSE instead of the heading here, as this is more typical to control in practice.
     """
 
     def __init__(self, model_params, params: Optional[FLSHParams] = None) -> None:
@@ -394,6 +396,8 @@ class FLSH(IController):
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the proposed control law.
+
+        NOTE: We typically feed in and control the COURSE instead of the heading here, as this is more typical in practice.
 
         Args:
             refs (np.ndarray): Desired/reference state xs_d = [eta_d^T, eta_dot_d^T, eta_ddot_d^T]^T

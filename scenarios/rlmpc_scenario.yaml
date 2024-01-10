@@ -18,7 +18,8 @@ rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
   dict_observation:
     - "navigation_3dof_state_observation"
-    - "lidar_like_observation"
+    - "tracking_observation"
+    - "time_observation"
 stochasticity:
   currents:
     constant: True

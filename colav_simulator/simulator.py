@@ -113,7 +113,7 @@ class Simulator:
             - sconfig (ScenarioConfig): Scenario episode configuration object.
             - enc (senc.ENC): ENC object relevant for the scenario.
             - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
-            - colav_systems (Optional[Any | ci.ICOLAV], optional): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
+            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
         """
         self.ship_list = ship_list
         self.sconfig = sconfig
@@ -136,12 +136,12 @@ class Simulator:
         self.dt = sconfig.dt_sim
         self.recent_sensor_measurements: list = [None] * len(self.ship_list)
 
-    def run(self, scenario_data_list: list, ownship_colav_system: Optional[Any | ci.ICOLAV] = None) -> list:
+    def run(self, scenario_data_list: list, colav_systems: Optional[list] = None) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
         Args:
             - scenario_data_list (list): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects.
-            - ownship_colav_system (Optional[Any | ci.ICOLAV]): COLAV system to use for the ownship, overrides the existing one. Defaults to None.
+            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
 
         Returns:
             list: List of dictionaries containing the following simulation data for each scenario:
@@ -170,7 +170,7 @@ class Simulator:
                 scenario_episode_file = episode_config.filename
 
                 self.initialize_scenario_episode(
-                    ship_list, episode_config, scenario_enc, episode_disturbance, ownship_colav_system
+                    ship_list, episode_config, scenario_enc, episode_disturbance, colav_systems
                 )
 
                 if self._config.verbose:
