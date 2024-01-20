@@ -350,66 +350,63 @@ class BehaviorGenerator:
             self._planning_hazard_list.append(relevant_hazards[0])
             self._planning_cdt_list.append(planning_cdt)
 
-            rrt = rrt_star_lib.RRT(self._config.rrt.los, self._config.rrt.model, self._config.rrt.params)
-            rrt.transfer_bbox(bbox)
-            rrt.transfer_enc_hazards(relevant_hazards[0])
-            rrt.transfer_safe_sea_triangulation(planning_cdt)
-            rrt.set_init_state(ship_obj.state.tolist())
-            rrt.set_goal_state(goal_state.tolist())
-            U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
-            rrt.reset(self._seed)
-            rrt.grow_towards_goal(
-                ownship_state=ship_obj.state.tolist(),
-                U_d=U_d,
-                initialized=False,
-                return_on_first_solution=False,
-            )
-            print("RRT tree size: ", rrt.get_num_nodes())
-            self._rrt_list.append(rrt)
-
-            rrtstar = rrt_star_lib.RRTStar(
-                self._config.rrtstar.los, self._config.rrtstar.model, self._config.rrtstar.params
-            )
-            rrtstar.transfer_bbox(bbox)
-            rrtstar.transfer_enc_hazards(relevant_hazards[0])
-            rrtstar.transfer_safe_sea_triangulation(planning_cdt)
-            rrtstar.set_init_state(ship_obj.state.tolist())
-            rrtstar.set_goal_state(goal_state.tolist())
-            U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
-            rrtstar.reset(self._seed)
-            rrtstar.grow_towards_goal(
-                ownship_state=ship_obj.state.tolist(),
-                U_d=U_d,
-                initialized=False,
-                return_on_first_solution=False,
-            )
-            print("RRT* tree size: ", rrtstar.get_num_nodes())
-            self._rrtstar_list.append(rrtstar)
-
-            pqrrtstar = rrt_star_lib.PQRRTStar(
-                self._config.pqrrtstar.los, self._config.pqrrtstar.model, self._config.pqrrtstar.params
-            )
-            pqrrtstar.transfer_bbox(bbox)
-            pqrrtstar.transfer_enc_hazards(relevant_hazards[0])
-            pqrrtstar.transfer_safe_sea_triangulation(planning_cdt)
-            pqrrtstar.set_init_state(ship_obj.state.tolist())
-            pqrrtstar.set_goal_state(goal_state.tolist())
-            pqrrtstar.reset(self._seed)
-            pqrrtstar.grow_towards_goal(
-                ownship_state=ship_obj.state.tolist(),
-                U_d=U_d,
-                initialized=False,
-                return_on_first_solution=False,
-            )
-            print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
-
-            self._pqrrtstar_list.append(pqrrtstar)
-
             if method == BehaviorGenerationMethod.RRT:
+                rrt = rrt_star_lib.RRT(self._config.rrt.los, self._config.rrt.model, self._config.rrt.params)
+                rrt.transfer_bbox(bbox)
+                rrt.transfer_enc_hazards(relevant_hazards[0])
+                rrt.transfer_safe_sea_triangulation(planning_cdt)
+                rrt.set_init_state(ship_obj.state.tolist())
+                rrt.set_goal_state(goal_state.tolist())
+                U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+                rrt.reset(self._seed)
+                rrt.grow_towards_goal(
+                    ownship_state=ship_obj.state.tolist(),
+                    U_d=U_d,
+                    initialized=False,
+                    return_on_first_solution=False,
+                )
+                print("RRT tree size: ", rrt.get_num_nodes())
+                self._rrt_list.append(rrt)
                 mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
             elif method == BehaviorGenerationMethod.RRTStar:
+                rrtstar = rrt_star_lib.RRTStar(
+                    self._config.rrtstar.los, self._config.rrtstar.model, self._config.rrtstar.params
+                )
+                rrtstar.transfer_bbox(bbox)
+                rrtstar.transfer_enc_hazards(relevant_hazards[0])
+                rrtstar.transfer_safe_sea_triangulation(planning_cdt)
+                rrtstar.set_init_state(ship_obj.state.tolist())
+                rrtstar.set_goal_state(goal_state.tolist())
+                U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+                rrtstar.reset(self._seed)
+                rrtstar.grow_towards_goal(
+                    ownship_state=ship_obj.state.tolist(),
+                    U_d=U_d,
+                    initialized=False,
+                    return_on_first_solution=False,
+                )
+                print("RRT* tree size: ", rrtstar.get_num_nodes())
+                self._rrtstar_list.append(rrtstar)
                 mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
             elif method == BehaviorGenerationMethod.PQRRTStar:
+                pqrrtstar = rrt_star_lib.PQRRTStar(
+                    self._config.pqrrtstar.los, self._config.pqrrtstar.model, self._config.pqrrtstar.params
+                )
+                pqrrtstar.transfer_bbox(bbox)
+                pqrrtstar.transfer_enc_hazards(relevant_hazards[0])
+                pqrrtstar.transfer_safe_sea_triangulation(planning_cdt)
+                pqrrtstar.set_init_state(ship_obj.state.tolist())
+                pqrrtstar.set_goal_state(goal_state.tolist())
+                pqrrtstar.reset(self._seed)
+                pqrrtstar.grow_towards_goal(
+                    ownship_state=ship_obj.state.tolist(),
+                    U_d=U_d,
+                    initialized=False,
+                    return_on_first_solution=False,
+                )
+                print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
+
+                self._pqrrtstar_list.append(pqrrtstar)
                 mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
             # self._enc.draw_circle(
             #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
