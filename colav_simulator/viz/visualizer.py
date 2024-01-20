@@ -345,7 +345,7 @@ class Visualizer:
                                 linestyle="None",
                                 marker=".",
                                 markersize=8,
-                                # label="Radar meas.",
+                                label="Radar meas.",
                                 transform=enc.crs,
                                 zorder=zorder_patch - 3,
                             )[0]
@@ -377,6 +377,7 @@ class Visualizer:
                 verticalalignment="center",
                 horizontalalignment="center",
                 zorder=5,
+                label="",
             )
 
             ship_i_handles["patch"] = ax_map.add_feature(
@@ -460,9 +461,12 @@ class Visualizer:
             verticalalignment="top",
             horizontalalignment="left",
             zorder=10,
+            label="",
         )
 
         self.frames.append(self.get_live_plot_image())
+        if n_ships < 3:  # to avoid cluttering the legend
+            plt.legend(loc="upper right")
 
     def update_ownship_live_tracking_data(
         self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC
@@ -578,7 +582,7 @@ class Visualizer:
         if self.ship_plt_handles[idx]["patch"] is not None:
             self.ship_plt_handles[idx]["patch"].remove()
         self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(
-            ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch)
+            ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch), label=""
         )
 
         self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
@@ -643,8 +647,6 @@ class Visualizer:
 
             self.update_ship_live_data(ship_obj, i, enc, lw=lw, c=c, start_idx_ship_line_data=start_idx_ship_line_data)
 
-        if n_ships < 3:  # to avoid cluttering the legend
-            plt.legend(loc="upper right")
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
         self.frames.append(self.get_live_plot_image())

@@ -83,4 +83,5 @@ ship_list:
         max_psi_error_int: 15.0
         psi_error_int_threshold: 15.0
     model:
-      rvgunnerus: ''
+      telemetron: ''
+      #rvgunnerus: ''

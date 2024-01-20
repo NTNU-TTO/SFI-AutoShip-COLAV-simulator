@@ -164,6 +164,7 @@ class Config:
     waypoint_ang_range: list = field(
         default_factory=lambda: [-45.0, 45.0]
     )  # Range of [min, max] change in angle between randomly created waypoints
+    hazard_buffer: float = 0.0  # Buffer to add to hazards when creating safe sea triangulation
     rrt: Optional[RRTConfig] = RRTConfig(
         params=RRTParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
     )
@@ -283,7 +284,7 @@ class BehaviorGenerator:
         self._safe_sea_cdt = safe_sea_cdt
         self._safe_sea_cdt_weights = safe_sea_cdt_weights
         self._grounding_hazards = mapf.extract_relevant_grounding_hazards_as_union(
-            vessel_min_depth=5, enc=self._enc, buffer=None, show_plots=show_plots
+            vessel_min_depth=5, enc=self._enc, buffer=self._config.hazard_buffer, show_plots=show_plots
         )
         self._simulation_timespan = simulation_timespan
 
@@ -309,11 +310,13 @@ class BehaviorGenerator:
                 if ownship.waypoints.size > 0:
                     ownship_waypoints = ownship.waypoints
                 elif ownship.goal_csog_state.size > 0:
-                    ownship_waypoints = np.concatenate(
-                        [ownship.csog_state[0:2].reshape(-1, 1), ownship.goal_csog_state[0:2].reshape(-1, 1)]
+                    ownship_waypoints = np.hstack(
+                        [ownship.csog_state[0:2].reshape(2, 1), ownship.goal_csog_state[0:2].reshape(2, 1)]
                     )
                 else:
-                    ownship_waypoints = np.array([ownship.csog_state[0:2], ownship.csog_state[0:2] + 100.0])
+                    ownship_waypoints = np.hstack(
+                        [ownship.csog_state[0:2].reshape(2, 1), ownship.csog_state[0:2].reshape(2, 1) + 500.0]
+                    )
 
                 ownship_bbox = mapf.create_bbox_from_points(
                     self._enc, ownship_waypoints[:, 0], ownship_waypoints[:, 1], buffer=500.0
@@ -468,7 +471,6 @@ class BehaviorGenerator:
                     ship_obj.length,
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
-                # speed_plan[-1] = 0.0
             elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
                 waypoints, clipped = self.generate_random_waypoints(
                     rng,
@@ -489,7 +491,7 @@ class BehaviorGenerator:
                 RRT_LIB_FOUND
                 and BehaviorGenerationMethod.RRT.value <= method.value <= BehaviorGenerationMethod.PQRRTStar.value
             ):
-                waypoints, speed_plan, trajectory = self.generate_rrt_behavior(
+                waypoints, speed_plan, _ = self.generate_rrt_behavior(
                     rng, ship_obj, ship_cfg_idx, ownship, method, ownship_method, show_plots=True
                 )
 
@@ -503,13 +505,7 @@ class BehaviorGenerator:
                     disk_buffer=6.0,
                     hole_buffer=2.0,
                 )
-                # if RRT_LIB_FOUND and method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
-                #     mapf.plot_trajectory(trajectory, self._enc, color="grey")
-
                 color = "yellow" if ship_obj.id > 0 else "magenta"
-                # self._enc.draw_line(
-                #     [(p[1], p[0]) for p in waypoints.T], color=color, width=0.0, thickness=5.0, edge_style="dashdot"
-                # )
                 ship_poly = mapf.create_ship_polygon(
                     ship_obj.csog_state[0],
                     ship_obj.csog_state[1],
@@ -778,7 +774,12 @@ class BehaviorGenerator:
 
             if crosses_grounding_hazards:
                 new_wp = mapf.find_closest_collision_free_point_on_segment(
-                    self._enc, waypoints[:, i - 1], new_wp, draft, self._grounding_hazards, min_dist=0.6 * length
+                    self._enc,
+                    waypoints[:, i - 1],
+                    new_wp,
+                    draft,
+                    self._grounding_hazards,
+                    min_dist=np.min([10.0, 3.0 * length]),
                 )
                 clipped = True
 

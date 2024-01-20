@@ -706,7 +706,7 @@ def generate_random_position_from_draft(
 
 
 def find_closest_collision_free_point_on_segment(
-    enc: ENC, p1: np.ndarray, p2: np.ndarray, draft: float = 5.0, hazards: Optional[list] = None, min_dist: float = 5.0
+    enc: ENC, p1: np.ndarray, p2: np.ndarray, draft: float = 5.0, hazards: Optional[list] = None, min_dist: float = 30.0
 ) -> np.ndarray:
     """Finds the closest collision free point on a line segment between two points.
 
@@ -716,6 +716,7 @@ def find_closest_collision_free_point_on_segment(
         p2 (np.ndarray): Second position.
         draft (float, optional): Vessel draft. Defaults to 5.0.
         hazards (Optional[list], optional): List of Multipolygon/Polygon objects that are relevant. Used if not none. Defaults to None.
+        min_dist (float, optional): Minimum distance to the hazard. Defaults to 5.0.
 
     Returns:
         np.ndarray: The closest collision free point on the line segment.
@@ -795,6 +796,104 @@ def compute_distance_vectors_to_grounding(
                     min_dist_vec = dist_vec
                     min_dist = np.linalg.norm(min_dist_vec)
             distance_vectors[:, idx] = min_dist_vec
+    return distance_vectors
+
+
+def get_distance_vectors_to_obstacles(
+    trajectory: np.ndarray,
+    do_list: list,
+    enc: ENC,
+    T: float,
+    dt: float,
+    min_vessel_depth: int = 5,
+    disable_bbox_check: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Computes the distance vectors from the trajectory to the obstacles (dynamic and static).
+
+    Args:
+        trajectory (np.ndarray): Trajectory/position data (minimum 2 x n_samples).
+        do_list (list): List of dynamic obstacles on the form (ID, state, cov, length, width)
+        enc (senc.ENC): ENC object.
+        T (float): Prediction horizon.
+        dt (float): Time step.
+        min_vessel_depth (int, optional): Minimum vessel depth. Defaults to 5.
+        disable_bbox_check (bool, optional): Option for disabling the inside bounding box check for a position. Defaults to False.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Tuple of distance vectors to dynamic obstacles and list of distance vectors to static obstacles.
+    """
+    distance_vectors_so = compute_distance_vectors_to_grounding(trajectory, min_vessel_depth, enc, disable_bbox_check)
+    distance_vectors_do = compute_distance_vectors_to_dynamic_obstacles(trajectory, do_list, T, dt)
+    return distance_vectors_do, distance_vectors_so
+
+
+def compute_minimum_distance_to_collision_and_grounding(
+    trajectory: np.ndarray,
+    do_list: list,
+    enc: ENC,
+    T: float,
+    dt: float,
+    min_vessel_depth: int = 5,
+    disable_bbox_check: bool = False,
+) -> Tuple[float, float, np.ndarray, np.ndarray]:
+    """Check if the trajectory collides with any of the obstacles (dynamic and static) over the prediction horizon.
+
+    Args:
+        trajectory (np.ndarray): Trajectory/position data (minimum 2 x n_samples) with EN coordinates
+        do_list (list): List of dynamic obstacles on the form (ID, state, cov, length, width) with EN coordinates
+        enc (ENC): ENC object.
+        T (float): Prediction horizon.
+        dt (float): Time step.
+        min_vessel_depth (int, optional): Minimum allowable vessel depth. Defaults to 5.
+        disable_bbox_check (bool, optional): Option for disabling the inside bounding box check for a position. Defaults to False.
+
+    Returns:
+        Tuple[float, float, np.ndarray, np.ndarray]: The minimum distances to collision and grounding, respectively. Also returns the corresponding distance vectors
+    """
+    distance_vectors_do, distance_vectors_so = get_distance_vectors_to_obstacles(
+        trajectory, do_list, enc, T, dt, min_vessel_depth, disable_bbox_check
+    )
+    min_dist_so = 1e12
+    if distance_vectors_so.size > 0:
+        min_dist_so = np.min(np.linalg.norm(distance_vectors_so, axis=0))
+    min_dist_do = 1e12
+    if distance_vectors_do.size > 0:
+        min_dist_do = np.min(np.linalg.norm(distance_vectors_do, axis=0))
+    return min_dist_do, min_dist_so, distance_vectors_do, distance_vectors_so
+
+
+def compute_distance_vectors_to_dynamic_obstacles(
+    trajectory: np.ndarray, do_list: list, T: float, dt: float
+) -> np.ndarray:
+    """Computes the (shortest) distance vectors to dynamic obstacles, assuming EN coordinates.
+
+    Args:
+        trajectory (np.ndarray): Trajectory/position data (minimum 2 x n_samples) with EN coordinates
+        do_list (list): List of dynamic obstacles on the form (ID, state, cov, length, width) with EN coordinates
+        T (float): Prediction horizon.
+        dt (float): Time step.
+
+    Returns:
+        np.ndarray: (Shortest) Distance vectors to dynamic obstacles.
+    """
+    if len(do_list) == 0:
+        return np.empty(0)
+    n_samples = trajectory.shape[1]
+    assert n_samples > 1, "Trajectory must have at least two samples"
+    assert n_samples == int(T / dt), "Must have n_samples = int(T / dt)"
+    distance_vectors = np.ndarray((2, n_samples))
+    for k in range(n_samples):
+        t = k * dt
+        p_k = trajectory[:, k]
+        min_do_dist_vec = np.array([1e6, 1e6])
+        min_do_dist = 1e12
+        for ID, do_state, do_cov, do_length, do_width in do_list:
+            p_do_k = do_state[:2] + np.array([do_state[2], do_state[3]]) * t
+            dist_vec = p_do_k - p_k
+            if np.linalg.norm(dist_vec) < min_do_dist:
+                min_do_dist = np.linalg.norm(dist_vec)
+                min_do_dist_vec = dist_vec
+        distance_vectors[:, k] = min_do_dist_vec
     return distance_vectors
 
 

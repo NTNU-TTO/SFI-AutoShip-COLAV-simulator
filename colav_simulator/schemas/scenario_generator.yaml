@@ -88,6 +88,9 @@ behavior_generator:
       schema:
         type: integer
         min: 2
+    hazard_buffer:
+      required: True
+      type: float
     speed_plan_variation_range:
       required: True
       type: list

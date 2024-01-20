@@ -89,7 +89,7 @@ class TelemetronParams:
     Fy_limits: np.ndarray = field(default_factory=lambda: np.array([-645.0, 645.0]))  # Force limits in y
     r_max: float = float(np.deg2rad(15))
     U_min: float = 0.0
-    U_max: float = 15.0
+    U_max: float = 10.0
 
 
 @dataclass

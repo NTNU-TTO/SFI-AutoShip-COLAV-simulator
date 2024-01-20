@@ -718,18 +718,22 @@ class ScenarioGenerator:
                 continue
 
             ship_obj = ship_list[ship_cfg_idx]
+            # Use 90% of the maximum speed as the maximum speed for the ships
             if ship_cfg_idx == 0:
                 csog_state = self.generate_random_csog_state(
-                    U_min=2.0, U_max=ship_obj.max_speed, draft=ship_obj.draft, min_land_clearance=ship_obj.length * 2.0
+                    U_min=2.0,
+                    U_max=0.9 * ship_obj.max_speed,
+                    draft=ship_obj.draft,
+                    min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                 )
             else:
                 csog_state = self.generate_target_ship_csog_state(
                     config.type,
                     csog_state_list[0],
                     U_min=2.0,
-                    U_max=ship_obj.max_speed,
+                    U_max=0.9 * ship_obj.max_speed,
                     draft=ship_obj.draft,
-                    min_land_clearance=ship_obj.length * 2.0,
+                    min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                 )
             ship_config.csog_state = csog_state
             ship_obj.set_initial_state(ship_config.csog_state)
