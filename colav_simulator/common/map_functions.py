@@ -614,6 +614,7 @@ def generate_random_goal_position(
     bbox: Optional[Tuple[float, float, float, float]] = None,
     min_distance_from_start: float = 100.0,
     max_distance_from_start: float = 10000.0,
+    sector_width: float = 60.0 * np.pi / 180.0,
 ) -> Tuple[float, float]:
     """Generates a random goal position for the ship, given its starting state (position, speed and heading).
 
@@ -625,6 +626,7 @@ def generate_random_goal_position(
         safe_sea_cdt_weights (list): List of weights for the safe sea region triangles, used to sample more efficiently.
         min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
         max_distance_from_start (float, optional): Maximum distance from the starting position. Defaults to 10000.0.
+        sector_width (float, optional): Width of the sector to sample from. Defaults to 60.0 * np.pi / 180.0.
 
     Returns:
         Tuple[float, float]: Goal position (northing, easting) for the ship.
@@ -635,7 +637,6 @@ def generate_random_goal_position(
 
     northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
-    sector_width = 100.0 * np.pi / 180.0
     sector_radius = max_distance_from_start
     n_points = 100
     angle_range_port = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)

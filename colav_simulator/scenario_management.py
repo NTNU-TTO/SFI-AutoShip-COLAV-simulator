@@ -501,7 +501,7 @@ class ScenarioGenerator:
         config_file: Optional[Path] = None,
         enc: Optional[senc.ENC] = None,
         new_load_of_map_data: Optional[bool] = None,
-        show_plots: Optional[bool] = False,
+        show_plots: Optional[bool] = True,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 

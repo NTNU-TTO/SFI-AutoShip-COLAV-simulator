@@ -714,6 +714,10 @@ class Ship(IShip):
         return self._waypoints
 
     @property
+    def speed_plan(self) -> np.ndarray:
+        return self._speed_plan
+
+    @property
     def goal_csog_state(self) -> np.ndarray:
         if self._goal_state.size == 0:
             return np.array([])

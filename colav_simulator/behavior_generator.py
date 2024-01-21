@@ -362,7 +362,7 @@ class BehaviorGenerator:
                 rrt.set_goal_state(goal_state.tolist())
                 U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
                 rrt.reset(self._seed)
-                rrt.grow_towards_goal(
+                rrt_soln = rrt.grow_towards_goal(
                     ownship_state=ship_obj.state.tolist(),
                     U_d=U_d,
                     initialized=False,
@@ -370,7 +370,7 @@ class BehaviorGenerator:
                 )
                 print("RRT tree size: ", rrt.get_num_nodes())
                 self._rrt_list.append(rrt)
-                mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
+                # mapf.plot_rrt_tree(rrt.get_tree_as_list_of_dicts(), self._enc)
             elif method == BehaviorGenerationMethod.RRTStar:
                 rrtstar = rrt_star_lib.RRTStar(
                     self._config.rrtstar.los, self._config.rrtstar.model, self._config.rrtstar.params
@@ -382,7 +382,7 @@ class BehaviorGenerator:
                 rrtstar.set_goal_state(goal_state.tolist())
                 U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
                 rrtstar.reset(self._seed)
-                rrtstar.grow_towards_goal(
+                rrt_soln = rrtstar.grow_towards_goal(
                     ownship_state=ship_obj.state.tolist(),
                     U_d=U_d,
                     initialized=False,
@@ -390,7 +390,7 @@ class BehaviorGenerator:
                 )
                 print("RRT* tree size: ", rrtstar.get_num_nodes())
                 self._rrtstar_list.append(rrtstar)
-                mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
+                # mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
             elif method == BehaviorGenerationMethod.PQRRTStar:
                 pqrrtstar = rrt_star_lib.PQRRTStar(
                     self._config.pqrrtstar.los, self._config.pqrrtstar.model, self._config.pqrrtstar.params
@@ -401,7 +401,7 @@ class BehaviorGenerator:
                 pqrrtstar.set_init_state(ship_obj.state.tolist())
                 pqrrtstar.set_goal_state(goal_state.tolist())
                 pqrrtstar.reset(self._seed)
-                pqrrtstar.grow_towards_goal(
+                rrt_soln = pqrrtstar.grow_towards_goal(
                     ownship_state=ship_obj.state.tolist(),
                     U_d=U_d,
                     initialized=False,
@@ -410,10 +410,16 @@ class BehaviorGenerator:
                 print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
 
                 self._pqrrtstar_list.append(pqrrtstar)
-                mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
-            # self._enc.draw_circle(
-            #     (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
-            # )
+                # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
+
+            if ship_obj.id == 0:
+                waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
+                speed_plan = waypoints[2, :]
+                waypoints = waypoints[0:2, :]
+                ship_obj.set_nominal_plan(waypoints, speed_plan)
+                self._enc.draw_circle(
+                    (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
+                )
 
     def generate(
         self,
@@ -578,6 +584,11 @@ class BehaviorGenerator:
             or rrt_method == BehaviorGenerationMethod.RRTStar
             or rrt_method == BehaviorGenerationMethod.PQRRTStar
         )
+        if ship_obj.id == ownship.id == 0:
+            # If the own-ship uses RRT for behavior/wp+speed plan generation, its plan has
+            # already been set in the `setup` method, so we can just return it here
+            return ownship.waypoints, ownship.speed_plan, np.zeros((0, 6))
+
         p_os = ownship.csog_state[0:2]
         v_os = np.array(
             [
@@ -596,7 +607,7 @@ class BehaviorGenerator:
         ownship_waypoints = (
             ownship.waypoints
             if ownship.waypoints is not None
-            else np.array([ownship.csog_state[0:2], ownship.goal_csog_state[0:2]])
+            else np.hstack([ownship.csog_state[0:2].reshape(2, 1), ownship.goal_csog_state[0:2].reshape(2, 1)])
         )
 
         idx = ship_idx - 1
@@ -604,21 +615,17 @@ class BehaviorGenerator:
             idx += 1
 
         planning_bbox = self._planning_bbox_list[idx]
-        rrt_alg = self._rrt_list[idx]
         if rrt_method == BehaviorGenerationMethod.RRT:
             rrt_alg = self._rrt_list[idx]
-            print("Using RRT for behavior generation...")
+            # print("Using RRT for behavior generation...")
         elif rrt_method == BehaviorGenerationMethod.RRTStar:
             rrt_alg = self._rrtstar_list[idx]
-            print("Using RRT* for behavior generation...")
+            # print("Using RRT* for behavior generation...")
         elif rrt_method == BehaviorGenerationMethod.PQRRTStar:
             rrt_alg = self._pqrrtstar_list[idx]
-            print("Using PQ-RRT* for behavior generation...")
+            # print("Using PQ-RRT* for behavior generation...")
 
         choice = 2
-        if ship_obj.id == ownship.id == 0:
-            choice = 0
-
         n_samples = 100
         sample_runtimes = np.zeros(n_samples)
         for s in range(n_samples):
@@ -673,18 +680,18 @@ class BehaviorGenerator:
 
             if self._enc is not None and show_plots:
                 color = "orange" if ship_obj.id > 0 else "pink"
-                mapf.plot_waypoints(
-                    waypoints,
-                    self._enc,
-                    color=color,
-                    point_buffer=3.0,
-                    disk_buffer=7.0,
-                    hole_buffer=3.0,
-                )
+                # mapf.plot_waypoints(
+                #     waypoints,
+                #     self._enc,
+                #     color=color,
+                #     point_buffer=3.0,
+                #     disk_buffer=7.0,
+                #     hole_buffer=3.0,
+                # )
                 # mapf.plot_trajectory(trajectory, self._enc, color="grey")
                 # self._enc.draw_circle(center=(p_rand[1], p_rand[0]), radius=10.0, color="green", alpha=0.6)
         print(
-            f"t_solve: {sample_runtimes.mean():.5f} +/- {sample_runtimes.std():.5f} s | t_solve (min, max): {sample_runtimes.min():.5f}, {sample_runtimes.max():.5f} s"
+            f"RRT sampling time: {sample_runtimes.mean():.5f} +/- {sample_runtimes.std():.5f} s | (min, max): {sample_runtimes.min():.5f}, {sample_runtimes.max():.5f} s"
         )
         return waypoints, speed_plan, trajectory
 
