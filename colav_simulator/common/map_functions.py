@@ -637,7 +637,7 @@ def generate_random_goal_position(
 
     northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
-    sector_radius = max_distance_from_start
+    sector_radius = max(max_distance_from_start, min_distance_from_start)
     n_points = 100
     angle_range_port = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)
     arc_port = [
@@ -647,7 +647,7 @@ def generate_random_goal_position(
     arc_line_port = LineString(arc_port)
     sector_poly = Polygon(list(arc_line_port.coords) + [(xs_start[1], xs_start[0])])
     sector_poly = sector_poly.intersection(bbox_poly)
-    # enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
+    enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
     max_iter = 3000
     for _ in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt, safe_sea_cdt_weights)

@@ -1,6 +1,9 @@
 verbose:
   required: True
   type: boolean
+manual_episode_accept:
+  required: True
+  type: boolean
 scenario_files:
   required: False
   excludes: [scenario_folder]

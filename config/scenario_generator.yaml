@@ -1,4 +1,5 @@
 verbose: True
+manual_episode_accept: True
 #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
 #scenario_files: ["rl_scenario.yaml"]
 scenario_files: ["head_on_sbmpc.yaml"]

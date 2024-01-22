@@ -237,6 +237,7 @@ class Config:
     """
 
     verbose: bool = False
+    manual_episode_accept: bool = False  # Whether or not the user has to accept each generated episode of a scenario.
     behavior_generator: bg.Config = field(default_factory=lambda: bg.Config())
     ho_bearing_range: list = field(
         default_factory=lambda: [-20.0, 20.0]
@@ -266,6 +267,7 @@ class Config:
     def from_dict(cls, config_dict: dict):
         config = Config(
             verbose=config_dict["verbose"],
+            manual_episode_accept=config_dict["manual_episode_accept"],
             behavior_generator=bg.Config.from_dict(config_dict["behavior_generator"]),
             ho_bearing_range=config_dict["ho_bearing_range"],
             ho_heading_range=config_dict["ho_heading_range"],
@@ -363,9 +365,6 @@ class ScenarioGenerator:
         Returns:
             - (senc.ENC): Configured ENC object.
         """
-        # print(f"ENC map size: {scenario_config.map_size}")
-        # print(f"ENC map origin: {scenario_config.map_origin_enu}")
-
         self.enc = senc.ENC(
             config_file=dp.seacharts_config,
             utm_zone=scenario_config.utm_zone,
@@ -502,6 +501,8 @@ class ScenarioGenerator:
         enc: Optional[senc.ENC] = None,
         new_load_of_map_data: Optional[bool] = None,
         show_plots: Optional[bool] = True,
+        save_scenario: Optional[bool] = False,
+        save_scenario_folder: Optional[Path] = dp.scenarios,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
@@ -513,6 +514,8 @@ class ScenarioGenerator:
             - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
             - new_load_of_map_data (bool, optional): Flag determining whether or not to read ENC data from shapefiles again. Defaults to True.
             - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
+            - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition. Defaults to False.
+            - save_scenario_folder (Path, optional): Absolute path to the folder where the scenario definition should be saved. Defaults to dp.scenarios.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -525,6 +528,8 @@ class ScenarioGenerator:
             config = cp.extract(ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
 
         assert config is not None, "Config should not be none here."
+        show_plots = True if self._config.manual_episode_accept else show_plots
+        save_scenario = save_scenario if save_scenario is not None else config.save_scenario
         ais_vessel_data_list = []
         mmsi_list = []
         ais_data_output = process_ais_data(config)
@@ -580,8 +585,13 @@ class ScenarioGenerator:
                 show_plots=show_plots,
             )
             episode["config"].name = f"{config.name}_ep{ep + 1}"
-            if config.save_scenario:
-                episode["config"].filename = save_scenario_episode_definition(episode["config"])
+            if self._config.manual_episode_accept:
+                print(f"ScenarioGenerator: Episode {ep + 1} of {config.n_episodes} created.")
+                print("ScenarioGenerator: Accept episode? (y/n)")
+                if input() != "y" or input() != "Y":
+                    continue
+            if save_scenario:
+                episode["config"].filename = save_scenario_episode_definition(episode["config"], save_scenario_folder)
             scenario_episode_list.append(episode)
 
         return scenario_episode_list, enc_copy
@@ -917,17 +927,19 @@ class ScenarioGenerator:
         return np.array([self.enc.origin[1], self.enc.origin[0]])
 
 
-def save_scenario_episode_definition(scenario_config: ScenarioConfig) -> str:
+def save_scenario_episode_definition(scenario_config: ScenarioConfig, folder: Path) -> str:
     """Saves the the scenario episode defined by the preliminary scenario configuration and list of configured ships.
 
     Uses the config to create a unique scenario name and filename. The scenario is saved in the default scenario save folder.
 
     Args:
         - scenario_config (ScenarioConfig): Scenario configuration
+        - folder (Path): Absolute path to the folder where the scenario definition should be saved.
 
     Returns:
         - str: The filename of the saved scenario.
     """
+    assert folder.exists(), "The folder where the scenario should be saved does not exist."
     scenario_config_dict: dict = scenario_config.to_dict()
     scenario_config_dict["save_scenario"] = False
     if "n_episodes" in scenario_config_dict:
@@ -940,7 +952,7 @@ def save_scenario_episode_definition(scenario_config: ScenarioConfig) -> str:
     scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
     scenario_config_dict["filename"] = filename
-    save_file = dp.saved_scenarios / filename
+    save_file = folder / filename
     with save_file.open(mode="w") as file:
         yaml.dump(scenario_config_dict, file)
 

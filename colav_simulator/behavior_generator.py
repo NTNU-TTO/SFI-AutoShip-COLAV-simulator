@@ -213,6 +213,7 @@ class BehaviorGenerator:
         self._config: Config = config
         self._enc: senc.ENC = None
         self._safe_sea_cdt: list = None
+        self._safe_sea_cdt_weights: list = None
 
         self._simulation_timespan: float = 0.0
         self._planning_bbox_list: list = []
@@ -307,6 +308,7 @@ class BehaviorGenerator:
 
             ownship_bbox = None
             if ship_obj.id > 0:
+                target_ship_state = ship_obj.csog_state
                 if ownship.waypoints.size > 0:
                     ownship_waypoints = ownship.waypoints
                 elif ownship.goal_csog_state.size > 0:
@@ -318,9 +320,13 @@ class BehaviorGenerator:
                         [ownship.csog_state[0:2].reshape(2, 1), ownship.csog_state[0:2].reshape(2, 1) + 500.0]
                     )
 
-                ownship_bbox = mapf.create_bbox_from_points(
-                    self._enc, ownship_waypoints[:, 0], ownship_waypoints[:, 1], buffer=500.0
-                )
+                xmax = np.max([target_ship_state[0], *ownship_waypoints[0, :].tolist()])
+                ymax = np.max([target_ship_state[1], *ownship_waypoints[1, :].tolist()])
+                xmin = np.min([target_ship_state[0], *ownship_waypoints[0, :].tolist()])
+                ymin = np.min([target_ship_state[1], *ownship_waypoints[1, :].tolist()])
+                pmin = np.array([xmin, ymin])
+                pmax = np.array([xmax, ymax])
+                bbox = mapf.create_bbox_from_points(self._enc, pmin, pmax, buffer=500.0)
 
             goal_position = mapf.generate_random_goal_position(
                 rng=rng,
@@ -329,12 +335,12 @@ class BehaviorGenerator:
                 safe_sea_cdt=self._safe_sea_cdt,
                 safe_sea_cdt_weights=self._safe_sea_cdt_weights,
                 bbox=ownship_bbox,
-                min_distance_from_start=400.0,
-                max_distance_from_start=0.5 * ship_obj.speed * simulation_timespan,
+                min_distance_from_start=300.0,
+                max_distance_from_start=4.0 * ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
             # self._enc.start_display()
-            # self._enc.draw_circle((goal_state[1], goal_state[0]), 20.0, color="orange", alpha=0.4)
+            self._enc.draw_circle((goal_state[1], goal_state[0]), 20.0, color="orange", alpha=0.4)
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
             ship_obj.set_goal_state(goal_state)

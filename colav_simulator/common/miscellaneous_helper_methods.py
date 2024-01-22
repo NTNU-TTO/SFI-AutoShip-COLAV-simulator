@@ -257,6 +257,28 @@ def sample_from_waypoint_corridor(rng: np.random.Generator, waypoints: np.ndarra
     return mf.Rmtrx2D(alpha) @ np.array([x, y]) + waypoints[:, segment_idx]
 
 
+def check_if_situation_is_risky_enough(
+    os_csog_state: np.ndarray, do_csog_state: np.ndarray, t_cpa_threshold: float, d_cpa_threshold: float
+) -> bool:
+    """Checks if a vessel-vessel situation is risky enough to be considered a COLAV situation.
+
+    Args:
+        os_csog_state (np.ndarray): Ownship CSOG state on the form [x, y, U, chi]^T.
+        do_csog_state (np.ndarray): Dynamic obstacle CSOG state on the form [x, y, U, chi]^T.
+        t_cpa_threshold (float): Threshold for the CPA time.
+        d_cpa_threshold (float): Threshold for the CPA distance.
+
+    Returns:
+        bool: Whether the situation is risky enough or not.
+    """
+    p_os = os_csog_state[0:2]
+    v_os = np.array([os_csog_state[2] * np.cos(os_csog_state[3]), os_csog_state[2] * np.sin(os_csog_state[3])])
+    p_do = do_csog_state[0:2]
+    v_do = np.array([do_csog_state[2] * np.cos(do_csog_state[3]), do_csog_state[2] * np.sin(do_csog_state[3])])
+    t_cpa, d_cpa, d_cpa_vec = compute_vessel_pair_cpa(p_os, v_os, p_do, v_do)
+    return t_cpa < t_cpa_threshold and d_cpa < d_cpa_threshold
+
+
 def compute_vessel_pair_cpa(
     p1: np.ndarray, v1: np.ndarray, p2: np.ndarray, v2: np.ndarray
 ) -> Tuple[float, float, np.ndarray]:
