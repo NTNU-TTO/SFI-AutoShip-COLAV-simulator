@@ -858,6 +858,7 @@ class ScenarioGenerator:
             y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + bearing)
 
             inside_bbox = mhm.inside_bbox(np.array([x, y]), (x_min, y_min, x_max, y_max))
+            risky_enough = mhm.check_if_vessel_is_risky_enough(os_csog_state, np.array([x, y, speed, heading])), self.enc, t_cpa_threshold, d_cpa_threshold)
             # hazard_between_ships = mapf.check_if_segment_crosses_grounding_hazards(
             #     self.enc, np.array([x, y]), os_csog_state[:2]
             # )
