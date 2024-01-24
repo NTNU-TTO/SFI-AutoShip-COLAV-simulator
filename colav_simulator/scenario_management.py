@@ -55,16 +55,56 @@ class ScenarioType(Enum):
 
 
 @dataclass
-class ScenarioConfig:
-    """Configuration class for a maritime COLAV scenario.1
+class EpisodicGenerationConfig:
+    """Class describing how the episodes are generated.
 
     If total number of episodes n_episodes is less than
 
     (n_different_plans_per_do_state * n_constant_do_state_episodes_per_os_plan  + n_constant_disturbance_episodes_per_os_plan) * n_constant_os_plan_episodes
 
     (when n_do > 0 and disturbance(s) are used), episodes are generated using the above parameters up until n_episodes. Otherwise, the total number of episodes is simply n_episodes (the above parameters are None).
-
     """
+
+    n_episodes: Optional[
+        int
+    ] = 1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario, with unique own-ship dynamic obstacle states+plans, and disturbance realizations.
+    n_constant_os_plan_episodes: Optional[
+        int
+    ] = None  # Number of episodes to run with the same own-ship plan before generating a new one.
+    n_constant_do_state_episodes_per_os_plan: Optional[
+        int
+    ] = 1  # Number of episodes to run with the same initial dynamic obstacle state, for each own-ship plan, before generating a new one.
+    n_plans_per_do_state: Optional[
+        int
+    ] = None  # Number of different dynamic obstacle plans to generate for each initial dynamic obstacle state.
+    n_constant_disturbance_episodes_per_os_plan: Optional[
+        int
+    ] = None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), for each own-ship plan, before generating a new one.
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = EpisodicGenerationConfig()
+        if "n_episodes" in config_dict:
+            config.n_episodes = config_dict["n_episodes"]
+        if "n_constant_os_plan_episodes" in config_dict:
+            config.n_constant_os_plan_episodes = config_dict["n_constant_os_plan_episodes"]
+        if "n_constant_do_state_episodes_per_os_plan" in config_dict:
+            config.n_constant_do_state_episodes_per_os_plan = config_dict["n_constant_do_state_episodes_per_os_plan"]
+        if "n_plans_per_do_state" in config_dict:
+            config.n_plans_per_do_state = config_dict["n_plans_per_do_state"]
+        if "n_constant_disturbance_episodes_per_os_plan" in config_dict:
+            config.n_constant_disturbance_episodes_per_os_plan = config_dict[
+                "n_constant_disturbance_episodes_per_os_plan"
+            ]
+        return config
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class ScenarioConfig:
+    """Configuration class for a maritime COLAV scenario."""
 
     name: str
     save_scenario: bool
@@ -88,21 +128,9 @@ class ScenarioConfig:
         Path
     ] = None  # Path to the ship information data file associated with AIS data, if considered
     allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
-    n_episodes: Optional[
-        int
-    ] = 1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario.
-    n_constant_os_plan_episodes: Optional[
-        int
-    ] = None  # Number of episodes to run with the same own-ship plan before generating a new one.
-    n_constant_do_state_episodes_per_os_plan: Optional[
-        int
-    ] = 1  # Number of episodes to run with the same initial dynamic obstacle state, for each own-ship plan, before generating a new one.
-    n_plans_per_do_state: Optional[
-        int
-    ] = None  # Number of different dynamic obstacle plans to generate for each initial dynamic obstacle state.
-    n_constant_disturbance_episodes_per_os_plan: Optional[
-        int
-    ] = None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), for each own-ship plan, before generating a new one.
+    episodic_generation_config: Optional[EpisodicGenerationConfig] = field(
+        default_factory=lambda: EpisodicGenerationConfig()
+    )
     n_random_ships: Optional[
         int
     ] = None  # Fixed number of random ships in the scenario, excluding the own-ship, if considered
@@ -123,6 +151,42 @@ class ScenarioConfig:
         str
     ] = "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
 
+    def parse_episodic_generation_config(self, config_dict: dict) -> None:
+        """Parses the episodic generation configuration dictionary, ensures backwards compatibility with old scenario config files.
+
+        Args:
+            config_dict (dict): Scenario generation configuration dictionary.
+        """
+        if "episodic_generation_config" in config_dict:
+            self.episodic_generation_config = EpisodicGenerationConfig.from_dict(
+                config_dict["episodic_generation_config"]
+            )
+            return
+
+        n_episodes = 1
+        if "n_episodes" in config_dict:
+            n_episodes = config_dict["n_episodes"]
+        n_constant_os_plan_episodes = None
+        if "n_constant_os_plan_episodes" in config_dict:
+            n_constant_os_plan_episodes = config_dict["n_constant_os_plan_episodes"]
+        n_constant_do_state_episodes_per_os_plan = 1
+        if "n_constant_do_state_episodes_per_os_plan" in config_dict:
+            n_constant_do_state_episodes_per_os_plan = config_dict["n_constant_do_state_episodes_per_os_plan"]
+        n_plans_per_do_state = None
+        if "n_plans_per_do_state" in config_dict:
+            n_plans_per_do_state = config_dict["n_plans_per_do_state"]
+        n_constant_disturbance_episodes_per_os_plan = None
+        if "n_constant_disturbance_episodes_per_os_plan" in config_dict:
+            n_constant_disturbance_episodes_per_os_plan = config_dict["n_constant_disturbance_episodes_per_os_plan"]
+
+        self.episodic_generation_config = EpisodicGenerationConfig(
+            n_episodes=n_episodes,
+            n_constant_os_plan_episodes=n_constant_os_plan_episodes,
+            n_constant_do_state_episodes_per_os_plan=n_constant_do_state_episodes_per_os_plan,
+            n_plans_per_do_state=n_plans_per_do_state,
+            n_constant_disturbance_episodes_per_os_plan=n_constant_disturbance_episodes_per_os_plan,
+        )
+
     def to_dict(self) -> dict:
         output = {
             "name": self.name,
@@ -131,11 +195,7 @@ class ScenarioConfig:
             "t_end": self.t_end,
             "dt_sim": self.dt_sim,
             "type": self.type.name,
-            "n_episodes": self.n_episodes,
-            "n_constant_os_plan_episodes": self.n_constant_os_plan_episodes,
-            "n_constant_do_state_episodes_per_os_plan": self.n_constant_do_state_episodes_per_os_plan,
-            "n_plans_per_do_state": self.n_plans_per_do_state,
-            "n_constant_disturbance_episodes_per_os_plan": self.n_constant_disturbance_episodes_per_os_plan,
+            "episode_generation_config": EpisodicGenerationConfig.to_dict(self),
             "n_random_ships": self.n_random_ships,
             "n_random_ships_range": self.n_random_ships_range,
             "utm_zone": self.utm_zone,
@@ -148,7 +208,7 @@ class ScenarioConfig:
             "ais_data_file": str(self.ais_data_file) if self.ais_data_file is not None else None,
             "ship_data_file": str(self.ship_data_file) if self.ship_data_file is not None else None,
             "allowed_nav_statuses": self.allowed_nav_statuses,
-            "filename": self.filename,
+            "filename": self.filename if self.filename is not None else None,
             "stochasticity": self.stochasticity.to_dict() if self.stochasticity is not None else None,
             "rl_observation_type": self.rl_observation_type,
             "rl_action_type": self.rl_action_type,
@@ -178,7 +238,6 @@ class ScenarioConfig:
 
         if "n_episodes" in config_dict:
             config.n_episodes = config_dict["n_episodes"]
-
         if "n_constant_os_plan_episodes" in config_dict:
             config.n_constant_os_plan_episodes = config_dict["n_constant_os_plan_episodes"]
         if "n_constant_do_state_episodes_per_os_plan" in config_dict:
@@ -189,25 +248,18 @@ class ScenarioConfig:
             config.n_constant_disturbance_episodes_per_os_plan = config_dict[
                 "n_constant_disturbance_episodes_per_os_plan"
             ]
-
         if "n_random_ships" in config_dict:
             config.n_random_ships = config_dict["n_random_ships"]
-
         if "n_random_ships_range" in config_dict:
             config.n_random_ships_range = config_dict["n_random_ships_range"]
-
         if "map_size" in config_dict:
             config.map_size = tuple(config_dict["map_size"])
-
         if "map_origin_enu" in config_dict:
             config.map_origin_enu = tuple(config_dict["map_origin_enu"])
-
         if "map_tolerance" in config_dict:
             config.map_tolerance = config_dict["map_tolerance"]
-
         if "map_buffer" in config_dict:
             config.map_buffer = config_dict["map_buffer"]
-
         if "ais_data_file" in config_dict:
             config.ais_data_file = Path(config_dict["ais_data_file"])
             if len(config.ais_data_file.parts) == 1:
@@ -219,26 +271,18 @@ class ScenarioConfig:
 
             config.allowed_nav_statuses = config_dict["allowed_nav_statuses"]
 
-        if "n_random_ships" in config_dict:
-            config.n_random_ships = config_dict["n_random_ships"]
-
         if "filename" in config_dict:
             config.filename = config_dict["filename"]
-
         if "stochasticity" in config_dict:
             config.stochasticity = stoch.Config.from_dict(config_dict["stochasticity"])
-
         if "ship_list" in config_dict:
             config.ship_list = []
             for ship_config in config_dict["ship_list"]:
                 config.ship_list.append(ship.Config.from_dict(ship_config))
-
         if "rl_observation_type" in config_dict:
             config.rl_observation_type = config_dict["rl_observation_type"]
-
         if "rl_action_type" in config_dict:
             config.rl_action_type = config_dict["rl_action_type"]
-
         return config
 
 
@@ -349,6 +393,14 @@ class ScenarioGenerator:
         self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator = bg.BehaviorGenerator(self._config.behavior_generator)
 
+        self.episode_counter: int = 0
+        self.do_state_counter: int = 0
+        self.do_plan_counter: int = 0
+        self.os_plan_counter: int = 0
+        self.disturbance_counter: int = 0
+        self.prev_disturbance: Optional[stoch.Disturbance] = None
+        self.prev_ship_list: list = []
+
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the random number generator.
 
@@ -423,6 +475,19 @@ class ScenarioGenerator:
             files = [file for file in scenario_folder.iterdir()]
             files.sort()
             return files
+
+    def determine_n_episodes(self, config: ScenarioConfig) -> int:
+        """Determines the total number of episodes to generate for the scenario.
+
+        Args:
+            config (ScenarioConfig): Scenario config object.
+
+        Returns:
+            int: Total number of episodes to generate.
+        """
+        n_episodes = config.n_episodes
+        if config.n_constant_os_plan_episodes is not None:
+            n_constant_os_plan_episodes = config.n_constant_os_plan_episodes
 
     def generate_configured_scenarios(self) -> list:
         """Generates the list of configured scenarios from the class config file.
@@ -586,6 +651,12 @@ class ScenarioGenerator:
             ship_config_list.append(ship_config)
         config.ship_list = ship_config_list
 
+        n_episodes = self.determine_n_episodes(config)
+        self.episode_counter = 0
+        self.do_state_counter = 0
+        self.do_plan_counter = 0
+        self.os_plan_counter = 0
+        self.disturbance_counter = 0
         scenario_episode_list = []
         for ep in range(config.n_episodes):
             episode = {}
@@ -609,6 +680,7 @@ class ScenarioGenerator:
             if show_plots:
                 enc.close_display()
             scenario_episode_list.append(episode)
+            self.episode_counter += 1
 
         return scenario_episode_list, enc_copy
 
@@ -672,7 +744,14 @@ class ScenarioGenerator:
         ship_list.sort(key=lambda x: x.id)
         config.ship_list.sort(key=lambda x: x.id)
 
-        disturbance = self.generate_disturbance(config)
+        if self.disturbance_counter >= config.n_constant_disturbance_episodes_per_os_plan:
+            self.disturbance_counter = 0
+            disturbance = self.generate_disturbance(config)
+            self.prev_disturbance = disturbance
+        else:
+            disturbance = copy.deepcopy(self.prev_disturbance)
+            self.disturbance_counter += 1
+
         return ship_list, disturbance, config
 
     def transfer_vessel_ais_data(
