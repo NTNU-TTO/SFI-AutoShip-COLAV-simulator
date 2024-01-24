@@ -281,11 +281,11 @@ class BehaviorGenerator:
         ownship = ship_list[0]
         self._enc = enc
 
-        # Assume equal min depth = 5 for all ships, for now
+        # Assume equal min depth for all ships, for now
         self._safe_sea_cdt = safe_sea_cdt
         self._safe_sea_cdt_weights = safe_sea_cdt_weights
         self._grounding_hazards = mapf.extract_relevant_grounding_hazards_as_union(
-            vessel_min_depth=5, enc=self._enc, buffer=self._config.hazard_buffer, show_plots=show_plots
+            vessel_min_depth=0, enc=self._enc, buffer=self._config.hazard_buffer, show_plots=show_plots
         )
         self._simulation_timespan = simulation_timespan
 
@@ -305,6 +305,9 @@ class BehaviorGenerator:
                     "You specified usage of RRT for ship behavior generation, but the RRT library is not found. Exiting..."
                 )
                 exit(0)
+
+            if ship_obj.waypoints.size > 0:
+                continue
 
             ownship_bbox = None
             if ship_obj.id > 0:
@@ -339,8 +342,9 @@ class BehaviorGenerator:
                 max_distance_from_start=4.0 * ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
-            # self._enc.start_display()
-            self._enc.draw_circle((goal_state[1], goal_state[0]), 20.0, color="orange", alpha=0.4)
+            if show_plots:
+                self._enc.start_display()
+                self._enc.draw_circle((goal_state[1], goal_state[0]), 10.0, color="orange", alpha=0.4)
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
             ship_obj.set_goal_state(goal_state)
@@ -424,7 +428,7 @@ class BehaviorGenerator:
                 waypoints = waypoints[0:2, :]
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
                 self._enc.draw_circle(
-                    (goal_state[1], goal_state[0]), self._config.rrt.params.goal_radius, color="orange", alpha=0.4
+                    (goal_state[1], goal_state[0]), 10, color="pink", alpha=0.4
                 )
 
     def generate(

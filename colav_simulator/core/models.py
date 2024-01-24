@@ -64,7 +64,7 @@ class KinematicCSOGParams:
     def to_dict(self):
         output_dict = asdict(self)
         output_dict["ship_vertices"] = self.ship_vertices.tolist()
-        output_dict["r_max"] = np.rad2deg(self.r_max)
+        output_dict["r_max"] = float(np.rad2deg(self.r_max))
         return output_dict
 
 

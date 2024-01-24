@@ -89,8 +89,8 @@ class FLSHParams:
 
     def to_dict(self):
         output = asdict(self)
-        output["max_psi_error_int"] = np.rad2deg(output["max_psi_error_int"])
-        output["psi_error_int_threshold"] = np.rad2deg(output["psi_error_int_threshold"])
+        output["max_psi_error_int"] = float(np.rad2deg(output["max_psi_error_int"]))
+        output["psi_error_int_threshold"] = float(np.rad2deg(output["psi_error_int_threshold"]))
         return output
 
 

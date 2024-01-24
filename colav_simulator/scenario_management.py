@@ -56,7 +56,15 @@ class ScenarioType(Enum):
 
 @dataclass
 class ScenarioConfig:
-    """Configuration class for a maritime COLAV scenario."""
+    """Configuration class for a maritime COLAV scenario.1
+
+    If total number of episodes n_episodes is less than
+
+    (n_different_plans_per_do_state * n_constant_do_state_episodes_per_os_plan  + n_constant_disturbance_episodes_per_os_plan) * n_constant_os_plan_episodes
+
+    (when n_do > 0 and disturbance(s) are used), episodes are generated using the above parameters up until n_episodes. Otherwise, the total number of episodes is simply n_episodes (the above parameters are None).
+
+    """
 
     name: str
     save_scenario: bool
@@ -83,6 +91,18 @@ class ScenarioConfig:
     n_episodes: Optional[
         int
     ] = 1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario.
+    n_constant_os_plan_episodes: Optional[
+        int
+    ] = None  # Number of episodes to run with the same own-ship plan before generating a new one.
+    n_constant_do_state_episodes_per_os_plan: Optional[
+        int
+    ] = 1  # Number of episodes to run with the same initial dynamic obstacle state, for each own-ship plan, before generating a new one.
+    n_plans_per_do_state: Optional[
+        int
+    ] = None  # Number of different dynamic obstacle plans to generate for each initial dynamic obstacle state.
+    n_constant_disturbance_episodes_per_os_plan: Optional[
+        int
+    ] = None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), for each own-ship plan, before generating a new one.
     n_random_ships: Optional[
         int
     ] = None  # Fixed number of random ships in the scenario, excluding the own-ship, if considered
@@ -112,51 +132,32 @@ class ScenarioConfig:
             "dt_sim": self.dt_sim,
             "type": self.type.name,
             "n_episodes": self.n_episodes,
+            "n_constant_os_plan_episodes": self.n_constant_os_plan_episodes,
+            "n_constant_do_state_episodes_per_os_plan": self.n_constant_do_state_episodes_per_os_plan,
+            "n_plans_per_do_state": self.n_plans_per_do_state,
+            "n_constant_disturbance_episodes_per_os_plan": self.n_constant_disturbance_episodes_per_os_plan,
+            "n_random_ships": self.n_random_ships,
+            "n_random_ships_range": self.n_random_ships_range,
             "utm_zone": self.utm_zone,
             "map_data_files": self.map_data_files,
             "map_tolerance": self.map_tolerance,
             "map_buffer": self.map_buffer,
+            "map_size": list(self.map_size) if self.map_size is not None else None,
+            "map_origin_enu": list(self.map_origin_enu) if self.map_origin_enu is not None else None,
             "new_load_of_map_data": self.new_load_of_map_data,
-            "stochasticity": self.stochasticity,
-            "ship_list": [],
+            "ais_data_file": str(self.ais_data_file) if self.ais_data_file is not None else None,
+            "ship_data_file": str(self.ship_data_file) if self.ship_data_file is not None else None,
+            "allowed_nav_statuses": self.allowed_nav_statuses,
+            "filename": self.filename,
+            "stochasticity": self.stochasticity.to_dict() if self.stochasticity is not None else None,
+            "rl_observation_type": self.rl_observation_type,
+            "rl_action_type": self.rl_action_type,
+            "ship_list": None,
         }
-
-        if self.n_random_ships is not None:
-            output["n_random_ships"] = self.n_random_ships
-
-        if self.n_random_ships_range is not None:
-            output["n_random_ships_range"] = self.n_random_ships_range
-
-        if self.map_size is not None:
-            output["map_size"] = list(self.map_size)
-
-        if self.map_origin_enu is not None:
-            output["map_origin_enu"] = list(self.map_origin_enu)
-
-        if self.ais_data_file is not None:
-            output["ais_data_file"] = str(self.ais_data_file)
-
-        if self.ship_data_file is not None:
-            output["ship_data_file"] = str(self.ship_data_file)
-
-        if self.allowed_nav_statuses is not None:
-            output["allowed_nav_statuses"] = self.allowed_nav_statuses
-
-        if self.filename is not None:
-            output["filename"] = self.filename
-
-        if self.stochasticity is not None:
-            output["stochasticity"] = self.stochasticity.to_dict()
 
         if self.ship_list is not None:
             for ship_config in self.ship_list:
                 output["ship_list"].append(ship_config.to_dict())
-
-        if self.rl_observation_type is not None:
-            output["rl_observation_type"] = self.rl_observation_type
-
-        if self.rl_action_type is not None:
-            output["rl_action_type"] = self.rl_action_type
 
         return output
 
@@ -177,6 +178,17 @@ class ScenarioConfig:
 
         if "n_episodes" in config_dict:
             config.n_episodes = config_dict["n_episodes"]
+
+        if "n_constant_os_plan_episodes" in config_dict:
+            config.n_constant_os_plan_episodes = config_dict["n_constant_os_plan_episodes"]
+        if "n_constant_do_state_episodes_per_os_plan" in config_dict:
+            config.n_constant_do_state_episodes_per_os_plan = config_dict["n_constant_do_state_episodes_per_os_plan"]
+        if "n_plans_per_do_state" in config_dict:
+            config.n_plans_per_do_state = config_dict["n_plans_per_do_state"]
+        if "n_constant_disturbance_episodes_per_os_plan" in config_dict:
+            config.n_constant_disturbance_episodes_per_os_plan = config_dict[
+                "n_constant_disturbance_episodes_per_os_plan"
+            ]
 
         if "n_random_ships" in config_dict:
             config.n_random_ships = config_dict["n_random_ships"]
@@ -239,6 +251,7 @@ class Config:
     verbose: bool = False
     manual_episode_accept: bool = False  # Whether or not the user has to accept each generated episode of a scenario.
     behavior_generator: bg.Config = field(default_factory=lambda: bg.Config())
+
     ho_bearing_range: list = field(
         default_factory=lambda: [-20.0, 20.0]
     )  # Range of [min, max] bearing from the own-ship to the target ship for head-on scenarios
@@ -500,7 +513,7 @@ class ScenarioGenerator:
         config_file: Optional[Path] = None,
         enc: Optional[senc.ENC] = None,
         new_load_of_map_data: Optional[bool] = None,
-        show_plots: Optional[bool] = True,
+        show_plots: Optional[bool] = False,
         save_scenario: Optional[bool] = False,
         save_scenario_folder: Optional[Path] = dp.scenarios,
     ) -> Tuple[list, senc.ENC]:
@@ -592,6 +605,9 @@ class ScenarioGenerator:
                     continue
             if save_scenario:
                 episode["config"].filename = save_scenario_episode_definition(episode["config"], save_scenario_folder)
+
+            if show_plots:
+                enc.close_display()
             scenario_episode_list.append(episode)
 
         return scenario_episode_list, enc_copy
@@ -603,7 +619,7 @@ class ScenarioGenerator:
         ais_vessel_data_list: Optional[list],
         mmsi_list: Optional[list],
         enc: Optional[senc.ENC] = None,
-        show_plots: Optional[bool] = False,
+        show_plots: Optional[bool] = True,
     ) -> Tuple[list, Optional[stoch.Disturbance], ScenarioConfig]:
         """Creates a single maritime scenario episode.
 
@@ -627,6 +643,13 @@ class ScenarioGenerator:
 
         ship_list, config = self.transfer_vessel_ais_data(ship_list, config, ais_vessel_data_list, mmsi_list)
 
+        # generate new OS plan (state + plan) if os_constant_plan_ep_counter >= n_os_constant_plan_episodes
+        # generate new DO state if ep_counter >= n_os_constant_plan_episodes * n_do_same_init_episodes
+        # for ep in range(config.n_episodes):
+        #       if ep % n_os_constant_plan_episodes == 0:
+        #           generate new OS plan
+        #       if ep % (n_os_constant_plan_episodes * n_do_same_init_episodes) == 0:
+        #           generate new DO state
         ship_list, config, _ = self.generate_ship_csog_states(ship_list, config)
 
         self.behavior_generator.setup(
@@ -759,6 +782,8 @@ class ScenarioGenerator:
         U_max: float = 10.0,
         draft: float = 2.0,
         min_land_clearance: float = 50.0,
+        t_cpa_threshold: float = 1000.0,
+        d_cpa_threshold: float = 100.0,
     ) -> np.ndarray:
         """Generates a position for the target ship based on the perspective of the first ship/own-ship,
         such that the scenario is of the input type.
@@ -770,6 +795,8 @@ class ScenarioGenerator:
             - U_max (float, optional): Obstacle maximum speed. Defaults to 10.0.
             - draft (float, optional): Draft of target ship. Defaults to 2.0.
             - min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
+            - t_cpa_threshold (float, optional): Time to CPA threshold. Defaults to 1000.0.
+            - d_cpa_threshold (float, optional): Distance to CPA threshold. Defaults to 100.0.
 
         Returns:
             - np.ndarray: Target ship position = [x, y].
@@ -802,7 +829,7 @@ class ScenarioGenerator:
 
         depth = mapf.find_minimum_depth(draft, self.enc)
         safe_sea = self.enc.seabed[depth]
-        max_iter = 3000
+        max_iter = 1000
         y_min, x_min, y_max, x_max = self.enc.bbox
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
@@ -810,7 +837,7 @@ class ScenarioGenerator:
         x = os_csog_state[0] + distance_os_ts * np.cos(os_csog_state[3] + np.pi / 2.0)
         y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + np.pi / 2.0)
         speed = self.rng.uniform(U_min, U_max)
-        safe = False
+        accepted = False
         for i in range(max_iter):
             if scenario_type == ScenarioType.HO:
                 bearing = self.rng.uniform(self._config.ho_bearing_range[0], self._config.ho_bearing_range[1])
@@ -858,16 +885,20 @@ class ScenarioGenerator:
             y = os_csog_state[1] + distance_os_ts * np.sin(os_csog_state[3] + bearing)
 
             inside_bbox = mhm.inside_bbox(np.array([x, y]), (x_min, y_min, x_max, y_max))
-            risky_enough = mhm.check_if_vessel_is_risky_enough(os_csog_state, np.array([x, y, speed, heading])), self.enc, t_cpa_threshold, d_cpa_threshold)
+            risky_enough = mhm.check_if_situation_is_risky_enough(
+                os_csog_state, np.array([x, y, speed, heading]), t_cpa_threshold, d_cpa_threshold
+            )
             # hazard_between_ships = mapf.check_if_segment_crosses_grounding_hazards(
             #     self.enc, np.array([x, y]), os_csog_state[:2]
             # )
 
-            if safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox:  # and not hazard_between_ships:
-                safe = True
+            if (
+                risky_enough and safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox
+            ):  # and not hazard_between_ships:
+                accepted = True
                 break
-        if not safe:
-            print("WARNING: Could not find a safe position for the target ship. Using random position...")
+        if not accepted:
+            print("WARNING: Could not find an acceptable starting state for the target ship. Using a random state...")
         return np.array([x, y, speed, heading])
 
     def generate_random_csog_state(
@@ -940,7 +971,8 @@ def save_scenario_episode_definition(scenario_config: ScenarioConfig, folder: Pa
     Returns:
         - str: The filename of the saved scenario.
     """
-    assert folder.exists(), "The folder where the scenario should be saved does not exist."
+    if not folder.exists():
+        folder.mkdir(parents=False)
     scenario_config_dict: dict = scenario_config.to_dict()
     scenario_config_dict["save_scenario"] = False
     if "n_episodes" in scenario_config_dict:

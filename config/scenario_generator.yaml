@@ -8,7 +8,6 @@ scenario_files: ["head_on_sbmpc.yaml"]
 #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
 #scenario_folder: "imazu_cases"
-
 ho_bearing_range: [-3.0, 3.0]
 ho_heading_range: [-5.0, 5.0]
 ot_bearing_range: [-20.0, 20.0]
@@ -25,7 +24,7 @@ behavior_generator:
   speed_plan_variation_range: [-1.0, 1.0]
   waypoint_dist_range: [300.0, 1000.0]
   waypoint_ang_range: [-90.0, 90.0]
-  hazard_buffer: 20.0
+  hazard_buffer: 0.0
 
   # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, RRT* and RRT:
   pqrrtstar:

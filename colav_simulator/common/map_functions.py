@@ -615,6 +615,7 @@ def generate_random_goal_position(
     min_distance_from_start: float = 100.0,
     max_distance_from_start: float = 10000.0,
     sector_width: float = 60.0 * np.pi / 180.0,
+    show_plots: bool = False,
 ) -> Tuple[float, float]:
     """Generates a random goal position for the ship, given its starting state (position, speed and heading).
 
@@ -627,6 +628,7 @@ def generate_random_goal_position(
         min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
         max_distance_from_start (float, optional): Maximum distance from the starting position. Defaults to 10000.0.
         sector_width (float, optional): Width of the sector to sample from. Defaults to 60.0 * np.pi / 180.0.
+        show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
         Tuple[float, float]: Goal position (northing, easting) for the ship.
@@ -647,7 +649,9 @@ def generate_random_goal_position(
     arc_line_port = LineString(arc_port)
     sector_poly = Polygon(list(arc_line_port.coords) + [(xs_start[1], xs_start[0])])
     sector_poly = sector_poly.intersection(bbox_poly)
-    enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
+    if show_plots:
+        enc.start_display()
+        enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
     max_iter = 3000
     for _ in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt, safe_sea_cdt_weights)

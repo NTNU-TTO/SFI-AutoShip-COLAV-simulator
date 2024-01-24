@@ -61,7 +61,7 @@ class GaussMarkovDisturbanceParams:
         config_dict = {
             "constant": self.constant,
             "initial_speed": self.initial_speed,
-            "initial_direction": np.rad2deg(self.initial_direction),
+            "initial_direction": float(np.rad2deg(self.initial_direction)),
             "speed_range": list(self.speed_range),
             "direction_range": list(self.direction_range),
             "mu_speed": self.mu_speed,
@@ -69,6 +69,10 @@ class GaussMarkovDisturbanceParams:
             "sigma_speed": self.sigma_speed,
             "sigma_direction": self.sigma_direction,
         }
+        config_dict["direction_range"] = [
+            float(np.rad2deg(self.direction_range[0])),
+            float(np.rad2deg(self.direction_range[1])),
+        ]
         return config_dict
 
 
@@ -87,7 +91,9 @@ class Config:
             config.wind = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["wind"])
 
         if "currents" in config_dict:
-            config.currents = cp.convert_settings_dict_to_dataclass(GaussMarkovDisturbanceParams, config_dict["currents"])
+            config.currents = cp.convert_settings_dict_to_dataclass(
+                GaussMarkovDisturbanceParams, config_dict["currents"]
+            )
 
         return config
 
@@ -146,7 +152,9 @@ class GaussMarkovDisturbance(IDisturbance):
 
         # Euler integration
         self._speed = mf.sat(self._speed + V_dot * dt, self._params.speed_range[0], self._params.speed_range[1])
-        self._direction = mf.sat(self._direction + beta_dot * dt, self._params.direction_range[0], self._params.direction_range[1])
+        self._direction = mf.sat(
+            self._direction + beta_dot * dt, self._params.direction_range[0], self._params.direction_range[1]
+        )
         self._direction = mf.wrap_angle_to_pmpi(self._direction)
 
     def get(self) -> np.ndarray:

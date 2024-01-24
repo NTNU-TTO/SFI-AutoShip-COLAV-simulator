@@ -25,6 +25,23 @@ utm_zone:
 n_episodes:
   required: False
   type: integer
+  nullable: True
+n_constant_os_plan_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_constant_do_state_episodes_per_os_plan:
+  required: False
+  type: integer
+  nullable: True
+n_plans_per_do_state:
+  required: False
+  type: integer
+  nullable: True
+n_constant_disturbance_episodes_per_os_plan:
+  required: False
+  nullable: True
+  type: integer
 map_data_files:
   required: True
   type: list
@@ -38,6 +55,8 @@ map_size:
   minlength: 2
   schema:
     type: float
+  nullable: True
+
 map_origin_enu:
   required: False
   type: list
@@ -45,31 +64,46 @@ map_origin_enu:
   minlength: 2
   schema:
     type: float
+  nullable: True
+
 map_tolerance:
   required: False
   type: integer
+  nullable: True
+
 map_buffer:
   required: False
   type: integer
+  nullable: True
+
 new_load_of_map_data:
   required: True
   type: boolean
+
 ais_data_file:
   required: False
   type: string
+  nullable: True
+
 ship_data_file:
   required: False
   type: string
+  nullable: True
+
 allowed_nav_statuses:
   required: False
   type: list
   minlength: 1
   schema:
     type: integer
+  nullable: True
+
 n_random_ships:
   required: False
   type: integer
   excludes: [n_random_ships_range]
+  nullable: True
+
 n_random_ships_range:
   required: False
   type: list
@@ -78,15 +112,22 @@ n_random_ships_range:
   minlength: 2
   schema:
     type: integer
+  nullable: True
+
 min_dist_between_ships:
   required: False
   type: float
+  nullable: True
+
 max_dist_between_ships:
   required: False
   type: float
+  nullable: True
+
 rl_observation_type:
   required: False
   type: dict
+  nullable: True
   schema:
     tuple_observation:
       required: False
@@ -123,16 +164,22 @@ rl_observation_type:
 rl_action_type:
   required: False
   type: string
+  nullable: True
+
 filename:
   required: False
   type: string
+  nullable: True
+
 stochasticity:
   required: False
   type: dict
+  nullable: True
   schema:
     wind:
       required: False
       type: dict
+      nullable: True
       schema:
         constant:
           required: True
@@ -164,9 +211,13 @@ stochasticity:
     waves: # TBD
       required: False
       type: dict
+      nullable: True
+
     currents:
       required: False
       type: dict
+      nullable: True
+
       schema:
         constant:
           required: True
@@ -199,6 +250,7 @@ stochasticity:
 ship_list:
   required: False
   type: list
+  nullable: True
   schema:
     type: dict
     schema:
