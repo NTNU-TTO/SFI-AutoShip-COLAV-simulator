@@ -217,6 +217,7 @@ class BehaviorGenerator:
 
         self._simulation_timespan: float = 0.0
         self._prev_ship_plans: list = []
+        self._prev_ship_states: list = []
         self._ship_replan_flags: list = []
         self._planning_bbox_list: list = []
         self._planning_hazard_list: list = []
@@ -284,6 +285,13 @@ class BehaviorGenerator:
         """
         if len(self._prev_ship_plans) == 0:
             self._prev_ship_plans = [None for _ in range(len(ship_list))]
+            self._prev_ship_states = [np.empty(4) for _ in range(len(ship_list))]
+            self._planning_bbox_list = []
+            self._planning_hazard_list = []
+            self._planning_cdt_list = []
+            self._rrt_list = []
+            self._rrtstar_list = []
+            self._pqrrtstar_list = []
         ownship = ship_list[0]
         self._enc = enc
         self._ship_replan_flags = ship_replan_flags
@@ -296,12 +304,6 @@ class BehaviorGenerator:
         )
         self._simulation_timespan = simulation_timespan
 
-        self._planning_bbox_list = []
-        self._planning_hazard_list = []
-        self._planning_cdt_list = []
-        self._rrt_list = []
-        self._rrtstar_list = []
-        self._pqrrtstar_list = []
         for ship_obj in ship_list:
             method = self._config.target_ship_method if ship_obj.id > 0 else self._config.ownship_method
             if method.value < BehaviorGenerationMethod.RRT.value:
@@ -318,6 +320,10 @@ class BehaviorGenerator:
 
             replan = self._ship_replan_flags[ship_obj.id]
             if not replan:
+                continue
+
+            run_rrt = not np.array_equal(ship_obj.csog_state, self._prev_ship_states[ship_obj.id])
+            if not run_rrt:
                 continue
 
             ownship_bbox = None
@@ -440,6 +446,8 @@ class BehaviorGenerator:
                 waypoints = waypoints[0:2, :]
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
                 self._prev_ship_plans[ship_obj.id] = waypoints, speed_plan
+
+            self._prev_ship_states[ship_obj.id] = ship_obj.csog_state
 
     def generate(
         self,
