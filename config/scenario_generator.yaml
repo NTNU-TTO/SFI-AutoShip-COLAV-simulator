@@ -15,6 +15,9 @@ ot_heading_range: [-15.0, 15.0]
 cr_bearing_range: [10.1, 90.5]
 cr_heading_range: [-10.0, 10.0]
 dist_between_ships_range: [300.0, 600.0] #[500.0, 800.0] # [300.0, 800.0] # [500.0, 800.0]
+csog_state_perturbation_covariance: [36.0, 36.0, 0.5, 3.0] # for state [x, y, U, chi], with last entry in degrees
+t_cpa_threshold: 1000.0
+d_cpa_threshold: 150.0
 
 behavior_generator:
   ownship_method: "RRTStar" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
@@ -31,7 +34,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 50000.0
+      max_time: 10.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
       goal_radius: 50.0
@@ -64,7 +67,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 50000.0
+      max_time: 10.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
       goal_radius: 50.0
@@ -94,7 +97,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 50000.0
+      max_time: 10.0
       iter_between_direct_goal_growth: 500000
       goal_radius: 50.0
       step_size: 0.5

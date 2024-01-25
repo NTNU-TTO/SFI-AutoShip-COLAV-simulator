@@ -22,6 +22,30 @@ type:
 utm_zone:
   required: True
   type: integer
+episode_generation:
+  required: False
+  type: dict
+  schema:
+    n_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_os_plan_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_do_state_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_plans_per_do_state:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_disturbance_episodes:
+      required: False
+      nullable: True
+      type: integer
 n_episodes:
   required: False
   type: integer
@@ -30,7 +54,7 @@ n_constant_os_plan_episodes:
   required: False
   type: integer
   nullable: True
-n_constant_do_state_episodes_per_os_plan:
+n_constant_do_state_episodes:
   required: False
   type: integer
   nullable: True
@@ -38,7 +62,7 @@ n_plans_per_do_state:
   required: False
   type: integer
   nullable: True
-n_constant_disturbance_episodes_per_os_plan:
+n_constant_disturbance_episodes:
   required: False
   nullable: True
   type: integer

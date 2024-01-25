@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 from colav_evaluation_tool.evaluator import Evaluator
-from colav_simulator.scenario_management import ScenarioGenerator
+from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 
 if __name__ == "__main__":

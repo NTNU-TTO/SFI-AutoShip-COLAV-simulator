@@ -11,7 +11,8 @@ import pathlib
 from typing import Optional, Tuple
 
 import colav_simulator.gym.reward as rw
-import colav_simulator.scenario_management as sm
+import colav_simulator.scenario_config as sc
+import colav_simulator.scenario_generator as sg
 import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
@@ -31,14 +32,14 @@ class COLAVEnvironment(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30, "video.frames_per_second": 30}
     observation_type: ObservationType
     action_type: ActionType
-    scenario_config: sm.ScenarioConfig
+    scenario_config: sc.ScenarioConfig
     scenario_data_tup: tuple
 
     def __init__(
         self,
         simulator_config: Optional[cssim.Config] = None,
-        scenario_generator_config: Optional[sm.Config] = None,
-        scenario_config: Optional[sm.ScenarioConfig] = None,
+        scenario_generator_config: Optional[sg.Config] = None,
+        scenario_config: Optional[sc.ScenarioConfig] = None,
         scenario_config_file: Optional[pathlib.Path] = None,
         scenario_files: Optional[list] = None,
         reload_map: Optional[bool] = True,
@@ -73,8 +74,8 @@ class COLAVEnvironment(gym.Env):
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
 
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
-        self.scenario_generator: sm.ScenarioGenerator = sm.ScenarioGenerator(config=scenario_generator_config)
-        self.scenario_config: Optional[sm.ScenarioConfig] = scenario_config
+        self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(config=scenario_generator_config)
+        self.scenario_config: Optional[sc.ScenarioConfig] = scenario_config
         self.scenario_config_file: Optional[pathlib.Path] = scenario_config_file
         self.scenario_files: Optional[list] = scenario_files
         self.reload_map: bool = reload_map
@@ -145,7 +146,7 @@ class COLAVEnvironment(gym.Env):
 
     def _generate(
         self,
-        scenario_config: Optional[sm.ScenarioConfig] = None,
+        scenario_config: Optional[sc.ScenarioConfig] = None,
         scenario_config_file: Optional[pathlib.Path] = None,
         reload_map: Optional[bool] = None,
     ) -> None:

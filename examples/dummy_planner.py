@@ -13,7 +13,7 @@ import colav_simulator.core.stochasticity as stochasticity
 import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.enc as senc
-from colav_simulator.scenario_management import ScenarioGenerator
+from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 
 

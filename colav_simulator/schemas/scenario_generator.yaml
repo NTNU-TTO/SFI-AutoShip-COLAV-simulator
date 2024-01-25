@@ -72,8 +72,19 @@ dist_between_ships_range:
     type: float
     min: 50.0
     max: 100000.0
-
-
+csog_state_perturbation_covariance:
+  required: True
+  type: list
+  minlength: 4
+  maxlength: 4
+  schema:
+    type: float
+t_cpa_threshold:
+  required: True
+  type: float
+d_cpa_threshold:
+  required: True
+  type: float
 behavior_generator:
   required: True
   type: dict

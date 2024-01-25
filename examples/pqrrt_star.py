@@ -21,7 +21,7 @@ import numpy as np
 import rrt_star_lib
 import seacharts.enc as senc
 from colav_simulator.behavior_generator import PQRRTStarParams
-from colav_simulator.scenario_management import ScenarioGenerator
+from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 from shapely import strtree
 

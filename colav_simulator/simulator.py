@@ -9,15 +9,14 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
-import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.stochasticity as stochasticity
-import colav_simulator.scenario_management as sm
+import colav_simulator.scenario_config as sc
 import colav_simulator.viz.visualizer as viz
 import numpy as np
 import pandas as pd
@@ -56,7 +55,7 @@ class Simulator:
     ship_list: list
     disturbance: Optional[stochasticity.Disturbance]
     enc: senc.ENC
-    sconfig: sm.ScenarioConfig
+    sconfig: sc.ScenarioConfig
     recent_sensor_measurements: list
 
     t: float
@@ -99,7 +98,7 @@ class Simulator:
     def initialize_scenario_episode(
         self,
         ship_list: list,
-        sconfig: sm.ScenarioConfig,
+        sconfig: sc.ScenarioConfig,
         enc: senc.ENC,
         disturbance: Optional[stochasticity.Disturbance] = None,
         colav_systems: Optional[list] = None,
@@ -352,10 +351,10 @@ class Simulator:
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
-        if self.ownship._goal_state.size > 0:
-            goal_state = self.ownship._goal_state
-        elif self.ownship._waypoints.size > 1:
-            goal_state = self.ownship._waypoints[:, -1]
+        if self.ownship.goal_csog_state.size > 0:
+            goal_state = self.ownship.goal_csog_state
+        elif self.ownship.waypoints.size > 1:
+            goal_state = self.ownship.waypoints[:, -1]
         else:
             raise ValueError(
                 "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"

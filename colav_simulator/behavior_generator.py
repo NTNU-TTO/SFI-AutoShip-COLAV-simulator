@@ -216,6 +216,8 @@ class BehaviorGenerator:
         self._safe_sea_cdt_weights: list = None
 
         self._simulation_timespan: float = 0.0
+        self._prev_ship_plans: list = []
+        self._ship_replan_flags: list = []
         self._planning_bbox_list: list = []
         self._planning_hazard_list: list = []
         self._planning_cdt_list: list = []
@@ -260,6 +262,7 @@ class BehaviorGenerator:
         self,
         rng: np.random.Generator,
         ship_list: list,
+        ship_replan_flags: list,
         enc: senc.ENC,
         safe_sea_cdt: list,
         safe_sea_cdt_weights: list,
@@ -272,14 +275,18 @@ class BehaviorGenerator:
         Args:
             rng (np.random.Generator): Random number generator.
             ship_list (list): List of ships to be considered in simulation.
+            ship_replan_flags (list): List of flags indicating whether a ship should have a new behavior generated.
             enc (senc.ENC): Electronic navigational chart.
             safe_sea_cdt (list): Safe sea triangulation.
             safe_sea_cdt_weights (list): Weights for the safe sea triangulation.
             simulation_timespan (float): Simulation timespan.
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
+        if len(self._prev_ship_plans) == 0:
+            self._prev_ship_plans = [None for _ in range(len(ship_list))]
         ownship = ship_list[0]
         self._enc = enc
+        self._ship_replan_flags = ship_replan_flags
 
         # Assume equal min depth for all ships, for now
         self._safe_sea_cdt = safe_sea_cdt
@@ -307,6 +314,10 @@ class BehaviorGenerator:
                 exit(0)
 
             if ship_obj.waypoints.size > 0:
+                continue
+
+            replan = self._ship_replan_flags[ship_obj.id]
+            if not replan:
                 continue
 
             ownship_bbox = None
@@ -355,6 +366,7 @@ class BehaviorGenerator:
             )
             planning_cdt = mapf.create_safe_sea_triangulation(
                 self._enc,
+                vessel_min_depth=0,
                 bbox=bbox,
                 show_plots=False,
             )
@@ -370,7 +382,7 @@ class BehaviorGenerator:
                 rrt.transfer_safe_sea_triangulation(planning_cdt)
                 rrt.set_init_state(ship_obj.state.tolist())
                 rrt.set_goal_state(goal_state.tolist())
-                U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+                U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial ship speed
                 rrt.reset(self._seed)
                 rrt_soln = rrt.grow_towards_goal(
                     ownship_state=ship_obj.state.tolist(),
@@ -390,7 +402,7 @@ class BehaviorGenerator:
                 rrtstar.transfer_safe_sea_triangulation(planning_cdt)
                 rrtstar.set_init_state(ship_obj.state.tolist())
                 rrtstar.set_goal_state(goal_state.tolist())
-                U_d = ship_obj.csog_state[2]  # Constant desired speed given by the initial own-ship speed
+                U_d = ship_obj.csog_state[2]
                 rrtstar.reset(self._seed)
                 rrt_soln = rrtstar.grow_towards_goal(
                     ownship_state=ship_obj.state.tolist(),
@@ -418,18 +430,16 @@ class BehaviorGenerator:
                     return_on_first_solution=False,
                 )
                 print("PQ-RRT* tree size: ", pqrrtstar.get_num_nodes())
-
                 self._pqrrtstar_list.append(pqrrtstar)
                 # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
 
             if ship_obj.id == 0:
+                self._enc.draw_circle((goal_state[1], goal_state[0]), 10, color="pink", alpha=0.4)
                 waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
                 speed_plan = waypoints[2, :]
                 waypoints = waypoints[0:2, :]
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
-                self._enc.draw_circle(
-                    (goal_state[1], goal_state[0]), 10, color="pink", alpha=0.4
-                )
+                self._prev_ship_plans[ship_obj.id] = waypoints, speed_plan
 
     def generate(
         self,
@@ -464,6 +474,16 @@ class BehaviorGenerator:
                 or ship_obj.trajectory.size > 1
                 or ship_config.goal_csog_state is not None
             ):
+                continue
+
+            replan = self._ship_replan_flags[ship_obj.id]
+            if not replan:
+                prev_waypoints, prev_speed_plan = self._prev_ship_plans[ship_obj.id]
+                ship_config.waypoints = prev_waypoints
+                ship_config.speed_plan = prev_speed_plan
+                ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
+                ship_list[ship_cfg_idx] = ship_obj
+                ship_config_list[ship_cfg_idx] = ship_config
                 continue
 
             method = target_ship_method if ship_obj.id > 0 else ownship_method
@@ -533,9 +553,9 @@ class BehaviorGenerator:
             ship_config.waypoints = waypoints
             ship_config.speed_plan = speed_plan
             ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
-
             ship_list[ship_cfg_idx] = ship_obj
             ship_config_list[ship_cfg_idx] = ship_config
+            self._prev_ship_plans[ship_cfg_idx] = ship_config.waypoints, ship_config.speed_plan
 
         if self._enc is not None and show_plots:
             color = "pink"

@@ -7,7 +7,7 @@ import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
-from colav_simulator.scenario_management import ScenarioGenerator
+from colav_simulator.scenario_generator import ScenarioGenerator
 from matplotlib import pyplot as plt
 
 legend_size = 10  # legend size
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
     scenario_generator.behavior_generator.setup(
-        rng, [ownship], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
+        rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
     )
 
     n_wps = 4

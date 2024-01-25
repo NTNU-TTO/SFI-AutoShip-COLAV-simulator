@@ -8,7 +8,7 @@ import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
-from colav_simulator.scenario_management import ScenarioGenerator
+from colav_simulator.scenario_generator import ScenarioGenerator
 from matplotlib import pyplot as plt
 
 legend_size = 10  # legend size
