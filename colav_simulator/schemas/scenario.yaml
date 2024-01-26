@@ -46,6 +46,10 @@ episode_generation:
       required: False
       nullable: True
       type: integer
+    position_generation:
+      required: False
+      nullable: True
+      type: string
 n_episodes:
   required: False
   type: integer
@@ -571,6 +575,9 @@ ship_list:
               U_max:
                 required: True
                 type: float
+              name:
+                required: False
+                type: string
 
           telemetron:
             type: string

@@ -615,6 +615,7 @@ def generate_random_goal_position(
     min_distance_from_start: float = 100.0,
     max_distance_from_start: float = 10000.0,
     sector_width: float = 60.0 * np.pi / 180.0,
+    min_distance_to_land: float = 50.0,
     show_plots: bool = False,
 ) -> Tuple[float, float]:
     """Generates a random goal position for the ship, given its starting state (position, speed and heading).
@@ -628,6 +629,7 @@ def generate_random_goal_position(
         min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
         max_distance_from_start (float, optional): Maximum distance from the starting position. Defaults to 10000.0.
         sector_width (float, optional): Width of the sector to sample from. Defaults to 60.0 * np.pi / 180.0.
+        min_distance_to_land (float, optional): Minimum distance to land. Defaults to 50.0.
         show_plots (bool, optional): Option for visualization. Defaults to False.
 
     Returns:
@@ -636,6 +638,12 @@ def generate_random_goal_position(
     if bbox is None:
         bbox = enc.bbox
     bbox_poly = bbox_to_polygon(bbox)
+
+    if max_distance_from_start <= min_distance_from_start:
+        print(
+            "WARNING: Max_distance_from_start must be larger than min_distance_from_start in goal position sampling. Setting to default values.."
+        )
+        max_distance_from_start = min_distance_from_start + 400.0
 
     northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
@@ -658,8 +666,12 @@ def generate_random_goal_position(
         easting, northing = p[0], p[1]
 
         dist2start = np.linalg.norm(np.array([northing, easting]) - np.array([xs_start[0], xs_start[1]]))
-        if (min_distance_from_start <= dist2start <= max_distance_from_start) and sector_poly.contains(
-            Point(easting, northing)
+        inside_sector = sector_poly.contains(Point(easting, northing))
+        dist2land = enc.land.geometry.distance(Point(easting, northing))
+        if (
+            (min_distance_from_start <= dist2start <= max_distance_from_start)
+            and inside_sector
+            and (dist2land >= min_distance_to_land)
         ):
             break
 
@@ -1372,6 +1384,52 @@ def plot_trajectory(
         edge_style=edge_style,
         alpha=alpha,
     )
+
+
+def plot_disturbance(
+    magnitude: float,
+    direction: float,
+    name: str,
+    enc: ENC,
+    color: str,
+    magnitude_scale: Optional[float] = 50.0,
+    linewidth: Optional[float] = 1.0,
+    location: Optional[str] = "topright",
+    text_location_offset: Optional[Tuple[float, float]] = (0.0, 0.0),
+) -> None:
+    """Plots a disturbance vector on the ENC as a vector arrow inside a circle.
+    The name of the disturbance is plotted below the circle, with an offset given by text_location_offset.
+
+    Args:
+        magnitude (float): Magnitude of the disturbance
+        direction (float): Direction of the disturbance (defined in a north-east coordinate system)
+        name (str): Name of the disturbance
+        enc (ENC): Electronic Navigational Chart object
+        color (str): Color of the disturbance vector
+        magnitude_scale (Optional[float]): Scale of the disturbance vector length. Defaults to 50.0.
+        linewidth (Optional[float]): Arrow thickness. Defaults to 1.0.
+        location (Optional[str]): Location of the disturbance vector in ["topleft", "topright", "bottomleft", "bottomright"]. Defaults to "topright".
+        text_location_offset (Optional[Tuple[float, float]]): Offset of the text location. Defaults to (0.0, 0.0).
+    """
+    enc.start_display()
+    xmin, ymin, xmax, ymax = enc.bbox  # x is east, y is north
+    if location == "topright":
+        origin = (xmax - 0.1 * (xmax - xmin), ymax - 0.1 * (ymax - ymin))
+    elif location == "topleft":
+        origin = (xmin + 0.1 * (xmax - xmin), ymax - 0.1 * (ymax - ymin))
+    elif location == "bottomright":
+        origin = (xmax - 0.1 * (xmax - xmin), ymin + 0.1 * (ymax - ymin))
+    elif location == "bottomleft":
+        origin = (xmin + 0.1 * (xmax - xmin), ymin + 0.1 * (ymax - ymin))
+
+    magnitude = magnitude * magnitude_scale
+    arrow_start = origin
+    arrow_end = (origin[0] + magnitude * np.sin(direction), origin[1] + magnitude * np.cos(direction))
+    text_location = (origin[0] + text_location_offset[0], origin[1] - magnitude + text_location_offset[1])
+
+    enc.draw_circle(origin, radius=magnitude, color="white", fill=True, linewidth=linewidth, alpha=0.4)
+    enc.draw_arrow(arrow_start, arrow_end, direction, color=color, linewidth=linewidth, alpha=1, fill=True)
+    enc.draw_text(name, text_location, color=color, size=10)
 
 
 def plot_waypoints(

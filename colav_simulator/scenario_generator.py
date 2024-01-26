@@ -264,34 +264,114 @@ class ScenarioGenerator:
         scenario_data_list = self.generate_scenarios_from_files(files)
         return scenario_data_list
 
-    def load_scenario_from_folder(self, folder: Path, scenario_name: str) -> Tuple[list, senc.ENC]:
+    def load_scenario_from_folder(self, folder: Path, scenario_name: str, show: bool = False) -> Tuple[list, senc.ENC]:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
         Args:
             - folder (Path): Path to folder containing scenario files.
             - scenario_name (str): Name of the scenario.
+            - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts. Defaults to False.
 
         Returns:
             - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
         """
         scenario_episode_list = []
         first = True
-        for _, file in enumerate(folder.iterdir()):
+        for _, file in enumerate(sorted(folder.iterdir())):
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
 
             if self._config.verbose:
                 print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
-            ship_list, config = self.load_episode(config_file=file)
+            ship_list, disturbance, config = self.load_episode(config_file=file, show=True)
             if first:
                 first = False
                 enc = self._configure_enc(config)
-            scenario_episode_list.append({"ship_list": ship_list, "config": config})
+                if show:
+                    enc.start_display()
+            scenario_episode_list.append({"ship_list": ship_list, "disturbance": disturbance, "config": config})
         if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
+        if show:
+            enc.close_display()
         return (scenario_episode_list, enc)
 
-    def load_episode(self, config_file: Path) -> Tuple[list, sc.ScenarioConfig]:
+    def visualize_disturbance(self, disturbance: stoch.Disturbance | None, enc: senc.ENC) -> None:
+        """Visualizes the disturbance object.
+
+        Args:
+            disturbance (stoch.Disturbance | None): Disturbance object.
+            enc (senc.ENC): _description_
+        """
+        if disturbance is None:
+            return
+
+        ddata = disturbance.get()
+        if ddata.currents is not None:
+            mapf.plot_disturbance(
+                ddata.currents["speed"],
+                ddata.currents["direction"],
+                "current: " + str(ddata.currents["speed"]),
+                enc,
+                color="white",
+                linewidth=1.0,
+                location="topright",
+                text_location_offset=(0.0, 0.0),
+            )
+
+        if ddata.wind is not None:
+            mapf.plot_disturbance(
+                ddata.wind["speed"],
+                ddata.wind["direction"],
+                "wind: " + str(ddata.wind["speed"]),
+                enc,
+                color="peru",
+                linewidth=1.0,
+                location="topright",
+                text_location_offset=(0.0, 0.0),
+            )
+
+    def visualize_episode(
+        self, ship_list: list, disturbance: stoch.Disturbance | None, enc: senc.ENC, config: sc.ScenarioConfig
+    ) -> None:
+        """Visualizes a fully defined scenario episode.
+
+        Args:
+            ship_list (list): List of ships in the scenario with initialized poses and plans.
+            disturbance (stoch.Disturbance | None): Disturbance object for the episode.
+            enc (senc.ENC): ENC object.
+            config (sc.ScenarioConfig): Scenario config object.
+        """
+        enc.start_display()
+        for ship_obj in reversed(ship_list):
+            ship_color = "orangered" if ship_obj.id == 0 else "goldenrod"
+            plan_color = "orange" if ship_obj.id == 0 else "yellow"
+            if ship_obj.waypoints.size > 0:
+                mapf.plot_waypoints(
+                    ship_obj.waypoints,
+                    enc,
+                    color=plan_color,
+                    point_buffer=2.0,
+                    disk_buffer=6.0,
+                    hole_buffer=2.0,
+                )
+            if ship_obj.trajectory.size > 0:
+                mapf.plot_trajectory(ship_obj.trajectory, enc, color=plan_color, linewidth=1.0)
+
+            ship_poly = mapf.create_ship_polygon(
+                ship_obj.csog_state[0],
+                ship_obj.csog_state[1],
+                mf.wrap_angle_to_pmpi(ship_obj.csog_state[3]),
+                ship_obj.length,
+                ship_obj.width,
+                5.0,
+                5.0,
+            )
+            enc.draw_polygon(ship_poly, color=ship_color, width=0.0, thickness=5.0)
+
+        self.visualize_disturbance(disturbance, enc)
+
+    def load_episode(self, config_file: Path, show: bool = False) -> Tuple[list, stoch.Disturbance, sc.ScenarioConfig]:
         """Loads a fully defined scenario episode from configuration file.
 
         NOTE: The file must have a ship list with fully specified ship configurations,
@@ -307,16 +387,19 @@ class ScenarioGenerator:
         """
         config = cp.extract(sc.ScenarioConfig, config_file, dp.scenario_schema)
         ship_list = []
+        disturbance = stoch.Disturbance(config.stochasticity) if config.stochasticity is not None else None
         for ship_cfg in config.ship_list:
             assert (
-                ship_cfg.csog_state is not None
-                and ((ship_cfg.waypoints is not None and ship_cfg.speed_plan) or ship_cfg.goal_csog_state) is not None
-                and ship_cfg.id is not None
+                ship_cfg.csog_state.size > 0
+                and (
+                    (ship_cfg.waypoints.size > 0 and ship_cfg.speed_plan.size > 0) or ship_cfg.goal_csog_state.size > 0
+                )
+                and ship_cfg.id >= 0
             ), "A fully specified ship config has an id, initial csog_state, waypoints + speed_plan or goal state."
             ship_obj = ship.Ship(mmsi=ship_cfg.mmsi, identifier=ship_cfg.id, config=ship_cfg)
             ship_list.append(ship_obj)
 
-        return ship_list, config
+        return ship_list, disturbance, config
 
     def generate_scenarios_from_files(self, files: list) -> list:
         """Generates scenarios from each of the input file paths.
@@ -423,6 +506,8 @@ class ScenarioGenerator:
             self._disturbance_update_indices,
         ) = self.determine_indices_of_episode_parameter_updates(config)
         self._position_generation = config.episode_generation.position_generation
+
+        self.behavior_generator.reset()
         scenario_episode_list = []
         for ep in range(n_episodes):
             if show_plots:
@@ -440,18 +525,18 @@ class ScenarioGenerator:
             if self._config.manual_episode_accept:
                 print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
                 print("ScenarioGenerator: Accept episode? (y/n)")
-                if input() != "y" or input() != "Y":
+                answer = "y"  # input()
+                if answer not in ["y", "Y", "yes", "Yes"]:
                     continue
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
                     episode["config"], save_scenario_folder
                 )
 
-            if show_plots:
-                self.enc.close_display()
-
             scenario_episode_list.append(episode)
 
+        if show_plots:
+            self.enc.close_display()
         return scenario_episode_list, enc_copy
 
     def generate_episode(

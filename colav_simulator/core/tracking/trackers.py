@@ -53,8 +53,8 @@ class KFParams:
 class Config:
     """Class for holding tracker configuration parameters."""
 
-    god_tracker: Optional[bool] = False
-    kf: Optional[KFParams] = field(default_factory=lambda: KFParams())
+    god_tracker: Optional[bool] = True
+    kf: Optional[KFParams] = None
 
     def to_dict(self) -> dict:
         output_dict = {}
@@ -71,6 +71,7 @@ class Config:
 
         if "kf" in config_dict:
             config.kf = cp.convert_settings_dict_to_dataclass(KFParams, config_dict["kf"])
+            config.god_tracker = None
         elif "god_tracker" in config_dict:
             config.god_tracker = True
             config.kf = None

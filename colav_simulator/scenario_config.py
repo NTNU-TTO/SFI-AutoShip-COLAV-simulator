@@ -126,9 +126,9 @@ class ScenarioConfig:
     n_random_ships_range: Optional[
         list
     ] = None  # Variable range of number of random ships in the scenario, excluding the own-ship, if considered
-    ship_list: Optional[
-        list
-    ] = None  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
+    ship_list: Optional[list] = field(
+        default_factory=[]
+    )  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
     filename: Optional[str] = None  # Filename of the scenario, stored after creation
     stochasticity: Optional[
         stoch.Config
@@ -186,7 +186,7 @@ class ScenarioConfig:
             "t_end": self.t_end,
             "dt_sim": self.dt_sim,
             "type": self.type.name,
-            "episode_generation_config": EpisodeGenerationConfig.to_dict(self),
+            "episode_generation": self.episode_generation.to_dict(),
             "n_random_ships": self.n_random_ships,
             "n_random_ships_range": self.n_random_ships_range,
             "utm_zone": self.utm_zone,
@@ -203,7 +203,7 @@ class ScenarioConfig:
             "stochasticity": self.stochasticity.to_dict() if self.stochasticity is not None else None,
             "rl_observation_type": self.rl_observation_type,
             "rl_action_type": self.rl_action_type,
-            "ship_list": None,
+            "ship_list": [],
         }
 
         if self.ship_list is not None:
@@ -227,19 +227,19 @@ class ScenarioConfig:
         )
         ep_gen_cfg = ScenarioConfig.parse_episode_generation_config(config_dict)
         config.episode_generation = ep_gen_cfg
-        if "n_random_ships" in config_dict:
+        if "n_random_ships" in config_dict and config_dict["n_random_ships"] is not None:
             config.n_random_ships = config_dict["n_random_ships"]
-        if "n_random_ships_range" in config_dict:
+        if "n_random_ships_range" in config_dict and config_dict["n_random_ships_range"] is not None:
             config.n_random_ships_range = config_dict["n_random_ships_range"]
-        if "map_size" in config_dict:
+        if "map_size" in config_dict and config_dict["map_size"] is not None:
             config.map_size = tuple(config_dict["map_size"])
-        if "map_origin_enu" in config_dict:
+        if "map_origin_enu" in config_dict and config_dict["map_origin_enu"] is not None:
             config.map_origin_enu = tuple(config_dict["map_origin_enu"])
-        if "map_tolerance" in config_dict:
+        if "map_tolerance" in config_dict and config_dict["map_tolerance"] is not None:
             config.map_tolerance = config_dict["map_tolerance"]
-        if "map_buffer" in config_dict:
+        if "map_buffer" in config_dict and config_dict["map_buffer"] is not None:
             config.map_buffer = config_dict["map_buffer"]
-        if "ais_data_file" in config_dict:
+        if "ais_data_file" in config_dict and config_dict["ais_data_file"] is not None:
             config.ais_data_file = Path(config_dict["ais_data_file"])
             if len(config.ais_data_file.parts) == 1:
                 config.ais_data_file = dp.ais_data / config.ais_data_file
