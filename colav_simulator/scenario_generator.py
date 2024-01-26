@@ -149,6 +149,7 @@ class ScenarioGenerator:
         self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator = bg.BehaviorGenerator(self._config.behavior_generator)
 
+        self._disturbance_handles: list = []
         self._episode_counter: int = 0
         self._os_plan_update_indices: list = []
         self._do_state_update_indices: list = []
@@ -277,19 +278,24 @@ class ScenarioGenerator:
         """
         scenario_episode_list = []
         first = True
-        for _, file in enumerate(sorted(folder.iterdir())):
+        file_list = [file for file in folder.iterdir()]
+        file_list.sort(key=lambda x: x.name.split("_")[-3])
+        for _, file in enumerate(file_list):
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
 
             if self._config.verbose:
                 print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
-            ship_list, disturbance, config = self.load_episode(config_file=file, show=True)
+            ship_list, disturbance, config = self.load_episode(config_file=file)
             if first:
                 first = False
                 enc = self._configure_enc(config)
-                if show:
-                    enc.start_display()
+
             scenario_episode_list.append({"ship_list": ship_list, "disturbance": disturbance, "config": config})
+
+            if show:
+                self.visualize_episode(ship_list, disturbance, enc, config)
+
         if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
         if show:
@@ -307,29 +313,39 @@ class ScenarioGenerator:
             return
 
         ddata = disturbance.get()
-        if ddata.currents is not None:
-            mapf.plot_disturbance(
-                ddata.currents["speed"],
-                ddata.currents["direction"],
-                "current: " + str(ddata.currents["speed"]),
-                enc,
-                color="white",
-                linewidth=1.0,
-                location="topright",
-                text_location_offset=(0.0, 0.0),
+        if self._disturbance_handles:
+            for handle in self._disturbance_handles:
+                handle.remove()
+
+        handles = []
+        if ddata.currents is not None and ddata.currents["speed"] > 0.0:
+            handles.extend(
+                mapf.plot_disturbance(
+                    magnitude=80.0,
+                    direction=ddata.currents["direction"],
+                    name="current: " + str(ddata.currents["speed"]) + " m/s",
+                    enc=enc,
+                    color="white",
+                    linewidth=1.0,
+                    location="topright",
+                    text_location_offset=(0.0, 0.0),
+                )
             )
 
-        if ddata.wind is not None:
-            mapf.plot_disturbance(
-                ddata.wind["speed"],
-                ddata.wind["direction"],
-                "wind: " + str(ddata.wind["speed"]),
-                enc,
-                color="peru",
-                linewidth=1.0,
-                location="topright",
-                text_location_offset=(0.0, 0.0),
+        if ddata.wind is not None and ddata.wind["speed"] > 0.0:
+            handles.extend(
+                mapf.plot_disturbance(
+                    magnitude=80.0,
+                    direction=ddata.wind["direction"],
+                    name="wind: " + str(ddata.wind["speed"]) + " m/s",
+                    enc=enc,
+                    color="peru",
+                    linewidth=1.0,
+                    location="topright",
+                    text_location_offset=(0.0, -20.0),
+                )
             )
+        self._disturbance_handles = handles
 
     def visualize_episode(
         self, ship_list: list, disturbance: stoch.Disturbance | None, enc: senc.ENC, config: sc.ScenarioConfig
@@ -367,11 +383,11 @@ class ScenarioGenerator:
                 5.0,
                 5.0,
             )
-            enc.draw_polygon(ship_poly, color=ship_color, width=0.0, thickness=5.0)
+            enc.draw_polygon(ship_poly, color=ship_color, fill=True, alpha=0.6)
 
         self.visualize_disturbance(disturbance, enc)
 
-    def load_episode(self, config_file: Path, show: bool = False) -> Tuple[list, stoch.Disturbance, sc.ScenarioConfig]:
+    def load_episode(self, config_file: Path) -> Tuple[list, stoch.Disturbance, sc.ScenarioConfig]:
         """Loads a fully defined scenario episode from configuration file.
 
         NOTE: The file must have a ship list with fully specified ship configurations,
@@ -521,7 +537,8 @@ class ScenarioGenerator:
                 mmsi_list,
                 show_plots=show_plots,
             )
-            episode["config"].name = f"{config.name}_ep{ep + 1}"
+            ep_str = str(ep + 1).zfill(3)
+            episode["config"].name = f"{config.name}_ep{ep_str}"
             if self._config.manual_episode_accept:
                 print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
                 print("ScenarioGenerator: Accept episode? (y/n)")

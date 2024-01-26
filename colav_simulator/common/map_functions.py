@@ -1392,21 +1392,19 @@ def plot_disturbance(
     name: str,
     enc: ENC,
     color: str,
-    magnitude_scale: Optional[float] = 50.0,
-    linewidth: Optional[float] = 1.0,
+    linewidth: Optional[float] = 2.5,
     location: Optional[str] = "topright",
     text_location_offset: Optional[Tuple[float, float]] = (0.0, 0.0),
-) -> None:
+) -> plt.axes:
     """Plots a disturbance vector on the ENC as a vector arrow inside a circle.
     The name of the disturbance is plotted below the circle, with an offset given by text_location_offset.
 
     Args:
-        magnitude (float): Magnitude of the disturbance
+        magnitude (float): Magnitude of the disturbance / length of the disturbance vector
         direction (float): Direction of the disturbance (defined in a north-east coordinate system)
         name (str): Name of the disturbance
         enc (ENC): Electronic Navigational Chart object
         color (str): Color of the disturbance vector
-        magnitude_scale (Optional[float]): Scale of the disturbance vector length. Defaults to 50.0.
         linewidth (Optional[float]): Arrow thickness. Defaults to 1.0.
         location (Optional[str]): Location of the disturbance vector in ["topleft", "topright", "bottomleft", "bottomright"]. Defaults to "topright".
         text_location_offset (Optional[Tuple[float, float]]): Offset of the text location. Defaults to (0.0, 0.0).
@@ -1422,14 +1420,17 @@ def plot_disturbance(
     elif location == "bottomleft":
         origin = (xmin + 0.1 * (xmax - xmin), ymin + 0.1 * (ymax - ymin))
 
-    magnitude = magnitude * magnitude_scale
     arrow_start = origin
     arrow_end = (origin[0] + magnitude * np.sin(direction), origin[1] + magnitude * np.cos(direction))
-    text_location = (origin[0] + text_location_offset[0], origin[1] - magnitude + text_location_offset[1])
+    text_location = (
+        origin[0] + text_location_offset[0] - 0.8 * magnitude,
+        origin[1] - 1.2 * magnitude + text_location_offset[1],
+    )
 
-    enc.draw_circle(origin, radius=magnitude, color="white", fill=True, linewidth=linewidth, alpha=0.4)
-    enc.draw_arrow(arrow_start, arrow_end, direction, color=color, linewidth=linewidth, alpha=1, fill=True)
-    enc.draw_text(name, text_location, color=color, size=10)
+    circle_handle = enc.draw_circle(origin, radius=magnitude, color="white", fill=True, alpha=0.4)
+    arrow_handle = enc.draw_arrow(arrow_start, arrow_end, color=color, width=linewidth, fill=True)
+    text_handle = enc.draw_text(name, text_location, color=color, size=10)
+    return [circle_handle, arrow_handle, text_handle]
 
 
 def plot_waypoints(
