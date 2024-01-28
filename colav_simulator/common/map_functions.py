@@ -12,8 +12,6 @@ import os
 from typing import Optional, Tuple
 
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-
-os.environ["USE_PYGEOS"] = "0"
 import geopandas as gpd
 import geopy.distance
 import matplotlib.pyplot as plt
@@ -27,6 +25,8 @@ from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
+
+os.environ["USE_PYGEOS"] = "0"
 
 
 def create_bbox_from_points(
@@ -951,25 +951,6 @@ def compute_distance_vector_to_bbox(
     return distance_vector
 
 
-def min_distance_to_land(enc: ENC, y: float, x: float) -> float:
-    """Compute the minimum distance to land from a given point.
-
-    Args:
-        enc (ENC): Electronic Navigational Chart object
-        y (float): Ship's easting coordinate
-        x (float): Ship's northing coordinate
-
-    Returns:
-        float: Minimum distance to land in meters.
-    """
-    position = Point(y, x)
-    if enc.land.geometry.is_empty:
-        return 1e12
-
-    distance = enc.land.geometry.distance(position)
-    return distance
-
-
 def min_distance_to_hazards(hazards: list, x: float, y: float) -> float:
     """Compute the minimum distance to hazards from a given point.
 
@@ -1285,6 +1266,7 @@ def constrained_delaunay_triangulation_custom(polygon: Polygon) -> list:
     Returns:
         list: List of triangles as shapely polygons.
     """
+    assert polygon.is_empty is False, "Polygon is empty"
     res_intersection_gdf = gpd.GeoDataFrame(geometry=[polygon])
     # Create ID to identify overlapping polygons
     res_intersection_gdf["TRI_ID"] = res_intersection_gdf.index
@@ -1524,7 +1506,6 @@ def plot_rrt_tree(node_list: list, enc: ENC) -> None:
             if node["id"] == sub_node["id"] or sub_node["parent_id"] != node["id"]:
                 continue
             points = [(tt[1], tt[0]) for tt in sub_node["trajectory"]]
-            n_points = len(points)
             if len(points) > 1:
                 enc.draw_line(points, color="white", buffer=0.5, linewidth=0.5)
 
