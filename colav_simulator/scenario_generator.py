@@ -299,6 +299,7 @@ class ScenarioGenerator:
         if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
         if show:
+            input("Press enter to continue...")
             enc.close_display()
         return (scenario_episode_list, enc)
 

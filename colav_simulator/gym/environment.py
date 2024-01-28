@@ -40,7 +40,7 @@ class COLAVEnvironment(gym.Env):
         simulator_config: Optional[cssim.Config] = None,
         scenario_generator_config: Optional[sg.Config] = None,
         scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
-        scenario_files: Optional[list | pathlib.Path] = None,
+        scenario_file_folder: Optional[pathlib.Path] = None,
         reload_map: Optional[bool] = True,
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = "human",
@@ -57,7 +57,7 @@ class COLAVEnvironment(gym.Env):
             simulator_config (Optional[cssim.Config]): Simulator configuration. Defaults to None.
             scenario_generator_config (Optional[sg.Config]): Scenario generator configuration. Defaults to None.
             scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path. Defaults to None.
-            scenario_files (Optional[list | Path): Scenario files to load, either as a list of filenames or path to a folder. Defaults to None.
+            scenario_file_folder (Optional[list | Path): Folder path to scenario episode files. Defaults to None.
             reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False.
             rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
@@ -67,11 +67,11 @@ class COLAVEnvironment(gym.Env):
         """
         super().__init__()
         assert (
-            scenario_config is not None or scenario_files is not None
-        ), "Either scenario config or scenario files must be provided!"
+            scenario_config is not None or scenario_file_folder is not None
+        ), "Either scenario config or scenario file folder must be provided!"
         assert (
-            scenario_config is None or scenario_files is None
-        ), "Either scenario config or scenario files must be provided, not both!"
+            scenario_config is None or scenario_file_folder is None
+        ), "Either scenario config or scenario file folder must be provided, not both!"
 
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
@@ -80,8 +80,7 @@ class COLAVEnvironment(gym.Env):
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(config=scenario_generator_config)
         self.scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = scenario_config
-        self.scenario_files: Optional[list] = scenario_files
-        self.scenario_data_list: Optional[list] = None
+        self.scenario_file_folder: Optional[pathlib.Path] = scenario_file_folder
         self.scenario_data_tup: Optional[tuple] = None
         self.reload_map: bool = reload_map
         self._has_init_generated: bool = False
@@ -100,17 +99,16 @@ class COLAVEnvironment(gym.Env):
 
         self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
 
-        if self.scenario_files is not None:
-            self._load(scenario_files=self.scenario_files)
+        if self.scenario_file_folder is not None:
+            self._load(scenario_file_folder=self.scenario_file_folder)
         else:
             self._generate(scenario_config=self.scenario_config, reload_map=self.reload_map)
 
         assert isinstance(self.scenario_config, sc.ScenarioConfig), "Scenario config not initialized properly!"
         self._has_init_generated = True
-        self.n_episodes = self.scenario_config.n_episodes
-
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         episode_data = scenario_episode_list[0]
+        self.n_episodes = len(scenario_episode_list)
 
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"],
@@ -152,19 +150,16 @@ class COLAVEnvironment(gym.Env):
         """
         return self.simulator.is_truncated(self.verbose)
 
-    def _load(self, scenario_files: list | pathlib.Path) -> None:
+    def _load(self, scenario_file_folder: pathlib.Path) -> None:
         """Load scenario episodes from files or a folder.
 
         Args:
-            scenario_files (list | pathlib.Path): Scenario (episode) files to load, either as a list of filenames or path to a folder.
+            scenario_file_folder (list | pathlib.Path): Folder where all episodes for a scenario is found, either as a list of filenames or path to a folder.
         """
-        if isinstance(scenario_files, pathlib.Path):
-            name = scenario_files.name
-            self.scenario_data_list = self.scenario_generator.load_scenario_from_folder(
-                scenario_files, scenario_name=name, show=False
-            )
-        else:
-            self.scenario_data_list = self.scenario_generator.generate_scenarios_from_files(scenario_files)
+        name = scenario_file_folder.name
+        self.scenario_data_tup = self.scenario_generator.load_scenario_from_folder(
+            scenario_file_folder, scenario_name=name, show=True
+        )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
     def _generate(
@@ -180,13 +175,13 @@ class COLAVEnvironment(gym.Env):
             reload_map (bool): Whether to reload the scenario map. Defaults to False.
         """
         if isinstance(scenario_config, pathlib.Path):
-            scenario_config_file = scenario_config
-            scenario_config = None
+            self.scenario_data_tup = self.scenario_generator.generate(
+                config_file=scenario_config, new_load_of_map_data=reload_map
+            )
         else:
-            scenario_config_file = None
-        self.scenario_data_tup = self.scenario_generator.generate(
-            config=scenario_config, config_file=scenario_config_file, new_load_of_map_data=reload_map
-        )
+            self.scenario_data_tup = self.scenario_generator.generate(
+                config=scenario_config, new_load_of_map_data=reload_map
+            )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
     def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
@@ -232,8 +227,6 @@ class COLAVEnvironment(gym.Env):
         Args:
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
             options (Optional[dict]): Options for the environment. Defaults to None.
-            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
-            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
 
         Returns:
             Tuple[Observation, dict]: Initial observation and additional information
@@ -242,18 +235,8 @@ class COLAVEnvironment(gym.Env):
         self.steps = 0  # Actions performed
         self.done = False
 
-        if not self._has_init_generated:
-            self._generate(
-                scenario_config=self.scenario_config,
-                scenario_config_file=self.scenario_config_file,
-                reload_map=self.reload_map,
-            )
-            self.episodes = 0
-            self._has_init_generated = True
-        elif self.episodes == self.n_episodes:
-            self._generate(
-                scenario_config=self.scenario_config, scenario_config_file=self.scenario_config_file, reload_map=False
-            )
+        if self.episodes == self.n_episodes:
+            self._generate(scenario_config=self.scenario_config, reload_map=False)
             self.episodes = 0
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
@@ -265,7 +248,6 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
-            ownship_colav_system=None,
         )
         self.ownship = self.simulator.ownship
 
@@ -305,8 +287,8 @@ class COLAVEnvironment(gym.Env):
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "human" or self.render_mode == "rgb_array":
-            self._viewer2d.set_update_rate(self.render_update_interval)
             self._viewer2d.toggle_liveplot_visibility(show=True)
+            self._viewer2d.set_update_rate(self.render_update_interval)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
 
     def render(self):
@@ -335,6 +317,11 @@ class COLAVEnvironment(gym.Env):
     def time_step(self) -> float:
         """The current simulation time step."""
         return self.simulator.dt
+
+    @property
+    def time_truncated(self) -> float:
+        """The truncation time (max time)."""
+        return self.simulator.t_end
 
     @property
     def dynamic_obstacles(self) -> list:

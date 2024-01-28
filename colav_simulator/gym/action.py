@@ -12,7 +12,7 @@
     Author: Trym Tengesdal
 """
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import gymnasium as gym
 import numpy as np

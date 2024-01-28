@@ -27,7 +27,6 @@ import numpy as np
 import seacharts.enc as senc
 import shapely
 import shapely.geometry as sgeo
-from colav_simulator.gym.environment import COLAVEnvironment
 
 Observation = Union[tuple, list, np.ndarray]
 
@@ -94,7 +93,6 @@ class LidarLikeObservation(ObservationType):
         Returns:
             Observation: Normalized observation.
         """
-
         normalized_obs = np.array(
             np.concatenate(
                 [
@@ -165,7 +163,7 @@ class LidarLikeObservation(ObservationType):
         # Feasibility pooling
         sector_closeness = []
         sector_velocities = []
-        for i in range(len(obstacle_distances_by_sector)):
+        for i, _ in enumerate(obstacle_distances_by_sector):
             # Closeness of reachable distance
             sector_feasible_distance = self._feasibility_pooling(obstacle_distances_by_sector[i])
             sector_closeness.append(self._get_closeness(sector_feasible_distance))
@@ -193,12 +191,12 @@ class LidarLikeObservation(ObservationType):
         theta = self._delta_sensor_angle
 
         # Get sorted list of x with corresponding indices
-        I = np.argsort(x)
-        for i in I:
+        indices = np.argsort(x)
+        for i in indices:
             arc_length = theta * x[i]
             opening_width = arc_length / 2
             opening_found = False
-            for j in range(len(x)):
+            for j, _ in enumerate(x):
                 if x[j] > x[i]:
                     opening_width += arc_length
                     if opening_width > ship_width:
@@ -234,7 +232,7 @@ class LidarLikeObservation(ObservationType):
 
         self._sector_start_indices = sector_start_indices
 
-    def _map_sensor_to_sector(self, isensor):
+    def _map_sensor_to_sector(self, isensor: int) -> int:
         """Maps a sensor index i in {1,...,N} to a sector index k in {1, ..., D}
 
         Args:
@@ -243,11 +241,15 @@ class LidarLikeObservation(ObservationType):
         Returns:
             int: Index of the corresponding sector
         """
-        a = self.n_sensors
-        b = self.n_sectors
-        c = 0.1
-        sigma = lambda x: b / (1 + np.exp((-x + a / 2) / (c * a)))
+        sigma = self._sigma(float(isensor))
         return int(np.floor(sigma(isensor) - sigma(0)))
+
+    def _sigma(self, x: float) -> float:
+        """Sigmoid function used for mapping sensor indices to sectors."""
+        a = float(self.n_sensors)
+        b = float(self.n_sectors)
+        c = 0.1
+        return b / (1.0 + np.exp((-x + a / 2.0) / (c * a)))
 
     def _get_closeness(self, distance: float):
         """Calculate closeness of obstacle as described in Meyer et al(2020).
@@ -458,16 +460,52 @@ class TrackingObservation(ObservationType):
     on the form (ID, state, cov, length, width).
     """
 
-    def __init__(self, env: COLAVEnvironment) -> None:
+    def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
+        self.n_do = len(self.env.dynamic_obstacles)
+        self.name = "TrackingObservation"
+        self.define_observation_ranges()
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.n_do * 6,))
+
+    def define_observation_ranges(self) -> None:
+        """Define the ranges for the observation space."""
+        assert self._ownship is not None, "Ownship is not defined"
+        (x_min, y_min, x_max, y_max) = self.env.enc.bbox
+        self.observation_range = {
+            "north": (y_min, y_max),
+            "east": (x_min, x_max),
+            "speed": (self._ownship.min_speed, self._ownship.max_speed),
+            "angles": (-np.pi, np.pi),
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The tracking observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        normalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], self.observation_range["north"], (-1.0, 1.0)),
+                mf.linear_map(obs[1], self.observation_range["east"], (-1.0, 1.0)),
+                mf.linear_map(obs[2], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[3], self.observation_range["angles"], (-1.0, 1.0)),
+            ],
+            dtype=np.float32,
+        )
+        # fix rest of the tracking observation
+        return normalized_obs
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
-        do_ship_list = self.env.dynamic_obstacles
-        true_do_states = mhm.extract_do_states_from_ship_list(self.env.time, do_ship_list)
-        relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, 0)
-        tracks, _ = self._ownship.track_obstacles(self.env.time, self.env.time_step, relevant_true_do_states)
+        tracks, _ = self._ownship.get_do_track_information()
         obs = tracks
         return obs
 
@@ -475,14 +513,38 @@ class TrackingObservation(ObservationType):
 class TimeObservation(ObservationType):
     """Observation containing the current time in the environment."""
 
-    def __init__(self, env: COLAVEnvironment) -> None:
+    def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
+        self.name = "TimeObservation"
+        self.t_end = self.env.time_truncated
+        self.t_start = self.env.time
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(1,))
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        normalized_obs = np.array(
+            [
+                mf.linear_map(obs, (self.t_start, self.t_end), (-1.0, 1.0)),
+            ],
+            dtype=np.float32,
+        )
+        return normalized_obs
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
         obs = self.env.time
-        return obs
+        return self.normalize(obs)
 
 
 class TupleObservation(ObservationType):

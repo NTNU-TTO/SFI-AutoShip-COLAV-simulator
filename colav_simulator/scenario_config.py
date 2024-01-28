@@ -281,18 +281,6 @@ def save_scenario_episode_definition(scenario_config: ScenarioConfig, folder: Pa
         folder.mkdir(parents=False)
     scenario_config_dict: dict = scenario_config.to_dict()
     scenario_config_dict["save_scenario"] = False
-    if "n_random_ships" in scenario_config_dict:
-        scenario_config_dict.pop(
-            "n_random_ships"
-        )  # Do not save the number of random ships for the single scenario episode
-    if "n_random_ships_range" in scenario_config_dict:
-        scenario_config_dict.pop(
-            "n_random_ships_range"
-        )  # Do not save the n_random_ships_range for the single scenario episode
-    if "episode_generation" in scenario_config_dict:
-        scenario_config_dict.pop(
-            "episode_generation"
-        )  # Do not save the episode generation config for the single scenario episode
     current_datetime_str = mhm.current_utc_datetime_str("%d%m%Y_%H%M%S")
     scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"
@@ -300,7 +288,6 @@ def save_scenario_episode_definition(scenario_config: ScenarioConfig, folder: Pa
     save_file = folder / filename
     with save_file.open(mode="w") as file:
         yaml.dump(scenario_config_dict, file)
-
     return filename
 
 

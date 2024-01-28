@@ -47,13 +47,14 @@ if __name__ == "__main__":
 
     env_id = "COLAVEnvironment-v0"
     env_config = {
-        "scenario_config_file": config_file,
+        "scenario_config": config_file,
         "reload_map": False,
         "render_mode": "rgb_array",
         "render_update_interval": 1.0,
-        "test_mode": True,
+        "test_mode": False,
     }
     env = gym.make(id=env_id, **env_config)
+
     record = True
     if record:
         video_path = dp.animation_output / "demo.mp4"

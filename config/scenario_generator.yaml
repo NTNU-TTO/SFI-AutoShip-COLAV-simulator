@@ -20,7 +20,7 @@ t_cpa_threshold: 1000.0
 d_cpa_threshold: 150.0
 
 behavior_generator:
-  ownship_method: "RRTStar" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
+  ownship_method: "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
   target_ship_method: "ConstantSpeedRandomWaypoints" # "RRT" # "PQRRTStar"
 
   n_wps_range: [2, 4]
@@ -34,7 +34,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 50.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
       goal_radius: 50.0
@@ -67,7 +67,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 50.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
       goal_radius: 50.0
@@ -97,7 +97,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 50.0
       iter_between_direct_goal_growth: 500000
       goal_radius: 50.0
       step_size: 0.5
