@@ -19,7 +19,7 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 </p>
 
 ## Citation
-If you are using the `colav_simulator` for academic work, please use the following citation:
+If you are using the `colav_simulator` in your work, please use the following citation:
 ```
 @Article{Tengesdal2023sfse,
   author  = {Trym Tengesdal and Tor A. Johansen},
@@ -33,7 +33,7 @@ If you are using the `colav_simulator` for academic work, please use the followi
 }
 ```
 
-If you are using `RRTs` for ship behavior generation in academic work, please also use the following citation:
+If you are using `RRTs` for ship behavior generation in your work, please also use the following citation:
 ```
 @Article{Tengesdal2024csrrt,
   author  = {Trym Tengesdal and Tom A. Pedersen and Tor A. Johansen},

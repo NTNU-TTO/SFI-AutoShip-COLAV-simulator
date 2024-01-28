@@ -39,9 +39,8 @@ class COLAVEnvironment(gym.Env):
         self,
         simulator_config: Optional[cssim.Config] = None,
         scenario_generator_config: Optional[sg.Config] = None,
-        scenario_config: Optional[sc.ScenarioConfig] = None,
-        scenario_config_file: Optional[pathlib.Path] = None,
-        scenario_files: Optional[list] = None,
+        scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
+        scenario_files: Optional[list | pathlib.Path] = None,
         reload_map: Optional[bool] = True,
         rewarder_config: Optional[rw.Config] = None,
         render_mode: Optional[str] = "human",
@@ -56,10 +55,9 @@ class COLAVEnvironment(gym.Env):
 
         Args:
             simulator_config (Optional[cssim.Config]): Simulator configuration. Defaults to None.
-            scenario_generator_config (Optional[sm.Config]): Scenario generator configuration. Defaults to None.
-            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
-            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
-            scenario_files (Optional[list]): List of scenario files. Defaults to None.
+            scenario_generator_config (Optional[sg.Config]): Scenario generator configuration. Defaults to None.
+            scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path. Defaults to None.
+            scenario_files (Optional[list | Path): Scenario files to load, either as a list of filenames or path to a folder. Defaults to None.
             reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False.
             rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
@@ -68,6 +66,12 @@ class COLAVEnvironment(gym.Env):
             verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
         """
         super().__init__()
+        assert (
+            scenario_config is not None or scenario_files is not None
+        ), "Either scenario config or scenario files must be provided!"
+        assert (
+            scenario_config is None or scenario_files is None
+        ), "Either scenario config or scenario files must be provided, not both!"
 
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
@@ -75,9 +79,10 @@ class COLAVEnvironment(gym.Env):
 
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(config=scenario_generator_config)
-        self.scenario_config: Optional[sc.ScenarioConfig] = scenario_config
-        self.scenario_config_file: Optional[pathlib.Path] = scenario_config_file
+        self.scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = scenario_config
         self.scenario_files: Optional[list] = scenario_files
+        self.scenario_data_list: Optional[list] = None
+        self.scenario_data_tup: Optional[tuple] = None
         self.reload_map: bool = reload_map
         self._has_init_generated: bool = False
 
@@ -95,10 +100,14 @@ class COLAVEnvironment(gym.Env):
 
         self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
 
-        if self.scenario_config is None:
-            self._generate(scenario_config_file=self.scenario_config_file, reload_map=self.reload_map)
-            self._has_init_generated = True
-            self.n_episodes = self.scenario_config.n_episodes
+        if self.scenario_files is not None:
+            self._load(scenario_files=self.scenario_files)
+        else:
+            self._generate(scenario_config=self.scenario_config, reload_map=self.reload_map)
+
+        assert isinstance(self.scenario_config, sc.ScenarioConfig), "Scenario config not initialized properly!"
+        self._has_init_generated = True
+        self.n_episodes = self.scenario_config.n_episodes
 
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
         episode_data = scenario_episode_list[0]
@@ -108,7 +117,6 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
-            ownship_colav_system=None,
         )
         self.ownship = self.simulator.ownship
         self._define_spaces()
@@ -144,10 +152,24 @@ class COLAVEnvironment(gym.Env):
         """
         return self.simulator.is_truncated(self.verbose)
 
+    def _load(self, scenario_files: list | pathlib.Path) -> None:
+        """Load scenario episodes from files or a folder.
+
+        Args:
+            scenario_files (list | pathlib.Path): Scenario (episode) files to load, either as a list of filenames or path to a folder.
+        """
+        if isinstance(scenario_files, pathlib.Path):
+            name = scenario_files.name
+            self.scenario_data_list = self.scenario_generator.load_scenario_from_folder(
+                scenario_files, scenario_name=name, show=False
+            )
+        else:
+            self.scenario_data_list = self.scenario_generator.generate_scenarios_from_files(scenario_files)
+        self.scenario_config = self.scenario_data_tup[0][0]["config"]
+
     def _generate(
         self,
-        scenario_config: Optional[sc.ScenarioConfig] = None,
-        scenario_config_file: Optional[pathlib.Path] = None,
+        scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
         reload_map: Optional[bool] = None,
     ) -> None:
         """Generate new scenario from the input configuration.
@@ -157,8 +179,11 @@ class COLAVEnvironment(gym.Env):
             scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
             reload_map (bool): Whether to reload the scenario map. Defaults to False.
         """
-        # if self.verbose:
-        #     print("Generating new scenario...")
+        if isinstance(scenario_config, pathlib.Path):
+            scenario_config_file = scenario_config
+            scenario_config = None
+        else:
+            scenario_config_file = None
         self.scenario_data_tup = self.scenario_generator.generate(
             config=scenario_config, config_file=scenario_config_file, new_load_of_map_data=reload_map
         )
