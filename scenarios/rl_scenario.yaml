@@ -18,7 +18,7 @@ rl_action_type: "continuous_autopilot_reference_action"
 rl_observation_type:
   dict_observation:
     - "navigation_3dof_state_observation"
-    - "tracking_observation"
+    #- "tracking_observation"
     - "time_observation"
 stochasticity:
   currents:
@@ -49,8 +49,8 @@ ship_list:
     random_generated: False
     tracker:
       kf:
-        P_0: [49.1, 49.1, 0.11, 0.11]
-        q: 1.0
+        P_0: [50.0, 50.0, 0.5, 0.5]
+        q: 0.1
     sensors:
       - radar:
           max_range: 5000.0
