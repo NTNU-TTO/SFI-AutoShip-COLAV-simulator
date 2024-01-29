@@ -221,6 +221,7 @@ class ScenarioGenerator:
         n_constant_do_state_episodes = config.episode_generation.n_constant_do_state_episodes
         n_plans_per_do_state = config.episode_generation.n_plans_per_do_state
         n_constant_disturbance_episodes = config.episode_generation.n_constant_disturbance_episodes
+        self._episode_counter = 0
         ep = 0
         _os_plan_update_indices = [-1 for _ in range(n_episodes)]
         _do_state_update_indices = [-1 for _ in range(n_episodes)]

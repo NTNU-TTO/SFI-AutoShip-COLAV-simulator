@@ -1,7 +1,7 @@
 name: "rl_scenario"
 save_scenario: False
 t_start: 0.0
-t_end: 200.0
+t_end: 100.0
 dt_sim: 0.5
 utm_zone: 33
 map_size: [3000.0, 3000.0]

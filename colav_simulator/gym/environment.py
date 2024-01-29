@@ -148,7 +148,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a truncated state
         """
-        return self.simulator.is_truncated(self.verbose)
+        return bool(self.simulator.is_truncated(self.verbose))
 
     def _load(self, scenario_file_folder: pathlib.Path) -> None:
         """Load scenario episodes from files or a folder.
@@ -270,13 +270,11 @@ class COLAVEnvironment(gym.Env):
         Returns:
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
-        # map action from [-1, 1] to colav system/autopilot references ranges
-
         self.action_type.act(action)
         sim_data_dict = self.simulator.step(remote_actor=True)
 
-        obs = self.observation_type.observe()  # normalized observation
-        reward = self.rewarder(obs, action)  # normalized reward
+        obs = self.observation_type.observe()
+        reward = self.rewarder(obs, action)
         terminated = self._is_terminated()
         truncated = self._is_truncated()
         info = self._info(obs, action)
