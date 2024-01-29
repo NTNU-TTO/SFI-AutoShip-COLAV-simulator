@@ -757,13 +757,14 @@ class BehaviorGenerator:
         return waypoints, speed_plan, trajectory
 
     def generate_constant_speed_and_course_waypoints(
-        self, csog_state: np.ndarray, simulation_timespan: float
+        self, csog_state: np.ndarray, simulation_timespan: float, horizon_modifier: float = 5.0
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Generates waypoints and speed plan for a ship with constant speed and course.
 
         Args:
             csog_state (np.ndarray): The ship's CSOG state.
             simulation_timespan (float): Simulation timespan.
+            horizon_modifier (float, optional): Endpoint scaling. Defaults to 5.0.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Tuple containing the waypoints and speed plan.
@@ -772,7 +773,9 @@ class BehaviorGenerator:
         waypoints[:, 0] = csog_state[0:2]
         U = csog_state[2]
         chi = csog_state[3]
-        waypoints[:, 1] = waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan
+        waypoints[:, 1] = (
+            waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan * horizon_modifier
+        )
         speed_plan = U * np.ones(2)
         return waypoints, speed_plan
 

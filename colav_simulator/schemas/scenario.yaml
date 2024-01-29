@@ -129,13 +129,11 @@ allowed_nav_statuses:
 n_random_ships:
   required: False
   type: integer
-  excludes: [n_random_ships_range]
   nullable: True
 
 n_random_ships_range:
   required: False
   type: list
-  excludes: [n_random_ships]
   maxlength: 2
   minlength: 2
   schema:

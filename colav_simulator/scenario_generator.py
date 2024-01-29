@@ -290,7 +290,10 @@ class ScenarioGenerator:
             ship_list, disturbance, config = self.load_episode(config_file=file)
             if first:
                 first = False
+                config.new_load_of_map_data = True
                 enc = self._configure_enc(config)
+            else:
+                config.new_load_of_map_data = False
 
             scenario_episode_list.append({"ship_list": ship_list, "disturbance": disturbance, "config": config})
 
