@@ -81,7 +81,7 @@ if __name__ == "__main__":
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
     scenario_generator.behavior_generator.setup(
-        rng, [ownship], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
+        rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
     )
 
     n_wps = 4

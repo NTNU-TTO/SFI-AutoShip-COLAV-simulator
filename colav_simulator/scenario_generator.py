@@ -555,6 +555,7 @@ class ScenarioGenerator:
             scenario_episode_list.append(episode)
 
         if show_plots:
+            input("Press enter to continue...")
             self.enc.close_display()
         return scenario_episode_list, enc_copy
 

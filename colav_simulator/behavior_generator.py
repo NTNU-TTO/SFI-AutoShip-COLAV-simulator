@@ -562,7 +562,7 @@ class BehaviorGenerator:
                 and BehaviorGenerationMethod.RRT.value <= method.value <= BehaviorGenerationMethod.PQRRTStar.value
             ):
                 waypoints, speed_plan, _ = self.generate_rrt_behavior(
-                    rng, ship_obj, ship_cfg_idx, ownship, method, ownship_method, show_plots=True
+                    rng, ship_obj, ownship, method, ownship_method, show_plots=True
                 )
 
             if ship_obj.id > 0 and self._enc is not None and show_plots:
@@ -627,7 +627,6 @@ class BehaviorGenerator:
         self,
         rng: np.random.Generator,
         ship_obj: ship.Ship,
-        ship_idx: int,
         ownship: ship.Ship,
         rrt_method: BehaviorGenerationMethod,
         ownship_bg_method: BehaviorGenerationMethod,
@@ -638,7 +637,6 @@ class BehaviorGenerator:
         Args:
             rng (np.random.Generator): Random number generator.
             ship_obj (ship.Ship): The ship to generate a behavior for.
-            ship_idx (int): The index of the ship in the ship list.
             ownship (ship.Ship): The ownship.
             rrt_method (BehaviorGenerationMethod): The RRT method to use.
             ownship_bg_method (BehaviorGenerationMethod): The method used to generate the ownship behavior.
@@ -677,19 +675,15 @@ class BehaviorGenerator:
             else np.hstack([ownship.csog_state[0:2].reshape(2, 1), ownship.goal_csog_state[0:2].reshape(2, 1)])
         )
 
-        idx = ship_idx - 1
-        if BehaviorGenerationMethod.RRT.value <= ownship_bg_method.value <= BehaviorGenerationMethod.PQRRTStar.value:
-            idx += 1
-
-        planning_bbox = self._planning_bbox_list[idx]
+        planning_bbox = self._planning_bbox_list[ship_obj.id]
         if rrt_method == BehaviorGenerationMethod.RRT:
-            rrt_alg = self._rrt_list[idx]
+            rrt_alg = self._rrt_list[ship_obj.id]
             # print("Using RRT for behavior generation...")
         elif rrt_method == BehaviorGenerationMethod.RRTStar:
-            rrt_alg = self._rrtstar_list[idx]
+            rrt_alg = self._rrtstar_list[ship_obj.id]
             # print("Using RRT* for behavior generation...")
         elif rrt_method == BehaviorGenerationMethod.PQRRTStar:
-            rrt_alg = self._pqrrtstar_list[idx]
+            rrt_alg = self._pqrrtstar_list[ship_obj.id]
             # print("Using PQ-RRT* for behavior generation...")
 
         choice = 2
