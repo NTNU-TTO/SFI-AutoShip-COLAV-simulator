@@ -544,7 +544,7 @@ class ScenarioGenerator:
             if self._config.manual_episode_accept:
                 print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
                 print("ScenarioGenerator: Accept episode? (y/n)")
-                answer = "y"  # input()
+                answer = input()  # "y"
                 if answer not in ["y", "Y", "yes", "Yes"]:
                     continue
             if save_scenario:
