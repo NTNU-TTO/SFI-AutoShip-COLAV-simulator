@@ -469,7 +469,8 @@ class BehaviorGenerator:
                 # mapf.plot_rrt_tree(pqrrtstar.get_tree_as_list_of_dicts(), self._enc)
 
             if ship_obj.id == 0:
-                self._enc.draw_circle((goal_state[1], goal_state[0]), 10, color="gold", alpha=0.4)
+                if show_plots:
+                    self._enc.draw_circle((goal_state[1], goal_state[0]), 10, color="gold", alpha=0.4)
                 waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
                 speed_plan = waypoints[2, :]
                 waypoints = waypoints[0:2, :]

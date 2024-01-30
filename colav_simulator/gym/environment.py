@@ -43,6 +43,8 @@ class COLAVEnvironment(gym.Env):
         scenario_file_folder: Optional[pathlib.Path] = None,
         reload_map: Optional[bool] = True,
         rewarder_config: Optional[rw.Config] = None,
+        action_type: Optional[str] = None,
+        observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "human",
         render_update_interval: Optional[float] = 0.2,
         test_mode: Optional[bool] = False,
@@ -61,6 +63,8 @@ class COLAVEnvironment(gym.Env):
             scenario_file_folder (Optional[list | Path): Folder path to scenario episode files. Defaults to None.
             reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False. NOTE: Might cause issues with vectorized environments due to race conditions.
             rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
+            action_type (Optional[str]): Action type. Defaults to None.
+            observation_type (Optional[dict | str]): Observation type. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
             render_update_interval (Optional[float]): Render update interval. Defaults to 0.2.
             test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
@@ -119,6 +123,11 @@ class COLAVEnvironment(gym.Env):
             disturbance=episode_data["disturbance"],
         )
         self.ownship = self.simulator.ownship
+
+        self.action_type_cfg = action_type if action_type is not None else self.scenario_config.rl_action_type
+        self.observation_type_cfg = (
+            observation_type if observation_type is not None else self.scenario_config.rl_observation_type
+        )
         self._define_spaces()
 
     def close(self):
@@ -130,10 +139,11 @@ class COLAVEnvironment(gym.Env):
     def _define_spaces(self) -> None:
         """Defines the action and observation spaces."""
         assert self.scenario_config is not None, "Scenario config not initialized!"
-        self.action_type = action_factory(self, self.scenario_config.rl_action_type)
-        self.action_space = self.action_type.space()
 
-        self.observation_type = observation_factory(self, self.scenario_config.rl_observation_type)
+        self.action_type = action_factory(self, self.action_type_cfg)
+        self.observation_type = observation_factory(self, self.observation_type_cfg)
+
+        self.action_space = self.action_type.space()
         self.observation_space = self.observation_type.space()
 
     def _is_terminated(self) -> bool:
