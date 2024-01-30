@@ -334,6 +334,8 @@ class BehaviorGenerator:
         ownship = ship_list[0]
         self._enc = enc
         self._ship_replan_flags = ship_replan_flags
+        if show_plots:
+            self._enc.start_display()
 
         # Assume equal min depth for all ships, for now
         self._safe_sea_cdt = safe_sea_cdt
@@ -392,9 +394,6 @@ class BehaviorGenerator:
                 max_distance_from_start=4.0 * ship_obj.speed * simulation_timespan,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
-            if show_plots:
-                self._enc.start_display()
-                # self._enc.draw_circle((goal_state[1], goal_state[0]), 10.0, color="orange", alpha=0.4)
             if ship_obj.goal_state.size > 0:
                 goal_state = ship_obj.goal_state
             ship_obj.set_goal_state(goal_state)
