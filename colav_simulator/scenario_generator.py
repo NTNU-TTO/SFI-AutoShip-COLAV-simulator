@@ -1,5 +1,5 @@
 """
-    scenario_management.py
+    scenario_generator.py
 
     Summary:
         Contains functionality for loading existing scenario definitions,
@@ -64,8 +64,8 @@ class Config:
     csog_state_perturbation_covariance: np.array = field(default_factory=lambda: np.diag([25.0, 25.0, 0.5, 3.0]))
     t_cpa_threshold: float = 1000.0  # Threshold for the maximum time to CPA for vessel pairs in a scenario
     d_cpa_threshold: float = 200.0  # Threshold for the maximum distance to CPA for vessel pairs in a scenario
-    scenario_files: Optional[list] = None
-    scenario_folder: Optional[str] = None
+    scenario_files: Optional[list] = None  # Default list of scenario files to load from.
+    scenario_folder: Optional[str] = None  # Default scenario folder to load from.
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -151,6 +151,7 @@ class ScenarioGenerator:
 
         self._disturbance_handles: list = []
         self._episode_counter: int = 0
+        self._os_state_update_indices: list = []
         self._os_plan_update_indices: list = []
         self._do_state_update_indices: list = []
         self._do_plan_update_indices: list = []
@@ -205,42 +206,44 @@ class ScenarioGenerator:
 
         return copy.deepcopy(self.enc)
 
-    def determine_indices_of_episode_parameter_updates(
-        self, config: sc.ScenarioConfig
-    ) -> Tuple[list, list, list, list]:
+    def reset_episode_counter(self, reset: bool) -> None:
+        """Resets the episode counter."""
+        if reset:
+            self._episode_counter = 0
+
+    def determine_indices_of_episode_parameter_updates(self, config: sc.ScenarioConfig) -> None:
         """Determines the episode indices when the OS plan+state, DO state, DO plan and disturbance should be updated/re-randomized.
 
         Args:
             config (sc.ScenarioConfig): Scenario config object.
 
-        Returns:
-            Tuple[list, list, list, list]: Tuple of episode index lists for when the OS plan+state, DO state, DO plan and disturbance should be updated/re-randomized.
         """
         n_episodes = config.episode_generation.n_episodes
+        n_constant_os_state_episodes = config.episode_generation.n_constant_os_state_episodes
         n_constant_os_plan_episodes = config.episode_generation.n_constant_os_plan_episodes
         n_constant_do_state_episodes = config.episode_generation.n_constant_do_state_episodes
         n_plans_per_do_state = config.episode_generation.n_plans_per_do_state
         n_constant_disturbance_episodes = config.episode_generation.n_constant_disturbance_episodes
-        self._episode_counter = 0
-        ep = 0
-        _os_plan_update_indices = [-1 for _ in range(n_episodes)]
-        _do_state_update_indices = [-1 for _ in range(n_episodes)]
-        _do_plan_update_indices = [-1 for _ in range(n_episodes)]
-        _disturbance_update_indices = [-1 for _ in range(n_episodes)]
+        self._os_state_update_indices = [-1 for _ in range(n_episodes)]
+        self._os_plan_update_indices = [-1 for _ in range(n_episodes)]
+        self._do_state_update_indices = [-1 for _ in range(n_episodes)]
+        self._do_plan_update_indices = [-1 for _ in range(n_episodes)]
+        self._disturbance_update_indices = [-1 for _ in range(n_episodes)]
         for ep in range(n_episodes):
+            if ep % n_constant_os_state_episodes == 0:
+                self._os_state_update_indices[ep] = ep
+
             if ep % n_constant_os_plan_episodes == 0:
-                _os_plan_update_indices[ep] = ep
+                self._os_plan_update_indices[ep] = ep
 
             if ep % n_constant_disturbance_episodes == 0:
-                _disturbance_update_indices[ep] = ep
+                self._disturbance_update_indices[ep] = ep
 
             if ep % (n_plans_per_do_state * n_constant_do_state_episodes) == 0:
-                _do_state_update_indices[ep] = ep
+                self._do_state_update_indices[ep] = ep
 
             if ep % n_plans_per_do_state == 0:
-                _do_plan_update_indices[ep] = ep
-
-        return _os_plan_update_indices, _do_state_update_indices, _do_plan_update_indices, _disturbance_update_indices
+                self._do_plan_update_indices[ep] = ep
 
     def create_file_path_list_from_config(self) -> list:
         """Creates a list of file paths from the config file scenario files or scenario folder.
@@ -450,6 +453,7 @@ class ScenarioGenerator:
         show_plots: Optional[bool] = False,
         save_scenario: Optional[bool] = False,
         save_scenario_folder: Optional[Path] = dp.scenarios,
+        reset_episode_counter: Optional[bool] = True,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
@@ -463,6 +467,7 @@ class ScenarioGenerator:
             - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
             - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition. Defaults to False.
             - save_scenario_folder (Path, optional): Absolute path to the folder where the scenario definition should be saved. Defaults to dp.scenarios.
+            - reset_episode_counter (bool, optional): Flag determining whether or not to reset the episode counter. Defaults to True.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -475,6 +480,7 @@ class ScenarioGenerator:
             config = cp.extract(sc.ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
 
         assert config is not None, "Config should not be none here."
+        self.reset_episode_counter(reset_episode_counter)
         show_plots = True if self._config.manual_episode_accept else show_plots
         save_scenario = save_scenario if save_scenario is not None else config.save_scenario
         ais_vessel_data_list = []
@@ -520,14 +526,8 @@ class ScenarioGenerator:
         config.ship_list = ship_config_list
 
         n_episodes = config.episode_generation.n_episodes
-        (
-            self._os_plan_update_indices,
-            self._do_state_update_indices,
-            self._do_plan_update_indices,
-            self._disturbance_update_indices,
-        ) = self.determine_indices_of_episode_parameter_updates(config)
+        self.determine_indices_of_episode_parameter_updates(config)
         self._position_generation = config.episode_generation.position_generation
-
         self.behavior_generator.reset()
         scenario_episode_list = []
         for ep in range(n_episodes):
@@ -631,11 +631,15 @@ class ScenarioGenerator:
         """
         replan_list = [False for _ in range(len(ship_list))]
         ep = self._episode_counter
+        uniform_in_map_sample = ep % config.episode_generation.delta_uniform_position_sample == 0
         for ship_cfg_idx, _ in enumerate(config.ship_list):
-            if ship_cfg_idx == 0 and ep == self._os_plan_update_indices[ep]:
+            if uniform_in_map_sample:
                 replan_list[ship_cfg_idx] = True
 
-            if ship_cfg_idx > 0 and ep == self._do_plan_update_indices[ep]:
+            elif ship_cfg_idx == 0 and ep == self._os_plan_update_indices[ep]:
+                replan_list[ship_cfg_idx] = True
+
+            elif ship_cfg_idx > 0 and ep == self._do_plan_update_indices[ep]:
                 replan_list[ship_cfg_idx] = True
         return replan_list
 
@@ -722,6 +726,7 @@ class ScenarioGenerator:
         """
         csog_state_list = []
         ep = self._episode_counter
+        uniform_in_map_sample = ep % config.episode_generation.delta_uniform_position_sample == 0
         for ship_cfg_idx, ship_config in enumerate(config.ship_list):
             if ship_config.csog_state is not None:
                 csog_state_list.append(ship_config.csog_state)
@@ -729,20 +734,23 @@ class ScenarioGenerator:
 
             ship_obj = ship_list[ship_cfg_idx]
             # Use 90% of the maximum speed as the maximum speed for the ships
+
             if ship_cfg_idx == 0:
-                if ep == self._os_plan_update_indices[ep]:
+                if ep == self._os_state_update_indices[ep]:
                     csog_state = self.generate_random_csog_state(
                         U_min=2.0,
                         U_max=0.9 * ship_obj.max_speed,
                         draft=ship_obj.draft,
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
-                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx] if ep > 0 else None,
+                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx]
+                        if not uniform_in_map_sample
+                        else None,
                     )
                 else:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
-
+            new_uniform_os_state = ep == self._os_state_update_indices[ep] and uniform_in_map_sample
             if ship_cfg_idx > 0:
-                if ep == self._do_state_update_indices[ep]:
+                if ep == self._do_state_update_indices[ep] or new_uniform_os_state:
                     csog_state = self.generate_target_ship_csog_state(
                         config.type,
                         csog_state_list[0],
@@ -752,7 +760,9 @@ class ScenarioGenerator:
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                         t_cpa_threshold=self._config.t_cpa_threshold,
                         d_cpa_threshold=self._config.d_cpa_threshold,
-                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx] if ep > 0 else None,
+                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx]
+                        if not uniform_in_map_sample
+                        else None,
                     )
                 else:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
@@ -761,7 +771,7 @@ class ScenarioGenerator:
             ship_obj.set_initial_state(ship_config.csog_state)
             csog_state_list.append(ship_config.csog_state)
 
-        if ep == 0:
+        if ep % config.episode_generation.delta_uniform_position_sample == 0:
             self._first_csog_states = csog_state_list
         return ship_list, config, csog_state_list
 

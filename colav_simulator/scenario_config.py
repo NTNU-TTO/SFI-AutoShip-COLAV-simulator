@@ -24,7 +24,7 @@ class PositionGenerationMethod(Enum):
     """Enum for the different possible methods of generating ship positions in a scenario."""
 
     UniformlyInMap = 0  # Positions are uniformly generated in the map (safe sea area)
-    UniformInTheMapThenGaussian = 1  # First position is uniformly generated in the map, then the next positions are generated through a Gaussian centered around the first position.
+    UniformInTheMapThenGaussian = 1  # Every "delta_uniform_position_sample" (default=10000000) position is uniformly generated in the map, then the next positions are generated through a Gaussian centered around the first position.
 
 
 class ScenarioType(Enum):
@@ -56,6 +56,9 @@ class EpisodeGenerationConfig:
     n_episodes: Optional[
         int
     ] = 1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario, with unique own-ship dynamic obstacle states+plans, and disturbance realizations.
+    n_constant_os_state_episodes: Optional[
+        int
+    ] = 1  # Number of episodes to run with the same own-ship state before generating a new one.
     n_constant_os_plan_episodes: Optional[
         int
     ] = None  # Number of episodes to run with the same own-ship plan before generating a new one.
@@ -69,12 +72,17 @@ class EpisodeGenerationConfig:
     position_generation: PositionGenerationMethod = (
         PositionGenerationMethod.UniformInTheMapThenGaussian  # Method for generating ship positions in the scenario.
     )
+    delta_uniform_position_sample: Optional[
+        int
+    ] = 10000000  # Number of episodes/position samples between each UniformlyInTheMap position sample. Not applicable if position_generation is set to UniformlyInMap.
 
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = EpisodeGenerationConfig()
         if "n_episodes" in config_dict:
             config.n_episodes = config_dict["n_episodes"]
+        if "n_constant_os_state_episodes" in config_dict:
+            config.n_constant_os_state_episodes = config_dict["n_constant_os_state_episodes"]
         if "n_constant_os_plan_episodes" in config_dict:
             config.n_constant_os_plan_episodes = config_dict["n_constant_os_plan_episodes"]
         if "n_constant_do_state_episodes" in config_dict:
@@ -83,6 +91,8 @@ class EpisodeGenerationConfig:
             config.n_plans_per_do_state = config_dict["n_plans_per_do_state"]
         if "n_constant_disturbance_episodes" in config_dict:
             config.n_constant_disturbance_episodes = config_dict["n_constant_disturbance_episodes"]
+        if "delta_uniform_position_sample" in config_dict:
+            config.delta_uniform_position_sample = config_dict["delta_uniform_position_sample"]
         if "position_generation" in config_dict:
             config.position_generation = PositionGenerationMethod[config_dict["position_generation"]]
         return config

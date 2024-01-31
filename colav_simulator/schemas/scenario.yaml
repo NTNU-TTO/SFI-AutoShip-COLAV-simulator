@@ -30,6 +30,10 @@ episode_generation:
       required: False
       type: integer
       nullable: True
+    n_constant_os_state_episodes:
+      required: False
+      type: integer
+      nullable: True
     n_constant_os_plan_episodes:
       required: False
       type: integer
@@ -50,7 +54,15 @@ episode_generation:
       required: False
       nullable: True
       type: string
+    delta_uniform_position_sample:
+      required: False
+      nullable: True
+      type: integer
 n_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_constant_os_state_episodes:
   required: False
   type: integer
   nullable: True
@@ -67,6 +79,10 @@ n_plans_per_do_state:
   type: integer
   nullable: True
 n_constant_disturbance_episodes:
+  required: False
+  nullable: True
+  type: integer
+delta_uniform_position_sample:
   required: False
   nullable: True
   type: integer

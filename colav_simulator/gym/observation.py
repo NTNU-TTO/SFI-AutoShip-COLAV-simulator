@@ -479,6 +479,9 @@ class TrackingObservation(ObservationType):
             "east": (x_min, x_max),
             "speed": (self._ownship.min_speed, self._ownship.max_speed),
             "angles": (-np.pi, np.pi),
+            "length": (0.0, 100.0),
+            "width": (0.0, 100.0),
+            "variance": (0.0, 500.0),
         }
 
     def normalize(self, obs: Observation) -> Observation:
@@ -545,6 +548,19 @@ class TimeObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         obs = self.env.time
         return self.normalize(obs)
+
+
+class PerceptionImageObservation(ObservationType):
+    """Observation consisting of a perception image."""
+
+    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
+        super().__init__(env)
+        self.name = "PerceptionImageObservation"
+        self.image_shape = kwargs.get("image_shape", (64, 64, 3))
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=0, high=255, shape=self.image_shape, dtype=np.uint8)
 
 
 class TupleObservation(ObservationType):
