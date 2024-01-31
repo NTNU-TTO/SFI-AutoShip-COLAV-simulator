@@ -415,7 +415,7 @@ class BehaviorGenerator:
                 self._enc,
                 vessel_min_depth=0,
                 bbox=bbox,
-                show_plots=True,
+                show_plots=False,
             )
 
             self._planning_bbox_list[ship_obj.id] = bbox
@@ -487,7 +487,7 @@ class BehaviorGenerator:
                         "WARNING: RRT-based planner failed to generate feasible waypoints for the ownship! Check the feasibility of the planning problem given the algorithm tuning, safe sea CDT and considered start + goal states."
                     )
                     waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
-                        ship_obj.csog_state, simulation_timespan
+                        ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
                     )
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
                 self._prev_ship_plans[ship_obj.id] = waypoints, speed_plan
@@ -548,7 +548,7 @@ class BehaviorGenerator:
                     ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
                 )
             elif method == BehaviorGenerationMethod.ConstantSpeedRandomWaypoints:
-                waypoints, clipped = self.generate_random_waypoints(
+                waypoints, _ = self.generate_random_waypoints(
                     rng,
                     ship_obj.csog_state[0],
                     ship_obj.csog_state[1],
@@ -558,7 +558,7 @@ class BehaviorGenerator:
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
             elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
-                waypoints, clipped = self.generate_random_waypoints(
+                waypoints, _ = self.generate_random_waypoints(
                     rng,
                     ship_obj.csog_state[0],
                     ship_obj.csog_state[1],
@@ -589,7 +589,7 @@ class BehaviorGenerator:
                     disk_buffer=6.0,
                     hole_buffer=2.0,
                 )
-                color = "yellow"
+                color = "goldenrod"
                 ship_poly = mapf.create_ship_polygon(
                     ship_obj.csog_state[0],
                     ship_obj.csog_state[1],
@@ -618,13 +618,7 @@ class BehaviorGenerator:
                 disk_buffer=6.0,
                 hole_buffer=2.0,
             )
-            # if RRT_LIB_FOUND and method == BehaviorGenerationMethod.RapidlyExploringRandomTree:
-            #     mapf.plot_trajectory(trajectory, self._enc, color="grey")
-
-            color = "darkorange"
-            # self._enc.draw_line(
-            #     [(p[1], p[0]) for p in waypoints.T], color=color, width=0.0, thickness=5.0, edge_style="dashdot"
-            # )
+            color = "orangered"
             ship_poly = mapf.create_ship_polygon(
                 ownship.csog_state[0],
                 ownship.csog_state[1],
@@ -634,7 +628,7 @@ class BehaviorGenerator:
                 5.0,
                 5.0,
             )
-            self._enc.draw_polygon(ship_poly, color=color, alpha=1)
+            self._enc.draw_polygon(ship_poly, color=color, alpha=0.6)
         return ship_list, ship_config_list
 
     def generate_rrt_behavior(

@@ -231,26 +231,26 @@ class ScenarioConfig:
             dt_sim=config_dict["dt_sim"],
             type=ScenarioType[config_dict["type"]],
             utm_zone=config_dict["utm_zone"],
-            map_data_files=config_dict["map_data_files"],
+            map_data_files=config_dict["map_data_files"] if "map_data_files" in config_dict else None,
+            map_size=tuple(config_dict["map_size"]) if "map_size" in config_dict else None,
+            map_origin_enu=tuple(config_dict["map_origin_enu"]) if "map_origin_enu" in config_dict else None,
+            map_tolerance=config_dict["map_tolerance"] if "map_tolerance" in config_dict else None,
+            map_buffer=config_dict["map_buffer"] if "map_buffer" in config_dict else None,
+            n_random_ships=config_dict["n_random_ships"] if "n_random_ships" in config_dict else None,
+            n_random_ships_range=config_dict["n_random_ships_range"] if "n_random_ships_range" in config_dict else None,
+            ais_data_file=Path(config_dict["ais_data_file"]) if "ais_data_file" in config_dict else None,
             new_load_of_map_data=config_dict["new_load_of_map_data"],
+            filename=config_dict["filename"] if "filename" in config_dict else None,
+            stochasticity=stoch.Config.from_dict(config_dict["stochasticity"])
+            if "stochasticity" in config_dict
+            else None,
+            rl_observation_type=config_dict["rl_observation_type"] if "rl_observation_type" in config_dict else None,
+            rl_action_type=config_dict["rl_action_type"] if "rl_action_type" in config_dict else None,
             ship_list=[],
         )
         ep_gen_cfg = ScenarioConfig.parse_episode_generation_config(config_dict)
         config.episode_generation = ep_gen_cfg
-        if "n_random_ships" in config_dict and config_dict["n_random_ships"] is not None:
-            config.n_random_ships = config_dict["n_random_ships"]
-        if "n_random_ships_range" in config_dict and config_dict["n_random_ships_range"] is not None:
-            config.n_random_ships_range = config_dict["n_random_ships_range"]
-        if "map_size" in config_dict and config_dict["map_size"] is not None:
-            config.map_size = tuple(config_dict["map_size"])
-        if "map_origin_enu" in config_dict and config_dict["map_origin_enu"] is not None:
-            config.map_origin_enu = tuple(config_dict["map_origin_enu"])
-        if "map_tolerance" in config_dict and config_dict["map_tolerance"] is not None:
-            config.map_tolerance = config_dict["map_tolerance"]
-        if "map_buffer" in config_dict and config_dict["map_buffer"] is not None:
-            config.map_buffer = config_dict["map_buffer"]
-        if "ais_data_file" in config_dict and config_dict["ais_data_file"] is not None:
-            config.ais_data_file = Path(config_dict["ais_data_file"])
+        if config.ais_data_file is not None:
             if len(config.ais_data_file.parts) == 1:
                 config.ais_data_file = dp.ais_data / config.ais_data_file
 
@@ -260,18 +260,10 @@ class ScenarioConfig:
 
             config.allowed_nav_statuses = config_dict["allowed_nav_statuses"]
 
-        if "filename" in config_dict:
-            config.filename = config_dict["filename"]
-        if "stochasticity" in config_dict:
-            config.stochasticity = stoch.Config.from_dict(config_dict["stochasticity"])
         if "ship_list" in config_dict:
             config.ship_list = []
             for ship_config in config_dict["ship_list"]:
                 config.ship_list.append(ship.Config.from_dict(ship_config))
-        if "rl_observation_type" in config_dict:
-            config.rl_observation_type = config_dict["rl_observation_type"]
-        if "rl_action_type" in config_dict:
-            config.rl_action_type = config_dict["rl_action_type"]
         return config
 
 
