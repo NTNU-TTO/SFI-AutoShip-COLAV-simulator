@@ -551,7 +551,7 @@ class TimeObservation(ObservationType):
 
 
 class PerceptionImageObservation(ObservationType):
-    """Observation consisting of a perception image."""
+    """Observation consisting of a perception image. INCOMPLETE"""
 
     def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
         super().__init__(env)
