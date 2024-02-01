@@ -452,7 +452,7 @@ class BehaviorGenerator:
                     initialized=False,
                     return_on_first_solution=False,
                 )
-                print("RRT* tree size: ", rrtstar.get_num_nodes())
+                print("IRRT* tree size: ", rrtstar.get_num_nodes())
                 self._irrtstar_list[ship_obj.id] = rrtstar
                 # mapf.plot_rrt_tree(rrtstar.get_tree_as_list_of_dicts(), self._enc)
             elif method == BehaviorGenerationMethod.PQRRTStar:

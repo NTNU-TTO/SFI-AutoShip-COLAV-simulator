@@ -35,7 +35,7 @@ behavior_generator:
       max_nodes: 3000
       max_iter: 25000
       max_time: 5.0
-      iter_between_direct_goal_growth: 500000
+      iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
       step_size: 0.5
@@ -68,7 +68,7 @@ behavior_generator:
       max_nodes: 3000
       max_iter: 25000
       max_time: 5.0
-      iter_between_direct_goal_growth: 500000
+      iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
       step_size: 0.5
@@ -98,8 +98,8 @@ behavior_generator:
       max_nodes: 3000
       max_iter: 25000
       max_time: 5.0
-      iter_between_direct_goal_growth: 500000
-      goal_radius: 50.0
+      iter_between_direct_goal_growth: 100
+      goal_radius: 200.0
       step_size: 0.5
       min_steering_time: 1.0
       max_steering_time: 30.0
