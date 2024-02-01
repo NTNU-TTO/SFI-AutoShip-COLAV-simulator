@@ -561,7 +561,11 @@ def extract_relevant_grounding_hazards_as_union(
     Returns:
         list: The relevant grounding hazards.
     """
-    dangerous_seabed = enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+    dangerous_seabed = (
+        enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+        if vessel_min_depth > 0
+        else MultiPolygon()
+    )
     # return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
     relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
     filtered_relevant_hazards = []
@@ -584,7 +588,11 @@ def extract_relevant_grounding_hazards_as_union(
     if show_plots:
         enc.start_display()
         for hazard in filtered_relevant_hazards:
-            enc.draw_polygon(hazard, color="red", fill=False)
+            if isinstance(hazard, MultiPolygon):
+                for poly in hazard.geoms:
+                    enc.draw_polygon(poly, color="red", fill=False)
+            else:
+                enc.draw_polygon(hazard, color="red", fill=False)
     return filtered_relevant_hazards
 
 
