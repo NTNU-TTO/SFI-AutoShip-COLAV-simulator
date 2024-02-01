@@ -553,7 +553,6 @@ class ScenarioGenerator:
             ep_str = str(ep + 1).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
             if self._config.manual_episode_accept:
-                print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
                 print("ScenarioGenerator: Accept episode? (y/n)")
                 answer = input()  # "y"
                 if answer not in ["y", "Y", "yes", "Yes"]:
@@ -563,6 +562,10 @@ class ScenarioGenerator:
                         self._os_state_update_indices[ep + 1] = ep + 1
                         self._do_plan_update_indices[ep + 1] = ep + 1
                     continue
+
+            if self._config.verbose:
+                print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
+
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
                     episode["config"], save_scenario_folder
@@ -571,7 +574,9 @@ class ScenarioGenerator:
             scenario_episode_list.append(episode)
 
         if show_plots:
-            input("Press enter to continue...")
+            input(
+                "Press enter to continue. Will take a while to load plots if you generated 500+ episodes with visualization on..."
+            )
             self.enc.close_display()
         return scenario_episode_list, enc_copy
 
@@ -859,7 +864,7 @@ class ScenarioGenerator:
 
         depth = mapf.find_minimum_depth(draft, self.enc)
         safe_sea = self.enc.seabed[depth]
-        max_iter = 3000
+        max_iter = 5000
         y_min, x_min, y_max, x_max = self.enc.bbox
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
