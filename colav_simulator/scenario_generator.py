@@ -554,8 +554,6 @@ class ScenarioGenerator:
             if self._bad_episode:
                 continue
 
-            ep_str = str(ep + 1).zfill(3)
-            episode["config"].name = f"{config.name}_ep{ep_str}"
             if self._config.manual_episode_accept:
                 print("ScenarioGenerator: Accept episode? (y/n)")
                 answer = input()  # "y"
@@ -570,6 +568,8 @@ class ScenarioGenerator:
             if self._config.verbose:
                 print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
 
+            ep_str = str(self._episode_counter + 1).zfill(3)
+            episode["config"].name = f"{config.name}_ep{ep_str}"
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
                     episode["config"], save_scenario_folder
@@ -583,6 +583,8 @@ class ScenarioGenerator:
                 "Press enter to continue. Will take a while to load plots if you generated 500+ episodes with visualization on..."
             )
             self.enc.close_display()
+        if self._config.verbose:
+            print(f"ScenarioGenerator: Number of accepted episodes: {self._episode_counter + 1} out of {n_episodes}.")
         return scenario_episode_list, enc_copy
 
     def generate_episode(
