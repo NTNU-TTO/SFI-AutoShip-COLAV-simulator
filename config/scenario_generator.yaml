@@ -1,5 +1,5 @@
 verbose: True
-manual_episode_accept: False
+manual_episode_accept: True
 #scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
 #scenario_files: ["rl_scenario.yaml"]
 scenario_files: ["head_on_sbmpc.yaml"]
@@ -20,7 +20,7 @@ t_cpa_threshold: 1000.0
 d_cpa_threshold: 150.0
 
 behavior_generator:
-  ownship_method: "RRTStar" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
+  ownship_method: "IRRTStar" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
   target_ship_method: "ConstantSpeedAndCourse" # "RRT" # "PQRRTStar"
 
   n_wps_range: [2, 3]
@@ -29,7 +29,7 @@ behavior_generator:
   waypoint_ang_range: [-90.0, 90.0]
   hazard_buffer: 0.0
 
-  # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, RRT* and RRT:
+  # Can use 3 different RRT-algorithms for behavior generation: PQ-RRT*, Informed RRT* and RRT:
   pqrrtstar:
     params:
       max_nodes: 3000
@@ -37,7 +37,7 @@ behavior_generator:
       max_time: 5.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
-      goal_radius: 50.0
+      goal_radius: 200.0
       step_size: 0.5
       min_steering_time: 1.0
       max_steering_time: 30.0
@@ -63,14 +63,14 @@ behavior_generator:
       K_p: 0.035
       K_i: 0.0
       max_cross_track_error_int: 30.0
-  rrtstar:
+  irrtstar:
     params:
       max_nodes: 3000
       max_iter: 25000
       max_time: 5.0
       iter_between_direct_goal_growth: 500000
       min_node_dist: 5.0
-      goal_radius: 50.0
+      goal_radius: 200.0
       step_size: 0.5
       min_steering_time: 1.0
       max_steering_time: 30.0

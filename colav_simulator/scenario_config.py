@@ -238,7 +238,9 @@ class ScenarioConfig:
             map_buffer=config_dict["map_buffer"] if "map_buffer" in config_dict else None,
             n_random_ships=config_dict["n_random_ships"] if "n_random_ships" in config_dict else None,
             n_random_ships_range=config_dict["n_random_ships_range"] if "n_random_ships_range" in config_dict else None,
-            ais_data_file=Path(config_dict["ais_data_file"]) if "ais_data_file" in config_dict else None,
+            ais_data_file=Path(config_dict["ais_data_file"])
+            if "ais_data_file" in config_dict and config_dict["ais_data_file"] is not None
+            else None,
             new_load_of_map_data=config_dict["new_load_of_map_data"],
             filename=config_dict["filename"] if "filename" in config_dict else None,
             stochasticity=stoch.Config.from_dict(config_dict["stochasticity"])

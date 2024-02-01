@@ -151,6 +151,7 @@ class ScenarioGenerator:
 
         self._disturbance_handles: list = []
         self._episode_counter: int = 0
+        self._uniform_os_state_update_indices: list = []
         self._os_state_update_indices: list = []
         self._os_plan_update_indices: list = []
         self._do_state_update_indices: list = []
@@ -224,12 +225,17 @@ class ScenarioGenerator:
         n_constant_do_state_episodes = config.episode_generation.n_constant_do_state_episodes
         n_plans_per_do_state = config.episode_generation.n_plans_per_do_state
         n_constant_disturbance_episodes = config.episode_generation.n_constant_disturbance_episodes
+        delta_uniform_position_sample = config.episode_generation.delta_uniform_position_sample
         self._os_state_update_indices = [-1 for _ in range(n_episodes)]
         self._os_plan_update_indices = [-1 for _ in range(n_episodes)]
         self._do_state_update_indices = [-1 for _ in range(n_episodes)]
         self._do_plan_update_indices = [-1 for _ in range(n_episodes)]
         self._disturbance_update_indices = [-1 for _ in range(n_episodes)]
+        self._uniform_os_state_update_indices = [-1 for _ in range(n_episodes)]
         for ep in range(n_episodes):
+            if ep % delta_uniform_position_sample == 0:
+                self._uniform_os_state_update_indices[ep] = ep
+
             if ep % n_constant_os_state_episodes == 0:
                 self._os_state_update_indices[ep] = ep
 
@@ -303,6 +309,8 @@ class ScenarioGenerator:
             if show:
                 self.visualize_episode(ship_list, disturbance, enc, config)
 
+            self._episode_counter += 1
+
         if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
         if show:
@@ -329,7 +337,7 @@ class ScenarioGenerator:
         if ddata.currents is not None and ddata.currents["speed"] > 0.0:
             handles.extend(
                 mapf.plot_disturbance(
-                    magnitude=80.0,
+                    magnitude=70.0,
                     direction=ddata.currents["direction"],
                     name="current: " + str(ddata.currents["speed"]) + " m/s",
                     enc=enc,
@@ -343,7 +351,7 @@ class ScenarioGenerator:
         if ddata.wind is not None and ddata.wind["speed"] > 0.0:
             handles.extend(
                 mapf.plot_disturbance(
-                    magnitude=80.0,
+                    magnitude=70.0,
                     direction=ddata.wind["direction"],
                     name="wind: " + str(ddata.wind["speed"]) + " m/s",
                     enc=enc,
@@ -549,6 +557,11 @@ class ScenarioGenerator:
                 print("ScenarioGenerator: Accept episode? (y/n)")
                 answer = input()  # "y"
                 if answer not in ["y", "Y", "yes", "Yes"]:
+                    if ep < n_episodes - 1:
+                        self._uniform_os_state_update_indices[ep + 1] = ep + 1
+                        self._os_plan_update_indices[ep + 1] = ep + 1
+                        self._os_state_update_indices[ep + 1] = ep + 1
+                        self._do_plan_update_indices[ep + 1] = ep + 1
                     continue
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
@@ -726,7 +739,7 @@ class ScenarioGenerator:
         """
         csog_state_list = []
         ep = self._episode_counter
-        uniform_in_map_sample = ep % config.episode_generation.delta_uniform_position_sample == 0
+        uniform_in_map_sample = self._uniform_os_state_update_indices[ep] == ep
         for ship_cfg_idx, ship_config in enumerate(config.ship_list):
             if ship_config.csog_state is not None:
                 csog_state_list.append(ship_config.csog_state)
@@ -846,7 +859,7 @@ class ScenarioGenerator:
 
         depth = mapf.find_minimum_depth(draft, self.enc)
         safe_sea = self.enc.seabed[depth]
-        max_iter = 1000
+        max_iter = 3000
         y_min, x_min, y_max, x_max = self.enc.bbox
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
@@ -915,7 +928,17 @@ class ScenarioGenerator:
                 accepted = True
                 break
         if not accepted:
-            print("WARNING: Could not find an acceptable starting state for the target ship. Using a random state...")
+            print(
+                "WARNING: Could not find an acceptable starting state for the target ship. Using a random state projected onto the safe sea.."
+            )
+            # self.enc.draw_circle((y, x), radius=10.0, color="orange", fill=True, alpha=0.6)
+            start_pos = np.array([x, y]) + speed * 500.0 * np.array([np.cos(heading), np.sin(heading)])
+            end_pos = np.array([x, y])
+            new_start_pos = mapf.find_closest_collision_free_point_on_segment(
+                self.enc, start_pos, end_pos, draft, min_dist=min_land_clearance
+            )
+            x, y = new_start_pos[0], new_start_pos[1]
+            # self.enc.draw_circle((y, x), radius=10.0, color="red", fill=True, alpha=0.6)
         return np.array([x, y, speed, heading])
 
     def generate_gaussian_csog_state(self, mean: np.ndarray, cov: np.ndarray, draft: float) -> np.ndarray:
@@ -931,7 +954,10 @@ class ScenarioGenerator:
         """
         perturbed_state = self.rng.multivariate_normal(mean, cov)
         safe_sea = self.enc.seabed[mapf.find_minimum_depth(draft, self.enc)]
-        while not safe_sea.geometry.contains(geometry.Point(perturbed_state[1], perturbed_state[0])):
+        max_iter = 2000
+        for _ in range(max_iter):
+            if safe_sea.geometry.contains(geometry.Point(perturbed_state[1], perturbed_state[0])):
+                break
             perturbed_state = self.rng.multivariate_normal(mean, cov)
         return perturbed_state
 

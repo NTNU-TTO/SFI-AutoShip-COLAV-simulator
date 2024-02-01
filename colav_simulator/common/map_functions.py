@@ -541,7 +541,11 @@ def extract_relevant_grounding_hazards(vessel_min_depth: int, enc: ENC) -> list:
     Returns:
         list: The relevant grounding hazards.
     """
-    dangerous_seabed = enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+    dangerous_seabed = (
+        enc.seabed[0].geometry.difference(enc.seabed[vessel_min_depth].geometry)
+        if vessel_min_depth > 0
+        else MultiPolygon()
+    )
     return [enc.land.geometry, enc.shore.geometry, dangerous_seabed]
 
 
@@ -657,19 +661,19 @@ def generate_random_goal_position(
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
     sector_radius = max(max_distance_from_start, min_distance_from_start)
     n_points = 100
-    angle_range_port = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)
-    arc_port = [
+    angle_range = np.linspace(-sector_width / 2.0 + xs_start[3], sector_width / 2.0 + xs_start[3], n_points)
+    arc = [
         (xs_start[1] + sector_radius * np.sin(angle), xs_start[0] + sector_radius * np.cos(angle))
-        for angle in angle_range_port
+        for angle in angle_range
     ]
-    arc_line_port = LineString(arc_port)
-    sector_poly = Polygon(list(arc_line_port.coords) + [(xs_start[1], xs_start[0])])
+    arc_linestring = LineString(arc)
+    sector_poly = Polygon(list(arc_linestring.coords) + [(xs_start[1], xs_start[0])])
     sector_poly = sector_poly.intersection(bbox_poly)
     if show_plots:
         enc.start_display()
-        enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.5)
+        enc.draw_polygon(sector_poly, color="green", fill=True, alpha=0.2)
     max_iter = 3000
-    for _ in range(max_iter):
+    for it in range(max_iter):
         p = mhm.sample_from_triangulation(rng, safe_sea_cdt, safe_sea_cdt_weights)
         easting, northing = p[0], p[1]
 
@@ -682,6 +686,11 @@ def generate_random_goal_position(
             and (dist2land >= min_distance_to_land)
         ):
             break
+
+        if it == max_iter - 1:
+            print(
+                "WARNING: Could not find a goal position that satisfies the constraints. Returning a random position..."
+            )
 
     return northing, easting
 
@@ -749,7 +758,7 @@ def find_closest_collision_free_point_on_segment(
     assert p1.shape == (2,) and p2.shape == (2,), "p1 and p2 must be 2D vectors"
     segment = LineString([(p1[1], p1[0]), (p2[1], p2[0])])
     if hazards is None:
-        hazards = extract_relevant_grounding_hazards_as_union(draft, enc, buffer=min_dist)
+        hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc, buffer=min_dist)
 
     for hazard in hazards:
         if hazard.is_empty:
@@ -1417,7 +1426,7 @@ def plot_disturbance(
         origin[1] - 1.2 * magnitude + text_location_offset[1],
     )
 
-    circle_handle = enc.draw_circle(origin, radius=magnitude, color="white", fill=True, alpha=0.4)
+    circle_handle = enc.draw_circle(origin, radius=magnitude, color="white", fill=True, alpha=0.2)
     arrow_handle = enc.draw_arrow(arrow_start, arrow_end, color=color, width=linewidth, fill=True)
     text_handle = enc.draw_text(name, text_location, color=color, size=10)
     return [circle_handle, arrow_handle, text_handle]
