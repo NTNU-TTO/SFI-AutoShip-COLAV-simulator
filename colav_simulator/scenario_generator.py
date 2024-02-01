@@ -157,6 +157,7 @@ class ScenarioGenerator:
         self._do_state_update_indices: list = []
         self._do_plan_update_indices: list = []
         self._disturbance_update_indices: list = []
+        self._bad_episode: bool = False
 
         self._prev_disturbance: Optional[stoch.Disturbance] = None
         self._prev_ship_list: list = []
@@ -550,6 +551,9 @@ class ScenarioGenerator:
                 mmsi_list,
                 show_plots=show_plots,
             )
+            if self._bad_episode:
+                continue
+
             ep_str = str(ep + 1).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
             if self._config.manual_episode_accept:
@@ -571,6 +575,7 @@ class ScenarioGenerator:
                     episode["config"], save_scenario_folder
                 )
 
+            self._episode_counter += 1
             scenario_episode_list.append(episode)
 
         if show_plots:
@@ -633,9 +638,40 @@ class ScenarioGenerator:
 
         disturbance = self.generate_disturbance(config)
 
+        self._bad_episode = self.check_for_bad_episode(ship_list)
+
         self._prev_ship_list = copy.deepcopy(ship_list)
-        self._episode_counter += 1
         return ship_list, disturbance, config
+
+    def check_for_bad_episode(
+        self, ship_list: list, minimum_plan_length: float = 200.0, next_wp_angle_threshold: float = np.deg2rad(120.0)
+    ) -> bool:
+        """Checks if the episode is bad, i.e. if any of the ships are outside the map,
+        the plan is less than the minimum length.
+
+        Args:
+            ship_list (list): List of ships to be considered in simulation.
+            minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 200.0.
+            next_wp_angle_threshold (float, optional): Threshold for the angle between the LOS to the next waypoint and the ship heading. Defaults to 120.0.
+
+        Returns:
+            bool: True if the episode is bad, False otherwise.
+        """
+        for ship_obj in ship_list:
+            if not mapf.point_in_polygon_list(
+                geometry.Point(ship_obj.csog_state[1], ship_obj.csog_state[0]), self.safe_sea_cdt
+            ):
+                return True
+
+            path_length = np.sum(np.linalg.norm(np.diff(ship_obj.waypoints, axis=1), axis=0))
+            if path_length < minimum_plan_length:
+                return True
+
+            # next_wp = ship_obj.waypoints[:, 1]
+            # los_next_wp = np.arctan2(next_wp[1] - ship_obj.csog_state[1], next_wp[0] - ship_obj.csog_state[0])
+            # if np.abs(mf.wrap_angle_diff_to_pmpi(los_next_wp, ship_obj.csog_state[3])) > next_wp_angle_threshold:
+            #     return True
+        return False
 
     def determine_replanning_flags(self, ship_list: list, config: sc.ScenarioConfig) -> list:
         """Determines the flags for whether or not to generate a new plan for each ship.

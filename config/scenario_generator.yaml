@@ -20,7 +20,7 @@ t_cpa_threshold: 1000.0
 d_cpa_threshold: 50.0
 
 behavior_generator:
-  ownship_method: "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
+  ownship_method: "IRRTStar" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
   target_ship_method: "ConstantSpeedRandomWaypoints" # "RRT" # "PQRRTStar"
 
   n_wps_range: [2, 3]
