@@ -146,8 +146,8 @@ class ScenarioGenerator:
             self.enc = senc.ENC(config_file=enc_config_file, **kwargs)
             self._setup_cdt(show_plots=False)
 
-        self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator = bg.BehaviorGenerator(self._config.behavior_generator)
+        self.seed(seed)
 
         self._disturbance_handles: list = []
         self._episode_counter: int = 0
