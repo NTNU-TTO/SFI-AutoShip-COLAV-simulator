@@ -276,13 +276,22 @@ class ScenarioGenerator:
         scenario_data_list = self.generate_scenarios_from_files(files)
         return scenario_data_list
 
-    def load_scenario_from_folder(self, folder: Path, scenario_name: str, show: bool = False) -> Tuple[list, senc.ENC]:
+    def load_scenario_from_folder(
+        self,
+        folder: Path,
+        scenario_name: str,
+        reload_map: bool = True,
+        show: bool = False,
+        max_number_of_episodes: Optional[int] = None,
+    ) -> Tuple[list, senc.ENC]:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
         Args:
             - folder (Path): Path to folder containing scenario files.
             - scenario_name (str): Name of the scenario.
+            - reload_map (bool, optional): Flag determining whether or not to reload the map data. Defaults to True.
             - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts. Defaults to False.
+            - max_number_of_episodes (Optional[int], optional): Maximum number of episodes to load. Defaults to None.
 
         Returns:
             - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
@@ -291,7 +300,7 @@ class ScenarioGenerator:
         first = True
         file_list = [file for file in folder.iterdir()]
         file_list.sort(key=lambda x: x.name.split("_")[-3])
-        for _, file in enumerate(file_list):
+        for file_idx, file in enumerate(file_list):
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
 
@@ -300,7 +309,7 @@ class ScenarioGenerator:
             ship_list, disturbance, config = self.load_episode(config_file=file)
             if first:
                 first = False
-                config.new_load_of_map_data = True
+                config.new_load_of_map_data = reload_map
                 enc = self._configure_enc(config)
             else:
                 config.new_load_of_map_data = False
@@ -311,6 +320,9 @@ class ScenarioGenerator:
                 self.visualize_episode(ship_list, disturbance, enc, config)
 
             self._episode_counter += 1
+
+            if max_number_of_episodes is not None and file_idx >= max_number_of_episodes - 1:
+                break
 
         if self._config.verbose:
             print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
@@ -463,6 +475,7 @@ class ScenarioGenerator:
         save_scenario: Optional[bool] = False,
         save_scenario_folder: Optional[Path] = dp.scenarios,
         reset_episode_counter: Optional[bool] = True,
+        n_episodes: Optional[int] = None,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
@@ -477,6 +490,7 @@ class ScenarioGenerator:
             - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition. Defaults to False.
             - save_scenario_folder (Path, optional): Absolute path to the folder where the scenario definition should be saved. Defaults to dp.scenarios.
             - reset_episode_counter (bool, optional): Flag determining whether or not to reset the episode counter. Defaults to True.
+            - n_episodes (int, optional): Number of episodes to generate. Defaults to None.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -534,7 +548,7 @@ class ScenarioGenerator:
             ship_config_list.append(ship_config)
         config.ship_list = ship_config_list
 
-        n_episodes = config.episode_generation.n_episodes
+        n_episodes = config.episode_generation.n_episodes if n_episodes is None else n_episodes
         self.determine_indices_of_episode_parameter_updates(config)
         self._position_generation = config.episode_generation.position_generation
         self.behavior_generator.reset()
@@ -798,9 +812,9 @@ class ScenarioGenerator:
                         U_max=0.9 * ship_obj.max_speed,
                         draft=ship_obj.draft,
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
-                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx]
-                        if not uniform_in_map_sample
-                        else None,
+                        first_episode_csog_state=(
+                            self._first_csog_states[ship_cfg_idx] if not uniform_in_map_sample else None
+                        ),
                     )
                 else:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
@@ -816,9 +830,9 @@ class ScenarioGenerator:
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                         t_cpa_threshold=self._config.t_cpa_threshold,
                         d_cpa_threshold=self._config.d_cpa_threshold,
-                        first_episode_csog_state=self._first_csog_states[ship_cfg_idx]
-                        if not uniform_in_map_sample
-                        else None,
+                        first_episode_csog_state=(
+                            self._first_csog_states[ship_cfg_idx] if not uniform_in_map_sample else None
+                        ),
                     )
                 else:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state

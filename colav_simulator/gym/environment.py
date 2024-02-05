@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal
 """
+
 import pathlib
 from typing import Optional, Tuple
 
@@ -45,11 +46,12 @@ class COLAVEnvironment(gym.Env):
         rewarder_config: Optional[rw.Config] = None,
         action_type: Optional[str] = None,
         observation_type: Optional[dict | str] = None,
-        render_mode: Optional[str] = "human",
+        render_mode: Optional[str] = "rgb_array",
         render_update_interval: Optional[float] = 0.2,
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         show_loaded_scenario_data: Optional[bool] = False,
+        max_number_of_episodes: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes the environment.
@@ -70,6 +72,7 @@ class COLAVEnvironment(gym.Env):
             test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
             verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
+            max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
         """
         super().__init__()
         assert (
@@ -90,6 +93,7 @@ class COLAVEnvironment(gym.Env):
         self.scenario_data_tup: Optional[tuple] = None
         self.reload_map: bool = reload_map
         self._has_init_generated: bool = False
+        self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
         self.done = False
         self.steps: int = 0
@@ -106,7 +110,11 @@ class COLAVEnvironment(gym.Env):
         self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
 
         if self.scenario_file_folder is not None:
-            self._load(scenario_file_folder=self.scenario_file_folder, show=show_loaded_scenario_data)
+            self._load(
+                scenario_file_folder=self.scenario_file_folder,
+                reload_map=self.reload_map,
+                show=show_loaded_scenario_data,
+            )
         else:
             self._generate(scenario_config=self.scenario_config, reload_map=self.reload_map)
 
@@ -162,16 +170,21 @@ class COLAVEnvironment(gym.Env):
         """
         return bool(self.simulator.is_truncated(self.verbose))
 
-    def _load(self, scenario_file_folder: pathlib.Path, show: bool = False) -> None:
+    def _load(self, scenario_file_folder: pathlib.Path, reload_map: bool = True, show: bool = False) -> None:
         """Load scenario episodes from files or a folder.
 
         Args:
             scenario_file_folder (pathlib.Path): Folder path where all episodes for a scenario is found.
+            reload_map (bool): Whether to reload the scenario map. Defaults to False.
             show (bool): Whether to show the scenario data or not. Defaults to False.
         """
         name = scenario_file_folder.name
         self.scenario_data_tup = self.scenario_generator.load_scenario_from_folder(
-            scenario_file_folder, scenario_name=name, show=show
+            scenario_file_folder,
+            scenario_name=name,
+            reload_map=reload_map,
+            show=show,
+            max_number_of_episodes=self.max_number_of_episodes,
         )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
@@ -189,11 +202,15 @@ class COLAVEnvironment(gym.Env):
         """
         if isinstance(scenario_config, pathlib.Path):
             self.scenario_data_tup = self.scenario_generator.generate(
-                config_file=scenario_config, new_load_of_map_data=reload_map
+                config_file=scenario_config,
+                new_load_of_map_data=reload_map,
+                n_episodes=self.max_number_of_episodes,
             )
         else:
             self.scenario_data_tup = self.scenario_generator.generate(
-                config=scenario_config, new_load_of_map_data=reload_map
+                config=scenario_config,
+                new_load_of_map_data=reload_map,
+                n_episodes=self.max_number_of_episodes,
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
@@ -301,6 +318,9 @@ class COLAVEnvironment(gym.Env):
             self._viewer2d.toggle_liveplot_visibility(show=True)
             self._viewer2d.set_update_rate(self.render_update_interval)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+            self._viewer2d.update_live_plot(
+                self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements
+            )
 
     def render(self):
         """Renders the environment in 2D."""

@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
+
 import copy
 import os
 from typing import Optional, Tuple
@@ -20,7 +21,6 @@ import scipy.spatial as scipy_spatial
 import seacharts.display.colors as colors
 import shapely
 import shapely.ops as ops
-from cartopy.feature import ShapelyFeature
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
@@ -476,6 +476,27 @@ def create_ship_polygon(
     return affinity.rotate(poly, -heading, origin=(y, x), use_radians=True)
 
 
+def plot_shapely_multipolygon(
+    ax: plt.Axes, mp: MultiPolygon, color: str, fill: bool = True, alpha: float = 1.0, zorder: int = 1
+) -> plt.Axes:
+    """Plots a shapely MultiPolygon object on a matplotlib axes.
+
+    Args:
+        ax (plt.Axes): Matplotlib axes handle.
+        mp (MultiPolygon): MultiPolygon object to plot.
+        color (str, optional): Color of the MultiPolygon.
+        fill (bool, optional): Option for filling the MultiPolygon. Defaults to False.
+        alpha (float, optional): Transparency of the MultiPolygon. Defaults to 1.0.
+        zorder (int, optional): Z-order of the MultiPolygon. Defaults to 1.
+    """
+    for poly in mp.geoms:
+        if fill:
+            ax.fill(*poly.exterior.xy, color=color, alpha=alpha, zorder=zorder)
+        else:
+            ax.plot(*poly.exterior.xy, color=color, zorder=zorder)
+    return ax
+
+
 def plot_background(
     ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True, dark_mode: bool = True
 ) -> None:
@@ -490,14 +511,13 @@ def plot_background(
         Tuple[]: Tuple of limits in x and y for the background extent
     """
     # For every layer put in list and assign a color
-
     if enc.land:
         color = "#142c38" if dark_mode else colors.color_picker(enc.land.color)
-        ax.add_feature(ShapelyFeature([enc.land.geometry], color=color, zorder=enc.land.z_order, crs=enc.crs))
+        plot_shapely_multipolygon(ax, enc.land.geometry, color=color, zorder=enc.land.z_order)
 
     if show_shore and enc.shore:
         color = "#142c38" if dark_mode else colors.color_picker(enc.shore.color)
-        ax.add_feature(ShapelyFeature([enc.shore.geometry], color=color, zorder=enc.shore.z_order, crs=enc.crs))
+        plot_shapely_multipolygon(ax, enc.shore.geometry, color=color, zorder=enc.shore.z_order)
 
     if show_seabed and enc.seabed:
         bins = len(enc.seabed.keys())
@@ -505,11 +525,12 @@ def plot_background(
         for _, layer in enc.seabed.items():
             rank = layer.z_order + count
             color = colors.color_picker(count, bins)
-            ax.add_feature(ShapelyFeature([layer.geometry], color=color, zorder=rank, crs=enc.crs))
+            plot_shapely_multipolygon(ax, layer.geometry, color=color, zorder=rank)
             count += 1
 
     x_min, y_min, x_max, y_max = enc.bbox
-    ax.set_extent((x_min, x_max, y_min, y_max), crs=enc.crs)
+    ax.set_xlim((x_min, x_max))  # Easting
+    ax.set_ylim((y_min, y_max))  # Northing
 
 
 def find_minimum_depth(vessel_draft: float, enc: ENC):

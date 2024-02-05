@@ -6,6 +6,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
+
 import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -19,8 +20,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
-from cartopy.feature import ShapelyFeature
 from matplotlib import animation
+from matplotlib.transforms import Affine2D
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
@@ -30,20 +31,31 @@ from shapely.geometry import Polygon
 plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
 plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
 
-warnings.filterwarnings("ignore", module="matplotlib\..*")
-
 
 @dataclass
 class Config:
     """Configuration class for specifying the look of the visualization."""
 
     show_liveplot: bool = True
-    zoom_in_liveplot_on_ownship: bool = True
-    zoom_window_width: float = 1000.0
-    show_colav_results_live: bool = True
-    show_waypoints: bool = False
-    show_measurements: bool = False
-    show_liveplot_tracks: bool = True
+    zoom_in_liveplot_on_ownship: bool = True  # If true, the live plot zooms in on the ownship
+    zoom_window_width: float = 1000.0  # Width of the zoom window in meters
+    show_liveplot_colav_results: bool = True  # If true, the COLAV results are shown in the live plot
+    show_liveplot_target_waypoints: bool = False  # If true, the target waypoints are shown in the live plot
+    show_liveplot_ownship_waypoints: bool = False  # If true, the ownship waypoints are shown in the live plot
+    show_liveplot_ownship_trajectory: bool = (
+        True  # If true, the ownship (ground truth) trajectory is shown in the live plot
+    )
+    show_liveplot_ground_truth_target_pose: bool = (
+        False  # If true, the ground truth target pose is shown in the live plot, otherwise the estimated pose is shown
+    )
+    show_liveplot_measurements: bool = False
+    show_liveplot_target_tracks: bool = True  # If true, the target tracks are shown in the live plot
+    show_liveplot_target_trajectories: bool = (
+        True  # If true, the target (ground truth) trajectories are shown in the live plot
+    )
+    rotate_liveplot_to_ownship_heading: bool = False  # If true, the live plot is rotated to the ownship heading
+    show_liveplot_map_axes: bool = False
+    show_liveplot_scalebar: bool = True
     show_results: bool = True
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
@@ -54,12 +66,13 @@ class Config:
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
+    disable_ship_labels: bool = True
     ship_linewidth: float = 0.9
     ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
     ship_info_fontsize: int = 13
     ship_colors: list = field(
         default_factory=lambda: [
-            "xkcd:black",
+            "xkcd:green",
             "xkcd:red",
             "xkcd:eggshell",
             "xkcd:purple",
@@ -134,10 +147,10 @@ class Visualizer:
         else:
             self._config = Config()
 
-        fig: plt.figure = None  # handle to figure for live plotting
-        axes: list = []  # handle to axes for live plotting
-        ship_plt_handles: list = []  # handles used for live plotting
-        misc_plt_handles: dict = {}  # Extra handles used for live plotting
+        self.fig: plt.figure = None  # handle to figure for live plotting
+        self.axes: list = []  # handle to axes for live plotting
+        self.ship_plt_handles: list = []  # handles used for live plotting
+        self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
 
         self.xlimits = [-1e10, 1e10]
         self.ylimits = [-1e10, 1e10]
@@ -154,6 +167,16 @@ class Visualizer:
     def toggle_liveplot_visibility(self, show: bool) -> None:
         """Toggles the visibility of the live plot."""
         self._config.show_liveplot = show
+
+    def toggle_liveplot_axis_labels(self, show: bool) -> None:
+        """Toggles the visibility of the axis labels in the live plot."""
+        for ax in self.axes:
+            if show:
+                ax.set_xlabel("Easting [m]")
+                ax.set_ylabel("Northing [m]")
+            else:
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
 
     def toggle_results_visibility(self, show: bool) -> None:
         """Toggles the visibility of the result plots."""
@@ -175,41 +198,35 @@ class Visualizer:
         self.frames = []
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
 
-        ax_map = self.fig.add_subplot(projection=enc.crs)
+        ax_map = self.fig.add_subplot(1, 1, 1)
         mapf.plot_background(ax_map, enc, dark_mode=self._config.dark_mode_liveplot)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-
-        ax_map.set_extent(extent, crs=enc.crs)
-        ax_map.gridlines(
-            draw_labels=True,
-            dms=True,
-            color="gray",
-            linewidth=1.5,
-            linestyle="--",
-            alpha=0.3,
-            x_inline=False,
-            y_inline=False,
-        )
         plt.ion()
+
+        ax_map.set_xlim(extent[0], extent[1])
+        ax_map.set_ylim(extent[2], extent[3])
 
         self.misc_plt_handles = {}
         self.ship_plt_handles = []
-
-        ax_map.add_artist(
-            ScaleBar(
-                1,
-                units="m",
-                location="lower left",
-                frameon=False,
-                color="white",
-                box_alpha=0.0,
-                pad=0.5,
-                font_properties={"size": 12},
+        if self._config.show_liveplot_scalebar:
+            ax_map.add_artist(
+                ScaleBar(
+                    1,
+                    units="m",
+                    location="lower left",
+                    frameon=False,
+                    color="white",
+                    box_alpha=0.0,
+                    pad=0.5,
+                    font_properties={"size": 12},
+                )
             )
-        )
         self.axes = [ax_map]
-        self.fig.tight_layout()
+        ax_map.set_aspect("equal")
+        self.toggle_liveplot_axis_labels(self._config.show_liveplot_map_axes)
         plt.show(block=False)
+        self.fig.tight_layout(pad=0.0)
+        plt.subplots_adjust(0, 0, 1, 1, 0, 0)
 
     def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
@@ -271,6 +288,9 @@ class Visualizer:
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
 
+        if self._config.rotate_liveplot_to_ownship_heading:
+            self.rotate_live_plot_to_ownship_heading(ship_list[0].csog_state[3])
+
         ax_map = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
@@ -292,21 +312,22 @@ class Visualizer:
             ship_i_handles: dict = {}
             if i == 0:
                 ship_name = "OS"
+                do_c = self._config.do_colors[0]
 
                 do_lw = self._config.do_linewidth
+                ship_i_handles["do_track_poses"] = []
+                ship_i_handles["do_tracks"] = []
+                ship_i_handles["do_covariances"] = []
+                ship_i_handles["track_started"] = []
+                for j in range(1, n_ships):
+                    ship_i_handles["track_started"].append(False)
 
-                if self._config.show_liveplot_tracks:
-                    ship_i_handles["do_tracks"] = []
-                    ship_i_handles["do_covariances"] = []
-                    ship_i_handles["track_started"] = []
-                    for j in range(1, n_ships):
-                        ship_i_handles["track_started"].append(False)
+                    if not self._config.show_liveplot_ground_truth_target_pose:
+                        ship_i_handles["do_track_poses"].append(
+                            ax_map.fill([], [], color=do_c, linewidth=lw, label="", zorder=zorder_patch - 1)[0]
+                        )
 
-                        if n_ships > len(self._config.ship_colors):
-                            do_c = self._config.do_colors[1]
-                        else:
-                            do_c = self._config.do_colors[j]
-
+                    if self._config.show_liveplot_target_tracks:
                         # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
                         ship_i_handles["do_tracks"].append(
                             ax_map.plot(
@@ -315,26 +336,23 @@ class Visualizer:
                                 linewidth=do_lw,
                                 color=do_c,
                                 label=f"DO {j - 1} est. traj.",
-                                transform=enc.crs,
                                 zorder=zorder_patch - 2,
                             )[0]
                         )
 
                         ship_i_handles["do_covariances"].append(
-                            ax_map.add_feature(
-                                ShapelyFeature(
-                                    [],
-                                    linewidth=lw,
-                                    color=do_c,
-                                    alpha=0.5,
-                                    label=f"DO {j - 1} est. 3sigma cov.",
-                                    crs=enc.crs,
-                                    zorder=zorder_patch - 2,
-                                )
-                            )
+                            ax_map.fill(
+                                [],
+                                [],
+                                linewidth=lw,
+                                color=do_c,
+                                alpha=0.5,
+                                label=f"DO {j - 1} est. 3sigma cov.",
+                                zorder=zorder_patch - 2,
+                            )[0]
                         )
 
-                if self._config.show_measurements:
+                if self._config.show_liveplot_measurements:
                     for sensor in ship_obj.sensors:
                         if sensor.type == "radar":
                             ship_i_handles["radar"] = ax_map.plot(
@@ -346,7 +364,6 @@ class Visualizer:
                                 marker=".",
                                 markersize=8,
                                 label="Radar meas.",
-                                transform=enc.crs,
                                 zorder=zorder_patch - 3,
                             )[0]
                         elif sensor.type == "ais":
@@ -359,7 +376,6 @@ class Visualizer:
                                 marker="*",
                                 markersize=10,
                                 label="AIS meas.",
-                                transform=enc.crs,
                                 zorder=zorder_patch - 3,
                             )[0]
 
@@ -367,35 +383,40 @@ class Visualizer:
                 # print("i = {}".format(i))
                 ship_name = "DO " + str(i - 1)
 
-            ship_i_handles["info"] = ax_map.text(
-                0.0,
-                0.0,
-                ship_name,  # + " | mmsi:" + str(ship.mmsi),
-                color=c,
-                transform=enc.crs,
-                fontsize=self._config.ship_info_fontsize,
-                verticalalignment="center",
-                horizontalalignment="center",
-                zorder=5,
-                label="",
-            )
+            if not self._config.disable_ship_labels:
+                ship_i_handles["info"] = ax_map.text(
+                    0.0,
+                    0.0,
+                    ship_name,  # + " | mmsi:" + str(ship.mmsi),
+                    color=c,
+                    fontsize=self._config.ship_info_fontsize,
+                    verticalalignment="center",
+                    horizontalalignment="center",
+                    zorder=5,
+                    label="",
+                )
 
-            ship_i_handles["patch"] = ax_map.add_feature(
-                ShapelyFeature([], edgecolor="k", facecolor=c, linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch)
-            )
+            ship_i_handles["ground_truth_patch"] = None
+            if ship_obj.id == 0 or (ship_obj.id > 0 and self._config.show_liveplot_ground_truth_target_pose):
+                ship_i_handles["ground_truth_patch"] = ax_map.fill(
+                    [], [], edgecolor="k", facecolor=c, linewidth=lw, label="", zorder=zorder_patch
+                )[0]
 
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
-            ship_i_handles["trajectory"] = ax_map.plot(
-                [0.0],
-                [0.0],
-                color=c,
-                linewidth=lw,
-                label=ship_name + " true traj.",
-                transform=enc.crs,
-                zorder=zorder_patch - 2,
-            )[0]
+            ship_i_handles["trajectory"] = None
+            if (ship_obj.id == 0 and self._config.show_liveplot_ownship_trajectory) or (
+                ship_obj.id > 0 and self._config.show_liveplot_target_trajectories
+            ):
+                ship_i_handles["trajectory"] = ax_map.plot(
+                    [0.0],
+                    [0.0],
+                    color=c,
+                    linewidth=lw,
+                    label=ship_name + " true traj.",
+                    zorder=zorder_patch - 2,
+                )[0]
 
-            if self._config.show_colav_results_live:
+            if self._config.show_liveplot_colav_results:
                 ship_i_handles["colav_nominal_trajectory"] = ax_map.plot(
                     [0.0],
                     [0.0],
@@ -405,7 +426,6 @@ class Visualizer:
                     markersize=4,
                     linestyle="dotted",
                     label=ship_name + " nom. traj.",
-                    transform=enc.crs,
                     zorder=zorder_patch - 2,
                 )[0]
 
@@ -418,55 +438,58 @@ class Visualizer:
                     markersize=4,
                     linestyle="--",
                     label=ship_name + " pred. traj.",
-                    transform=enc.crs,
                     zorder=zorder_patch - 2,
                 )[0]
 
-                ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
-                    ShapelyFeature(
-                        [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
-                    )
-                )
-                ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
-                    ShapelyFeature(
-                        [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
-                    )
-                )
+                # ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
+                #     ShapelyFeature(
+                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                #     )
+                # )
+                # ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
+                #     ShapelyFeature(
+                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                #     )
+                # )
 
-            if self._config.show_waypoints and ship_obj.waypoints.size > 0:
+            if (
+                (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
+                or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
+            ) and ship_obj.waypoints.size > 0:
+                waypoint_color = "yellow" if ship_obj.id == 0 else "orange"
                 ship_i_handles["waypoints"] = ax_map.plot(
                     ship_obj.waypoints[1, :],
                     ship_obj.waypoints[0, :],
-                    color=c,
+                    color=waypoint_color,
                     marker="o",
                     markersize=8,
                     linestyle="dashed",
                     linewidth=lw,
-                    alpha=0.3,
+                    alpha=0.6,
                     label=ship_name + " waypoints",
-                    transform=enc.crs,
                     zorder=-6,
                 )[0]
 
             ship_i_handles["ship_started"] = False
             self.ship_plt_handles.append(ship_i_handles)
 
-        extent = ax_map.get_extent()
+        ylim = ax_map.get_xlim()  # easting
+        xlim = ax_map.get_ylim()  # northing
         self.misc_plt_handles["time"] = ax_map.text(
-            extent[0] + 1000,
-            extent[3] - 500,
+            ylim[0] + 48,
+            xlim[0] + 70,
             "t = 0.0 s",
-            transform=enc.crs,
-            fontsize=13,
+            fontsize=15,
+            color="red",
             verticalalignment="top",
             horizontalalignment="left",
             zorder=10,
             label="",
         )
 
-        self.frames.append(self.get_live_plot_image())
-        if n_ships < 3:  # to avoid cluttering the legend
-            plt.legend(loc="upper right")
+        # self.frames.append(self.get_live_plot_image())
+        # if n_ships < 3:  # to avoid cluttering the legend
+        #     plt.legend(loc="upper right")
 
     def update_ownship_live_tracking_data(
         self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC
@@ -484,9 +507,11 @@ class Visualizer:
         do_labels = [track[0] for track in tracks]
         do_estimates = [track[1] for track in tracks]
         do_covariances = [track[2] for track in tracks]
+        do_lengths = [track[3] for track in tracks]
+        do_widths = [track[4] for track in tracks]
         ax_map = self.axes[0]
         zorder_patch = 4
-        if self._config.show_liveplot_tracks and len(do_estimates) > 0:
+        if len(do_estimates) > 0:
             lw = self._config.do_linewidth
             for j, do_estimate in enumerate(do_estimates):  # pylint: disable=consider-using-enumerate
                 plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
@@ -501,60 +526,79 @@ class Visualizer:
                     start_idx_track_line_data = 1
                     self.ship_plt_handles[0]["track_started"][plt_idx] = True
 
-                self.ship_plt_handles[0]["do_tracks"][plt_idx].set_xdata(
-                    [
-                        *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_xdata()[start_idx_track_line_data:],
-                        do_estimate[1],
-                    ]
-                )
-                self.ship_plt_handles[0]["do_tracks"][plt_idx].set_ydata(
-                    [
-                        *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_ydata()[start_idx_track_line_data:],
+                if not self._config.show_liveplot_ground_truth_target_pose:
+                    if self.ship_plt_handles[0]["do_track_poses"][plt_idx] is not None:
+                        self.ship_plt_handles[0]["do_track_poses"][plt_idx].remove()
+                    chi_j = np.arctan2(do_estimate[3], do_estimate[2])
+                    target_ship_polygon = mapf.create_ship_polygon(
                         do_estimate[0],
-                    ]
-                )
+                        do_estimate[1],
+                        chi_j,
+                        do_lengths[j],
+                        do_widths[j],
+                        self._config.ship_scaling[0],
+                        self._config.ship_scaling[1],
+                    )
+                    self.ship_plt_handles[0]["do_track_poses"][plt_idx] = ax_map.fill(
+                        *target_ship_polygon.exterior.xy,
+                        color=do_c,
+                        linewidth=lw,
+                        label="",
+                        zorder=zorder_patch - 1,
+                    )[0]
 
-                ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
-                ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
-                if self.ship_plt_handles[0]["do_covariances"][plt_idx] is not None:
-                    self.ship_plt_handles[0]["do_covariances"][plt_idx].remove()
-                self.ship_plt_handles[0]["do_covariances"][plt_idx] = ax_map.add_feature(
-                    ShapelyFeature(
-                        [ell_geometry],
+                if self._config.show_liveplot_target_tracks:
+                    self.ship_plt_handles[0]["do_tracks"][plt_idx].set_xdata(
+                        [
+                            *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_xdata()[start_idx_track_line_data:],
+                            do_estimate[1],
+                        ]
+                    )
+                    self.ship_plt_handles[0]["do_tracks"][plt_idx].set_ydata(
+                        [
+                            *self.ship_plt_handles[0]["do_tracks"][plt_idx].get_ydata()[start_idx_track_line_data:],
+                            do_estimate[0],
+                        ]
+                    )
+
+                    ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.99)
+                    ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
+                    if self.ship_plt_handles[0]["do_covariances"][plt_idx] is not None:
+                        self.ship_plt_handles[0]["do_covariances"][plt_idx].remove()
+                    self.ship_plt_handles[0]["do_covariances"][plt_idx] = ax_map.fill(
+                        *ell_geometry.exterior.xy,
                         linewidth=lw,
                         color=do_c,
                         alpha=0.3,
                         label=f"DO {j - 1} est. 3sigma cov.",
-                        crs=enc.crs,
                         zorder=zorder_patch - 2,
-                    )
-                )
+                    )[0]
 
-                if self._config.show_measurements:
-                    for sensor_id, sensor in enumerate(ownship.sensors):
-                        sensor_data = sensor_measurements[sensor_id]
-                        if not sensor_data:
-                            continue
+        if self._config.show_liveplot_measurements:
+            for sensor_id, sensor in enumerate(ownship.sensors):
+                sensor_data = sensor_measurements[sensor_id]
+                if not sensor_data:
+                    continue
 
-                        if np.isnan(sensor_data).any():
-                            continue
-                        xdata = []
-                        ydata = []
-                        for measurements in sensor_data:
-                            for meas in measurements:
-                                xdata.append(meas[1])
-                                ydata.append(meas[0])
+                if np.isnan(sensor_data).any():
+                    continue
+                xdata = []
+                ydata = []
+                for measurements in sensor_data:
+                    for meas in measurements:
+                        xdata.append(meas[1])
+                        ydata.append(meas[0])
 
-                        if not xdata or not ydata:
-                            continue
+                if not xdata or not ydata:
+                    continue
 
-                        if sensor.type == "radar":
-                            self.ship_plt_handles[0]["radar"].set_xdata(xdata)
-                            self.ship_plt_handles[0]["radar"].set_ydata(ydata)
+                if sensor.type == "radar":
+                    self.ship_plt_handles[0]["radar"].set_xdata(xdata)
+                    self.ship_plt_handles[0]["radar"].set_ydata(ydata)
 
-                        elif sensor.type == "ais":
-                            self.ship_plt_handles[0]["ais"].set_xdata(xdata)
-                            self.ship_plt_handles[0]["ais"].set_ydata(ydata)
+                elif sensor.type == "ais":
+                    self.ship_plt_handles[0]["ais"].set_xdata(xdata)
+                    self.ship_plt_handles[0]["ais"].set_ydata(ydata)
 
     def update_ship_live_data(self, ship_obj: ship.Ship, idx: int, enc: ENC, **kwargs) -> None:
         """Updates the live plot with the current data of the input ship object.
@@ -579,27 +623,36 @@ class Visualizer:
             self._config.ship_scaling[0],
             self._config.ship_scaling[1],
         )
-        if self.ship_plt_handles[idx]["patch"] is not None:
-            self.ship_plt_handles[idx]["patch"].remove()
-        self.ship_plt_handles[idx]["patch"] = ax_map.add_feature(
-            ShapelyFeature([ship_poly], color=c, linewidth=lw, crs=enc.crs, zorder=zorder_patch), label=""
-        )
+        if self.ship_plt_handles[idx]["ground_truth_patch"] is not None:
+            self.ship_plt_handles[idx]["ground_truth_patch"].remove()
 
-        self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
-        self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 50)
+        if ship_obj.id == 0 or (ship_obj.id > 0 and self._config.show_liveplot_ground_truth_target_pose):
+            self.ship_plt_handles[idx]["ground_truth_patch"] = ax_map.fill(
+                *ship_poly.exterior.xy, color=c, linewidth=lw, zorder=zorder_patch, label=""
+            )[0]
 
-        self.ship_plt_handles[idx]["trajectory"].set_xdata(
-            [*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]]
-        )
-        self.ship_plt_handles[idx]["trajectory"].set_ydata(
-            [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
-        )
+        if not self._config.disable_ship_labels:
+            self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
+            self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 50)
 
-        if self._config.show_waypoints and ship_obj.waypoints.size > 0:
+        if (ship_obj.id == 0 and self._config.show_liveplot_ownship_trajectory) or (
+            ship_obj.id > 0 and self._config.show_liveplot_target_trajectories
+        ):
+            self.ship_plt_handles[idx]["trajectory"].set_xdata(
+                [*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]]
+            )
+            self.ship_plt_handles[idx]["trajectory"].set_ydata(
+                [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
+            )
+
+        if (
+            (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
+            or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
+        ) and ship_obj.waypoints.size > 0:
             self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
             self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
 
-        if self._config.show_colav_results_live:
+        if self._config.show_liveplot_colav_results:
             self.ship_plt_handles[idx] = ship_obj.plot_colav_results(ax_map, enc, self.ship_plt_handles[idx], **kwargs)
 
     def update_live_plot(self, t: float, enc: ENC, ship_list: list, sensor_measurements: list) -> None:
@@ -614,12 +667,26 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        if t - self._t_prev_update < (1.0 / self._config.update_rate_liveplot):
+        if t > 0.0 and (t - self._t_prev_update < (1.0 / self._config.update_rate_liveplot)):
             return
 
         self._t_prev_update = t
         self.fig.canvas.restore_region(self.background)
-        self.misc_plt_handles["time"].set_text(f"t = {t:.2f} s")
+        self.misc_plt_handles["time"].remove()
+        ax_map = self.axes[0]
+        ylim = ax_map.get_xlim()  # easting
+        xlim = ax_map.get_ylim()  # northing
+        self.misc_plt_handles["time"] = ax_map.text(
+            ylim[0] + 48,
+            xlim[0] + 70,
+            f"t = {t:.2f} s",
+            fontsize=15,
+            color="white",
+            verticalalignment="top",
+            horizontalalignment="left",
+            zorder=10,
+            label="",
+        )
 
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
@@ -661,9 +728,18 @@ class Visualizer:
         buffer = self._config.zoom_window_width / 2.0
         xlimits_os = [os_state[0] - buffer, os_state[0] + buffer]
         ylimits_os = [os_state[1] - buffer, os_state[1] + buffer]
-        upd_xlimits = [max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
-        upd_ylimits = [max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
-        self.axes[0].set_extent([upd_ylimits[0], upd_ylimits[1], upd_xlimits[0], upd_xlimits[1]], crs=enc.crs)
+        upd_xlimits = xlimits_os #[max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
+        upd_ylimits = ylimits_os #[max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
+        self.axes[0].set_xlim(upd_ylimits[0], upd_ylimits[1])
+        self.axes[0].set_ylim(upd_xlimits[0], upd_xlimits[1])
+
+    def rotate_live_plot_to_ownship_heading(self, heading: float) -> None:
+        """Rotates the live plot to the own-ship heading.
+
+        Args:
+            heading (float): Own-ship heading in radians.
+        """
+        ax_map = self.axes[0]
 
     def save_live_plot_animation(self, filename: Path = dp.animation_output / "liveplot.gif") -> None:
         """Saves the live plot animation to a file if enabled.
@@ -768,7 +844,7 @@ class Visualizer:
         figs = []
         axes = []
         fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.figsize)
-        ax_map = fig_map.add_subplot(projection=enc.crs)
+        ax_map = fig_map.add_subplot(1, 1, 1)
         mapf.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
         xlimits, ylimits = self.find_plot_limits(enc, ship_list[0], buffer=0.0)
@@ -823,7 +899,6 @@ class Visualizer:
                     markersize=4,
                     linestyle="--",
                     linewidth=ship_lw,
-                    transform=enc.crs,
                     label="",
                     zorder=zorder_patch - 5,
                 )
@@ -834,7 +909,6 @@ class Visualizer:
                 color=ship_color,
                 linewidth=ship_lw,
                 label=ship_name + " traj.",
-                transform=enc.crs,
                 zorder=zorder_patch - 2,
             )
 
@@ -878,7 +952,6 @@ class Visualizer:
                         do_estimates_j[0, first_valid_idx_track:end_idx_j],
                         color=do_color,
                         linewidth=ship_lw,
-                        transform=enc.crs,
                         label=f"DO {do_labels[j] -1} est. traj.",
                         zorder=zorder_patch - 2,
                     )
@@ -896,7 +969,6 @@ class Visualizer:
                     #             color=do_color,
                     #             alpha=0.3,
                     #             label=f"DO {plt_idx} est. cov.",
-                    #             crs=enc.crs,
                     #             zorder=zorder_patch - 2,
                     #         )
                     #     )
@@ -931,16 +1003,15 @@ class Visualizer:
                     length_scaling=self._config.ship_scaling[0],
                     width_scaling=self._config.ship_scaling[1],
                 )
-                ax_map.add_feature(
-                    ShapelyFeature(
-                        [ship_poly],
-                        linewidth=ship_lw,
-                        color=ship_color,
-                        # label=ship_name",
-                        crs=enc.crs,
-                        zorder=zorder_patch,
-                    )
+                ax_map.fill(
+                    *ship_poly.exterior,
+                    linewidth=ship_lw,
+                    color=ship_color,
+                    # label=ship_name",
+                    crs=enc.crs,
+                    zorder=zorder_patch,
                 )
+
                 # ax_map.text(
                 #     X[1, k] - 100,
                 #     X[0, k] + 200,
@@ -950,8 +1021,8 @@ class Visualizer:
                 # )
                 count += 1
 
-        ax_map.set_extent([ylimits[0], ylimits[1], xlimits[0], xlimits[1]], crs=enc.crs)
-        ax_map.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        ax_map.set_xlim([ylimits[0], ylimits[1]])
+        ax_map.set_ylim([xlimits[0], xlimits[1]])
         ax_map.add_artist(
             ScaleBar(
                 1,
@@ -1355,7 +1426,7 @@ class Visualizer:
             state (bool): Visibility state of the legend.
         """
         if "patch" in self.ship_plt_handles[idx]:
-            self.ship_plt_handles[idx]["patch"].set_visible(state)
+            self.ship_plt_handles[idx]["ground_truth_patch"].set_visible(state)
 
         if "trajectory" in self.ship_plt_handles[idx]:
             self.ship_plt_handles[idx]["trajectory"].set_visible(state)

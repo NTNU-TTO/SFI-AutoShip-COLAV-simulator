@@ -11,19 +11,34 @@ visualizer:
     show_liveplot:
       required: True
       type: boolean
-    show_colav_results_live:
+    show_liveplot_colav_results:
       required: True
       type: boolean
     show_results:
       required: True
       type: boolean
-    show_measurements:
+    show_liveplot_measurements:
       required: True
       type: boolean
-    show_waypoints:
+    show_liveplot_target_waypoints:
       required: True
       type: boolean
-    show_liveplot_tracks:
+    show_liveplot_ownship_waypoints:
+      required: True
+      type: boolean
+    show_liveplot_ownship_trajectory:
+      required: True
+      type: boolean
+    rotate_liveplot_to_ownship_heading:
+      required: True
+      type: boolean
+    show_liveplot_ground_truth_target_pose:
+      required: True
+      type: boolean
+    show_liveplot_target_tracks:
+      required: True
+      type: boolean
+    show_liveplot_target_trajectories:
       required: True
       type: boolean
     show_target_tracking_results:
@@ -32,7 +47,16 @@ visualizer:
     show_trajectory_tracking_results:
       required: True
       type: boolean
+    show_liveplot_map_axes:
+      required: True
+      type: boolean
+    show_liveplot_scalebar:
+      required: True
+      type: boolean
     dark_mode_liveplot:
+      required: True
+      type: boolean
+    disable_ship_labels:
       required: True
       type: boolean
     update_rate_liveplot:
