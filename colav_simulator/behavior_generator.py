@@ -146,7 +146,7 @@ class BehaviorGenerationMethod(Enum):
     RRT = 3  # Use baseline RRT to generate ship trajectories/waypoints, with constant speed
     IRRTStar = 4  # Use Informed RRT* to generate ship trajectories/waypoints, with constant speed
     PQRRTStar = 5  # Use PQ-RRT* to generate ship trajectories/waypoints, with constant speed
-    Any = 6  # Any of the above methods
+    Randomize = 6  # Any of the above methods can be chosen at random
 
 
 @dataclass
@@ -200,7 +200,7 @@ class Config:
     def to_dict(self):
         output = asdict(self)
         output["rrt"] = self.rrt.to_dict()
-        output["rrtstar"] = self.rrtstar.to_dict()
+        output["irrtstar"] = self.irrtstar.to_dict()
         output["pqrrtstar"] = self.pqrrtstar.to_dict()
         output["ownship_method"] = self.ownship_method.name
         output["target_ship_method"] = self.target_ship_method.name
@@ -285,6 +285,7 @@ class BehaviorGenerator:
             self._planning_bbox_list = [None for _ in range(len(ship_list))]
             self._planning_hazard_list = [None for _ in range(len(ship_list))]
             self._planning_cdt_list = [None for _ in range(len(ship_list))]
+            self._bg_method_list = [None for _ in range(len(ship_list))]
             if (
                 self._config.ownship_method.value >= BehaviorGenerationMethod.RRT.value
                 or self._config.target_ship_method.value >= BehaviorGenerationMethod.RRT.value
@@ -356,6 +357,11 @@ class BehaviorGenerator:
 
         for ship_obj in ship_list:
             method = self._config.target_ship_method if ship_obj.id > 0 else self._config.ownship_method
+            if method == BehaviorGenerationMethod.Randomize:
+                method = BehaviorGenerationMethod(rng.integers(0, BehaviorGenerationMethod.Randomize.value))
+
+            self._bg_method_list[ship_obj.id] = method
+
             replan = self._ship_replan_flags[ship_obj.id]
             run_rrt = not np.array_equal(ship_obj.csog_state, self._prev_ship_states[ship_obj.id])
             if (
@@ -537,10 +543,7 @@ class BehaviorGenerator:
                 ship_config_list[ship_cfg_idx] = ship_config
                 continue
 
-            method = target_ship_method if ship_obj.id > 0 else ownship_method
-            if method == BehaviorGenerationMethod.Any:
-                method = BehaviorGenerationMethod(rng.integers(0, BehaviorGenerationMethod.Any.value))
-
+            method = self._bg_method_list[ship_obj.id]
             if method == BehaviorGenerationMethod.ConstantSpeedAndCourse:
                 waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
                     ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan

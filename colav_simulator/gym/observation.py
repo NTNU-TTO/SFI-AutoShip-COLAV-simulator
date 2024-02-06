@@ -13,6 +13,7 @@
 
     Author: Trym Tengesdal
 """
+
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Tuple, Union
@@ -643,10 +644,13 @@ class TimeObservation(ObservationType):
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image. INCOMPLETE"""
 
-    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (256, 256, 1), **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (400, 400, 3), **kwargs) -> None:
         super().__init__(env)
         self.name = "PerceptionImageObservation"
         self.image_dim = image_dim
+        self.n_images = image_dim[2]  # Number of images (grayscale) to store in the observation
+        self.observation_counter = 0
+        self.previous_image_stack = np.zeros(image_dim, dtype=np.uint8)  # All black
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -681,7 +685,6 @@ class PerceptionImageObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         t_now = time.time()
         img = self.env.liveplot_image
-
         os_liveplot_zoom_width = self.env.liveplot_zoom_width
         os_heading = self._ownship.heading
         #
@@ -702,7 +705,6 @@ class PerceptionImageObservation(ObservationType):
             center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
             center_pixel_y - cutoff_width : center_pixel_y + cutoff_width,
         ]
-        # plt.imshow(cropped_img, aspect="equal")
 
         # Resize image to a multiple of the image_dim
         diff_multiple = int(cropped_img.shape[0] / self.image_dim[0]), int(cropped_img.shape[1] / self.image_dim[1])
@@ -717,6 +719,7 @@ class PerceptionImageObservation(ObservationType):
         # downsample the image to configured image shape
         downsampled_img = cv2.resize(cropped_img, (self.image_dim[0], self.image_dim[1]), interpolation=cv2.INTER_AREA)
         grayscale_img = cv2.cvtColor(downsampled_img, cv2.COLOR_BGR2GRAY)
+
         if True:
             fig = plt.figure()
             axes = fig.subplot_mosaic(
@@ -751,8 +754,12 @@ class PerceptionImageObservation(ObservationType):
             axes["grayscale"].axes.get_yaxis().set_visible(False)
             plt.tight_layout()
             plt.show(block=False)
+
+        # shift the image stack and add the new one
+        self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=2)
+        self.previous_image_stack[:, :, 0] = grayscale_img
         print("Time to process image: ", time.time() - t_now)
-        return downsampled_img
+        return self.previous_image_stack
 
 
 class TupleObservation(ObservationType):

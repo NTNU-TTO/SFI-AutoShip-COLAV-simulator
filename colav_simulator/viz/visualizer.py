@@ -53,9 +53,9 @@ class Config:
     show_liveplot_target_trajectories: bool = (
         True  # If true, the target (ground truth) trajectories are shown in the live plot
     )
-    rotate_liveplot_to_ownship_heading: bool = False  # If true, the live plot is rotated to the ownship heading
     show_liveplot_map_axes: bool = False
     show_liveplot_scalebar: bool = True
+    show_liveplot_time: bool = True
     show_results: bool = True
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
@@ -66,6 +66,7 @@ class Config:
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
+    uniform_seabed_color: bool = True
     disable_ship_labels: bool = True
     ship_linewidth: float = 0.9
     ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
@@ -199,7 +200,12 @@ class Visualizer:
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(1, 1, 1)
-        mapf.plot_background(ax_map, enc, dark_mode=self._config.dark_mode_liveplot)
+        mapf.plot_background(
+            ax_map,
+            enc,
+            dark_mode=self._config.dark_mode_liveplot,
+            uniform_seabed_color=self._config.uniform_seabed_color,
+        )
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
         plt.ion()
 
@@ -471,19 +477,20 @@ class Visualizer:
             ship_i_handles["ship_started"] = False
             self.ship_plt_handles.append(ship_i_handles)
 
-        ylim = ax_map.get_xlim()  # easting
-        xlim = ax_map.get_ylim()  # northing
-        self.misc_plt_handles["time"] = ax_map.text(
-            ylim[0] + 30,
-            xlim[0] + 150,
-            "t = 0.0 s",
-            fontsize=15,
-            color="white",
-            verticalalignment="top",
-            horizontalalignment="left",
-            zorder=10,
-            label="",
-        )
+        if self._config.show_liveplot_time:
+            ylim = ax_map.get_xlim()  # easting
+            xlim = ax_map.get_ylim()  # northing
+            self.misc_plt_handles["time"] = ax_map.text(
+                ylim[0] + 30,
+                xlim[0] + 150,
+                "t = 0.0 s",
+                fontsize=15,
+                color="white",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
+            )
         plt.tight_layout()
         # self.frames.append(self.get_live_plot_image())
         # if n_ships < 3:  # to avoid cluttering the legend
@@ -670,21 +677,22 @@ class Visualizer:
 
         self._t_prev_update = t
         self.fig.canvas.restore_region(self.background)
-        self.misc_plt_handles["time"].remove()
         ax_map = self.axes[0]
-        ylim = ax_map.get_xlim()  # easting
-        xlim = ax_map.get_ylim()  # northing
-        self.misc_plt_handles["time"] = ax_map.text(
-            ylim[0] + 30,
-            xlim[0] + 150,
-            f"t = {t:.2f} s",
-            fontsize=15,
-            color="white",
-            verticalalignment="top",
-            horizontalalignment="left",
-            zorder=10,
-            label="",
-        )
+        if self._config.show_liveplot_time:
+            self.misc_plt_handles["time"].remove()
+            ylim = ax_map.get_xlim()  # easting
+            xlim = ax_map.get_ylim()  # northing
+            self.misc_plt_handles["time"] = ax_map.text(
+                ylim[0] + 30,
+                xlim[0] + 150,
+                f"t = {t:.2f} s",
+                fontsize=15,
+                color="white",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
+            )
 
         # if self._config.show_liveplot_scalebar:
         #     self.scalebar.remove()

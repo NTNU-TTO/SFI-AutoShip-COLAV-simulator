@@ -551,11 +551,12 @@ def clip_waypoint_segment_to_bbox(
     segment_linestring = ndarray_to_linestring(segment)
     p1_inside_bbox = inside_bbox(segment[:, 0], bbox)
     p2_inside_bbox = inside_bbox(segment[:, 1], bbox)
-    if p1_inside_bbox and p2_inside_bbox:
+    if p1_inside_bbox and p2_inside_bbox or not (p1_inside_bbox or p2_inside_bbox):
         return segment, False
 
     # check intersection with all bounding box line constraints
     # lower left corner
+    p_clip = segment[:, 1]
     left_vertical = ndarray_to_linestring(np.array([[bbox[0], bbox[2]], [bbox[1], bbox[1]]]))
     intersection = segment_linestring.intersection(left_vertical)
     if intersection.geom_type == "Point":

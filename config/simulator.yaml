@@ -12,9 +12,9 @@ visualizer:
   show_liveplot_ground_truth_target_pose: False
   zoom_in_liveplot_on_ownship: True
   zoom_window_width: 2000.0
-  rotate_liveplot_to_ownship_heading: True
   show_liveplot_map_axes: False
-  show_liveplot_scalebar: True
+  show_liveplot_scalebar: False
+  show_liveplot_time: False
   show_results: True
   show_target_tracking_results: True
   show_trajectory_tracking_results: True
@@ -22,13 +22,14 @@ visualizer:
   save_liveplot_animation: False
   dark_mode_liveplot: True
   update_rate_liveplot: 1.0 # relative to simulation time, not wall
+  uniform_seabed_color: True
   disable_ship_labels: True
   figsize: [12, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
-  ship_scaling: [1.0, 1.0]
+  ship_scaling: [2.0, 2.0]
   ship_info_fontsize: 10
-  ship_colors: ["xkcd:green",
+  ship_colors: ["xkcd:magenta",
               "xkcd:red",
               "xkcd:eggshell",
               "xkcd:purple",

@@ -29,9 +29,6 @@ visualizer:
     show_liveplot_ownship_trajectory:
       required: True
       type: boolean
-    rotate_liveplot_to_ownship_heading:
-      required: True
-      type: boolean
     show_liveplot_ground_truth_target_pose:
       required: True
       type: boolean
@@ -53,10 +50,16 @@ visualizer:
     show_liveplot_scalebar:
       required: True
       type: boolean
+    show_liveplot_time:
+      required: True
+      type: boolean
     dark_mode_liveplot:
       required: True
       type: boolean
     disable_ship_labels:
+      required: True
+      type: boolean
+    uniform_seabed_color:
       required: True
       type: boolean
     update_rate_liveplot:

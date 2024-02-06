@@ -525,42 +525,45 @@ class ScenarioGenerator:
             enc_copy = self._configure_enc(config)
         self._setup_cdt(show_plots=False)
 
-        if config.n_random_ships is not None:
-            n_random_ships = config.n_random_ships
-        elif config.n_random_ships_range is not None:
-            n_random_ships = self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1])
-        config.n_random_ships = n_random_ships
-
-        # Create partially defined ship objects and ship configurations for all ships
-        ship_list = []
-        ship_config_list = []
-        n_cfg_ships = len(config.ship_list)
-        for s in range(1 + config.n_random_ships):  # +1 for own-ship
-            if s < n_cfg_ships and s == config.ship_list[s].id:
-                ship_config = config.ship_list[s]
-            else:
-                ship_config = ship.Config()
-                ship_config.id = s
-                ship_config.mmsi = s + 1
-
-            ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
-            ship_list.append(ship_obj)
-            ship_config_list.append(ship_config)
-        config.ship_list = ship_config_list
-
-        n_episodes = config.episode_generation.n_episodes if n_episodes is None else n_episodes
-        self.determine_indices_of_episode_parameter_updates(config)
-        self._position_generation = config.episode_generation.position_generation
-        self.behavior_generator.reset()
-        scenario_episode_list = []
         for ep in range(n_episodes):
+            config_copy = copy.deepcopy(config)
+            if config_copy.n_random_ships is not None:
+                n_random_ships = config_copy.n_random_ships
+            elif config_copy.n_random_ships_range is not None:
+                n_random_ships = self.rng.integers(
+                    config_copy.n_random_ships_range[0], config_copy.n_random_ships_range[1]
+                )
+            config_copy.n_random_ships = n_random_ships
+
+            # Create partially defined ship objects and ship configurations for all ships
+            ship_list = []
+            ship_config_list = []
+            n_cfg_ships = len(config_copy.ship_list)
+            for s in range(1 + config_copy.n_random_ships):  # +1 for own-ship
+                if s < n_cfg_ships and s == config_copy.ship_list[s].id:
+                    ship_config = config_copy.ship_list[s]
+                else:
+                    ship_config = ship.Config()
+                    ship_config.id = s
+                    ship_config.mmsi = s + 1
+
+                ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
+                ship_list.append(ship_obj)
+                ship_config_list.append(ship_config)
+            config_copy.ship_list = ship_config_list
+
+            n_episodes = config_copy.episode_generation.n_episodes if n_episodes is None else n_episodes
+            self.determine_indices_of_episode_parameter_updates(config_copy)
+            self._position_generation = config_copy.episode_generation.position_generation
+            self.behavior_generator.reset()
+            scenario_episode_list = []
             if show_plots:
                 self.enc.start_display()
 
             episode = {}
             episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(
                 copy.deepcopy(ship_list),
-                copy.deepcopy(config),
+                config_copy,
                 ais_vessel_data_list,
                 mmsi_list,
                 show_plots=show_plots,

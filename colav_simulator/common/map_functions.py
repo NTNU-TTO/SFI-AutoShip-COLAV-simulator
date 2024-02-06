@@ -501,14 +501,22 @@ def plot_shapely_multipolygon(
 
 
 def plot_background(
-    ax: plt.Axes, enc: ENC, show_shore: bool = True, show_seabed: bool = True, dark_mode: bool = True
+    ax: plt.Axes,
+    enc: ENC,
+    show_shore: bool = True,
+    show_seabed: bool = True,
+    dark_mode: bool = True,
+    uniform_seabed_color: bool = False,
 ) -> None:
     """Creates a static background based on the input seacharts
 
     Args:
         ax (plt.Axes): Matplotlib axes handle.
         enc (ENC): Electronic Navigational Chart object
-        show = Option for visualization
+        show_shore (bool, optional): Option for showing the shore. Defaults to True.
+        show_seabed (bool, optional): Option for showing the seabed. Defaults to True.
+        dark_mode (bool, optional): Option for dark mode. Defaults to True.
+        uniform_seabed_color (bool, optional): Option for using a uniform color for the seabed. Defaults to False.
 
     Returns:
         Tuple[]: Tuple of limits in x and y for the background extent
@@ -526,8 +534,12 @@ def plot_background(
         bins = len(enc.seabed.keys())
         count = 0
         for _, layer in enc.seabed.items():
-            rank = layer.z_order + count
-            color = colors.color_picker(count, bins)
+            if uniform_seabed_color:
+                rank = enc.seabed[0].z_order
+                color = colors.color_picker(0, bins)
+            else:
+                rank = layer.z_order + count
+                color = colors.color_picker(count, bins)
             plot_shapely_multipolygon(ax, layer.geometry, color=color, zorder=rank)
             count += 1
 
