@@ -21,7 +21,7 @@ visualizer:
   save_result_figures: False
   save_liveplot_animation: False
   dark_mode_liveplot: True
-  update_rate_liveplot: 2.0 # relative to simulation time, not wall
+  update_rate_liveplot: 1.0 # relative to simulation time, not wall
   disable_ship_labels: True
   figsize: [12, 10]
   margins: [0.0, 0.0]

@@ -60,7 +60,7 @@ class Config:
     show_target_tracking_results: bool = True
     show_trajectory_tracking_results: bool = True
     dark_mode_liveplot: bool = True
-    update_rate_liveplot: float = 0.2
+    update_rate_liveplot: float = 1.0  # Update rate of the live plot in Hz
     save_result_figures: bool = False
     save_liveplot_animation: bool = False
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
@@ -478,7 +478,7 @@ class Visualizer:
             xlim[0] + 150,
             "t = 0.0 s",
             fontsize=15,
-            color="red",
+            color="white",
             verticalalignment="top",
             horizontalalignment="left",
             zorder=10,

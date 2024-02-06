@@ -13,7 +13,7 @@
 
     Author: Trym Tengesdal
 """
-
+import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Tuple, Union
 
@@ -679,6 +679,7 @@ class PerceptionImageObservation(ObservationType):
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
+        t_now = time.time()
         img = self.env.liveplot_image
 
         os_liveplot_zoom_width = self.env.liveplot_zoom_width
@@ -726,14 +727,31 @@ class PerceptionImageObservation(ObservationType):
                 ]
             )
             axes["original"].imshow(img, aspect="equal")
-            axes["rotated"].imshow(rotated_img, aspect="equal")
-            axes["cropped"].imshow(cropped_img, aspect="equal")
-            axes["resized"].imshow(resized_img, aspect="equal")
-            axes["downsampled"].imshow(downsampled_img, aspect="equal")
-            axes["grayscale"].imshow(grayscale_img, aspect="equal")
+            axes["original"].axes.get_xaxis().set_visible(False)
+            axes["original"].axes.get_yaxis().set_visible(False)
             plt.tight_layout()
-            plt.show()
-
+            axes["rotated"].imshow(rotated_img, aspect="equal")
+            axes["rotated"].axes.get_xaxis().set_visible(False)
+            axes["rotated"].axes.get_yaxis().set_visible(False)
+            plt.tight_layout()
+            axes["cropped"].imshow(cropped_img, aspect="equal")
+            axes["cropped"].axes.get_xaxis().set_visible(False)
+            axes["cropped"].axes.get_yaxis().set_visible(False)
+            plt.tight_layout()
+            axes["resized"].imshow(resized_img, aspect="equal")
+            axes["resized"].axes.get_xaxis().set_visible(False)
+            axes["resized"].axes.get_yaxis().set_visible(False)
+            plt.tight_layout()
+            axes["downsampled"].imshow(downsampled_img, aspect="equal")
+            axes["downsampled"].axes.get_xaxis().set_visible(False)
+            axes["downsampled"].axes.get_yaxis().set_visible(False)
+            plt.tight_layout()
+            axes["grayscale"].imshow(grayscale_img, aspect="equal")
+            axes["grayscale"].axes.get_xaxis().set_visible(False)
+            axes["grayscale"].axes.get_yaxis().set_visible(False)
+            plt.tight_layout()
+            plt.show(block=False)
+        print("Time to process image: ", time.time() - t_now)
         return downsampled_img
 
 

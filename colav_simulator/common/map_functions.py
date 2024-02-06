@@ -489,6 +489,9 @@ def plot_shapely_multipolygon(
         alpha (float, optional): Transparency of the MultiPolygon. Defaults to 1.0.
         zorder (int, optional): Z-order of the MultiPolygon. Defaults to 1.
     """
+    if isinstance(mp, Polygon):
+        mp = MultiPolygon([mp])
+
     for poly in mp.geoms:
         if fill:
             ax.fill(*poly.exterior.xy, color=color, alpha=alpha, zorder=zorder)

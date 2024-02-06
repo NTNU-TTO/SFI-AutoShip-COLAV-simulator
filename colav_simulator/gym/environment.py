@@ -47,7 +47,7 @@ class COLAVEnvironment(gym.Env):
         action_type: Optional[str] = None,
         observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "rgb_array",
-        render_update_interval: Optional[float] = 0.2,
+        render_update_interval: Optional[float] = None,
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         show_loaded_scenario_data: Optional[bool] = False,
@@ -319,7 +319,8 @@ class COLAVEnvironment(gym.Env):
         """Initializes the renderer."""
         if self.render_mode == "human" or self.render_mode == "rgb_array":
             self._viewer2d.toggle_liveplot_visibility(show=True)
-            self._viewer2d.set_update_rate(self.render_update_interval)
+            if self.render_update_interval is not None:
+                self._viewer2d.set_update_rate(self.render_update_interval)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
             self._viewer2d.update_live_plot(
                 self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements
