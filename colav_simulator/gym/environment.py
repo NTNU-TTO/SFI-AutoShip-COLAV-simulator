@@ -225,6 +225,7 @@ class COLAVEnvironment(gym.Env):
             dict: Dictionary of additional information
         """
         assert self.ownship is not None, "Environment not initialized!"
+        unnormalized_obs = self.observation_type.unnormalize(obs)
         info = {
             "speed": self.ownship.csog_state[2],
             "course": self.ownship.csog_state[3],
@@ -233,6 +234,7 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ownship_grounding(),
             "action": action,
             "obs": obs,
+            "unnormalized_obs": unnormalized_obs,
             "reward": self.rewarder(obs, action),
         }
         return info
@@ -282,10 +284,11 @@ class COLAVEnvironment(gym.Env):
         self.ownship = self.simulator.ownship
 
         self._define_spaces()
+        self._init_render()
 
         obs = self.observation_type.observe()
         info = self._info(obs, action=self.action_space.sample())
-        self._init_render()
+
         self.episodes += 1  # Episodes performed
         if self.verbose:
             print(f"Episode {self.episodes} started!")
@@ -333,6 +336,17 @@ class COLAVEnvironment(gym.Env):
             self.current_frame = self._viewer2d.get_live_plot_image()
             img = self.current_frame
         return img
+
+    @property
+    def liveplot_image(self) -> np.ndarray:
+        """The current live plot image."""
+        if self._viewer2d is not None and self.render_mode == "rgb_array":
+            return self._viewer2d.get_live_plot_image()
+
+    @property
+    def liveplot_zoom_width(self) -> float:
+        """The width of the live plot."""
+        return self._viewer2d.zoom_window_width
 
     @property
     def enc(self) -> senc.ENC:

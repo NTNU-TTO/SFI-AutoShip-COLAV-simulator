@@ -15,16 +15,16 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Tuple, Union
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.core.sensing as sensing
-import colav_simulator.core.tracking.trackers as trackers
+import cv2
 import gymnasium as gym
+import matplotlib.pyplot as plt
 import numpy as np
-import seacharts.enc as senc
+import scipy.ndimage as scimg
 import shapely
 import shapely.geometry as sgeo
 
@@ -50,6 +50,14 @@ class ObservationType(ABC):
     @abstractmethod
     def observe(self) -> Observation:
         """Get an observation of the environment state (normalized)."""
+
+    @abstractmethod
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the observation entries to be within [-1, 1]."""
+
+    @abstractmethod
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the observation entries to be within the original range."""
 
 
 class LidarLikeObservation(ObservationType):
@@ -82,6 +90,32 @@ class LidarLikeObservation(ObservationType):
             "closeness": closeness_range,
             "do_speed": default_do_speed_range,
         }
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): Normalized observation
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        unnormalized_obs = np.array(
+            np.concatenate(
+                [
+                    [
+                        mf.linear_map(obs[i], (-1.0, 1.0), self.observation_range["closeness"])
+                        for i in range(self.n_sectors)
+                    ],
+                    [
+                        mf.linear_map(obs[j], (-1.0, 1.0), self.observation_range["do_speed"])
+                        for j in range(self.n_sectors, self.n_sectors * 3)
+                    ],
+                ]
+            ),
+            dtype=np.float32,
+        )
+        return unnormalized_obs
 
     def normalize(self, obs: Observation) -> Observation:
         """Normalize the input observation entries to be within the range [-1, 1], based on the
@@ -362,7 +396,7 @@ class Navigation3DOFStateObservation(ObservationType):
             "north": (y_min, y_max),
             "east": (x_min, x_max),
             "angles": (-np.pi, np.pi),
-            "surge": (self._ownship.min_speed, self._ownship.max_speed),
+            "surge": (-self._ownship.max_speed, self._ownship.max_speed),
             "sway": [-self._ownship.max_speed, self._ownship.max_speed],
             "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
         }
@@ -389,12 +423,33 @@ class Navigation3DOFStateObservation(ObservationType):
         )
         return normalized_obs
 
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        unnormalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["north"]),
+                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["east"]),
+                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["angles"]),
+                mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["surge"]),
+                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["sway"]),
+                mf.linear_map(obs[5], (-1.0, 1.0), self.observation_range["turn_rate"]),
+            ],
+            dtype=np.float32,
+        )
+        return unnormalized_obs
+
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
         state = self._ownship.state
-        extras = np.empty(0)
-        obs = np.concatenate([state, extras])
+        obs = state
         return self.normalize(obs)
 
 
@@ -422,7 +477,7 @@ class NavigationCSOGStateObservation(ObservationType):
         self.observation_range = {
             "north": (y_min, y_max),
             "east": (x_min, x_max),
-            "speed": (self._ownship.min_speed, self._ownship.max_speed),
+            "speed": (-self._ownship.max_speed, self._ownship.max_speed),
             "angles": (-np.pi, np.pi),
         }
 
@@ -446,6 +501,26 @@ class NavigationCSOGStateObservation(ObservationType):
         )
         return normalized_obs
 
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        unnormalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["north"]),
+                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["east"]),
+                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["angles"]),
+            ],
+            dtype=np.float32,
+        )
+        return unnormalized_obs
+
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
@@ -457,7 +532,7 @@ class NavigationCSOGStateObservation(ObservationType):
 
 class TrackingObservation(ObservationType):
     """Observation containing a list of tracks/dynamic obstacles
-    on the form (ID, state, cov, length, width).
+    on the form (ID, state, cov, length, width), non-normalized.
     """
 
     def __init__(self, env: "COLAVEnvironment") -> None:
@@ -477,7 +552,7 @@ class TrackingObservation(ObservationType):
         self.observation_range = {
             "north": (y_min, y_max),
             "east": (x_min, x_max),
-            "speed": (self._ownship.min_speed, self._ownship.max_speed),
+            "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
             "length": (0.0, 100.0),
             "width": (0.0, 100.0),
@@ -488,22 +563,25 @@ class TrackingObservation(ObservationType):
         """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
 
         Args:
-            obs (Observation): The tracking observation to normalize.
+            obs (Observation): The observation to normalize.
 
         Returns:
             Observation: Normalized observation.
         """
-        normalized_obs = np.array(
-            [
-                mf.linear_map(obs[0], self.observation_range["north"], (-1.0, 1.0)),
-                mf.linear_map(obs[1], self.observation_range["east"], (-1.0, 1.0)),
-                mf.linear_map(obs[2], self.observation_range["speed"], (-1.0, 1.0)),
-                mf.linear_map(obs[3], self.observation_range["angles"], (-1.0, 1.0)),
-            ],
-            dtype=np.float32,
-        )
-        # fix rest of the tracking observation
-        return normalized_obs
+        # No normalization is provided for this observation type
+        return obs
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        # No unnormalization is provided for this observation type
+        return obs
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
@@ -537,30 +615,126 @@ class TimeObservation(ObservationType):
         """
         normalized_obs = np.array(
             [
-                mf.linear_map(obs, (self.t_start, self.t_end), (-1.0, 1.0)),
+                mf.linear_map(obs[0], (self.t_start, self.t_end), (-1.0, 1.0)),
             ],
             dtype=np.float32,
         )
         return normalized_obs
 
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        unnormalized_obs = mf.linear_map(obs[0], (-1.0, 1.0), (self.t_start, self.t_end))
+        return unnormalized_obs
+
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
-        obs = self.env.time
+        obs = np.array([self.env.time])
         return self.normalize(obs)
 
 
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image. INCOMPLETE"""
 
-    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (256, 256, 1), **kwargs) -> None:
         super().__init__(env)
         self.name = "PerceptionImageObservation"
-        self.image_shape = kwargs.get("image_shape", (64, 64, 3))
+        self.image_dim = image_dim
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
-        return gym.spaces.Box(low=0, high=255, shape=self.image_shape, dtype=np.uint8)
+        return gym.spaces.Box(low=0, high=255, shape=self.image_dim, dtype=np.uint8)
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        # No normalization is provided for this observation type
+        return obs
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        # No unnormalization is provided for this observation type
+        return obs
+
+    def observe(self) -> Observation:
+        """Get an observation of the environment state."""
+        assert self._ownship is not None, "Ownship is not defined"
+        img = self.env.liveplot_image
+
+        os_liveplot_zoom_width = self.env.liveplot_zoom_width
+        os_heading = self._ownship.heading
+        #
+        # Rotate the image to align with the ownship heading
+        rotated_img = scimg.rotate(img, os_heading * 180 / np.pi, reshape=False)
+        npx, npy = rotated_img.shape[:2]
+
+        # Crop the image to the vessel
+        # image width and height corresponds to os_liveplot_zoom_width x os_liveplot_zoom_width
+        # Image coordinate system is (0,0) in the upper left corner, height is the first index, width is the second index
+        center_pixel_x = int(rotated_img.shape[0] // 2)
+        center_pixel_y = int(rotated_img.shape[1] // 2)
+        cutoff_index_below_vessel = int(0.1 * npx)  # corresponds to 200 m for a 2000 m zoom width
+        cutoff_index_above_vessel = int(0.4 * npx)  # corresponds to 800 m for a 2000 m zoom width
+        cutoff_width = int(0.25 * npy)  # corresponds to 500 m for a 2000 m zoom width
+
+        cropped_img = rotated_img[
+            center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
+            center_pixel_y - cutoff_width : center_pixel_y + cutoff_width,
+        ]
+        # plt.imshow(cropped_img, aspect="equal")
+
+        # Resize image to a multiple of the image_dim
+        diff_multiple = int(cropped_img.shape[0] / self.image_dim[0]), int(cropped_img.shape[1] / self.image_dim[1])
+        if self.image_dim[0] == self.image_dim[1]:
+            img_resize_x = diff_multiple[0] * self.image_dim[0]
+            img_resize_y = img_resize_x
+        else:
+            img_resize_x = diff_multiple[0] * self.image_dim[0]
+            img_resize_y = diff_multiple[1] * self.image_dim[1]
+        resized_img = cv2.resize(cropped_img, (img_resize_y, img_resize_x), interpolation=cv2.INTER_AREA)
+
+        # downsample the image to configured image shape
+        downsampled_img = cv2.resize(cropped_img, (self.image_dim[0], self.image_dim[1]), interpolation=cv2.INTER_AREA)
+        grayscale_img = cv2.cvtColor(downsampled_img, cv2.COLOR_BGR2GRAY)
+        if True:
+            fig = plt.figure()
+            axes = fig.subplot_mosaic(
+                [
+                    ["original", "rotated"],
+                    ["cropped", "resized"],
+                    ["downsampled", "grayscale"],
+                ]
+            )
+            axes["original"].imshow(img, aspect="equal")
+            axes["rotated"].imshow(rotated_img, aspect="equal")
+            axes["cropped"].imshow(cropped_img, aspect="equal")
+            axes["resized"].imshow(resized_img, aspect="equal")
+            axes["downsampled"].imshow(downsampled_img, aspect="equal")
+            axes["grayscale"].imshow(grayscale_img, aspect="equal")
+            plt.tight_layout()
+            plt.show()
+
+        return downsampled_img
 
 
 class TupleObservation(ObservationType):
@@ -572,6 +746,12 @@ class TupleObservation(ObservationType):
 
     def space(self) -> gym.spaces.Space:
         return gym.spaces.Tuple([obs_type.space() for obs_type in self.observation_types])
+
+    def normalize(self, obs: Observation) -> Observation:
+        return tuple(obs_type.normalize(obs_type) for obs_type in self.observation_types)
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        return tuple(obs_type.unnormalize(obs_type) for obs_type in self.observation_types)
 
     def observe(self) -> Observation:
         return tuple(obs_type.observe() for obs_type in self.observation_types)
@@ -594,6 +774,22 @@ class DictObservation(ObservationType):
             obs_space[obs_type.name] = obs_type.space()
 
         return gym.spaces.Dict(obs_space)
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        unnormalized_obs = dict()
+
+        for obs_type in self.observation_types:
+            unnormalized_obs[obs_type.name] = obs_type.unnormalize(obs[obs_type.name])
+
+        return unnormalized_obs
+
+    def normalize(self, obs: Observation) -> Observation:
+        normalized_obs = dict()
+
+        for obs_type in self.observation_types:
+            normalized_obs[obs_type.name] = obs_type.normalize(obs[obs_type.name])
+
+        return normalized_obs
 
     def observe(self) -> Observation:
         obs = dict()
@@ -623,6 +819,8 @@ def observation_factory(
         return Navigation3DOFStateObservation(env, **kwargs)
     elif "navigation_csog_state_observation" in observation_type:
         return NavigationCSOGStateObservation(env, **kwargs)
+    elif "perception_image_observation" in observation_type:
+        return PerceptionImageObservation(env, **kwargs)
     elif "tracking_observation" in observation_type:
         return TrackingObservation(env, **kwargs)
     elif "time_observation" in observation_type:

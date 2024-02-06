@@ -208,8 +208,9 @@ class Visualizer:
 
         self.misc_plt_handles = {}
         self.ship_plt_handles = []
+        self.scalebar = None
         if self._config.show_liveplot_scalebar:
-            ax_map.add_artist(
+            self.scalebar = ax_map.add_artist(
                 ScaleBar(
                     1,
                     units="m",
@@ -287,9 +288,6 @@ class Visualizer:
         self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
-
-        if self._config.rotate_liveplot_to_ownship_heading:
-            self.rotate_live_plot_to_ownship_heading(ship_list[0].csog_state[3])
 
         ax_map = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
@@ -476,8 +474,8 @@ class Visualizer:
         ylim = ax_map.get_xlim()  # easting
         xlim = ax_map.get_ylim()  # northing
         self.misc_plt_handles["time"] = ax_map.text(
-            ylim[0] + 48,
-            xlim[0] + 70,
+            ylim[0] + 30,
+            xlim[0] + 150,
             "t = 0.0 s",
             fontsize=15,
             color="red",
@@ -486,7 +484,7 @@ class Visualizer:
             zorder=10,
             label="",
         )
-
+        plt.tight_layout()
         # self.frames.append(self.get_live_plot_image())
         # if n_ships < 3:  # to avoid cluttering the legend
         #     plt.legend(loc="upper right")
@@ -677,8 +675,8 @@ class Visualizer:
         ylim = ax_map.get_xlim()  # easting
         xlim = ax_map.get_ylim()  # northing
         self.misc_plt_handles["time"] = ax_map.text(
-            ylim[0] + 48,
-            xlim[0] + 70,
+            ylim[0] + 30,
+            xlim[0] + 150,
             f"t = {t:.2f} s",
             fontsize=15,
             color="white",
@@ -687,6 +685,21 @@ class Visualizer:
             zorder=10,
             label="",
         )
+
+        # if self._config.show_liveplot_scalebar:
+        #     self.scalebar.remove()
+        #     self.scalebar = ax_map.add_artist(
+        #         ScaleBar(
+        #             1,
+        #             units="m",
+        #             location="lower left",
+        #             frameon=False,
+        #             color="white",
+        #             box_alpha=0.0,
+        #             pad=0.5,
+        #             font_properties={"size": 12},
+        #         )
+        #     )
 
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
@@ -714,6 +727,7 @@ class Visualizer:
 
             self.update_ship_live_data(ship_obj, i, enc, lw=lw, c=c, start_idx_ship_line_data=start_idx_ship_line_data)
 
+        plt.tight_layout()
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
         self.frames.append(self.get_live_plot_image())
@@ -728,18 +742,12 @@ class Visualizer:
         buffer = self._config.zoom_window_width / 2.0
         xlimits_os = [os_state[0] - buffer, os_state[0] + buffer]
         ylimits_os = [os_state[1] - buffer, os_state[1] + buffer]
-        upd_xlimits = xlimits_os #[max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
-        upd_ylimits = ylimits_os #[max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
+        upd_xlimits = xlimits_os  # [max(xlimits_os[0], self.xlimits[0]), min(xlimits_os[1], self.xlimits[1])]
+        upd_ylimits = ylimits_os  # [max(ylimits_os[0], self.ylimits[0]), min(ylimits_os[1], self.ylimits[1])]
         self.axes[0].set_xlim(upd_ylimits[0], upd_ylimits[1])
         self.axes[0].set_ylim(upd_xlimits[0], upd_xlimits[1])
-
-    def rotate_live_plot_to_ownship_heading(self, heading: float) -> None:
-        """Rotates the live plot to the own-ship heading.
-
-        Args:
-            heading (float): Own-ship heading in radians.
-        """
-        ax_map = self.axes[0]
+        # plt.axis("equal")
+        plt.tight_layout()
 
     def save_live_plot_animation(self, filename: Path = dp.animation_output / "liveplot.gif") -> None:
         """Saves the live plot animation to a file if enabled.
@@ -1419,36 +1427,6 @@ class Visualizer:
         plt.show(block=False)
         return fig, axes
 
-    def toggle_ship_legend_visibility(self, idx: int, state: bool) -> None:
-        """Toggle the visibility of the plot items for the ship with index idx.
-
-        Args:
-            state (bool): Visibility state of the legend.
-        """
-        if "patch" in self.ship_plt_handles[idx]:
-            self.ship_plt_handles[idx]["ground_truth_patch"].set_visible(state)
-
-        if "trajectory" in self.ship_plt_handles[idx]:
-            self.ship_plt_handles[idx]["trajectory"].set_visible(state)
-
-        if "predicted_trajectory" in self.ship_plt_handles[idx]:
-            self.ship_plt_handles[idx]["predicted_trajectory"].set_visible(state)
-
-        if "waypoints" in self.ship_plt_handles[idx]:
-            self.ship_plt_handles[idx]["waypoints"].set_visible(state)
-
-        if "do_tracks" in self.ship_plt_handles[idx]:
-            for do_track in self.ship_plt_handles[idx]["do_tracks"]:
-                do_track.set_visible(state)
-
-            for do_covariance in self.ship_plt_handles[idx]["do_covariances"]:
-                do_covariance.set_visible(state)
-
-            if "radar" in self.ship_plt_handles[idx]:
-                self.ship_plt_handles[idx]["radar"].set_visible(state)
-
-            if "ais" in self.ship_plt_handles[idx]:
-                self.ship_plt_handles[idx]["ais"].set_visible(state)
-
-
-# #
+    @property
+    def zoom_window_width(self) -> float:
+        return self._config.zoom_window_width
