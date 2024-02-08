@@ -474,22 +474,18 @@ class BehaviorGenerator:
                 initialized=False,
                 return_on_first_solution=False,
             )
-            print("Planner Tree size: ", planner.get_num_nodes())
-
+            waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
+            speed_plan = waypoints[2, :]
+            waypoints = waypoints[0:2, :]
+            if waypoints.size == 0:
+                print(f"WARNING: RRT-based planner failed to generate feasible waypoints for ship {ship_obj.id}!")
+                waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
+                    ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
+                )
+                # mapf.plot_rrt_tree(planner.get_tree_as_list_of_dicts(), self._enc)
             if ship_obj.id == 0:
                 if show_plots:
                     self._enc.draw_circle((goal_state[1], goal_state[0]), 10, color="gold", alpha=0.4)
-                waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
-                speed_plan = waypoints[2, :]
-                waypoints = waypoints[0:2, :]
-                if waypoints.size == 0:
-                    print(
-                        "WARNING: RRT-based planner failed to generate feasible waypoints for the ownship! Check the feasibility of the planning problem given the algorithm tuning, safe sea CDT and considered start + goal states."
-                    )
-                    waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
-                        ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
-                    )
-                    mapf.plot_rrt_tree(planner.get_tree_as_list_of_dicts(), self._enc)
                 ship_obj.set_nominal_plan(waypoints, speed_plan)
                 self._prev_ship_plans[ship_obj.id] = waypoints, speed_plan
 
