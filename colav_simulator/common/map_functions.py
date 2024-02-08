@@ -724,9 +724,7 @@ def generate_random_goal_position(
             break
 
         if it == max_iter - 1:
-            print(
-                "WARNING: Could not find a goal position that satisfies the constraints. Returning a random position..."
-            )
+            print("WARNING: No goal position that satisfies the constraints found. Returning a random position...")
 
     return northing, easting
 

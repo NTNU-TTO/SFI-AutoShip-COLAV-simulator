@@ -290,6 +290,7 @@ def save_scenario_episode_definition(scenario_config: ScenarioConfig, folder: Pa
         folder.mkdir(parents=False)
     scenario_config_dict: dict = scenario_config.to_dict()
     scenario_config_dict["save_scenario"] = False
+    scenario_config_dict.pop("n_random_ships_range")
     current_datetime_str = mhm.current_utc_datetime_str("%d%m%Y_%H%M%S")
     scenario_config_dict["name"] = scenario_config_dict["name"] + "_" + current_datetime_str
     filename = scenario_config.name + "_" + current_datetime_str + ".yaml"

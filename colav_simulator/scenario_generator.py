@@ -533,7 +533,7 @@ class ScenarioGenerator:
             n_random_ships_list = [config.n_random_ships for _ in range(n_episodes)]
         elif config.n_random_ships_range is not None:
             n_random_ships_list = [
-                self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1], endpoint=True)
+                int(self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1], endpoint=True))
                 for _ in range(n_episodes)
             ]
         else:
@@ -579,8 +579,9 @@ class ScenarioGenerator:
                         self._do_plan_update_indices[ep + 1] = ep + 1
                     continue
 
+            self._episode_counter += 1
             if self._config.verbose:
-                print(f"ScenarioGenerator: Episode {ep + 1} of {n_episodes} created.")
+                print(f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created.")
 
             ep_str = str(self._episode_counter + 1).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
@@ -589,7 +590,6 @@ class ScenarioGenerator:
                     episode["config"], save_scenario_folder
                 )
 
-            self._episode_counter += 1
             scenario_episode_list.append(episode)
 
         if show_plots:
@@ -932,7 +932,7 @@ class ScenarioGenerator:
 
         if scenario_type == sc.ScenarioType.OT_en and U_max - 2.0 <= os_csog_state[2]:
             print(
-                "WARNING: sc.ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 2.0. Selecting a different scenario type..."
+                "WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 2.0. Selecting a different scenario type..."
             )
             scenario_type = self.rng.choice(
                 [sc.ScenarioType.HO, sc.ScenarioType.OT_ing, sc.ScenarioType.CR_GW, sc.ScenarioType.CR_SO]
@@ -940,7 +940,7 @@ class ScenarioGenerator:
 
         if scenario_type == sc.ScenarioType.OT_ing and U_min >= os_csog_state[2] - 2.0:
             print(
-                "WARNING: sc.ScenarioType = OT_ing: Own-ship speed minus margin of 2.0 should be above the minimum target ship speed. Selecting a different scenario type..."
+                "WARNING: ScenarioType = OT_ing: Own-ship speed minus margin of 2.0 should be above the minimum target ship speed. Selecting a different scenario type..."
             )
             scenario_type = self.rng.choice(
                 [sc.ScenarioType.HO, sc.ScenarioType.OT_en, sc.ScenarioType.CR_GW, sc.ScenarioType.CR_SO]
@@ -1013,7 +1013,7 @@ class ScenarioGenerator:
                 break
         if not accepted:
             print(
-                "WARNING: Could not find an acceptable starting state for the target ship. Using a random state projected onto the safe sea.."
+                "WARNING: No acceptable starting state found for the target ship. Using a random state projected onto the safe sea.."
             )
             # self.enc.draw_circle((y, x), radius=10.0, color="orange", fill=True, alpha=0.6)
             start_pos = np.array([x, y]) + speed * 500.0 * np.array([np.cos(heading), np.sin(heading)])
