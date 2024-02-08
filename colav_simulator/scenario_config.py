@@ -6,6 +6,7 @@
 
     Author: Trym Tengesdal
 """
+
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -53,28 +54,28 @@ class ScenarioType(Enum):
 class EpisodeGenerationConfig:
     """Class describing how the episodes are generated, i.e. how often the own-ship plan+state, dynamic obstacle state, dynamic obstacle plan and disturbance are updated/re-randomized."""
 
-    n_episodes: Optional[
-        int
-    ] = 1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario, with unique own-ship dynamic obstacle states+plans, and disturbance realizations.
-    n_constant_os_state_episodes: Optional[
-        int
-    ] = 1  # Number of episodes to run with the same own-ship state before generating a new one.
-    n_constant_os_plan_episodes: Optional[
-        int
-    ] = None  # Number of episodes to run with the same own-ship plan before generating a new one.
-    n_constant_do_state_episodes: Optional[
-        int
-    ] = 1  # Number of episodes to run with the same initial dynamic obstacle state before generating a new one.
+    n_episodes: Optional[int] = (
+        1  # Number of episodes to run for the scenario. Each episode is a new random realization of the scenario, with unique own-ship dynamic obstacle states+plans, and disturbance realizations.
+    )
+    n_constant_os_state_episodes: Optional[int] = (
+        1  # Number of episodes to run with the same own-ship state before generating a new one.
+    )
+    n_constant_os_plan_episodes: Optional[int] = (
+        None  # Number of episodes to run with the same own-ship plan before generating a new one.
+    )
+    n_constant_do_state_episodes: Optional[int] = (
+        1  # Number of episodes to run with the same initial dynamic obstacle state before generating a new one.
+    )
     n_plans_per_do_state: Optional[int] = None  # Number of plans per initial dynamic obstacle state.
-    n_constant_disturbance_episodes: Optional[
-        int
-    ] = None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), before generating a new one.
+    n_constant_disturbance_episodes: Optional[int] = (
+        None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), before generating a new one.
+    )
     position_generation: PositionGenerationMethod = (
         PositionGenerationMethod.UniformInTheMapThenGaussian  # Method for generating ship positions in the scenario.
     )
-    delta_uniform_position_sample: Optional[
-        int
-    ] = 10000000  # Number of episodes/position samples between each UniformlyInTheMap position sample. Not applicable if position_generation is set to UniformlyInMap.
+    delta_uniform_position_sample: Optional[int] = (
+        10000000  # Number of episodes/position samples between each UniformlyInTheMap position sample. Not applicable if position_generation is set to UniformlyInMap.
+    )
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -115,40 +116,42 @@ class ScenarioConfig:
     type: ScenarioType
     utm_zone: int
     map_data_files: list  # List of file paths to .gdb database files used by seacharts to create the map
-    new_load_of_map_data: bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
-    map_size: Optional[
-        Tuple[float, float]
-    ] = None  # Size of the map considered in the scenario (in meters) referenced to the origin.
-    map_origin_enu: Optional[
-        Tuple[float, float]
-    ] = None  # Origin of the map considered in the scenario (in UTM coordinates per now)
+    new_load_of_map_data: (
+        bool  # If True, seacharts will process .gdb files into shapefiles. If false, it will use existing shapefiles.
+    )
+    map_size: Optional[Tuple[float, float]] = (
+        None  # Size of the map considered in the scenario (in meters) referenced to the origin.
+    )
+    map_origin_enu: Optional[Tuple[float, float]] = (
+        None  # Origin of the map considered in the scenario (in UTM coordinates per now)
+    )
     map_tolerance: Optional[int] = 0  # Tolerance for the map simplification process
     map_buffer: Optional[int] = 0  # Buffer for the map simplification process
     ais_data_file: Optional[Path] = None  # Path to the AIS data file, if considered
-    ship_data_file: Optional[
-        Path
-    ] = None  # Path to the ship information data file associated with AIS data, if considered
+    ship_data_file: Optional[Path] = (
+        None  # Path to the ship information data file associated with AIS data, if considered
+    )
     allowed_nav_statuses: Optional[list] = None  # List of AIS navigation statuses that are allowed in the scenario
     episode_generation: Optional[EpisodeGenerationConfig] = field(default_factory=lambda: EpisodeGenerationConfig())
-    n_random_ships: Optional[
-        int
-    ] = None  # Fixed number of random ships in the scenario, excluding the own-ship, if considered
-    n_random_ships_range: Optional[
-        list
-    ] = None  # Variable range of number of random ships in the scenario, excluding the own-ship, if considered
+    n_random_ships: Optional[int] = (
+        None  # Fixed number of random ships in the scenario, excluding the own-ship, if considered
+    )
+    n_random_ships_range: Optional[list] = (
+        None  # Variable range of number of random ships in the scenario, excluding the own-ship, if considered
+    )
     ship_list: Optional[list] = field(
         default_factory=[]
     )  # List of ship configurations for the scenario, does not have to be equal to the number of ships in the scenario.
     filename: Optional[str] = None  # Filename of the scenario, stored after creation
-    stochasticity: Optional[
-        stoch.Config
-    ] = None  # Configuration class containing stochasticity parameters for the scenario
+    stochasticity: Optional[stoch.Config] = (
+        None  # Configuration class containing stochasticity parameters for the scenario
+    )
     rl_observation_type: Optional[dict] = field(
         default_factory=lambda: {"tuple_observation": ["navigation_state_observation", "lidar_like_observation"]}
     )  # Observation type settings configured for an  RL agent
-    rl_action_type: Optional[
-        str
-    ] = "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
+    rl_action_type: Optional[str] = (
+        "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
+    )
 
     @classmethod
     def parse_episode_generation_config(cls, config_dict: dict) -> EpisodeGenerationConfig:
@@ -234,18 +237,20 @@ class ScenarioConfig:
             map_data_files=config_dict["map_data_files"] if "map_data_files" in config_dict else None,
             map_size=tuple(config_dict["map_size"]) if "map_size" in config_dict else None,
             map_origin_enu=tuple(config_dict["map_origin_enu"]) if "map_origin_enu" in config_dict else None,
-            map_tolerance=config_dict["map_tolerance"] if "map_tolerance" in config_dict else None,
-            map_buffer=config_dict["map_buffer"] if "map_buffer" in config_dict else None,
+            map_tolerance=config_dict["map_tolerance"] if "map_tolerance" in config_dict else 0,
+            map_buffer=config_dict["map_buffer"] if "map_buffer" in config_dict else 0,
             n_random_ships=config_dict["n_random_ships"] if "n_random_ships" in config_dict else None,
             n_random_ships_range=config_dict["n_random_ships_range"] if "n_random_ships_range" in config_dict else None,
-            ais_data_file=Path(config_dict["ais_data_file"])
-            if "ais_data_file" in config_dict and config_dict["ais_data_file"] is not None
-            else None,
+            ais_data_file=(
+                Path(config_dict["ais_data_file"])
+                if "ais_data_file" in config_dict and config_dict["ais_data_file"] is not None
+                else None
+            ),
             new_load_of_map_data=config_dict["new_load_of_map_data"],
             filename=config_dict["filename"] if "filename" in config_dict else None,
-            stochasticity=stoch.Config.from_dict(config_dict["stochasticity"])
-            if "stochasticity" in config_dict
-            else None,
+            stochasticity=(
+                stoch.Config.from_dict(config_dict["stochasticity"]) if "stochasticity" in config_dict else None
+            ),
             rl_observation_type=config_dict["rl_observation_type"] if "rl_observation_type" in config_dict else None,
             rl_action_type=config_dict["rl_action_type"] if "rl_action_type" in config_dict else None,
             ship_list=[],

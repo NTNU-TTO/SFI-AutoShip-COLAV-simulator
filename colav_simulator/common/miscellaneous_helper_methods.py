@@ -248,7 +248,7 @@ def sample_from_waypoint_corridor(rng: np.random.Generator, waypoints: np.ndarra
     assert n_wps > 1, "Must have at least 2 waypoints"
     segment_idx = rng.integers(0, n_wps - 1)
     segment_length = np.linalg.norm(waypoints[:, segment_idx + 1] - waypoints[:, segment_idx])
-    x = rng.uniform(0, segment_length)
+    x = rng.uniform(0.0, segment_length)
     y = rng.uniform(-corridor_width / 2.0, corridor_width / 2.0)
     alpha = np.arctan2(
         waypoints[1, segment_idx + 1] - waypoints[1, segment_idx],

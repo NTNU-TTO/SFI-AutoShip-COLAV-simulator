@@ -225,6 +225,7 @@ class ScenarioGenerator:
         n_constant_os_plan_episodes = config.episode_generation.n_constant_os_plan_episodes
         n_constant_do_state_episodes = config.episode_generation.n_constant_do_state_episodes
         n_plans_per_do_state = config.episode_generation.n_plans_per_do_state
+        n_constant_do_plans = int(np.ceil(n_constant_do_state_episodes / n_plans_per_do_state))
         n_constant_disturbance_episodes = config.episode_generation.n_constant_disturbance_episodes
         delta_uniform_position_sample = config.episode_generation.delta_uniform_position_sample
         self._os_state_update_indices = [-1 for _ in range(n_episodes)]
@@ -233,6 +234,7 @@ class ScenarioGenerator:
         self._do_plan_update_indices = [-1 for _ in range(n_episodes)]
         self._disturbance_update_indices = [-1 for _ in range(n_episodes)]
         self._uniform_os_state_update_indices = [-1 for _ in range(n_episodes)]
+
         for ep in range(n_episodes):
             if ep % delta_uniform_position_sample == 0:
                 self._uniform_os_state_update_indices[ep] = ep
@@ -249,7 +251,7 @@ class ScenarioGenerator:
             if ep % (n_plans_per_do_state * n_constant_do_state_episodes) == 0:
                 self._do_state_update_indices[ep] = ep
 
-            if ep % n_plans_per_do_state == 0:
+            if ep % n_constant_do_plans == 0:
                 self._do_plan_update_indices[ep] = ep
 
     def create_file_path_list_from_config(self) -> list:
@@ -525,40 +527,35 @@ class ScenarioGenerator:
             enc_copy = self._configure_enc(config)
         self._setup_cdt(show_plots=False)
 
+        n_episodes = config.episode_generation.n_episodes if n_episodes is None else n_episodes
+
+        if config.n_random_ships is not None:
+            n_random_ships_list = [config.n_random_ships for _ in range(n_episodes)]
+        elif config.n_random_ships_range is not None:
+            n_random_ships_list = [
+                self.rng.integers(config.n_random_ships_range[0], config.n_random_ships_range[1], endpoint=True)
+                for _ in range(n_episodes)
+            ]
+        else:
+            n_random_ships_list = [0 for _ in range(n_episodes)]
+        max_number_of_ships = max(n_random_ships_list) + 1  # +1 for own-ship
+
+        self.behavior_generator.initialize(max_number_of_ships)
+        self.determine_indices_of_episode_parameter_updates(config)
+        self._position_generation = config.episode_generation.position_generation
+
+        scenario_episode_list = []
+        if show_plots:
+            self.enc.start_display()
+
+        self._prev_ship_list = [None for _ in range(max_number_of_ships)]
+        self._first_csog_states = [None for _ in range(max_number_of_ships)]
         for ep in range(n_episodes):
+            n_random_ships = n_random_ships_list[ep]
             config_copy = copy.deepcopy(config)
-            if config_copy.n_random_ships is not None:
-                n_random_ships = config_copy.n_random_ships
-            elif config_copy.n_random_ships_range is not None:
-                n_random_ships = self.rng.integers(
-                    config_copy.n_random_ships_range[0], config_copy.n_random_ships_range[1]
-                )
             config_copy.n_random_ships = n_random_ships
 
-            # Create partially defined ship objects and ship configurations for all ships
-            ship_list = []
-            ship_config_list = []
-            n_cfg_ships = len(config_copy.ship_list)
-            for s in range(1 + config_copy.n_random_ships):  # +1 for own-ship
-                if s < n_cfg_ships and s == config_copy.ship_list[s].id:
-                    ship_config = config_copy.ship_list[s]
-                else:
-                    ship_config = ship.Config()
-                    ship_config.id = s
-                    ship_config.mmsi = s + 1
-
-                ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
-                ship_list.append(ship_obj)
-                ship_config_list.append(ship_config)
-            config_copy.ship_list = ship_config_list
-
-            n_episodes = config_copy.episode_generation.n_episodes if n_episodes is None else n_episodes
-            self.determine_indices_of_episode_parameter_updates(config_copy)
-            self._position_generation = config_copy.episode_generation.position_generation
-            self.behavior_generator.reset()
-            scenario_episode_list = []
-            if show_plots:
-                self.enc.start_display()
+            ship_list, config_copy = self._create_partially_defined_ships(config_copy)
 
             episode = {}
             episode["ship_list"], episode["disturbance"], episode["config"] = self.generate_episode(
@@ -601,8 +598,33 @@ class ScenarioGenerator:
             )
             self.enc.close_display()
         if self._config.verbose:
-            print(f"ScenarioGenerator: Number of accepted episodes: {self._episode_counter + 1} out of {n_episodes}.")
+            print(f"ScenarioGenerator: Number of accepted episodes: {self._episode_counter} out of {n_episodes}.")
         return scenario_episode_list, enc_copy
+
+    def _create_partially_defined_ships(self, config: sc.ScenarioConfig) -> Tuple[list, sc.ScenarioConfig]:
+        """Creates partially defined ship objects and ship configurations for all ships.
+
+        Args:
+            config (sc.ScenarioConfig): Scenario config object.
+
+        Returns:
+            Tuple[list, sc.ScenarioConfig]: Partially defined list of ships to be considered in simulation, and the updated scenario config object.
+        """
+        ship_list = []
+        ship_config_list = []
+        n_cfg_ships = len(config.ship_list)
+        for s in range(1 + config.n_random_ships):  # +1 for own-ship
+            if s < n_cfg_ships and s == config.ship_list[s].id:
+                ship_config = config.ship_list[s]
+            else:
+                ship_config = ship.Config()
+                ship_config.id = s
+                ship_config.mmsi = s + 1
+            ship_obj = ship.Ship(mmsi=ship_config.mmsi, identifier=ship_config.id, config=ship_config)
+            ship_list.append(ship_obj)
+            ship_config_list.append(ship_config)
+        config.ship_list = ship_config_list
+        return ship_list, config
 
     def generate_episode(
         self,
@@ -659,7 +681,7 @@ class ScenarioGenerator:
 
         self._bad_episode = self.check_for_bad_episode(ship_list)
 
-        self._prev_ship_list = copy.deepcopy(ship_list)
+        self._prev_ship_list[: len(ship_list)] = copy.deepcopy(ship_list)
         return ship_list, disturbance, config
 
     def check_for_bad_episode(
@@ -681,6 +703,9 @@ class ScenarioGenerator:
                 geometry.Point(ship_obj.csog_state[1], ship_obj.csog_state[0]), self.safe_sea_cdt
             ):
                 return True
+
+            if ship_obj.waypoints.size == 0:
+                continue  # No plan to check
 
             path_length = np.sum(np.linalg.norm(np.diff(ship_obj.waypoints, axis=1), axis=0))
             if path_length < minimum_plan_length:
@@ -823,7 +848,11 @@ class ScenarioGenerator:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
             new_uniform_os_state = ep == self._os_state_update_indices[ep] and uniform_in_map_sample
             if ship_cfg_idx > 0:
-                if ep == self._do_state_update_indices[ep] or new_uniform_os_state:
+                if (
+                    ep == self._do_state_update_indices[ep]
+                    or new_uniform_os_state
+                    or self._prev_ship_list[ship_cfg_idx] is None
+                ):
                     csog_state = self.generate_target_ship_csog_state(
                         config.type,
                         csog_state_list[0],
@@ -845,7 +874,7 @@ class ScenarioGenerator:
             csog_state_list.append(ship_config.csog_state)
 
         if ep % config.episode_generation.delta_uniform_position_sample == 0:
-            self._first_csog_states = csog_state_list
+            self._first_csog_states[: len(ship_list)] = csog_state_list
         return ship_list, config, csog_state_list
 
     def generate_target_ship_csog_state(
@@ -875,7 +904,7 @@ class ScenarioGenerator:
             - first_episode_csog_state (Optional[np.ndarray], optional): First scenario episode target ship COG-SOG state. Defaults to None.
 
         Returns:
-            - np.ndarray: Target ship position = [x, y].
+            - np.ndarray: Target ship COG-SOG state = [x, y, speed, heading].
         """
         if (
             first_episode_csog_state is not None
@@ -978,13 +1007,8 @@ class ScenarioGenerator:
             risky_enough = mhm.check_if_situation_is_risky_enough(
                 os_csog_state, np.array([x, y, speed, heading]), t_cpa_threshold, d_cpa_threshold
             )
-            # hazard_between_ships = mapf.check_if_segment_crosses_grounding_hazards(
-            #     self.enc, np.array([x, y]), os_csog_state[:2]
-            # )
 
-            if (
-                risky_enough and safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox
-            ):  # and not hazard_between_ships:
+            if risky_enough and safe_sea.geometry.contains(geometry.Point(y, x)) and inside_bbox:
                 accepted = True
                 break
         if not accepted:

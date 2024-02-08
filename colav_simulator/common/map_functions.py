@@ -660,7 +660,7 @@ def generate_random_goal_position(
     safe_sea_cdt: list,
     safe_sea_cdt_weights: list,
     bbox: Optional[Tuple[float, float, float, float]] = None,
-    min_distance_from_start: float = 100.0,
+    min_distance_from_start: float = 300.0,
     max_distance_from_start: float = 10000.0,
     sector_width: float = 60.0 * np.pi / 180.0,
     min_distance_to_land: float = 50.0,
@@ -674,7 +674,7 @@ def generate_random_goal_position(
         xs_start (np.ndarray): Starting CSOG state of the ship [x, y, U, chi]^T.
         safe_sea_cdt (list): List of triangles defining the safe sea region, used to sample more efficiently.
         safe_sea_cdt_weights (list): List of weights for the safe sea region triangles, used to sample more efficiently.
-        min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 100.0.
+        min_distance_from_start (float, optional): Minimum distance from the starting position. Defaults to 300.0.
         max_distance_from_start (float, optional): Maximum distance from the starting position. Defaults to 10000.0.
         sector_width (float, optional): Width of the sector to sample from. Defaults to 60.0 * np.pi / 180.0.
         min_distance_to_land (float, optional): Minimum distance to land. Defaults to 50.0.
@@ -691,7 +691,7 @@ def generate_random_goal_position(
         print(
             "WARNING: Max_distance_from_start must be larger than min_distance_from_start in goal position sampling. Setting to default values.."
         )
-        max_distance_from_start = min_distance_from_start + 400.0
+        max_distance_from_start = min_distance_from_start + 500.0
 
     northing = xs_start[0] + max_distance_from_start * np.cos(xs_start[3])
     easting = xs_start[1] + max_distance_from_start * np.sin(xs_start[3])
@@ -1476,7 +1476,7 @@ def plot_waypoints(
     disk_buffer: Optional[float] = 80,
     hole_buffer: Optional[float] = 10,
     linewidth: Optional[float] = None,
-    alpha: Optional[float] = None,
+    alpha: Optional[float] = 0.6,
     show_annuluses: Optional[bool] = True,
     draft: Optional[float] = 5.0,
 ):

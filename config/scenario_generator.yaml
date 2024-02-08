@@ -21,9 +21,10 @@ d_cpa_threshold: 50.0
 
 behavior_generator:
   ownship_method: "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
-  target_ship_method: "Randomize" # "RRT" # "PQRRTStar"
+  target_ship_method: "RRTStar" # "RRT" # "PQRRTStar"
+  target_ship_rrt_behavior_sampling_method: "OwnshipWaypointCorridor" # Either Optimal, OwnshipGoal, OwnshipWaypointCorridor, CourseCorridor, UniformlyInMap, CPA
 
-  n_wps_range: [2, 3]
+  n_wps_range: [2, 4]
   speed_plan_variation_range: [-1.0, 1.0]
   waypoint_dist_range: [300.0, 1000.0]
   waypoint_ang_range: [-90.0, 90.0]
@@ -34,7 +35,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 3.0
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
@@ -63,11 +64,11 @@ behavior_generator:
       K_p: 0.035
       K_i: 0.0
       max_cross_track_error_int: 30.0
-  irrtstar:
+  rrtstar:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 3.0
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
@@ -97,11 +98,11 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 5.0
+      max_time: 3.0
       iter_between_direct_goal_growth: 100
       goal_radius: 200.0
       step_size: 0.5
-      min_steering_time: 1.0
+      min_steering_time: 2.0
       max_steering_time: 30.0
       steering_acceptance_radius: 10.0
     model:

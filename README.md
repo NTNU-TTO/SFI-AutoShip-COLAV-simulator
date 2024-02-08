@@ -1,5 +1,5 @@
 # colav-simulator
-This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The initial framework prototype is described in the [CCTA2023 paper](https://ieeexplore.ieee.org/abstract/document/10252863). As of September 2023, the simulation framework has been wrapped to be compatible with [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version). Note that this feature is unstable due to its recent completion, and needs thorough testing.
+This repository implements a framework for simulating and evaluating autonomous ship collision avoidance (COLAV) control strategies. The initial framework prototype is described in the [CCTA2023 paper](https://ieeexplore.ieee.org/abstract/document/10252863). As of September 2023, the simulation framework has been wrapped to be compatible with [Gymnasium](https://github.com/Farama-Foundation/Gymnasium) and [Stable Baselines](https://github.com/DLR-RM/stable-baselines3), such that you can now use it as a gym for training RL-agents (beta version). Please rely on the code itself for the main documentation. This readme serves as a brief walkthrough guide.
 
 The main functionality is contained in the `Simulator` class of `simulator.py`, which loads and runs scenarios. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes.
 
@@ -213,6 +213,10 @@ A core concept is the usage of Cerberus for configuration validation, where the 
 
 The following describes the main modules superficially. Rely mainly on the code itself for the documentation.
 
+### COLAVEnvironment
+
+Gymnasium-wrapper for the simulation framework. See the source code for available rewards, actions and observations that can be used.
+
 ### Simulator
 
 The simulator runs through a set of scenarios, each consisting of `n_episodes` specified from the config, visualizes these and saves the results. The scenarios can be generated through a `ScenarioConfig` object, or loaded from file using an existing scenario definition (examples under `scenarios/`).
@@ -221,11 +225,9 @@ The simulator is configured using the `simulator.yaml` config file.
 
 ### Scenario Generator
 
-The scenario generator (found inside `scenario_management.py`) is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment. The `n_episodes` (defaults to 1) parameter is used to facilitate Monte Carlo simulation when using random data.
+The scenario generator is used by the simulator to create new scenarios for COLAV testing with 1+ ships. The main method is the `generate()` function, which generates a scenario from a scenario config file, which is converted into a `ScenarioConfig` object. An Electronic Navigational Chart object (from Seacharts) is used to define the environment. The `n_episodes` (defaults to 1) parameter is used to facilitate Monte Carlo simulation when using random data, and one can use an `EpisodeGenerationConfig` for further MC specifications.
 
-Scenarios are configured through a scenario `.yaml` file as e.g. the example `head_on.yaml` file under `scenarios` in the root folder.
-
-Look at the `schemas` folder under the package source code for further clues constraints/tips on how to write a new scenario config file.
+Scenarios are configured through a scenario `.yaml` file as e.g. the example `head_on.yaml` file under `scenarios` in the root folder. Look at predefined scenario files and the `schemas` folder under the package source code for further clues constraints/tips on how to write a new scenario config files.
 
 Seacharts is used to provide access to Electronic Navigational Charts, and an `ENC` object is used inside the `ScenarioGenerator` class for this. One must here make sure that the seacharts package is properly setup with `.gdb` data in the `data/external` folder of the package, with correctly matching `UTM` zone for the chart data. An example default `seacharts.yaml`config file for the module is found under `config/`. One can specify map data, map origin, map size etc. for the ENC object from the scenario `.yaml`config file.
 
@@ -233,11 +235,11 @@ Troubles with "freezing" when you generate a scenario? Check if you have specifi
 
 In addition to random waypoint generation and/or straight line motion generation for the own-ship and/or target ships through the `BehaviorGenerator` class, the `rrt-rs` library can optionally be used for generating random ship behaviors, where Rapidly-exploring Random Trees (RRTs) are built for each ship initial state. See the source code for the `BehaviorGenerator` for more information.
 
+NOTE: The random generation of scenarios (poses, waypoints, speed plans etc.) are not guaranteed to succeed every time, especially since a finite number of iterations are considered in sampling procedures (for time and robustness reasons). Many edge cases can occur that makes a particular ship-ship encounter scenario unrealistic or not interesting. This makes it important that you check the generated scenarios.
+
 ### Visualizer
 
-Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. A basic live plotting feature when simulating scenarios is available.
-
-The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
+Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. A basic live plotting feature when simulating scenarios is available. The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
 ### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
@@ -262,6 +264,9 @@ In all these steps, adhere to the used code style and docstring format.
 
 Some common configurations of the ship subsystems are detailed below.
 
+#### External Control
+In case you are employing an RL-agent through the `COLAVEnvironment`, the `remote_actor` parameter inside the simulator `step(..)`-function is set to true. In this case, the RL-agent sets the ship references (pose, velocity and acceleration / inputs) externally.
+
 #### Guidance, Navigation and Control With a Kinetic Model
 The `scenarios/head_on.yaml` scenario contains a typical GNC/autopilot-configuration of the own-ship, where LOS-guidance (given waypoints and a speed plan) provides course and speed references to a low-level controller (in this case a feedback-linearizing surge-heading controller).
 
@@ -283,7 +288,6 @@ If you want to test your planning algorithm with perfect knowlegde on nearby ves
 
 #### Simple Kalman-filter based Target Tracking
 The standard support for target tracking in the simulator is to use a Kalman Filter for estimating the states of nearby vessels. Most of the scenario files have examples on how to configure this tracker. Tune the measurement covariance (R) through the sensor configuration, and adjust the scenario configuration based on whether or not you want to consider AIS-measurements, Radar-measurements or both.
-
 
 #### COLAV
 The `colav_interface.py` provides an interface for arbitrary `COLAV` planning algorithms and hierarchys within. See the file for examples/inspiration on how to wrap your own COLAV-planner to make it adhere to the interface. Alternatively, you can provide your own COLAV system through the `ownship_colav_system` input to the simulator `run(.)` function. In any case, the COLAV algorithm should adhere to the `ICOLAV` interface (see `colav_interface.py`). This enables the usage of both internally developed COLAV planners in addition to third-party ones.
