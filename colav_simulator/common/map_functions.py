@@ -10,6 +10,8 @@
 
 import copy
 import os
+
+os.environ["USE_PYGEOS"] = "0"
 from typing import Optional, Tuple
 
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -25,8 +27,6 @@ from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
-
-os.environ["USE_PYGEOS"] = "0"
 
 
 def create_bbox_from_points(

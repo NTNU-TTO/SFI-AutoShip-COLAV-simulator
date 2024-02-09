@@ -761,7 +761,7 @@ class PerceptionImageObservation(ObservationType):
 
         # shift the image stack and add the new one
         self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=2)
-        self.previous_image_stack[:, :, 0] = grayscale_img
+        self.previous_image_stack[0, :, :] = grayscale_img
         print("Time to process image: ", time.time() - t_now)
         # save_image = False
         # if save_image:

@@ -306,7 +306,6 @@ class COLAVEnvironment(gym.Env):
         Returns:
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
-        print("action", action)
         self.action_type.act(action)
         sim_data_dict = self.simulator.step(remote_actor=True)
 
