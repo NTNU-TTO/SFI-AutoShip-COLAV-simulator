@@ -18,6 +18,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Tuple, Union
 
+import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -685,11 +686,12 @@ class PerceptionImageObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         t_now = time.time()
         img = self.env.liveplot_image
-        os_liveplot_zoom_width = self.env.liveplot_zoom_width
+        pruned_img = imghf.remove_whitespace(img)
+        # os_liveplot_zoom_width = self.env.liveplot_zoom_width
         os_heading = self._ownship.heading
         #
         # Rotate the image to align with the ownship heading
-        rotated_img = scimg.rotate(img, os_heading * 180 / np.pi, reshape=False)
+        rotated_img = scimg.rotate(pruned_img, os_heading * 180 / np.pi, reshape=False)
         npx, npy = rotated_img.shape[:2]
 
         # Crop the image to the vessel
@@ -707,7 +709,9 @@ class PerceptionImageObservation(ObservationType):
         ]
 
         # Resize image to a multiple of the image_dim
-        diff_multiple = int(cropped_img.shape[0] / self.image_dim[0]), int(cropped_img.shape[1] / self.image_dim[1])
+        diff_multiple = int(np.ceil(cropped_img.shape[0] / self.image_dim[0])), int(
+            np.ceil(cropped_img.shape[1] / self.image_dim[1])
+        )
         if self.image_dim[0] == self.image_dim[1]:
             img_resize_x = diff_multiple[0] * self.image_dim[0]
             img_resize_y = img_resize_x
@@ -720,7 +724,7 @@ class PerceptionImageObservation(ObservationType):
         downsampled_img = cv2.resize(cropped_img, (self.image_dim[0], self.image_dim[1]), interpolation=cv2.INTER_AREA)
         grayscale_img = cv2.cvtColor(downsampled_img, cv2.COLOR_BGR2GRAY)
 
-        if True:
+        if False:
             fig = plt.figure()
             axes = fig.subplot_mosaic(
                 [
@@ -729,7 +733,7 @@ class PerceptionImageObservation(ObservationType):
                     ["downsampled", "grayscale"],
                 ]
             )
-            axes["original"].imshow(img, aspect="equal")
+            axes["original"].imshow(pruned_img, aspect="equal")
             axes["original"].axes.get_xaxis().set_visible(False)
             axes["original"].axes.get_yaxis().set_visible(False)
             plt.tight_layout()
@@ -759,6 +763,10 @@ class PerceptionImageObservation(ObservationType):
         self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=2)
         self.previous_image_stack[:, :, 0] = grayscale_img
         print("Time to process image: ", time.time() - t_now)
+        # save_image = False
+        # if save_image:
+        #     cv2.imwrite("image.png", downsampled_img)
+
         return self.previous_image_stack
 
 
@@ -773,10 +781,10 @@ class TupleObservation(ObservationType):
         return gym.spaces.Tuple([obs_type.space() for obs_type in self.observation_types])
 
     def normalize(self, obs: Observation) -> Observation:
-        return tuple(obs_type.normalize(obs_type) for obs_type in self.observation_types)
+        return tuple(obs_type.normalize(obs) for obs_type in self.observation_types)
 
     def unnormalize(self, obs: Observation) -> Observation:
-        return tuple(obs_type.unnormalize(obs_type) for obs_type in self.observation_types)
+        return tuple(obs_type.unnormalize(obs) for obs_type in self.observation_types)
 
     def observe(self) -> Observation:
         return tuple(obs_type.observe() for obs_type in self.observation_types)

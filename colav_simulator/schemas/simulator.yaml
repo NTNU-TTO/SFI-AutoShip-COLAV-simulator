@@ -59,6 +59,12 @@ visualizer:
     disable_ship_labels:
       required: True
       type: boolean
+    black_land:
+      required: True
+      type: boolean
+    black_shore:
+      required: True
+      type: boolean
     uniform_seabed_color:
       required: True
       type: boolean

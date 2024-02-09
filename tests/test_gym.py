@@ -2,6 +2,7 @@
 
     Shows how to use the gym environment, and how to save a video + gif of the simulation.
 """
+
 from pathlib import Path
 
 import colav_simulator.common.paths as dp
@@ -50,7 +51,7 @@ if __name__ == "__main__":
         "scenario_config": config_file,
         "reload_map": True,
         "render_mode": "rgb_array",
-        "render_update_interval": 1.0,
+        "render_update_rate": 1.0,
         "test_mode": False,
     }
     env = gym.make(id=env_id, **env_config)

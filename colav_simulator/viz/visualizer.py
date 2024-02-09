@@ -67,6 +67,8 @@ class Config:
     figsize: list = field(default_factory=lambda: [12, 10])
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     uniform_seabed_color: bool = True
+    black_land: bool = True
+    black_shore: bool = True
     disable_ship_labels: bool = True
     ship_linewidth: float = 0.9
     ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
@@ -205,6 +207,8 @@ class Visualizer:
             enc,
             dark_mode=self._config.dark_mode_liveplot,
             uniform_seabed_color=self._config.uniform_seabed_color,
+            land_color="black" if self._config.black_land else None,
+            shore_color="black" if self._config.black_shore else None,
         )
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
         plt.ion()
@@ -302,10 +306,7 @@ class Visualizer:
         for i, ship_obj in enumerate(ship_list):
             lw = self._config.ship_linewidth
             # If number of ships is greater than 16, use the same color for all target ships
-            if i > 0 and n_ships > len(self._config.ship_colors):
-                c = self._config.ship_colors[1]
-            else:
-                c = self._config.ship_colors[i]
+            ship_color = self._config.ship_colors[0] if i == 0 else self._config.do_colors[0]
 
             # Plot the own-ship (i = 0) above the target ships
             if i == 0:
@@ -392,7 +393,7 @@ class Visualizer:
                     0.0,
                     0.0,
                     ship_name,  # + " | mmsi:" + str(ship.mmsi),
-                    color=c,
+                    color=ship_color,
                     fontsize=self._config.ship_info_fontsize,
                     verticalalignment="center",
                     horizontalalignment="center",
@@ -403,7 +404,7 @@ class Visualizer:
             ship_i_handles["ground_truth_patch"] = None
             if ship_obj.id == 0 or (ship_obj.id > 0 and self._config.show_liveplot_ground_truth_target_pose):
                 ship_i_handles["ground_truth_patch"] = ax_map.fill(
-                    [], [], edgecolor="k", facecolor=c, linewidth=lw, label="", zorder=zorder_patch
+                    [], [], edgecolor="k", facecolor=ship_color, linewidth=lw, label="", zorder=zorder_patch
                 )[0]
 
             # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
@@ -414,7 +415,7 @@ class Visualizer:
                 ship_i_handles["trajectory"] = ax_map.plot(
                     [0.0],
                     [0.0],
-                    color=c,
+                    color=ship_color,
                     linewidth=lw,
                     label=ship_name + " true traj.",
                     zorder=zorder_patch - 2,
@@ -424,7 +425,7 @@ class Visualizer:
                 ship_i_handles["colav_nominal_trajectory"] = ax_map.plot(
                     [0.0],
                     [0.0],
-                    color=c,
+                    color=ship_color,
                     linewidth=lw,
                     marker="8",
                     markersize=4,
@@ -436,7 +437,7 @@ class Visualizer:
                 ship_i_handles["colav_predicted_trajectory"] = ax_map.plot(
                     [0.0],
                     [0.0],
-                    color=c,
+                    color=ship_color,
                     linewidth=lw,
                     marker="",
                     markersize=4,
@@ -518,12 +519,9 @@ class Visualizer:
         zorder_patch = 4
         if len(do_estimates) > 0:
             lw = self._config.do_linewidth
+            do_c = self._config.do_colors[0]
             for j, do_estimate in enumerate(do_estimates):  # pylint: disable=consider-using-enumerate
                 plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
-                if n_ships > len(self._config.ship_colors):
-                    do_c = self._config.do_colors[1]
-                else:
-                    do_c = self._config.do_colors[plt_idx]
 
                 if self.ship_plt_handles[0]["track_started"][plt_idx]:
                     start_idx_track_line_data = 0

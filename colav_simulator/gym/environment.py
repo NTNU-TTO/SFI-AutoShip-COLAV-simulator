@@ -47,7 +47,7 @@ class COLAVEnvironment(gym.Env):
         action_type: Optional[str] = None,
         observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "rgb_array",
-        render_update_interval: Optional[float] = None,
+        render_update_rate: Optional[float] = None,
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         show_loaded_scenario_data: Optional[bool] = False,
@@ -68,7 +68,7 @@ class COLAVEnvironment(gym.Env):
             action_type (Optional[str]): Action type. Defaults to None.
             observation_type (Optional[dict | str]): Observation type. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
-            render_update_interval (Optional[float]): Render update interval. Defaults to 0.2.
+            render_update_rate (Optional[float]): Render update rate. Defaults to 0.2.
             test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
             verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
@@ -101,7 +101,7 @@ class COLAVEnvironment(gym.Env):
         self.n_episodes: int = 0
         self.ownship: Optional[Ship] = None
         self.render_mode = render_mode
-        self.render_update_interval = render_update_interval
+        self.render_update_rate = render_update_rate
         self._viewer2d = self.simulator.visualizer
         self.test_mode = test_mode
         self.verbose: bool = verbose
@@ -115,6 +115,7 @@ class COLAVEnvironment(gym.Env):
                 reload_map=self.reload_map,
                 show=show_loaded_scenario_data,
             )
+            self.loaded_scenario_data = True
         else:
             self._generate(scenario_config=self.scenario_config, reload_map=self.reload_map)
 
@@ -185,6 +186,7 @@ class COLAVEnvironment(gym.Env):
             reload_map=reload_map,
             show=show,
             max_number_of_episodes=self.max_number_of_episodes,
+            shuffle_episodes=True,
         )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
@@ -273,6 +275,7 @@ class COLAVEnvironment(gym.Env):
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
+
         episode_data = scenario_episode_list.pop(0)
 
         self.simulator.initialize_scenario_episode(
@@ -303,6 +306,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
+        print("action", action)
         self.action_type.act(action)
         sim_data_dict = self.simulator.step(remote_actor=True)
 
@@ -319,8 +323,8 @@ class COLAVEnvironment(gym.Env):
         """Initializes the renderer."""
         if self.render_mode == "human" or self.render_mode == "rgb_array":
             self._viewer2d.toggle_liveplot_visibility(show=True)
-            if self.render_update_interval is not None:
-                self._viewer2d.set_update_rate(self.render_update_interval)
+            if self.render_update_rate is not None:
+                self._viewer2d.set_update_rate(self.render_update_rate)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
             self._viewer2d.update_live_plot(
                 self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements

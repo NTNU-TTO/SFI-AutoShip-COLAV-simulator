@@ -507,6 +507,8 @@ def plot_background(
     show_seabed: bool = True,
     dark_mode: bool = True,
     uniform_seabed_color: bool = False,
+    land_color: Optional[str] = None,
+    shore_color: Optional[str] = None,
 ) -> None:
     """Creates a static background based on the input seacharts
 
@@ -517,6 +519,8 @@ def plot_background(
         show_seabed (bool, optional): Option for showing the seabed. Defaults to True.
         dark_mode (bool, optional): Option for dark mode. Defaults to True.
         uniform_seabed_color (bool, optional): Option for using a uniform color for the seabed. Defaults to False.
+        land_color (Optional[str], optional): Color of the land to override the default. Defaults to None.
+        shore_color (Optional[str], optional): Color of the shore to override the default. Defaults to None.
 
     Returns:
         Tuple[]: Tuple of limits in x and y for the background extent
@@ -524,10 +528,14 @@ def plot_background(
     # For every layer put in list and assign a color
     if enc.land:
         color = "#142c38" if dark_mode else colors.color_picker(enc.land.color)
+        if land_color is not None:
+            color = land_color
         plot_shapely_multipolygon(ax, enc.land.geometry, color=color, zorder=enc.land.z_order)
 
     if show_shore and enc.shore:
         color = "#142c38" if dark_mode else colors.color_picker(enc.shore.color)
+        if shore_color is not None:
+            color = shore_color
         plot_shapely_multipolygon(ax, enc.shore.geometry, color=color, zorder=enc.shore.z_order)
 
     if show_seabed and enc.seabed:

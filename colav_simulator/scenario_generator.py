@@ -285,6 +285,7 @@ class ScenarioGenerator:
         reload_map: bool = True,
         show: bool = False,
         max_number_of_episodes: Optional[int] = None,
+        shuffle_episodes: bool = False,
     ) -> Tuple[list, senc.ENC]:
         """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
 
@@ -294,6 +295,7 @@ class ScenarioGenerator:
             - reload_map (bool, optional): Flag determining whether or not to reload the map data. Defaults to True.
             - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts. Defaults to False.
             - max_number_of_episodes (Optional[int], optional): Maximum number of episodes to load. Defaults to None.
+            - shuffle_episodes (bool, optional): Flag determining whether or not to shuffle the episode list. Defaults to False.
 
         Returns:
             - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
@@ -327,10 +329,12 @@ class ScenarioGenerator:
                 break
 
         if self._config.verbose:
-            print(f"ScenarioGenerator: Finished loading scenario episode files for scenario: {scenario_name}.")
+            print(f"ScenarioGenerator: Finished loading scenario episode files for {scenario_name}.")
         if show:
             input("Press enter to continue...")
             enc.close_display()
+        if shuffle_episodes:
+            self.rng.shuffle(scenario_episode_list)
         return (scenario_episode_list, enc)
 
     def visualize_disturbance(self, disturbance: stoch.Disturbance | None, enc: senc.ENC) -> None:
@@ -391,8 +395,8 @@ class ScenarioGenerator:
         """
         enc.start_display()
         for ship_obj in reversed(ship_list):
-            ship_color = "orangered" if ship_obj.id == 0 else "goldenrod"
-            plan_color = "orange" if ship_obj.id == 0 else "yellow"
+            ship_color = "magenta" if ship_obj.id == 0 else "red"
+            plan_color = "purple" if ship_obj.id == 0 else "orangered"
             if ship_obj.waypoints.size > 0:
                 mapf.plot_waypoints(
                     ship_obj.waypoints,

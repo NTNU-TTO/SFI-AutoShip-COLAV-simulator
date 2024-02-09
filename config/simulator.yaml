@@ -4,7 +4,7 @@ visualizer:
   show_liveplot: False
   show_liveplot_colav_results: True
   show_liveplot_measurements: False
-  show_liveplot_target_tracks: True
+  show_liveplot_target_tracks: False
   show_liveplot_target_waypoints: False
   show_liveplot_target_trajectories: False
   show_liveplot_ownship_waypoints: True
@@ -23,13 +23,15 @@ visualizer:
   dark_mode_liveplot: True
   update_rate_liveplot: 1.0 # relative to simulation time, not wall
   uniform_seabed_color: True
+  black_land: True
+  black_shore: True
   disable_ship_labels: True
   figsize: [12, 10]
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
   ship_scaling: [2.0, 2.0]
   ship_info_fontsize: 10
-  ship_colors: ["xkcd:magenta",
+  ship_colors: ["xkcd:plum",
               "xkcd:red",
               "xkcd:eggshell",
               "xkcd:purple",
@@ -51,7 +53,7 @@ visualizer:
               "xkcd:amber",
               "xkcd:wheat"]
   do_linewidth: 1.7
-  do_colors: ["xkcd:light red",
+  do_colors: ["xkcd:red",
               "xkcd:pale lilac",
               "xkcd:aqua",
               "xkcd:peach",
