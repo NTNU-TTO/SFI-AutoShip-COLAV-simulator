@@ -645,7 +645,7 @@ class TimeObservation(ObservationType):
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image. INCOMPLETE"""
 
-    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (400, 400, 3), **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (3, 400, 400), **kwargs) -> None:
         super().__init__(env)
         self.name = "PerceptionImageObservation"
         self.image_dim = image_dim
@@ -686,12 +686,14 @@ class PerceptionImageObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         t_now = time.time()
         img = self.env.liveplot_image
-        pruned_img = imghf.remove_whitespace(img)
+        pruned_img = img
+        # pruned_img = imghf.remove_whitespace(img)
         # os_liveplot_zoom_width = self.env.liveplot_zoom_width
+
         os_heading = self._ownship.heading
         #
         # Rotate the image to align with the ownship heading
-        rotated_img = scimg.rotate(pruned_img, os_heading * 180 / np.pi, reshape=False)
+        rotated_img = scimg.rotate(pruned_img, np.rad2deg(os_heading), reshape=False)
         npx, npy = rotated_img.shape[:2]
 
         # Crop the image to the vessel
@@ -709,19 +711,19 @@ class PerceptionImageObservation(ObservationType):
         ]
 
         # Resize image to a multiple of the image_dim
-        diff_multiple = int(np.ceil(cropped_img.shape[0] / self.image_dim[0])), int(
-            np.ceil(cropped_img.shape[1] / self.image_dim[1])
-        )
-        if self.image_dim[0] == self.image_dim[1]:
-            img_resize_x = diff_multiple[0] * self.image_dim[0]
-            img_resize_y = img_resize_x
-        else:
-            img_resize_x = diff_multiple[0] * self.image_dim[0]
-            img_resize_y = diff_multiple[1] * self.image_dim[1]
-        resized_img = cv2.resize(cropped_img, (img_resize_y, img_resize_x), interpolation=cv2.INTER_AREA)
+        # diff_multiple = int(np.ceil(cropped_img.shape[0] / self.image_dim[0])), int(
+        #     np.ceil(cropped_img.shape[1] / self.image_dim[1])
+        # )
+        # if self.image_dim[1] == self.image_dim[2]:
+        #     img_resize_x = diff_multiple[0] * self.image_dim[1]
+        #     img_resize_y = img_resize_x
+        # else:
+        #     img_resize_x = diff_multiple[0] * self.image_dim[1]
+        #     img_resize_y = diff_multiple[1] * self.image_dim[2]
+        # resized_img = cv2.resize(cropped_img, (img_resize_y, img_resize_x), interpolation=cv2.INTER_AREA)
 
         # downsample the image to configured image shape
-        downsampled_img = cv2.resize(cropped_img, (self.image_dim[0], self.image_dim[1]), interpolation=cv2.INTER_AREA)
+        downsampled_img = cv2.resize(cropped_img, (self.image_dim[1], self.image_dim[2]), interpolation=cv2.INTER_AREA)
         grayscale_img = cv2.cvtColor(downsampled_img, cv2.COLOR_BGR2GRAY)
 
         if False:
@@ -729,11 +731,11 @@ class PerceptionImageObservation(ObservationType):
             axes = fig.subplot_mosaic(
                 [
                     ["original", "rotated"],
-                    ["cropped", "resized"],
-                    ["downsampled", "grayscale"],
+                    ["cropped", "downsampled"],
+                    ["grayscale", ""],
                 ]
             )
-            axes["original"].imshow(pruned_img, aspect="equal")
+            axes["original"].imshow(img, aspect="equal")
             axes["original"].axes.get_xaxis().set_visible(False)
             axes["original"].axes.get_yaxis().set_visible(False)
             plt.tight_layout()
@@ -744,10 +746,6 @@ class PerceptionImageObservation(ObservationType):
             axes["cropped"].imshow(cropped_img, aspect="equal")
             axes["cropped"].axes.get_xaxis().set_visible(False)
             axes["cropped"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
-            axes["resized"].imshow(resized_img, aspect="equal")
-            axes["resized"].axes.get_xaxis().set_visible(False)
-            axes["resized"].axes.get_yaxis().set_visible(False)
             plt.tight_layout()
             axes["downsampled"].imshow(downsampled_img, aspect="equal")
             axes["downsampled"].axes.get_xaxis().set_visible(False)
@@ -760,7 +758,7 @@ class PerceptionImageObservation(ObservationType):
             plt.show(block=False)
 
         # shift the image stack and add the new one
-        self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=2)
+        self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=0)
         self.previous_image_stack[0, :, :] = grayscale_img
         print("Time to process image: ", time.time() - t_now)
         # save_image = False

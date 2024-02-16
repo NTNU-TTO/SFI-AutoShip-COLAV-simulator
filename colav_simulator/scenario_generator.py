@@ -157,6 +157,7 @@ class ScenarioGenerator:
         self._do_state_update_indices: list = []
         self._do_plan_update_indices: list = []
         self._disturbance_update_indices: list = []
+        self._ep0: int = 0
         self._bad_episode: bool = False
 
         self._prev_disturbance: Optional[stoch.Disturbance] = None
@@ -208,11 +209,6 @@ class ScenarioGenerator:
 
         return copy.deepcopy(self.enc)
 
-    def reset_episode_counter(self, reset: bool) -> None:
-        """Resets the episode counter."""
-        if reset:
-            self._episode_counter = 0
-
     def determine_indices_of_episode_parameter_updates(self, config: sc.ScenarioConfig) -> None:
         """Determines the episode indices when the OS plan+state, DO state, DO plan and disturbance should be updated/re-randomized.
 
@@ -234,7 +230,6 @@ class ScenarioGenerator:
         self._do_plan_update_indices = [-1 for _ in range(n_episodes)]
         self._disturbance_update_indices = [-1 for _ in range(n_episodes)]
         self._uniform_os_state_update_indices = [-1 for _ in range(n_episodes)]
-
         for ep in range(n_episodes):
             if ep % delta_uniform_position_sample == 0:
                 self._uniform_os_state_update_indices[ep] = ep
@@ -480,8 +475,8 @@ class ScenarioGenerator:
         show_plots: Optional[bool] = False,
         save_scenario: Optional[bool] = False,
         save_scenario_folder: Optional[Path] = dp.scenarios,
-        reset_episode_counter: Optional[bool] = True,
         n_episodes: Optional[int] = None,
+        episode_idx_save_offset: Optional[int] = 0,
     ) -> Tuple[list, senc.ENC]:
         """Main class function. Creates a maritime scenario, with a number of `n_episodes` based on the input config or config file.
 
@@ -495,8 +490,8 @@ class ScenarioGenerator:
             - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
             - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition. Defaults to False.
             - save_scenario_folder (Path, optional): Absolute path to the folder where the scenario definition should be saved. Defaults to dp.scenarios.
-            - reset_episode_counter (bool, optional): Flag determining whether or not to reset the episode counter. Defaults to True.
             - n_episodes (int, optional): Number of episodes to generate. Defaults to None.
+            - episode_idx_save_offset (int, optional): Offset for the episode index when saving to file. Defaults to 0.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
@@ -509,7 +504,7 @@ class ScenarioGenerator:
             config = cp.extract(sc.ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
 
         assert config is not None, "Config should not be none here."
-        self.reset_episode_counter(reset_episode_counter)
+        self._ep0 = episode_idx_save_offset
         show_plots = True if self._config.manual_episode_accept else show_plots
         save_scenario = save_scenario if save_scenario is not None else config.save_scenario
         ais_vessel_data_list = []
@@ -587,7 +582,7 @@ class ScenarioGenerator:
             if self._config.verbose:
                 print(f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created.")
 
-            ep_str = str(self._episode_counter + 1).zfill(3)
+            ep_str = str(self._episode_counter + 1 + self._ep0).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(

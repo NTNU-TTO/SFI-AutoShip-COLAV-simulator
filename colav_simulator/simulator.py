@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
@@ -217,9 +218,9 @@ class Simulator:
         Returns:
             bool: Whether the current own-ship state is a terminal state
         """
-        goal_reached = self.determine_ownship_goal_reached()
-        collided = self.determine_ownship_collision()
-        grounded = self.determine_ownship_grounding()
+        goal_reached = self.determine_ship_goal_reached(ship_idx=0)
+        collided = self.determine_ship_collision(ship_idx=0)
+        grounded = self.determine_ship_grounding(ship_idx=0)
         if verbose and collided:
             print(f"Collision at t = {self.t}!")
         if verbose and grounded:
@@ -310,6 +311,9 @@ class Simulator:
                 if not (i == 0 and remote_actor):  # Skip own-ship planning step if controlled by remote actor
                     ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
 
+                if i > 0 and self.determine_ship_grounding(i):  # Make grounded obstacle ships stop
+                    ship_obj.set_references(np.zeros((9, 1)))
+
             sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)
             sim_data_dict[f"Ship{i}"]["sensor_measurements"] = self.recent_sensor_measurements[i]
             sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
@@ -320,47 +324,55 @@ class Simulator:
         self.t += self.dt
         return sim_data_dict
 
-    def determine_ownship_collision(self) -> bool:
-        """Determines whether the own-ship is in a collision state.
+    def determine_ship_collision(self, ship_idx: int = 0) -> bool:
+        """Determines whether a ship is in a collision state.
+
+        Args:
+            ship_idx (int, optional): Index of the ship to check for collision. Defaults to 0.
 
         Returns:
-            bool: True if the own-ship is in a collision state, False otherwise.
+            bool: True if the ship is in a collision state, False otherwise.
         """
-        ownship_state = self.ownship.csog_state
-        for _, ship_obj in enumerate(self.ship_list[1:]):
-            if ship_obj.t_start <= self.t:
-                ship_state = ship_obj.csog_state
-                d2ship = np.linalg.norm(ownship_state[:2] - ship_state[:2])
-                if d2ship <= self.ownship.length / 2.0:
+        ship_state = self.ship_list[ship_idx].csog_state
+        for i, other_ship_obj in enumerate(self.ship_list):
+            if i == ship_idx:
+                continue
+            if other_ship_obj.t_start <= self.t:
+                other_ship_state = other_ship_obj.csog_state
+                d2ship = np.linalg.norm(ship_state[:2] - other_ship_state[:2])
+                if d2ship <= self.ship_list[ship_idx].length / 2.0:
                     return True
         return False
 
-    def determine_ownship_grounding(self) -> bool:
-        """Determines whether the own-ship is in a grounding state.
+    def determine_ship_grounding(self, ship_idx: int = 0) -> bool:
+        """Determines whether a ship is in a grounding state.
+
+        Args:
+            ship_idx (int, optional): Index of the ship to check for grounding. Defaults to 0.
 
         Returns:
-            bool: True if the own-ship is in a grounding state, False otherwise.
+            bool: True if the ship is in a grounding state, False otherwise.
         """
-        ownship_state = self.ownship.csog_state
-        d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ownship_state[1], ownship_state[0])
-        return d2land <= self.ownship.length / 2.0
+        ship_state = self.ship_list[ship_idx].csog_state
+        d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ship_state[1], ship_state[0])
+        return d2land <= self.ship_list[ship_idx].length / 2.0
 
-    def determine_ownship_goal_reached(self) -> bool:
-        """Determines whether the own-ship has reached its goal.
+    def determine_ship_goal_reached(self, ship_idx: int = 0) -> bool:
+        """Determines whether the ship has reached its goal.
 
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
-        if self.ownship.goal_csog_state.size > 0:
-            goal_state = self.ownship.goal_csog_state
-        elif self.ownship.waypoints.size > 1:
+        if self.ship_list[ship_idx].goal_csog_state.size > 0:
+            goal_state = self.ship_list[ship_idx].goal_csog_state
+        elif self.ship_list[ship_idx].waypoints.size > 1:
             goal_state = self.ownship.waypoints[:, -1]
         else:
             raise ValueError(
                 "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
             )
-        ownship_state = self.ownship.csog_state
-        d2goal = np.linalg.norm(ownship_state[:2] - goal_state[:2])
+        ship_state = self.ship_list[ship_idx].csog_state
+        d2goal = np.linalg.norm(ship_state[:2] - goal_state[:2])
         return d2goal <= self.ownship.length
 
 
