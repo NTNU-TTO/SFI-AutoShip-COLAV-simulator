@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 
-import colav_evaluation_tool.vessel as colav_eval_vessel_data
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.controllers as controllers
@@ -584,7 +583,7 @@ class Ship(IShip):
 
     def transfer_vessel_ais_data(
         self,
-        vessel: colav_eval_vessel_data.VesselData,
+        vessel: Any,
         use_ais_trajectory: bool = True,
         t_start: Optional[float] = None,
         t_end: Optional[float] = None,
@@ -599,7 +598,7 @@ class Ship(IShip):
         not considered.
 
         Args:
-            vessel (VesselData): AIS data of the ship.
+            vessel (colav_eval_vessel_data.VesselData): AIS data of the ship, data structure from the COLAV evaluation tool.
             use_ais_trajectory (bool, optional): Use historical AIS trajectory or not.
         """
 
