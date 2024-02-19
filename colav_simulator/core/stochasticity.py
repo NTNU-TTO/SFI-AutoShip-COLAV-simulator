@@ -82,7 +82,7 @@ class Config:
 
     wind: Optional[GaussMarkovDisturbanceParams] = field(default_factory=lambda: GaussMarkovDisturbanceParams())
     waves: Optional[dict] = None
-    currents: Optional[GaussMarkovDisturbanceParams] = GaussMarkovDisturbanceParams()
+    currents: Optional[GaussMarkovDisturbanceParams] = field(default_factory=lambda: GaussMarkovDisturbanceParams())
 
     @classmethod
     def from_dict(cls, config_dict: dict):

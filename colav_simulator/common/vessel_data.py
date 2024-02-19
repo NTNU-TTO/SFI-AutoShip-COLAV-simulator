@@ -49,12 +49,12 @@ class VesselData:
     NOTE: States must be given in a local ENU frame to work with the EvalTool class.
     """
 
-    xy: np.ndarray = np.empty(0)  # Position trajectory of the vessel: [x, y] x n_msgs, where x is east and y is north.
-    latlon: np.ndarray = np.empty(0)  # Position trajectory of the vessel: [lat, lon]  x n_msgs
-    sog: np.ndarray = np.empty(0)  # Speed over ground in m/s, array x n_msgs
-    cog: np.ndarray = np.empty(0)  # Course over ground array x n_msgs
-    timestamps: np.ndarray = np.empty(0)
-    datetimes_utc: np.ndarray = np.empty(0)
+    xy: np.ndarray = field(default_factory=lambda: np.empty(0))      # Position trajectory of the vessel: [x, y] x n_msgs, where x is east and y is north.
+    latlon: np.ndarray = field(default_factory=lambda: np.empty(0))  # Position trajectory of the vessel: [lat, lon]  x n_msgs
+    sog: np.ndarray = field(default_factory=lambda: np.empty(0))     # Speed over ground in m/s, array x n_msgs
+    cog: np.ndarray = field(default_factory=lambda: np.empty(0))     # Course over ground array x n_msgs
+    timestamps: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    datetimes_utc: np.ndarray = field(default_factory=lambda: np.empty(0)) 
     name: str = ""
     type: int = 0
     id: int = 0
@@ -66,17 +66,17 @@ class VesselData:
     draft: float = 3.0
     min_depth: int = -1
     travel_dist: float = -1.0
-    maneuver_detect_idx: np.ndarray = np.empty(0)
-    delta_cog: np.ndarray = np.empty(0)
-    delta_sog: np.ndarray = np.empty(0)
-    sog_der: np.ndarray = np.empty(0)
-    maneuver_der: np.ndarray = np.empty(0)
-    cog_maneuvers_idx: np.ndarray = np.empty(0)
-    sog_maneuvers_idx: np.ndarray = np.empty(0)
+    maneuver_detect_idx: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    delta_cog: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    delta_sog: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    sog_der: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    maneuver_der: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    cog_maneuvers_idx: np.ndarray = field(default_factory=lambda: np.empty(0)) 
+    sog_maneuvers_idx: np.ndarray = field(default_factory=lambda: np.empty(0)) 
 
     first_valid_idx: int = -1
     last_valid_idx: int = -1
-    nav_status: np.ndarray = np.empty(0)
+    nav_status: np.ndarray = field(default_factory=lambda: np.empty(0)) 
     status: Status = Status.UnderWayUsingEngine
 
     heading: list = field(default_factory=lambda: [])  # from AIS if available
@@ -84,7 +84,7 @@ class VesselData:
     backward_heading_estimate: list = field(default_factory=lambda: [])
 
     grounding_dist: float = -1.0
-    grounding_dist_vec: np.ndarray = np.empty(0)
+    grounding_dist_vec: np.ndarray = field(default_factory=lambda: np.empty(0)) 
     grounding_idx: int = -1
 
     @classmethod
