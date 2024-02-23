@@ -15,6 +15,7 @@ from typing import Optional, Tuple
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
 import colav_simulator.core.ship as ship
@@ -482,7 +483,7 @@ class BehaviorGenerator:
                 waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
                     ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
                 )
-                # mapf.plot_rrt_tree(planner.get_tree_as_list_of_dicts(), self._enc)
+                # plotters.plot_rrt_tree(planner.get_tree_as_list_of_dicts(), self._enc)
             if ship_obj.id == 0:
                 if show_plots:
                     self._enc.draw_circle((goal_state[1], goal_state[0]), 10, color="gold", alpha=0.4)
@@ -586,7 +587,7 @@ class BehaviorGenerator:
                 ship_obj = ship_list[ship_idx]
                 if self._enc is not None and ship_obj.waypoints.size > 1:
                     color = "purple" if ship_obj.id == 0 else "orangered"
-                    mapf.plot_waypoints(
+                    plotters.plot_waypoints(
                         ship_obj.waypoints,
                         self._enc,
                         color=color,
@@ -596,7 +597,7 @@ class BehaviorGenerator:
                     )
                 if ship_obj.trajectory.size > 1:
                     color = "purple" if ship_obj.id == 0 else "orangered"
-                    mapf.plot_trajectory(ship_obj.trajectory, self._enc, color=color, alpha=0.6)
+                    plotters.plot_trajectory(ship_obj.trajectory, self._enc, color=color, alpha=0.6)
                 color = "magenta" if ship_obj.id == 0 else "red"
                 ship_poly = mapf.create_ship_polygon(
                     ship_obj.csog_state[0],

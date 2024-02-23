@@ -7,11 +7,17 @@
     Author: Trym Tengesdal
 """
 
+import time
+from pathlib import Path
 from typing import Tuple
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.ndimage as sci_ndimage
+import skimage.feature as ski_feature
+import skimage.segmentation as ski_seg
+from matplotlib import gridspec
 
 
 def find_edges(img: np.ndarray, *, bw_threshold: int = 150, limits: Tuple[float, float] = (0.2, 0.15)) -> list:
@@ -33,7 +39,7 @@ def preprocess_image(
     crop_side: int = 50,
     block_size: int = 35,
     constant: int = 15,
-    max_value: int = 255
+    max_value: int = 255,
 ) -> np.ndarray:
     """Preprocess the image before further processing.
 
@@ -100,12 +106,103 @@ def remove_whitespace(img: np.ndarray) -> np.ndarray:
     return image_cropped
 
 
+def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
+    """Thresholds the image from a simulation liveplot to create a mask for distinct features/edges in the image.
+
+    Args:
+        img (np.ndarray): The image to create a mask for.
+
+    Returns:
+        np.ndarray: The mask.
+    """
+    start_time = time.time()
+    ndims = img.ndim
+    if ndims == 3:
+        img = np.expand_dims(img, axis=0)
+
+    n_envs = img.shape[0]
+    C, H, W = img.shape[1:]
+    masks = np.zeros((n_envs, C, H, W), dtype=np.uint8)
+    for i in range(n_envs):
+        for c in range(3):
+            img_c = img[i, c]
+            _, binary_threshold = cv2.threshold(img_c, 150, 170, cv2.THRESH_BINARY)
+            _, otsu_threshold = cv2.threshold(img_c, 0, 255, cv2.THRESH_OTSU)
+            adaptive_gaussian_threshold = cv2.adaptiveThreshold(
+                img_c, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 25, 2
+            )
+            contours, hierarchy = cv2.findContours(adaptive_gaussian_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contoured_img = adaptive_gaussian_threshold.copy()
+            for cnt in contours:
+                cv2.drawContours(contoured_img, [cnt], 0, 255, -1)
+
+            D = sci_ndimage.distance_transform_edt(contoured_img)
+            peak_coords = ski_feature.peak_local_max(D, min_distance=20, labels=adaptive_gaussian_threshold)
+            local_max_mask = np.zeros(D.shape, dtype=bool)
+            local_max_mask[tuple(peak_coords.T)] = True
+            markers, _ = sci_ndimage.label(local_max_mask)
+            labels = ski_seg.watershed(-D, markers, mask=contoured_img)
+            # print(f"[INFO] {len(np.unique(labels)) - 1} unique segments found")
+
+            masks[i, c] = adaptive_gaussian_threshold
+
+        if False:
+            fig = plt.figure()
+            gs = gridspec.GridSpec(
+                1,
+                2,
+                fig,
+                width_ratios=[1, 1],
+                wspace=0.0,
+                hspace=0.0,
+                top=0.95,
+                bottom=0.05,
+                left=0.17,
+                right=0.845,
+            )
+
+            plt.show(block=False)
+            ax = plt.subplot(gs[0, 0])
+            ax.imshow(img_c, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[0, 1])
+            # axes["binary"].imshow(binary_threshold, aspect="equal")
+            # axes["binary"].axes.get_xaxis().set_visible(False)
+            # axes["binary"].axes.get_yaxis().set_visible(False)
+            # axes["otsu"].imshow(otsu_threshold, aspect="equal")
+            # axes["otsu"].axes.get_xaxis().set_visible(False)
+            # axes["otsu"].axes.get_yaxis().set_visible(False)
+            ax.imshow(adaptive_gaussian_threshold, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            # axes["contoured"].imshow(contoured_img, aspect="equal")
+            # axes["contoured"].axes.get_xaxis().set_visible(False)
+            # axes["contoured"].axes.get_yaxis().set_visible(False)
+            # axes["watershed"].imshow(labels, aspect="equal", cmap=plt.cm.nipy_spectral)
+            # axes["watershed"].axes.get_xaxis().set_visible(False)
+            # axes["watershed"].axes.get_yaxis().set_visible(False)
+            plt.subplots_adjust(wspace=0.01, hspace=0.01)
+            # plt.savefig("segmentation.pdf", format="pdf")
+
+    print(f"[INFO] Time to create segmentation mask: {time.time() - start_time:.2f} seconds")
+    return masks
+
+
 if __name__ == "__main__":
 
-    filename_in = "input.png"
-    filename_out = "output.png"
+    # filename_in = "input.png"
+    # filename_out = "output.png"
 
-    image = cv2.imread(str(filename_in))
-    img_cropped = remove_whitespace(image)
-    plt.imshow(img_cropped)
-    cv2.imwrite(str(filename_out), img_cropped)
+    # image = cv2.imread(str(filename_in))
+    # img_cropped = remove_whitespace(image)
+    # plt.imshow(img_cropped)
+    # cv2.imwrite(str(filename_out), img_cropped)
+
+    data_dir = Path("/home/doctor/Desktop/machine_learning/data/vae/")
+    # data_dir = Path("/Users/trtengesdal/Desktop/machine_learning/data/vae/")
+    npy_filename = "perception_images_rogaland_random_everything_vecenv_test"
+
+    npy_file = np.load(data_dir / (npy_filename + ".npy"), mmap_mode="r", allow_pickle=True).astype(np.uint8)
+
+    segmask = create_simulation_image_segmentation_mask(npy_file[0])

@@ -29,6 +29,7 @@ import numpy as np
 import scipy.ndimage as scimg
 import shapely
 import shapely.geometry as sgeo
+from matplotlib import gridspec
 
 Observation = Union[tuple, list, np.ndarray]
 
@@ -701,26 +702,21 @@ class PerceptionImageObservation(ObservationType):
         # Image coordinate system is (0,0) in the upper left corner, height is the first index, width is the second index
         center_pixel_x = int(rotated_img.shape[0] // 2)
         center_pixel_y = int(rotated_img.shape[1] // 2)
-        cutoff_index_below_vessel = int(0.1 * npx)  # corresponds to 200 m for a 2000 m zoom width
-        cutoff_index_above_vessel = int(0.4 * npx)  # corresponds to 800 m for a 2000 m zoom width
-        cutoff_width = int(0.25 * npy)  # corresponds to 500 m for a 2000 m zoom width
+        cutoff_index_below_vessel = int(0.05 * npx)  # corresponds to 100 m for a 2000 m zoom width
+        cutoff_index_below_vessel = (
+            cutoff_index_below_vessel if cutoff_index_below_vessel <= center_pixel_y else center_pixel_y
+        )
+
+        cutoff_index_above_vessel = int(0.3 * npx)  # corresponds to 600 m for a 1000 m zoom width
+        cutoff_index_above_vessel = (
+            cutoff_index_above_vessel if cutoff_index_above_vessel <= center_pixel_x else center_pixel_x
+        )
+        cutoff_laterally = int(0.2 * npy)  # corresponds to 150 m for a 1000 m zoom width
 
         cropped_img = rotated_img[
             center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
-            center_pixel_y - cutoff_width : center_pixel_y + cutoff_width,
+            center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
         ]
-
-        # Resize image to a multiple of the image_dim
-        # diff_multiple = int(np.ceil(cropped_img.shape[0] / self.image_dim[0])), int(
-        #     np.ceil(cropped_img.shape[1] / self.image_dim[1])
-        # )
-        # if self.image_dim[1] == self.image_dim[2]:
-        #     img_resize_x = diff_multiple[0] * self.image_dim[1]
-        #     img_resize_y = img_resize_x
-        # else:
-        #     img_resize_x = diff_multiple[0] * self.image_dim[1]
-        #     img_resize_y = diff_multiple[1] * self.image_dim[2]
-        # resized_img = cv2.resize(cropped_img, (img_resize_y, img_resize_x), interpolation=cv2.INTER_AREA)
 
         # downsample the image to configured image shape
         downsampled_img = cv2.resize(cropped_img, (self.image_dim[1], self.image_dim[2]), interpolation=cv2.INTER_AREA)
@@ -728,34 +724,44 @@ class PerceptionImageObservation(ObservationType):
 
         if False:
             fig = plt.figure()
-            axes = fig.subplot_mosaic(
-                [
-                    ["original", "rotated"],
-                    ["cropped", "downsampled"],
-                    ["grayscale", ""],
-                ]
+            gs = gridspec.GridSpec(
+                3,
+                2,
+                fig,
+                wspace=0.0,
+                hspace=0.0,
+                top=0.95,
+                bottom=0.05,
+                left=0.17,
+                right=0.845,
             )
-            axes["original"].imshow(img, aspect="equal")
-            axes["original"].axes.get_xaxis().set_visible(False)
-            axes["original"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
-            axes["rotated"].imshow(rotated_img, aspect="equal")
-            axes["rotated"].axes.get_xaxis().set_visible(False)
-            axes["rotated"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
-            axes["cropped"].imshow(cropped_img, aspect="equal")
-            axes["cropped"].axes.get_xaxis().set_visible(False)
-            axes["cropped"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
-            axes["downsampled"].imshow(downsampled_img, aspect="equal")
-            axes["downsampled"].axes.get_xaxis().set_visible(False)
-            axes["downsampled"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
-            axes["grayscale"].imshow(grayscale_img, aspect="equal")
-            axes["grayscale"].axes.get_xaxis().set_visible(False)
-            axes["grayscale"].axes.get_yaxis().set_visible(False)
-            plt.tight_layout()
+
             plt.show(block=False)
+            ax = plt.subplot(gs[0, 0])
+            ax.imshow(img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[0, 1])
+            ax.imshow(rotated_img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[1, 0])
+            ax.imshow(cropped_img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[1, 1])
+            ax.imshow(downsampled_img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[2, 0])
+            ax.imshow(grayscale_img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            ax = plt.subplot(gs[2, 1])
+            ax.imshow(grayscale_img, aspect="equal")
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            plt.subplots_adjust(wspace=0.01, hspace=0.01)
 
         # shift the image stack and add the new one
         self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=0)

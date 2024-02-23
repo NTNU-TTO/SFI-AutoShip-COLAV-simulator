@@ -15,13 +15,13 @@ from typing import Any, Optional, Tuple
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.ship as ship
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 from matplotlib import animation
-from matplotlib.transforms import Affine2D
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
@@ -70,6 +70,8 @@ class Config:
     black_land: bool = True
     black_shore: bool = True
     disable_ship_labels: bool = True
+    target_waypoint_color: str = "xkcd:orange"
+    ownship_waypoint_color: str = "xkcd:yellow"
     ship_linewidth: float = 0.9
     ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
     ship_info_fontsize: int = 13
@@ -202,7 +204,7 @@ class Visualizer:
         self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(1, 1, 1)
-        mapf.plot_background(
+        plotters.plot_background(
             ax_map,
             enc,
             dark_mode=self._config.dark_mode_liveplot,
@@ -461,16 +463,19 @@ class Visualizer:
                 (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
                 or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
             ) and ship_obj.waypoints.size > 0:
-                waypoint_color = "yellow" if ship_obj.id == 0 else "orange"
+                waypoint_color = (
+                    self._config.ownship_waypoint_color if ship_obj.id == 0 else self._config.target_waypoint_color
+                )
+                path_poly = mapf.create_path_polygon(
+                    ship_obj.waypoints, point_buffer=1, disk_buffer=4, hole_buffer=1, show_annuluses=True
+                )
                 ship_i_handles["waypoints"] = ax_map.plot(
+                    # *path_poly.exterior.xy,
                     ship_obj.waypoints[1, :],
                     ship_obj.waypoints[0, :],
                     color=waypoint_color,
-                    marker="o",
-                    markersize=8,
-                    linestyle="dashed",
-                    linewidth=lw,
-                    alpha=0.6,
+                    linewidth=1,
+                    alpha=1,
                     label=ship_name + " waypoints",
                     zorder=-6,
                 )[0]
@@ -648,12 +653,12 @@ class Visualizer:
                 [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
             )
 
-        if (
-            (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
-            or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
-        ) and ship_obj.waypoints.size > 0:
-            self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
-            self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
+        # if (
+        #     (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
+        #     or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
+        # ) and ship_obj.waypoints.size > 0:
+        #     self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
+        #     self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
 
         if self._config.show_liveplot_colav_results:
             self.ship_plt_handles[idx] = ship_obj.plot_colav_results(ax_map, enc, self.ship_plt_handles[idx], **kwargs)
@@ -753,7 +758,6 @@ class Visualizer:
         self.axes[0].set_xlim(upd_ylimits[0], upd_ylimits[1])
         self.axes[0].set_ylim(upd_xlimits[0], upd_xlimits[1])
         # plt.axis("equal")
-        plt.tight_layout()
 
     def save_live_plot_animation(self, filename: Path = dp.animation_output / "liveplot.gif") -> None:
         """Saves the live plot animation to a file if enabled.
@@ -859,7 +863,7 @@ class Visualizer:
         axes = []
         fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.figsize)
         ax_map = fig_map.add_subplot(1, 1, 1)
-        mapf.plot_background(ax_map, enc)
+        plotters.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
         xlimits, ylimits = self.find_plot_limits(enc, ship_list[0], buffer=0.0)
         plt.show(block=False)
@@ -1018,7 +1022,7 @@ class Visualizer:
                     width_scaling=self._config.ship_scaling[1],
                 )
                 ax_map.fill(
-                    *ship_poly.exterior,
+                    *ship_poly.exterior.xy,
                     linewidth=ship_lw,
                     color=ship_color,
                     # label=ship_name",

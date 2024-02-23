@@ -1,5 +1,6 @@
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.controllers as controllers
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
@@ -126,7 +127,7 @@ if __name__ == "__main__":
     #         wind_arrow_start[1] + 100.0 * initial_wind_speed * np.cos(initial_wind_direction),
     #     )
     #     scenario_generator.enc.draw_arrow(wind_arrow_start, wind_arrow_end, "white", width=15, fill=False, head_size=60, thickness=2)
-    mapf.plot_waypoints(
+    plotters.plot_waypoints(
         waypoints,
         scenario_generator.enc,
         "orange",
@@ -135,7 +136,7 @@ if __name__ == "__main__":
         hole_buffer=5.0,
         alpha=0.6,
     )
-    mapf.plot_trajectory(trajectory, scenario_generator.enc, "black")
+    plotters.plot_trajectory(trajectory, scenario_generator.enc, "black")
     for k in range(0, n_samples, 10):
         ship_poly = mapf.create_ship_polygon(
             trajectory[0, k], trajectory[1, k], trajectory[2, k], ownship.length, ownship.width

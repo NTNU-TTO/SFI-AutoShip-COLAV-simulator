@@ -7,11 +7,13 @@
 
     Author: Trym Tengesdal
 """
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.paths as dp
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.models as models
@@ -156,8 +158,8 @@ class PQRRTStar(ci.ICOLAV):
             )
             self._rrt_waypoints, self._rrt_trajectory, self._rrt_inputs, times, cost = parse_rrt_solution(rrt_solution)
             if enc is not None and t == 0.0:
-                mapf.plot_rrt_tree(self._rrt.get_tree_as_list_of_dicts(), enc)
-                mapf.plot_waypoints(
+                plotters.plot_rrt_tree(self._rrt.get_tree_as_list_of_dicts(), enc)
+                plotters.plot_waypoints(
                     self._rrt_waypoints,
                     enc,
                     color="orange",

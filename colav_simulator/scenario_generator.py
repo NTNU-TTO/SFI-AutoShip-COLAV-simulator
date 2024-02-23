@@ -20,6 +20,7 @@ import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import colav_simulator.scenario_config as sc
@@ -350,7 +351,7 @@ class ScenarioGenerator:
         handles = []
         if ddata.currents is not None and ddata.currents["speed"] > 0.0:
             handles.extend(
-                mapf.plot_disturbance(
+                plotters.plot_disturbance(
                     magnitude=70.0,
                     direction=ddata.currents["direction"],
                     name="current: " + str(ddata.currents["speed"]) + " m/s",
@@ -364,7 +365,7 @@ class ScenarioGenerator:
 
         if ddata.wind is not None and ddata.wind["speed"] > 0.0:
             handles.extend(
-                mapf.plot_disturbance(
+                plotters.plot_disturbance(
                     magnitude=70.0,
                     direction=ddata.wind["direction"],
                     name="wind: " + str(ddata.wind["speed"]) + " m/s",
@@ -393,7 +394,7 @@ class ScenarioGenerator:
             ship_color = "magenta" if ship_obj.id == 0 else "red"
             plan_color = "purple" if ship_obj.id == 0 else "orangered"
             if ship_obj.waypoints.size > 0:
-                mapf.plot_waypoints(
+                plotters.plot_waypoints(
                     ship_obj.waypoints,
                     enc,
                     color=plan_color,
@@ -402,7 +403,7 @@ class ScenarioGenerator:
                     hole_buffer=2.0,
                 )
             if ship_obj.trajectory.size > 0:
-                mapf.plot_trajectory(ship_obj.trajectory, enc, color=plan_color, linewidth=1.0)
+                plotters.plot_trajectory(ship_obj.trajectory, enc, color=plan_color, linewidth=1.0)
 
             ship_poly = mapf.create_ship_polygon(
                 ship_obj.csog_state[0],
