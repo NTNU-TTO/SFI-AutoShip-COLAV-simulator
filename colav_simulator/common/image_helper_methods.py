@@ -171,7 +171,7 @@ def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
                     binarized_gray = binarized_gray * ship_mask_inv
 
                 median = cv2.medianBlur(binarized_gray, 5).astype(np.int16)
-                median = (median - np.min(median)) / (np.max(median) - np.min(median))
+                median = (median - np.min(median)) / (np.max(median) - np.min(median) + 1e-6)
                 mask_imgs.append(median)
 
                 if show_plots and i == 0:
