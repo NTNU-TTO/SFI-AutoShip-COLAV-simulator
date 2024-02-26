@@ -26,11 +26,11 @@ visualizer:
   black_land: True
   black_shore: True
   disable_ship_labels: True
-  ownship_waypoint_color: "xkcd:green"
+  ownship_waypoint_color: "xkcd:white"
   target_waypoint_color: "xkcd:orange"
   figsize: [10, 10]
   margins: [0.0, 0.0]
-  ship_linewidth: 1.5
+  ship_linewidth: 1.7
   ship_scaling: [2.0, 2.0]
   ship_info_fontsize: 10
   ship_colors: ["xkcd:purple",

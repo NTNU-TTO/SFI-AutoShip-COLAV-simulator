@@ -474,7 +474,7 @@ class Visualizer:
                     ship_obj.waypoints[1, :],
                     ship_obj.waypoints[0, :],
                     color=waypoint_color,
-                    linewidth=1,
+                    linewidth=2,
                     alpha=1,
                     label=ship_name + " waypoints",
                     zorder=-6,
