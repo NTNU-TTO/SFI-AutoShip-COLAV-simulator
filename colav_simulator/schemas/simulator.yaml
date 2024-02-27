@@ -100,10 +100,16 @@ visualizer:
       maxlength: 2
       schema:
         type: float
+    target_trajectory_color:
+      required: True
+      type: string
     target_waypoint_color:
       required: True
       type: string
     ownship_waypoint_color:
+      required: True
+      type: string
+    ownship_trajectory_color:
       required: True
       type: string
     ship_linewidth:

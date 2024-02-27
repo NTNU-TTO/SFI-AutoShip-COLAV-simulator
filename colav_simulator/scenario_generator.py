@@ -832,7 +832,7 @@ class ScenarioGenerator:
 
             ship_obj = ship_list[ship_cfg_idx]
             # Use 90% of the maximum speed as the maximum speed for the ships
-
+            new_uniform_os_state = ep == self._os_state_update_indices[ep] and uniform_in_map_sample
             if ship_cfg_idx == 0:
                 if ep == self._os_state_update_indices[ep]:
                     csog_state = self.generate_random_csog_state(
@@ -846,7 +846,8 @@ class ScenarioGenerator:
                     )
                 else:
                     csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
-            new_uniform_os_state = ep == self._os_state_update_indices[ep] and uniform_in_map_sample
+
+            ship_distance_to_ownship = np.linalg.norm(ship_obj.csog_state[:2] - ship_list[0].csog_state[:2])
             if ship_cfg_idx > 0:
                 if (
                     ep == self._do_state_update_indices[ep]
@@ -863,7 +864,9 @@ class ScenarioGenerator:
                         t_cpa_threshold=self._config.t_cpa_threshold,
                         d_cpa_threshold=self._config.d_cpa_threshold,
                         first_episode_csog_state=(
-                            self._first_csog_states[ship_cfg_idx] if not uniform_in_map_sample else None
+                            None
+                            if (uniform_in_map_sample or (ship_distance_to_ownship > self._config.dist_between_ships_range[1]))
+                            else self._first_csog_states[ship_cfg_idx]
                         ),
                     )
                 else:

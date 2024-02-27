@@ -70,8 +70,10 @@ class Config:
     black_land: bool = True
     black_shore: bool = True
     disable_ship_labels: bool = True
-    target_waypoint_color: str = "xkcd:orange"
+    ownship_trajectory_color: str = "xkcd:pink"
     ownship_waypoint_color: str = "xkcd:yellow"
+    target_trajectory_color: str = "xkcd:peach"
+    target_waypoint_color: str = "xkcd:orange"
     ship_linewidth: float = 0.9
     ship_scaling: list = field(default_factory=lambda: [5.0, 2.0])
     ship_info_fontsize: int = 13
@@ -414,10 +416,13 @@ class Visualizer:
             if (ship_obj.id == 0 and self._config.show_liveplot_ownship_trajectory) or (
                 ship_obj.id > 0 and self._config.show_liveplot_target_trajectories
             ):
+                traj_color = (
+                    self._config.ownship_trajectory_color if ship_obj.id == 0 else self._config.target_trajectory_color
+                )
                 ship_i_handles["trajectory"] = ax_map.plot(
                     [0.0],
                     [0.0],
-                    color=ship_color,
+                    color=traj_color,
                     linewidth=lw,
                     label=ship_name + " true traj.",
                     zorder=zorder_patch - 2,
@@ -738,7 +743,6 @@ class Visualizer:
 
             self.update_ship_live_data(ship_obj, i, enc, lw=lw, c=c, start_idx_ship_line_data=start_idx_ship_line_data)
 
-        plt.tight_layout()
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
         self.frames.append(self.get_live_plot_image())

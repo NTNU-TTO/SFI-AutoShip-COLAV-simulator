@@ -299,4 +299,5 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.
+- Create IsaacGym-wrapper for GPU-enabled parallelized RL.
 

@@ -8,7 +8,7 @@ visualizer:
   show_liveplot_target_waypoints: False
   show_liveplot_target_trajectories: False
   show_liveplot_ownship_waypoints: True
-  show_liveplot_ownship_trajectory: True
+  show_liveplot_ownship_trajectory: False
   show_liveplot_ground_truth_target_pose: False
   zoom_in_liveplot_on_ownship: True
   zoom_window_width: 2000.0
@@ -26,7 +26,9 @@ visualizer:
   black_land: True
   black_shore: True
   disable_ship_labels: True
+  ownship_trajectory_color: "xkcd:pink"
   ownship_waypoint_color: "xkcd:white"
+  target_trajectory_color: "xkcd:peach"
   target_waypoint_color: "xkcd:orange"
   figsize: [10, 10]
   margins: [0.0, 0.0]

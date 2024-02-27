@@ -11,15 +11,14 @@ import time
 from pathlib import Path
 from typing import Tuple
 
+import colav_simulator.common.math_functions as mf
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.ndimage as sci_ndimage
-import skimage.color as ski_color
-import skimage.feature as ski_feature
-import skimage.segmentation as ski_seg
+import skimage.morphology as ski_morph
 import skimage.util as ski_util
 from matplotlib import gridspec
+from ultralytics import YOLO
 
 
 def find_edges(img: np.ndarray, *, bw_threshold: int = 150, limits: Tuple[float, float] = (0.2, 0.15)) -> list:
@@ -43,7 +42,7 @@ def preprocess_image(
     constant: int = 15,
     max_value: int = 255,
 ) -> np.ndarray:
-    """Preprocess the image before further processing.
+    """Preprocess an image for whitespace removal.
 
     Args:
         img (np.ndarray): The image to preprocess.
@@ -108,6 +107,10 @@ def remove_whitespace(img: np.ndarray) -> np.ndarray:
     return image_cropped
 
 
+def gray_to_rgb(img):
+    return np.repeat(img, 3, 2)
+
+
 def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
     """Thresholds the image from a simulation liveplot to create a mask for distinct features/edges in the image.
 
@@ -122,20 +125,22 @@ def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
     if ndims == 3:
         img = np.expand_dims(img, axis=0)
 
-    show_plots = True
+    show_plots = False
     n_envs = img.shape[0]
     C, H, W = img.shape[1:]
     masks = np.zeros((n_envs, C, H, W), dtype=np.int16)
     for i in range(n_envs):
         for c in range(3):
             img_c = img[i, c]
-            thresholds = [0.1, 0.3, 0.65]  # land, ships, nominal path
+            thresholds = [
+                [0.1, 0.6],
+                [0.05, 0.57],
+                [0.63, 1.1],
+            ]  # land, ownship, obstacle ships, nominal path, [lower, upper]
             img_c_scaled = img_c / 255
 
-            binarized_gray_land = np.asarray(img_c_scaled < thresholds[0], dtype=np.uint8)
-            binarized_gray_land_inv = np.asarray(ski_util.invert(binarized_gray_land), dtype=np.uint8)
-            if show_plots and i == 0:
-                fig = plt.figure(figsize=(5, 10))
+            if show_plots and i == 0 and c == 0:
+                fig = plt.figure(figsize=(10, 5))
                 gs = gridspec.GridSpec(
                     1,
                     5,
@@ -151,79 +156,73 @@ def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
                 ax.set_title(titles[0])
                 ax.axes.get_xaxis().set_visible(False)
                 ax.axes.get_yaxis().set_visible(False)
-                ax = plt.subplot(gs[1])
-                ax.imshow(binarized_gray_land, cmap="gray")
-                ax.set_title(titles[1])
-                ax.axes.get_xaxis().set_visible(False)
-                ax.axes.get_yaxis().set_visible(False)
 
             mask_img_c = np.zeros_like(img_c, dtype=np.float16)
-            mask_imgs = [binarized_gray_land.astype(np.float32)]
-            for j in range(1, 3):
-                binarized_gray = np.asarray(img_c_scaled > thresholds[j], dtype=np.uint8)
-                if j == 1:
-                    binarized_gray = np.asarray(ski_util.invert(binarized_gray), dtype=np.uint8)
-                    binarized_gray = np.asarray(
-                        ski_util.invert(binarized_gray * binarized_gray_land_inv), dtype=np.uint8
-                    )
+            mask_imgs = []
+            for j in range(3):
+                threshold_j = np.asarray(img_c_scaled > thresholds[j][0], dtype=np.float16)
+                if j > 0:
+                    threshold_j = threshold_j * np.asarray(img_c_scaled < thresholds[j][1], dtype=np.float16)
+                    if j == 1:
+                        land_mask_inv = np.asarray(ski_util.invert(mask_imgs[0]), dtype=np.float16)
+                        threshold_j = np.asarray(ski_util.invert(threshold_j * land_mask_inv), dtype=np.uint8)
+                    elif j == 2:
+                        ship_mask_inv = np.asarray(ski_util.invert(mask_imgs[1]), dtype=np.float16)
+                        threshold_j = (threshold_j * ship_mask_inv).astype(np.uint8)
+                    # obstacles
+
                 else:
-                    ship_mask_inv = np.asarray(ski_util.invert(mask_imgs[1]), dtype=np.uint8)
-                    binarized_gray = binarized_gray * ship_mask_inv
+                    threshold_j = np.asarray(ski_util.invert(threshold_j), dtype=np.uint8)
 
-                median = cv2.medianBlur(binarized_gray, 5).astype(np.int16)
-                median = (median - np.min(median)) / (np.max(median) - np.min(median) + 1e-6)
-                mask_imgs.append(median)
+                mask_level_j = threshold_j
+                if j == 1:
+                    # mask_level_j = cv2.bilateralFilter(threshold_j, 8, 75, 75).astype(np.float16)
+                    mask_level_j = ski_morph.erosion(mask_level_j.astype(np.uint8), ski_morph.disk(2)).astype(
+                        np.float16
+                    )
+                    mask_level_j = ski_morph.dilation(mask_level_j.astype(np.uint8), ski_morph.disk(2)).astype(
+                        np.float16
+                    )
+                elif j == 2:
+                    mask_level_j = cv2.medianBlur(threshold_j, 5).astype(np.float16)
 
-                if show_plots and i == 0:
+                if mask_level_j.max() > 1.0:
+                    mask_level_j = mf.linear_map(mask_level_j, (mask_level_j.min(), mask_level_j.max()), (0.0, 1.0))
+
+                mask_imgs.append(mask_level_j)
+
+                if show_plots and i == 0 and c == 0:
                     ax = plt.subplot(gs[j + 1])
                     ax.set_title(titles[j + 1])
-                    ax.imshow(median, cmap="gray")
+                    ax.imshow(mask_level_j.astype(np.uint8), cmap="gray")
                     ax.axes.get_xaxis().set_visible(False)
                     ax.axes.get_yaxis().set_visible(False)
 
-            mask_img_c = (
-                1.0 * mask_imgs[0].astype(np.int16)
-                + 500.0 * mask_imgs[1].astype(np.int16)
-                + 100.0 * mask_imgs[2].astype(np.int16)
+            contours, hierarchy = cv2.findContours(
+                mask_imgs[0].astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            masks[i, c] = mask_img_c
+            land_mask_edges = (
+                cv2.drawContours(np.zeros_like(mask_imgs[0], dtype=np.uint8), contours, -1, 255, 1).astype(np.int16)
+                / 255
+            )
+            # ax.imshow(land_mask_edges.astype(np.uint8), cmap="gray")
 
-            if show_plots and i == 0:
+            mask_img_c = (
+                25.0 * mask_imgs[0].astype(np.int16)  # land
+                + 100.0 * land_mask_edges  # land edges
+                + 250.0 * mask_imgs[1].astype(np.int16)
+                + 150.0 * mask_imgs[2].astype(np.int16)
+            )
+            mask_img_c[mask_img_c < 1.0] = 1.0
+
+            if show_plots and i == 0 and c == 0:
                 ax = plt.subplot(gs[-1])
-                ax.imshow(mask_img_c)
+                ax.imshow(mask_img_c.astype(np.uint8), cmap="gray")
                 ax.set_title("Weighted mask")
                 ax.axes.get_xaxis().set_visible(False)
                 ax.axes.get_yaxis().set_visible(False)
-                plt.subplots_adjust(wspace=0.01, hspace=0.01)
-                plt.tight_layout()
 
-                # plt.savefig("segmentation.pdf", format="pdf")
-
-            # segments_fz = ski_seg.felzenszwalb(img_c, scale=100, sigma=0.5, min_size=50)
-            # segments_slic = ski_seg.slic(
-            #     img_c, n_segments=250, compactness=0.1, sigma=1, start_label=1, channel_axis=None
-            # )
-            # segments_quick = ski_seg.quickshift(img_c, kernel_size=3, max_dist=6, ratio=0.5)
-            # gradient = ski_seg.sobel(img_c)
-            # segments_watershed = ski_seg.watershed(gradient, markers=250, compactness=0.001)
-
-            # _, binary_threshold = cv2.threshold(img_c, 150, 170, cv2.THRESH_BINARY)
-            # _, otsu_threshold = cv2.threshold(img_c, 0, 255, cv2.THRESH_OTSU)
-            # adaptive_gaussian_threshold = cv2.adaptiveThreshold(
-            #     img_c, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-            # )
-            # contours, hierarchy = cv2.findContours(adaptive_gaussian_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            # contoured_img = adaptive_gaussian_threshold.copy()
-            # for cnt in contours:
-            #     cv2.drawContours(contoured_img, [cnt], 0, 255, -1)
-
-            # D = sci_ndimage.distance_transform_edt(contoured_img)
-            # peak_coords = ski_feature.peak_local_max(D, min_distance=5, labels=adaptive_gaussian_threshold)
-            # local_max_mask = np.zeros(D.shape, dtype=bool)
-            # local_max_mask[tuple(peak_coords.T)] = True
-            # markers, _ = sci_ndimage.label(local_max_mask)
-            # labels = ski_seg.watershed(-D, markers, mask=contoured_img)
-            # print(f"[INFO] {len(np.unique(labels)) - 1} unique segments found")
+            masks[i, c] = mask_img_c
 
     print(f"[INFO] Time to create segmentation mask: {time.time() - start_time:.2f} seconds")
     return masks
