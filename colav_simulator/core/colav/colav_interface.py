@@ -24,6 +24,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -195,7 +196,9 @@ class VOWrapper(ICOLAV):
         assert config.layer1.vo is not None, "Kuwata VO must be on the first layer for the VO wrapper."
         self._vo = kvo.VO(config.layer1.vo)
 
-        assert config.layer2 and config.layer2.los is not None, "LOS guidance must be on the second layer for the VO wrapper."
+        assert (
+            config.layer2 and config.layer2.los is not None
+        ), "LOS guidance must be on the second layer for the VO wrapper."
         self._los = guidance.LOSGuidance(config.layer2.los)
 
         self._t_prev = 0.0
@@ -237,13 +240,29 @@ class VOWrapper(ICOLAV):
 class SBMPCWrapper(ICOLAV):
     """SBMPC wrapper"""
 
-    def __init__(self, config: Config, **kwargs) -> None:
+    def __init__(
+        self,
+        config: Config = Config(
+            name=COLAVType.SBMPC,
+            layer1=LayerConfig(sbmpc=sb_mpc.SBMPCParams()),
+            layer2=LayerConfig(los=guidance.LOSGuidanceParams()),
+        ),
+        **kwargs
+    ) -> None:
         assert config.layer1.sbmpc is not None, "SBMPC must be on the first layer for the SBMPC wrapper."
         self._sbmpc = sb_mpc.SBMPC(config.layer1.sbmpc)
 
         assert config.layer2.los is not None, "LOS guidance must be on the second layer for the SBMPC wrapper."
         self._los = guidance.LOSGuidance(config.layer2.los)
 
+        self._t_prev = 0.0
+        self._initialized = False
+        self._t_run_sbmpc_last = 0.0
+        self._speed_os_best = 1.0
+        self._course_os_best = 0.0
+
+    def reset(self):
+        """Resets the SBMPC-COLAV to its initial state."""
         self._t_prev = 0.0
         self._initialized = False
         self._t_run_sbmpc_last = 0.0
@@ -262,6 +281,8 @@ class SBMPCWrapper(ICOLAV):
         w: Optional[stochasticity.DisturbanceData] = None,
         **kwargs
     ) -> np.ndarray:
+        if t == 0:
+            self.reset()
         if not self._initialized:
             self._t_prev = t
             self._initialized = True
@@ -271,11 +292,13 @@ class SBMPCWrapper(ICOLAV):
         course_ref = references[2, 0]
         speed_ref = references[3, 0]
         if t - self._t_run_sbmpc_last >= 5.0:
-            self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(speed_ref, course_ref, ownship_state, do_list)
+            self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(
+                speed_ref, course_ref, ownship_state, do_list
+            )
             self._t_run_sbmpc_last = t
             # print(f"SBMPC course output: {np.rad2deg(course_ref) + self._course_os_best} | Best course offset: {self._course_os_best} | Nominal course ref: {course_ref}")
             # print(f"SBMPC speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}")
-        references[2, 0] += np.deg2rad(self._course_os_best)
+        references[2, 0] = course_ref + self._course_os_best
         references[3, 0] = speed_ref * self._speed_os_best
         return references
 

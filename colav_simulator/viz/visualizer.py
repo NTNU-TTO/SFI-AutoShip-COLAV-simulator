@@ -1030,7 +1030,6 @@ class Visualizer:
                     linewidth=ship_lw,
                     color=ship_color,
                     # label=ship_name",
-                    crs=enc.crs,
                     zorder=zorder_patch,
                 )
 
