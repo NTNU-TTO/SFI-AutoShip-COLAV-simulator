@@ -1020,11 +1020,10 @@ class Visualizer:
                     width_scaling=self._config.ship_scaling[1],
                 )
                 ax_map.fill(
-                    *ship_poly.exterior,
+                    *ship_poly.exterior.xy,
                     linewidth=ship_lw,
                     color=ship_color,
                     # label=ship_name",
-                    crs=enc.crs,
                     zorder=zorder_patch,
                 )
 
