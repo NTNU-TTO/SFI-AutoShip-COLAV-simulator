@@ -32,6 +32,9 @@ visualizer:
     show_liveplot_ground_truth_target_pose:
       required: True
       type: boolean
+    show_liveplot_target_ships:
+      required: True
+      type: boolean
     show_liveplot_target_tracks:
       required: True
       type: boolean

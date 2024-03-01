@@ -646,7 +646,12 @@ class TimeObservation(ObservationType):
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image. INCOMPLETE"""
 
-    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (3, 400, 400), **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 400, 400), **kwargs) -> None:
+        """
+        Args:
+            env (COLAVEnvironment): The environment to observe.
+            image_dim (Tuple[int, int, int], optional): The dimensions of the image. Defaults to (1, 400, 400) (history window of 1)
+        """
         super().__init__(env)
         self.name = "PerceptionImageObservation"
         self.image_dim = image_dim
@@ -764,7 +769,8 @@ class PerceptionImageObservation(ObservationType):
             plt.subplots_adjust(wspace=0.01, hspace=0.01)
 
         # shift the image stack and add the new one
-        self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=0)
+        if self.image_dim[0] > 1:
+            self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=0)
         self.previous_image_stack[0, :, :] = grayscale_img
         print("Time to process image: ", time.time() - t_now)
         # save_image = False

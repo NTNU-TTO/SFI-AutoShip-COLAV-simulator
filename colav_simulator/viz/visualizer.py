@@ -49,6 +49,7 @@ class Config:
         False  # If true, the ground truth target pose is shown in the live plot, otherwise the estimated pose is shown
     )
     show_liveplot_measurements: bool = False
+    show_liveplot_target_ships: bool = True  # If true, the target ships are shown in the live plot
     show_liveplot_target_tracks: bool = True  # If true, the target tracks are shown in the live plot
     show_liveplot_target_trajectories: bool = (
         True  # If true, the target (ground truth) trajectories are shown in the live plot
@@ -518,6 +519,9 @@ class Visualizer:
             - n_ships (int): Number of ships in the simulation
             - enc (ENC): The ENC object
         """
+        if not self._config.show_liveplot_target_ships:
+            return
+
         tracks: list = []
         tracks, _ = ownship.get_do_track_information()
         do_labels = [track[0] for track in tracks]
@@ -621,6 +625,9 @@ class Visualizer:
             - idx (int): The index of the ship object in the simulation.
             - enc (ENC): The ENC object.
         """
+        if idx > 0 and not self._config.show_liveplot_target_ships:
+            return
+
         lw = kwargs["lw"] if "lw" in kwargs else self._config.ship_linewidth
         c = kwargs["c"] if "c" in kwargs else self._config.ship_colors[idx]
         start_idx_ship_line_data = kwargs["start_idx_ship_line_data"] if "start_idx_ship_line_data" in kwargs else 0
@@ -657,13 +664,6 @@ class Visualizer:
             self.ship_plt_handles[idx]["trajectory"].set_ydata(
                 [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
             )
-
-        # if (
-        #     (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
-        #     or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
-        # ) and ship_obj.waypoints.size > 0:
-        #     self.ship_plt_handles[idx]["waypoints"].set_xdata(ship_obj.waypoints[1, :])
-        #     self.ship_plt_handles[idx]["waypoints"].set_ydata(ship_obj.waypoints[0, :])
 
         if self._config.show_liveplot_colav_results:
             self.ship_plt_handles[idx] = ship_obj.plot_colav_results(ax_map, enc, self.ship_plt_handles[idx], **kwargs)

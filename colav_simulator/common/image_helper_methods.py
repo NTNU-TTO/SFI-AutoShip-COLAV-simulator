@@ -130,7 +130,7 @@ def create_simulation_image_segmentation_mask(img: np.ndarray) -> np.ndarray:
     C, H, W = img.shape[1:]
     masks = np.zeros((n_envs, C, H, W), dtype=np.int16)
     for i in range(n_envs):
-        for c in range(3):
+        for c in range(C):
             img_c = img[i, c]
             thresholds = [
                 [0.1, 0.6],

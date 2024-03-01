@@ -505,6 +505,7 @@ class ScenarioGenerator:
             config = cp.extract(sc.ScenarioConfig, self.create_file_path_list_from_config()[0], dp.scenario_schema)
 
         assert config is not None, "Config should not be none here."
+        self._episode_counter = 0
         self._ep0 = episode_idx_save_offset
         show_plots = True if self._config.manual_episode_accept else show_plots
         save_scenario = save_scenario if save_scenario is not None else config.save_scenario
@@ -865,7 +866,10 @@ class ScenarioGenerator:
                         d_cpa_threshold=self._config.d_cpa_threshold,
                         first_episode_csog_state=(
                             None
-                            if (uniform_in_map_sample or (ship_distance_to_ownship > self._config.dist_between_ships_range[1]))
+                            if (
+                                uniform_in_map_sample
+                                or (ship_distance_to_ownship > self._config.dist_between_ships_range[1])
+                            )
                             else self._first_csog_states[ship_cfg_idx]
                         ),
                     )
