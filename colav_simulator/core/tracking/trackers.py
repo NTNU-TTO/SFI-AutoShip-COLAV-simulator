@@ -253,7 +253,7 @@ class KF(ITracker):
 
                 if sensor_measurements:
                     for sensor_id in range(len(self.sensors)):
-                        z = sensor_measurements[sensor_id][i]
+                        z = sensor_measurements[sensor_id][self._labels[i]-1]
                         self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
                             self._xs_upd[i], self._P_upd[i], z, sensor_id
                         )
