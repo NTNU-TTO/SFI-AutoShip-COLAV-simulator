@@ -584,7 +584,7 @@ class ScenarioGenerator:
             if self._config.verbose:
                 print(f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created.")
 
-            ep_str = str(self._episode_counter + 1 + self._ep0).zfill(3)
+            ep_str = str(self._episode_counter + self._ep0).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
