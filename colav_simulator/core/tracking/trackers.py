@@ -199,6 +199,8 @@ class KF(ITracker):
         self._width_upd: list = []  # List of DO width estimates. Assumed known
         self._NIS: list = []
 
+        self._measurement_index = []
+
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states.
@@ -215,7 +217,7 @@ class KF(ITracker):
             Tuple[list, list]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
         """
         max_sensor_range = max([sensor.max_range for sensor in self.sensors])
-        for do_idx, do_state, do_length, do_width in true_do_states:
+        for i, (do_idx, do_state, do_length, do_width) in enumerate(true_do_states):
             dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
             if do_idx not in self._labels and dist_ownship_to_do < max_sensor_range:
                 # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
@@ -229,6 +231,7 @@ class KF(ITracker):
                 self._length_upd.append(do_length)
                 self._width_upd.append(do_width)
                 self._NIS.append(np.nan)
+                self._measurement_index.append(i)
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True
 
@@ -253,7 +256,7 @@ class KF(ITracker):
 
                 if sensor_measurements:
                     for sensor_id in range(len(self.sensors)):
-                        z = sensor_measurements[sensor_id][self._labels[i]-1]
+                        z = sensor_measurements[sensor_id][self._measurement_index[i]]
                         self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
                             self._xs_upd[i], self._P_upd[i], z, sensor_id
                         )
