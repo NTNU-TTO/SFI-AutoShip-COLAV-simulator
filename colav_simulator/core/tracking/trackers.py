@@ -8,6 +8,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
@@ -231,7 +232,7 @@ class KF(ITracker):
                 self._length_upd.append(do_length)
                 self._width_upd.append(do_width)
                 self._NIS.append(np.nan)
-                self._measurement_index.append(i)
+                self._measurement_index.append(i)  # Assume measurements are ordered as the true_do_states
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True
 
@@ -241,7 +242,6 @@ class KF(ITracker):
         #     if np.sqrt(self._P_upd[i][0, 0]) > 50.0 or np.sqrt(self._P_upd[i][1, 1]) > 50.0:
         #         self._track_terminated[i] = True
 
-        # Only generate measurements for initialized tracks
         sensor_measurements = []
         for sensor in self.sensors:
             z = sensor.generate_measurements(t, true_do_states, ownship_state)
