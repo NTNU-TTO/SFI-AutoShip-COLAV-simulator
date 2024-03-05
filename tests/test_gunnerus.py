@@ -80,6 +80,7 @@ if __name__ == "__main__":
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
+    scenario_generator.behavior_generator.initialize_data_structures(1)
     scenario_generator.behavior_generator.setup(
         rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
     )
