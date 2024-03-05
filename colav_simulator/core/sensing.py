@@ -245,7 +245,7 @@ class AIS(ISensor):
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
         measurements = []
         if not self._initialized:
-            self._prev_meas_time = [t for _ in true_do_states]
+            self._prev_meas_time = [t] * len(true_do_states)
             self._initialized = True
 
         for i, (_, xs, length, width) in enumerate(true_do_states):
