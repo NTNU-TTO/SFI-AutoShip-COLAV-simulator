@@ -6,16 +6,27 @@ visualizer:
   show_liveplot_measurements: False
   show_liveplot_target_tracks: False
   show_liveplot_target_waypoints: False
+<<<<<<< HEAD
   show_liveplot_target_trajectories: False
   show_liveplot_ownship_waypoints: False
   show_liveplot_ownship_trajectory: False
+=======
+  show_liveplot_target_trajectories: True
+  show_liveplot_ownship_waypoints: True
+  show_liveplot_ownship_trajectory: True
+>>>>>>> main
   show_liveplot_ground_truth_target_pose: False
   zoom_in_liveplot_on_ownship: True
   zoom_window_width: 2000.0
   show_liveplot_map_axes: False
   show_liveplot_scalebar: False
+<<<<<<< HEAD
   show_liveplot_time: False
   show_liveplot_target_ships: False
+=======
+  show_liveplot_time: True
+  show_results: True
+>>>>>>> main
   show_target_tracking_results: True
   show_trajectory_tracking_results: True
   save_result_figures: False
@@ -23,9 +34,13 @@ visualizer:
   show_results: False
   dark_mode_liveplot: True
   update_rate_liveplot: 1.0 # relative to simulation time, not wall
+<<<<<<< HEAD
   uniform_seabed_color: True
   black_land: True
   black_shore: True
+=======
+  uniform_seabed_color: False
+>>>>>>> main
   disable_ship_labels: True
   ownship_trajectory_color: "xkcd:pink"
   ownship_waypoint_color: "xkcd:white"

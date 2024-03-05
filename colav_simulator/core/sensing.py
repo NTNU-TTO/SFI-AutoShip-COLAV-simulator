@@ -160,12 +160,12 @@ class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 
     # TODO: Implement clutter measurements and detection probability
-    type: str = "radar"
-    _H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
 
     def __init__(self, params: RadarParams = RadarParams()) -> None:
+        self.type: str = "radar"
+        self._H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
         self._params: RadarParams = params
-        self._prev_meas_time: list = []
+        self._prev_meas_time: float = 0.0
         self._initialized: bool = False
 
     def R(self, xs: np.ndarray) -> np.ndarray:
@@ -180,18 +180,20 @@ class Radar(ISensor):
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
         measurements = []
         if not self._initialized:
-            self._prev_meas_time = [t] * len(true_do_states)
+            self._prev_meas_time = t
             self._initialized = True
-        for i, (_, xs, length, width) in enumerate(true_do_states):
-            dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
-            if (t - self._prev_meas_time[i]) >= (
-                1.0 / self._params.measurement_rate
-            ) and dist_ownship_to_do <= self._params.max_range:
-                z = self.h(xs) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
-                self._prev_meas_time[i] = t
+
+        if (t - self._prev_meas_time) < (1.0 / self._params.measurement_rate):
+            return [np.nan * np.ones(2) for _ in true_do_states]
+
+        for i, (_, do_state, do_length, do_width) in enumerate(true_do_states):
+            dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
+            if dist_ownship_to_do <= self._params.max_range:
+                z = self.h(do_state) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
             else:
                 z = np.nan * np.ones(2)
             measurements.append(z)
+        self._prev_meas_time = t
         return measurements
 
     @property
@@ -227,7 +229,7 @@ class AIS(ISensor):
 
     def __init__(self, params: AISParams = AISParams()) -> None:
         self._params: AISParams = params
-        self._prev_meas_time: float = 0.0
+        self._prev_meas_time: list = []
         self._initialized: bool = False
 
     def R(self, xs: np.ndarray) -> np.ndarray:
@@ -243,17 +245,17 @@ class AIS(ISensor):
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
         measurements = []
         if not self._initialized:
-            self._prev_meas_time = t
+            self._prev_meas_time = [t for _ in true_do_states]
             self._initialized = True
 
         for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
 
-            if (t - self._prev_meas_time) >= (
+            if (t - self._prev_meas_time[i]) >= (
                 1.0 / self.measurement_rate(xs)
             ) and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self._params.R_true)
-                self._prev_meas_time = t
+                self._prev_meas_time[i] = t
             else:
                 z = np.nan * np.ones(4)
             measurements.append(z)
@@ -271,7 +273,7 @@ class AIS(ISensor):
         Returns:
             float: The measurement rate in Hz.
         """
-        sog = mf.ms2knots(float(np.linalg.norm(xs[2:3])))
+        sog = mf.ms2knots(float(np.linalg.norm(xs[2:4])))
         rate = 1.0
         if self._params.ais_class == AISClass.A:
             if sog <= 0.001:
