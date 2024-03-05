@@ -108,20 +108,24 @@ class RRTParams:
 @dataclass
 class RRTConfig:
     params: RRTParams | RRTStarParams | PQRRTStarParams = field(default_factory=lambda: RRTParams())
-    model: models.KinematicCSOGParams = field(default_factory=lambda: models.KinematicCSOGParams(
-        name="KinematicCSOG",
-        draft=0.5,
-        length=15.0,
-        width=4.0,
-        T_chi=6.0,
-        T_U=6.0,
-        r_max=np.deg2rad(10),
-        U_min=0.0,
-        U_max=10.0,
-    ))
-    los: guidances.LOSGuidanceParams = field(default_factory=lambda:guidances.LOSGuidanceParams(
-        K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
-    ))
+    model: models.KinematicCSOGParams = field(
+        default_factory=lambda: models.KinematicCSOGParams(
+            name="KinematicCSOG",
+            draft=0.5,
+            length=15.0,
+            width=4.0,
+            T_chi=6.0,
+            T_U=6.0,
+            r_max=np.deg2rad(10),
+            U_min=0.0,
+            U_max=10.0,
+        )
+    )
+    los: guidances.LOSGuidanceParams = field(
+        default_factory=lambda: guidances.LOSGuidanceParams(
+            K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+        )
+    )
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -186,15 +190,21 @@ class Config:
         default_factory=lambda: [-45.0, 45.0]
     )  # Range of [min, max] change in angle between randomly created waypoints
     hazard_buffer: float = 0.0  # Buffer to add to hazards when creating safe sea triangulation
-    rrt: Optional[RRTConfig] = field(default_factory=lambda:RRTConfig(
-        params=RRTParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
-    ))
-    rrtstar: Optional[RRTConfig] = field(default_factory=lambda:RRTConfig(
-        params=RRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
-    ))
-    pqrrtstar: Optional[RRTConfig] = field(default_factory=lambda:RRTConfig(
-        params=PQRRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
-    ))
+    rrt: Optional[RRTConfig] = field(
+        default_factory=lambda: RRTConfig(
+            params=RRTParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+        )
+    )
+    rrtstar: Optional[RRTConfig] = field(
+        default_factory=lambda: RRTConfig(
+            params=RRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+        )
+    )
+    pqrrtstar: Optional[RRTConfig] = field(
+        default_factory=lambda: RRTConfig(
+            params=PQRRTStarParams(), model=models.KinematicCSOGParams(), los=guidances.LOSGuidanceParams()
+        )
+    )
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -253,6 +263,7 @@ class BehaviorGenerator:
         self._grounding_hazards: list = []
         self._seed: Optional[int] = None
         self._bg_method_list: list = []
+        self._initialized: bool = False
 
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the behavior generator, i.e. all RRTs/pqrrtstars.
@@ -287,6 +298,7 @@ class BehaviorGenerator:
 
     def reset(self) -> None:
         """Resets the behavior generator, i.e. all RRTs and data structures for the environment."""
+        self._initialized = False
         self._prev_ship_plans = []
         self._prev_ship_states = []
         self._ship_replan_flags = []
@@ -323,7 +335,7 @@ class BehaviorGenerator:
         ]
         return self._rrt_list, self._rrtstar_list, self._pqrrtstar_list
 
-    def initialize(self, n_ships: int) -> None:
+    def initialize_data_structures(self, n_ships: int) -> None:
         """Initializes data structures and RRTs (if enabled). The number of RRTs is determined by the number of ships.
 
         If the number of ships in the input list is different from the number of RRTs, the data structures and RRTs are either extended or truncated to match the number of ships.
