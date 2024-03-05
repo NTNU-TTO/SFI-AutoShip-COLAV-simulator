@@ -374,6 +374,78 @@ class LidarLikeObservation(ObservationType):
         self.grounding_spatial_index = shapely.STRtree(geoms)
 
 
+class VelocityObservation(ObservationType):
+    """Observes the current own-ship 3DOF BODY-velocity, i.e. [u, v, r]."""
+
+    def __init__(
+        self,
+        env: "COLAVEnvironment",
+    ) -> None:
+        super().__init__(env)
+        assert self._ownship is not None, "Ownship is not defined"
+        self.name = "VelocityObservation"
+        self.size = 3
+        self.define_observation_ranges()
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
+
+    def define_observation_ranges(self) -> None:
+        """Define the ranges for the observation space."""
+        assert self._ownship is not None, "Ownship is not defined"
+        self.observation_range = {
+            "surge": (-self._ownship.max_speed, self._ownship.max_speed),
+            "sway": [-self._ownship.max_speed, self._ownship.max_speed],
+            "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        normalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], self.observation_range["surge"], (-1.0, 1.0)),
+                mf.linear_map(obs[1], self.observation_range["sway"], (-1.0, 1.0)),
+                mf.linear_map(obs[2], self.observation_range["turn_rate"], (-1.0, 1.0)),
+            ],
+            dtype=np.float32,
+        )
+        return normalized_obs
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        unnormalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["surge"]),
+                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["sway"]),
+                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["turn_rate"]),
+            ],
+            dtype=np.float32,
+        )
+        return unnormalized_obs
+
+    def observe(self) -> Observation:
+        """Get an observation of the environment state."""
+        assert self._ownship is not None, "Ownship is not defined"
+        state = self._ownship.state[3:6]
+        obs = state
+        return self.normalize(obs)
+
+
 class Navigation3DOFStateObservation(ObservationType):
     """Observes the current own-ship 3DOF state, i.e. [x, y, psi, u, v, r]."""
 
@@ -533,9 +605,70 @@ class NavigationCSOGStateObservation(ObservationType):
         return self.normalize(obs)
 
 
+class RelativeTrackingObservation(ObservationType):
+    """Observation containing a list of tracks/dynamic obstacles
+    on the form (ID, state, cov, length, width), non-normalized and non-relative to the own-ship.
+    """
+
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        super().__init__(env)
+        self.n_do = len(self.env.dynamic_obstacles)
+        self.name = "TrackingObservation"
+        self.define_observation_ranges()
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.n_do * 6,))
+
+    def define_observation_ranges(self) -> None:
+        """Define the ranges for the observation space."""
+        assert self._ownship is not None, "Ownship is not defined"
+        (x_min, y_min, x_max, y_max) = self.env.enc.bbox
+        self.observation_range = {
+            "north": (y_min, y_max),
+            "east": (x_min, x_max),
+            "speed": (-20.0, 20.0),
+            "angles": (-np.pi, np.pi),
+            "length": (0.0, 100.0),
+            "width": (0.0, 100.0),
+            "variance": (0.0, 500.0),
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        # No normalization is provided for this observation type
+        return obs
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        # No unnormalization is provided for this observation type
+        return obs
+
+    def observe(self) -> Observation:
+        """Get an observation of the environment state."""
+        assert self._ownship is not None, "Ownship is not defined"
+        tracks, _ = self._ownship.get_do_track_information()
+        obs = tracks
+        return obs
+
+
 class TrackingObservation(ObservationType):
     """Observation containing a list of tracks/dynamic obstacles
-    on the form (ID, state, cov, length, width), non-normalized.
+    on the form (ID, state, cov, length, width), non-normalized and non-relative to the own-ship.
     """
 
     def __init__(self, env: "COLAVEnvironment") -> None:
@@ -858,6 +991,8 @@ def observation_factory(
     """
     if "lidar_like_observation" in observation_type:
         return LidarLikeObservation(env, **kwargs)
+    elif "velocity_observation" in observation_type:
+        return VelocityObservation(env, **kwargs)
     elif "navigation_3dof_state_observation" in observation_type:
         return Navigation3DOFStateObservation(env, **kwargs)
     elif "navigation_csog_state_observation" in observation_type:
