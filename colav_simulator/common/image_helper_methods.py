@@ -18,7 +18,6 @@ import numpy as np
 import skimage.morphology as ski_morph
 import skimage.util as ski_util
 from matplotlib import gridspec
-from ultralytics import YOLO
 
 
 def find_edges(img: np.ndarray, *, bw_threshold: int = 150, limits: Tuple[float, float] = (0.2, 0.15)) -> list:

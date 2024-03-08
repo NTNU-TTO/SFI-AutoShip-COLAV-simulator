@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
@@ -90,6 +91,14 @@ class TelemetronParams:
     r_max: float = float(np.deg2rad(15))
     U_min: float = 0.0
     U_max: float = 10.0
+    A_Fw: float = 3.0 * 1.5  # guesstimate of frontal area
+    A_Lw: float = 8.0 * 1.5  # guesstimate of lateral area
+    rho_air: float = 1.225  # Density of air
+    CD_l_AF_0: float = 0.55  # Longitudinal resistance used to compute wind coefficients in wind model
+    CD_l_AF_pi: float = 0.65
+    CD_t: float = 0.85  # Transversal resistance used to compute wind coefficients in wind model
+    delta_crossforce: float = 0.60  # Cross-force parameter
+    s_L: float = 0.0  # x-coordinate of transverse prject area A_Lw wrt the main section
 
 
 @dataclass
@@ -468,19 +477,95 @@ class Telemetron(IModel):
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
         nu = xs[3:6]
 
+        V_c = 0.0
+        beta_c = 0.0
+        V_w = 0.0
+        beta_w = 0.0
+        tau_wind = np.zeros(3)
+        if w is not None and "speed" in w.wind:
+            V_w = w.wind["speed"]
+            beta_w = w.wind["direction"]
+            # Compute wind forces and moments
+            nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
+            u_rw = nu[0] - nu_w[0]
+            v_rw = nu[1] - nu_w[1]
+            V_rw = np.sqrt(u_rw**2 + v_rw**2)
+            gamma_rw = -np.arctan2(v_rw, u_rw)
+            gamma_w = eta[2] - beta_w - np.pi  # wind angle of attack
+            gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
+            tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
+        if w is not None and "speed" in w.currents:
+            V_c = w.currents["speed"]
+            beta_c = w.currents["direction"]
+
+        # Current in BODY frame
+        nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
+        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
+        nu_r = nu - nu_c
+
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
         u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
         u[2] = mf.sat(u[2], self._params.Fy_limits[0] * self._params.l_r, self._params.Fy_limits[1] * self._params.l_r)
 
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
-        Cvv = mf.Cmtrx(self._params.M_rb + self._params.M_a, nu) @ nu
-        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu) @ nu
+        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu)
+        C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r)
+        Cvv = C_RB @ nu + C_A @ nu_r
+        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu_r) @ nu_r
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u + tau_wind)
 
         return ode_fun
+
+    def _compute_wind_coefficients(self, gamma_rw: float) -> Tuple[float, float, float]:
+        """Computes the wind coefficients based on 8.32 - 8.35 in Fossen 2011. See also _compute_wind_forces
+
+        Args:
+            gamma_rw (float): Relative wind angle of attack
+
+        Returns:
+            Tuple[float, float, float]: Wind coefficients for X, Y and N forces and moments
+        """
+        A_ratio = self._params.A_Lw / self._params.A_Fw
+        if abs(gamma_rw) <= np.pi / 2.0:
+            CD_l = self._params.CD_l_AF_0 / A_ratio
+        elif abs(gamma_rw) > np.pi / 2.0:
+            CD_l = self._params.CD_l_AF_pi / A_ratio
+        CD_t = self._params.CD_t
+        CD_ratio = CD_l / CD_t
+        C_X = (
+            -CD_l
+            * A_ratio
+            * (
+                np.cos(gamma_rw)
+                / (1.0 - 0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * np.sin(2.0 * gamma_rw) ** 2)
+            )
+        )
+        C_Y = (
+            CD_t
+            * np.cos(gamma_rw)
+            / (1.0 - 0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * np.sin(2.0 * gamma_rw) ** 2)
+        )
+        C_N = (self._params.s_L / self._params.length - 0.18 * (gamma_rw - 0.5 * np.pi)) * C_Y
+        return C_X, C_Y, C_N
+
+    def compute_wind_forces(self, V_rw: float, gamma_rw: float) -> np.ndarray:
+        """Computes the wind forces and moments based on 8.23 in Fossen 2011.
+
+        Args:
+            V_rw (float): Relative wind speed
+            gamma_rw (float): Relative wind angle of attack
+
+        Returns:
+            np.ndarray: Wind forces and moments
+        """
+        C_X, C_Y, C_N = self._compute_wind_coefficients(gamma_rw)
+        Fx = 0.5 * self._params.rho_air * V_rw**2 * C_X * self._params.A_Fw
+        Fy = 0.5 * self._params.rho_air * V_rw**2 * C_Y * self._params.A_Lw
+        N = 0.5 * self._params.rho_air * V_rw**2 * C_N * self._params.A_Lw * self._params.length
+        return np.array([Fx, Fy, N])
 
     def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         lbu = np.array(

@@ -11,6 +11,7 @@
 import pathlib
 from typing import Optional, Tuple
 
+import colav_simulator.core.stochasticity as stoch
 import colav_simulator.gym.reward as rw
 import colav_simulator.scenario_config as sc
 import colav_simulator.scenario_generator as sg
@@ -51,7 +52,9 @@ class COLAVEnvironment(gym.Env):
         test_mode: Optional[bool] = False,
         verbose: Optional[bool] = False,
         show_loaded_scenario_data: Optional[bool] = False,
+        shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
+        seed: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes the environment.
@@ -72,7 +75,9 @@ class COLAVEnvironment(gym.Env):
             test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
             verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
+            shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not. Defaults to True.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
+            seed (Optional[int]): Seed for the random number generator. Defaults to None.
         """
         super().__init__()
         assert (
@@ -87,7 +92,9 @@ class COLAVEnvironment(gym.Env):
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
 
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
-        self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(config=scenario_generator_config)
+        self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(
+            config=scenario_generator_config, seed=seed
+        )
         self.scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = scenario_config
         self.scenario_file_folder: Optional[pathlib.Path] = scenario_file_folder
         self.scenario_data_tup: Optional[tuple] = None
@@ -114,6 +121,7 @@ class COLAVEnvironment(gym.Env):
                 scenario_file_folder=self.scenario_file_folder,
                 reload_map=self.reload_map,
                 show=show_loaded_scenario_data,
+                shuffle=shuffle_loaded_scenario_data,
             )
             self.loaded_scenario_data = True
         else:
@@ -171,7 +179,9 @@ class COLAVEnvironment(gym.Env):
         """
         return bool(self.simulator.is_truncated(self.verbose))
 
-    def _load(self, scenario_file_folder: pathlib.Path, reload_map: bool = True, show: bool = False) -> None:
+    def _load(
+        self, scenario_file_folder: pathlib.Path, reload_map: bool = True, show: bool = False, shuffle: bool = False
+    ) -> None:
         """Load scenario episodes from files or a folder.
 
         Args:
@@ -186,7 +196,7 @@ class COLAVEnvironment(gym.Env):
             reload_map=reload_map,
             show=show,
             max_number_of_episodes=self.max_number_of_episodes,
-            shuffle_episodes=True,
+            shuffle_episodes=shuffle,
         )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
@@ -198,8 +208,7 @@ class COLAVEnvironment(gym.Env):
         """Generate new scenario from the input configuration.
 
         Args:
-            scenario_config (Optional[sm.ScenarioConfig]): Scenario configuration. Defaults to None.
-            scenario_config_file (Optional[pathlib.Path]): Scenario configuration file. Defaults to None.
+            scenario_config (Optional[sm.ScenarioConfig | pathlib.Path]): Scenario configuration or path to scenario config file. Defaults to None.
             reload_map (bool): Whether to reload the scenario map. Defaults to False.
         """
         if isinstance(scenario_config, pathlib.Path):
@@ -381,3 +390,8 @@ class COLAVEnvironment(gym.Env):
     def relevant_grounding_hazards(self) -> list:
         """The nearby ownship grounding hazards in the environment."""
         return self.simulator.relevant_grounding_hazards
+
+    @property
+    def disturbance(self) -> stoch.Disturbance | None:
+        """The current disturbance data."""
+        return self.simulator.disturbance

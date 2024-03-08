@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
@@ -251,7 +252,7 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
             self._heading_spline = interp.PchipInterpolator(linspace, self._heading_waypoints)
 
-        self.plot_reference_trajectory(waypoints, times)
+        # self.plot_reference_trajectory(waypoints, times)
         return self._x_spline, self._y_spline, self._heading_spline, self._speed_spline, final_arc_length
 
     def update_path_variable(self, dt: float) -> None:
