@@ -22,6 +22,7 @@ import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.core.guidances as guidances
 import cv2
 import gymnasium as gym
 import matplotlib.pyplot as plt
@@ -446,6 +447,58 @@ class VelocityObservation(ObservationType):
         return self.normalize(obs)
 
 
+class PathRelativeNavigationObservation(ObservationType):
+    """Observes the current own-ship 3DOF state relative to the path."""
+
+    def __init__(
+        self,
+        env: "COLAVEnvironment",
+    ) -> None:
+        super().__init__(env)
+        assert self._ownship is not None, "Ownship is not defined"
+        assert (
+            self._ownship.waypoints is not None and self._ownship.speed_plan is not None
+        ), "Ownship waypoints and speed plan are not defined"
+        self.name = "PathRelativeNavigationObservation"
+        self.size = 6
+        self.define_observation_ranges()
+        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
+        self._ktp = guidances.KinematicTrajectoryPlanner()
+        os_nominal_path = self._ktp.compute_splines(
+            waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
+            speed_plan=self._ownship.speed_plan,
+            arc_length_parameterization=True,
+        )
+        self._x_spline, self._y_spline, self._heading_spline, self._speed_spline, self._final_arc_length = (
+            os_nominal_path
+        )
+        path_vals = np.linspace(0, self._final_arc_length, 1000)
+        self._path_coords = self._x_spline(path_vals), self._y_spline(path_vals)
+        self._path_linestring = sgeo.LineString(np.array([self._path_coords[0], self._path_coords[1]]).T)
+
+    def define_observation_ranges() -> None:
+
+
+    def distance_to_path(self, ownship_pos: np.ndarray) -> float:
+        """Calculate the distance from the ownship to the path.
+
+        Args:
+            ownship_pos (np.ndarray): The current position of the ownship.
+
+        Returns:
+            float: The distance from the ownship to the path.
+        """
+        return self._path_linestring.distance(sgeo.Point(ownship_pos[0], ownship_pos[1]))
+
+    def space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
+
+    def observe(self) -> Observation:
+        state = self._ownship.state
+        d2path = self.distance_to_path(state[:2])
+        return state
+
+
 class Navigation3DOFStateObservation(ObservationType):
     """Observes the current own-ship 3DOF state, i.e. [x, y, psi, u, v, r]."""
 
@@ -528,83 +581,6 @@ class Navigation3DOFStateObservation(ObservationType):
         return self.normalize(obs)
 
 
-class NavigationCSOGStateObservation(ObservationType):
-    """Observes the current own-ship CSOG state, i.e. [x, y, SOG, COG]."""
-
-    def __init__(
-        self,
-        env: "COLAVEnvironment",
-    ) -> None:
-        super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
-        self.name = "NavigationCSOGStateObservation"
-        self.size = len(self._ownship.csog_state)
-        self.define_observation_ranges()
-
-    def space(self) -> gym.spaces.Space:
-        """Get the observation space."""
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,))
-
-    def define_observation_ranges(self) -> None:
-        """Define the ranges for the observation space."""
-        assert self._ownship is not None, "Ownship is not defined"
-        (x_min, y_min, x_max, y_max) = self.env.enc.bbox
-        self.observation_range = {
-            "north": (y_min, y_max),
-            "east": (x_min, x_max),
-            "speed": (-self._ownship.max_speed, self._ownship.max_speed),
-            "angles": (-np.pi, np.pi),
-        }
-
-    def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
-        normalized_obs = np.array(
-            [
-                mf.linear_map(obs[0], self.observation_range["north"], (-1.0, 1.0)),
-                mf.linear_map(obs[1], self.observation_range["east"], (-1.0, 1.0)),
-                mf.linear_map(obs[2], self.observation_range["speed"], (-1.0, 1.0)),
-                mf.linear_map(obs[3], self.observation_range["angles"], (-1.0, 1.0)),
-            ],
-            dtype=np.float32,
-        )
-        return normalized_obs
-
-    def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
-        unnormalized_obs = np.array(
-            [
-                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["north"]),
-                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["east"]),
-                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["speed"]),
-                mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["angles"]),
-            ],
-            dtype=np.float32,
-        )
-        return unnormalized_obs
-
-    def observe(self) -> Observation:
-        """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
-        state = self._ownship.csog_state
-        extras = np.empty(0)
-        obs = np.concatenate([state, extras])
-        return self.normalize(obs)
-
-
 class DisturbanceObservation(ObservationType):
     """Observes the current disturbance state, i.e. [V_c, beta_c, V_w, beta_w]."""
 
@@ -619,26 +595,15 @@ class DisturbanceObservation(ObservationType):
         self.define_observation_ranges()
 
     def space(self) -> gym.spaces.Space:
-        """Get the observation space."""
         return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
-        """Define the ranges for the observation space."""
-        assert self._ownship is not None, "Ownship is not defined"
         self.observation_range = {
             "speed": (0.0, 20.0),
             "angles": (-np.pi, np.pi),
         }
 
     def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
         normalized_obs = np.array(
             [
                 mf.linear_map(obs[0], self.observation_range["speed"], (-1.0, 1.0)),
@@ -651,14 +616,6 @@ class DisturbanceObservation(ObservationType):
         return normalized_obs
 
     def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
         unnormalized_obs = np.array(
             [
                 mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["speed"]),
@@ -671,8 +628,6 @@ class DisturbanceObservation(ObservationType):
         return unnormalized_obs
 
     def observe(self) -> Observation:
-        """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
         os_course = self._ownship.csog_state[3]
         disturbance = self.env.disturbance
         obs = np.zeros(self.size)
@@ -689,122 +644,59 @@ class DisturbanceObservation(ObservationType):
         return self.normalize(obs)
 
 
-class RelativeTrackingObservation(ObservationType):
-    """Observation containing a list of tracks/dynamic obstacles
-    on the form (ID, state, cov, length, width), non-normalized and non-relative to the own-ship.
-    """
+class TargetCovarianceObservation(ObservationType):
+    """Observation containing the current covariance matrix of the nearby dynamic obstacles."""
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
-        self.max_num_do = 20
-        self.do_info_size = 6  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
-        self.name = "RelativeTrackingObservation"
+        self.max_num_do = 15
+        self.do_info_size = 16  # flattened covariance matrix of 4x4
+        self.name = "TargetCovarianceObservation"
         self.define_observation_ranges()
+        self.normalize_obs = False
 
     def space(self) -> gym.spaces.Space:
-        """Get the observation space."""
         return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
-        """Define the ranges for the observation space."""
-        assert self._ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 6000.0),
-            "speed": (-20.0, 20.0),
-            "angles": (-np.pi, np.pi),
-            "variance": (0.0, 50.0),
-            "cross_variance": (-50.0, 50.0),
+            "covariance": (-100.0, 100.0),
         }
 
     def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
         norm_obs = np.zeros((self.do_info_size, self.max_num_do))
         for idx, do in enumerate(obs):
-            norm_obs[:, idx] = np.array(
-                [
-                    mf.linear_map(do[0], self.observation_range["distance"], (-1.0, 1.0)),
-                    mf.linear_map(do[1], self.observation_range["speed"], (-1.0, 1.0)),
-                    mf.linear_map(do[2], self.observation_range["speed"], (-1.0, 1.0)),
-                    mf.linear_map(do[3], self.observation_range["variance"], (-1.0, 1.0)),
-                    mf.linear_map(do[4], self.observation_range["variance"], (-1.0, 1.0)),
-                    mf.linear_map(do[5], self.observation_range["cross_variance"], (-1.0, 1.0)),
-                ]
-            )
+            norm_obs[:, idx] = mf.linear_map(do, self.observation_range["covariance"], (-1.0, 1.0))
+        return norm_obs
 
     def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
         unnorm_obs = np.zeros((self.do_info_size, self.max_num_do))
         for idx in range(self.max_num_do):
-            unnorm_obs[:, idx] = np.array(
-                [
-                    mf.linear_map(obs[0, idx], (-1.0, 1.0), self.observation_range["distance"]),
-                    mf.linear_map(obs[1, idx], (-1.0, 1.0), self.observation_range["speed"]),
-                    mf.linear_map(obs[2, idx], (-1.0, 1.0), self.observation_range["speed"]),
-                    mf.linear_map(obs[3, idx], (-1.0, 1.0), self.observation_range["variance"]),
-                    mf.linear_map(obs[4, idx], (-1.0, 1.0), self.observation_range["variance"]),
-                    mf.linear_map(obs[5, idx], (-1.0, 1.0), self.observation_range["cross_variance"]),
-                ]
-            )
+            unnorm_obs[:, idx] = mf.linear_map(obs[:, idx], (-1.0, 1.0), self.observation_range["covariance"])
         return unnorm_obs
 
     def observe(self) -> Observation:
-        """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
-        os_state = self._ownship.state
         tracks, _ = self._ownship.get_do_track_information()
-        obs = np.zeros((6, self.max_num_do))
-        obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
+        obs = np.zeros((self.do_info_size, self.max_num_do))
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
-            speed_cov = do_cov[2:4, 2:4]
-            R_psi = mf.Rmtrx2D(os_state[2])
-            rel_speed = R_psi.T @ do_state[2:4] - os_state[3:5]
-            rel_speed_cov = R_psi.T @ speed_cov @ R_psi
-            rel_distance = np.linalg.norm(do_state[0:2] - os_state[0:2])
-            obs[:, idx] = np.array(
-                [
-                    rel_distance,
-                    rel_speed[0],
-                    rel_speed[1],
-                    rel_speed_cov[0, 0],
-                    rel_speed_cov[1, 1],
-                    rel_speed_cov[0, 1],
-                ]
-            )
-        return self.normalize(obs)
+            obs[:, idx] = do_cov.flatten()
+        return self.normalize(obs) if self.normalize_obs else obs
 
 
-class TrackingObservation(ObservationType):
-    """Observation containing a list of tracks/dynamic obstacles
-    on the form (ID, state, cov, length, width), non-normalized and non-relative to the own-ship.
-    """
+class TargetStateObservation(ObservationType):
+    """Observation containing the current state of the nearby dynamic obstacles."""
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
-        self.max_num_do = 20
+        self.max_num_do = 15
         self.do_info_size = 6  # [x, y, Vx, Vy, length, width]
-        self.name = "TrackingObservation"
+        self.name = "TargetStateObservation"
         self.define_observation_ranges()
 
     def space(self) -> gym.spaces.Space:
-        """Get the observation space."""
         return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
-        """Define the ranges for the observation space."""
         assert self._ownship is not None, "Ownship is not defined"
         (x_min, y_min, x_max, y_max) = self.env.enc.bbox
         self.observation_range = {
@@ -817,14 +709,6 @@ class TrackingObservation(ObservationType):
         }
 
     def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
         norm_obs = np.zeros((self.do_info_size, self.max_num_do))
         for idx, do in enumerate(obs):
             norm_obs[:, idx] = np.array(
@@ -840,14 +724,6 @@ class TrackingObservation(ObservationType):
         return norm_obs
 
     def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
         unnorm_obs = np.zeros((self.do_info_size, self.max_num_do))
         for idx in range(self.max_num_do):
             unnorm_obs[:, idx] = np.array(
@@ -867,8 +743,6 @@ class TrackingObservation(ObservationType):
         assert self._ownship is not None, "Ownship is not defined"
         tracks, _ = self._ownship.get_do_track_information()
         obs = np.zeros((6, self.max_num_do))
-        obs[0, :] = self.observation_range["north"][1]  # Set all distances to max value
-        obs[1, :] = self.observation_range["east"][1]  # Set all distances to max value
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
             obs[:, idx] = np.array([do_state[0], do_state[1], do_state[2], do_state[3], do_length, do_width])
         return obs
@@ -888,14 +762,6 @@ class TimeObservation(ObservationType):
         return gym.spaces.Box(low=-1.0, high=1.0, shape=(1,))
 
     def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
         normalized_obs = np.array(
             [
                 mf.linear_map(obs[0], (self.t_start, self.t_end), (-1.0, 1.0)),
@@ -905,14 +771,6 @@ class TimeObservation(ObservationType):
         return normalized_obs
 
     def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
         unnormalized_obs = mf.linear_map(obs[0], (-1.0, 1.0), (self.t_start, self.t_end))
         return unnormalized_obs
 
@@ -920,17 +778,17 @@ class TimeObservation(ObservationType):
         """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
         obs = np.array([self.env.time])
-        return self.normalize(obs)
+        return obs
 
 
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image. INCOMPLETE"""
 
-    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 400, 400), **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 256, 256), **kwargs) -> None:
         """
         Args:
             env (COLAVEnvironment): The environment to observe.
-            image_dim (Tuple[int, int, int], optional): The dimensions of the image. Defaults to (1, 400, 400) (history window of 1)
+            image_dim (Tuple[int, int, int], optional): The dimensions of the image. Defaults to (1, 256, 256) (history window of 1)
         """
         super().__init__(env)
         self.name = "PerceptionImageObservation"
@@ -944,31 +802,14 @@ class PerceptionImageObservation(ObservationType):
         return gym.spaces.Box(low=0, high=255, shape=self.image_dim, dtype=np.uint8)
 
     def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
         # No normalization is provided for this observation type
         return obs
 
     def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
         # No unnormalization is provided for this observation type
         return obs
 
     def observe(self) -> Observation:
-        """Get an observation of the environment state."""
         assert self._ownship is not None, "Ownship is not defined"
         t_now = time.time()
         img = self.env.liveplot_image
@@ -1059,27 +900,6 @@ class PerceptionImageObservation(ObservationType):
 
         return self.previous_image_stack
 
-
-class TupleObservation(ObservationType):
-    """Observation consisting of multiple observation types."""
-
-    def __init__(self, env: "COLAVEnvironment", observation_configs: list, **kwargs) -> None:
-        super().__init__(env)
-        self.observation_types = [observation_factory(env, obs_config) for obs_config in observation_configs]
-
-    def space(self) -> gym.spaces.Space:
-        return gym.spaces.Tuple([obs_type.space() for obs_type in self.observation_types])
-
-    def normalize(self, obs: Observation) -> Observation:
-        return tuple(obs_type.normalize(obs) for obs_type in self.observation_types)
-
-    def unnormalize(self, obs: Observation) -> Observation:
-        return tuple(obs_type.unnormalize(obs) for obs_type in self.observation_types)
-
-    def observe(self) -> Observation:
-        return tuple(obs_type.observe() for obs_type in self.observation_types)
-
-
 class DictObservation(ObservationType):
     """Observation consisting of multiple observation types.
     Observations are packed into a gymnasium type dictionary with a key for each
@@ -1088,6 +908,7 @@ class DictObservation(ObservationType):
 
     def __init__(self, env: "COLAVEnvironment", observation_configs: list, **kwargs) -> None:
         super().__init__(env)
+        self.name = "DictObservation"
         self.observation_types = [observation_factory(env, obs_config) for obs_config in observation_configs]
 
     def space(self) -> gym.spaces.Space:
@@ -1123,6 +944,98 @@ class DictObservation(ObservationType):
         return obs
 
 
+class TrackingObservation(DictObservation):
+    """Observation containing a dict of augmented states [x, y, vx, vy, length, width] and covariances for the dynamic obstacles, non-normalized and non-relative to the own-ship."""
+
+    def __init__(
+        self,
+        env: "COLAVEnvironment",
+        observation_configs: list = ["target_state_observation", "target_covariance_observation"],
+    ) -> None:
+        super().__init__(env, observation_configs=observation_configs)
+        self.name = "TrackingObservation"
+
+
+class RelativeTrackingObservation(ObservationType):
+    """Compact observation containing an array of relative dynamic obstacle info
+    on the form (relative distance, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y), normalized.
+    """
+
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        super().__init__(env)
+        self.max_num_do = 15
+        self.do_info_size = 6  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
+        self.name = "RelativeTrackingObservation"
+        self.define_observation_ranges()
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
+
+    def define_observation_ranges(self) -> None:
+        assert self._ownship is not None, "Ownship is not defined"
+        self.observation_range = {
+            "distance": (0.0, 10000.0),
+            "speed": (-20.0, 20.0),
+            "angles": (-np.pi, np.pi),
+            "variance": (0.0, 100.0),
+            "cross_variance": (-100.0, 100.0),
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        norm_obs = np.zeros((self.do_info_size, self.max_num_do))
+        for idx, do in enumerate(obs):
+            norm_obs[:, idx] = np.array(
+                [
+                    mf.linear_map(do[0], self.observation_range["distance"], (-1.0, 1.0)),
+                    mf.linear_map(do[1], self.observation_range["speed"], (-1.0, 1.0)),
+                    mf.linear_map(do[2], self.observation_range["speed"], (-1.0, 1.0)),
+                    mf.linear_map(do[3], self.observation_range["variance"], (-1.0, 1.0)),
+                    mf.linear_map(do[4], self.observation_range["variance"], (-1.0, 1.0)),
+                    mf.linear_map(do[5], self.observation_range["cross_variance"], (-1.0, 1.0)),
+                ]
+            )
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        unnorm_obs = np.zeros((self.do_info_size, self.max_num_do))
+        for idx in range(self.max_num_do):
+            unnorm_obs[:, idx] = np.array(
+                [
+                    mf.linear_map(obs[0, idx], (-1.0, 1.0), self.observation_range["distance"]),
+                    mf.linear_map(obs[1, idx], (-1.0, 1.0), self.observation_range["speed"]),
+                    mf.linear_map(obs[2, idx], (-1.0, 1.0), self.observation_range["speed"]),
+                    mf.linear_map(obs[3, idx], (-1.0, 1.0), self.observation_range["variance"]),
+                    mf.linear_map(obs[4, idx], (-1.0, 1.0), self.observation_range["variance"]),
+                    mf.linear_map(obs[5, idx], (-1.0, 1.0), self.observation_range["cross_variance"]),
+                ]
+            )
+        return unnorm_obs
+
+    def observe(self) -> Observation:
+        assert self._ownship is not None, "Ownship is not defined"
+        os_state = self._ownship.state
+        tracks, _ = self._ownship.get_do_track_information()
+        obs = np.zeros((self.do_info_size, self.max_num_do))
+        obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
+        for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
+            speed_cov = do_cov[2:4, 2:4]
+            R_psi = mf.Rmtrx2D(os_state[2])
+            rel_speed = R_psi.T @ do_state[2:4] - os_state[3:5]
+            rel_speed_cov = R_psi.T @ speed_cov @ R_psi
+            rel_distance = np.linalg.norm(do_state[0:2] - os_state[0:2])
+            obs[:, idx] = np.array(
+                [
+                    rel_distance,
+                    rel_speed[0],
+                    rel_speed[1],
+                    rel_speed_cov[0, 0],
+                    rel_speed_cov[1, 1],
+                    rel_speed_cov[0, 1],
+                ]
+            )
+        return self.normalize(obs)
+
+
 def observation_factory(
     env: "COLAVEnvironment", observation_type: str | dict = "time_observation", **kwargs
 ) -> ObservationType:
@@ -1140,22 +1053,24 @@ def observation_factory(
         return LidarLikeObservation(env, **kwargs)
     elif "velocity_observation" in observation_type:
         return VelocityObservation(env, **kwargs)
+    elif "path_relative_navigation_observation" in observation_type:
+        return PathRelativeNavigationObservation(env, **kwargs)
     elif "navigation_3dof_state_observation" in observation_type:
         return Navigation3DOFStateObservation(env, **kwargs)
-    elif "navigation_csog_state_observation" in observation_type:
-        return NavigationCSOGStateObservation(env, **kwargs)
+    elif "target_state_observation" in observation_type:
+        return TargetStateObservation(env, **kwargs)
+    elif "target_covariance_observation" in observation_type:
+        return TargetCovarianceObservation(env, **kwargs)
     elif "perception_image_observation" in observation_type:
         return PerceptionImageObservation(env, **kwargs)
-    elif "tracking_observation" in observation_type:
-        return TrackingObservation(env, **kwargs)
     elif "relative_tracking_observation" in observation_type:
         return RelativeTrackingObservation(env, **kwargs)
+    elif "tracking_observation" in observation_type:
+        return TrackingObservation(env, **kwargs)
     elif "disturbance_observation" in observation_type:
         return DisturbanceObservation(env, **kwargs)
     elif "time_observation" in observation_type:
         return TimeObservation(env, **kwargs)
-    elif "tuple_observation" in observation_type:
-        return TupleObservation(env, observation_type["tuple_observation"], **kwargs)
     elif "dict_observation" in observation_type:
         return DictObservation(env, observation_type["dict_observation"], **kwargs)
     else:

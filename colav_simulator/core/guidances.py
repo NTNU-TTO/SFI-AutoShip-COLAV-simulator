@@ -48,29 +48,11 @@ class LOSGuidanceParams:
 
 
 @dataclass
-class KTPGuidanceParams:
-    """Parameter class for the Kinematic Trajectory Planner.
-
-    Parameters:
-        epsilon (float): Small value to avoid division by zero in derivative calculation.
-    """
-
-    epsilon: float = 0.00001
-
-    @classmethod
-    def from_dict(cls, config_dict: dict):
-        return KTPGuidanceParams(**config_dict)
-
-    def to_dict(self):
-        return asdict(self)
-
-
-@dataclass
 class Config:
     """Configuration class for managing guidance method parameters."""
 
     los: Optional[LOSGuidanceParams] = field(default_factory=lambda: LOSGuidanceParams())
-    ktp: Optional[KTPGuidanceParams] = None
+    ktp: Optional[bool] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -80,7 +62,7 @@ class Config:
             config.ktp = None
 
         if "ktp" in config_dict:
-            config.ktp = cp.convert_settings_dict_to_dataclass(KTPGuidanceParams, config_dict["ktp"])
+            config.ktp = True
             config.los = None
 
         return config
@@ -92,7 +74,7 @@ class Config:
             config_dict["los"] = self.los.to_dict()
 
         if self.ktp is not None:
-            config_dict["ktp"] = self.ktp.to_dict()
+            config_dict["ktp"] = ""
 
         return config_dict
 
@@ -124,7 +106,7 @@ class GuidanceBuilder:
         if config and config.los:
             return LOSGuidance(config.los)
         elif config and config.ktp:
-            return KinematicTrajectoryPlanner(config.ktp)
+            return KinematicTrajectoryPlanner()
         else:
             return None
 
@@ -150,13 +132,9 @@ class KinematicTrajectoryPlanner(IGuidance):
     _heading_spline: interp.PchipInterpolator
     _speed_spline: interp.PchipInterpolator
 
-    def __init__(self, params: Optional[KTPGuidanceParams] = None) -> None:
-        if params:
-            self._params: KTPGuidanceParams = params
-        else:
-            self._params = KTPGuidanceParams()
-
-        self._s: float = 0.0
+    def __init__(self) -> None:
+        self._epsilon: float = 0.00001
+        self._s: float = 0.0001
         self._s_dot: float = 0.0
         self._s_ddot: float = 0.0
         self._init: bool = False
@@ -333,18 +311,16 @@ class KinematicTrajectoryPlanner(IGuidance):
 
     def _compute_path_variable_derivatives(self, s: float) -> Tuple[float, float]:
         s_dot = self._speed_spline(s) / np.sqrt(
-            self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)
+            self._epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)
         )
 
         s_ddot = s_dot * (
             self._speed_spline(s, 1)
-            / np.sqrt(self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0))
+            / np.sqrt(self._epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0))
             - self._speed_spline(s)
             * (self._x_spline(s, 1) * self._x_spline(s, 2) + self._y_spline(s, 1) * self._y_spline(s, 2))
             / np.power(
-                np.sqrt(
-                    self._params.epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)
-                ),
+                np.sqrt(self._epsilon + np.power(self._x_spline(s, 1), 2.0) + np.power(self._y_spline(s, 1), 2.0)),
                 3.0,
             )
         )
