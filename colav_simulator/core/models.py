@@ -74,8 +74,8 @@ class TelemetronParams:
 
     name: str = "Telemetron"
     draft: float = 0.5
-    length: float = 8.0
-    width: float = 3.0
+    length: float = 8.45 # Source: https://folk.ntnu.no/torarnj/Oceans17_Paper_Final_A.pdf
+    width: float = 2.71 # Source: https://arxiv.org/pdf/1907.04877.pdf
     ship_vertices: np.ndarray = field(
         default_factory=lambda: np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T
     )
@@ -91,6 +91,15 @@ class TelemetronParams:
     U_min: float = 0.0
     U_max: float = 10.0
 
+    # NB! Very crude assumed/guessed values.
+    A_Fw: float = 3.5 * width          # Guess 3.5 m height 
+    A_Lw: float = 0.45 * 3.5 * length  # Guess 3.5 m height, the cab covers about half of the length, front is open  
+    rho_air: float = 1.225             # Density of air
+    CD_l_AF_0: float = 0.55            # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = 0). Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
+    CD_l_AF_pi: float = 0.60           # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = pi) Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
+    CD_t: float = 0.85                 # Guess transversal resistance used to compute wind coefficients in wind model. Table 10.3 Fossen 2011: Research vessel, chosen due to expectation of lower sim speeds
+    delta_crossforce: float = 0.60     # Guess cross-force parameter. Table 10.3 Fossen 2011: Sped boat, assumed OK for this RIB
+    s_L: float = -1.0                  # Guess x-coordinate of the centre of "A_lw", vessel is asymmetric, see sideprofile 
 
 @dataclass
 class RVGunnerusParams:
@@ -428,7 +437,7 @@ class Telemetron(IModel):
     """Implements a 3DOF underactuated vessel maneuvering model for the MR Telemetron vessel:
 
     eta_dot = Rpsi(eta) * nu
-    (M_rb + M_a) * nu_dot + C(nu) * nu + (D_l(nu) + D_nl) * nu = tau
+    (M_rb + M_a) * nu_dot + C_rb(nu) * nu + C_a(nu_r) * nu_r + (D_l + D_nl(nu_irr)) * nu_r = tau + tau_wind
 
     with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
 
@@ -438,6 +447,8 @@ class Telemetron(IModel):
         C: Coriolis matrix, computed from M = M_rb + M_a
         D_l: Linear damping matrix
         D_nl: Nonlinear damping matrix
+
+    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
     """
@@ -466,21 +477,105 @@ class Telemetron(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
+        
         nu = xs[3:6]
 
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
         u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
         u[2] = mf.sat(u[2], self._params.Fy_limits[0] * self._params.l_r, self._params.Fy_limits[1] * self._params.l_r)
 
+        V_c = 0.0
+        beta_c = 0.0
+        V_w = 0.0
+        beta_w = 0.0
+        tau_wind = np.zeros(3)
+        if w is not None and "speed" in w.wind and "direction" in w.wind:
+            V_w = w.wind["speed"]
+            beta_w = w.wind["direction"]
+            nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
+            u_rw = nu[0] - nu_w[0]
+            v_rw = nu[1] - nu_w[1]
+            V_rw = np.sqrt(u_rw**2 + v_rw**2)
+            gamma_rw = -np.arctan2(v_rw, u_rw)
+            gamma_w = eta[2] - beta_w - np.pi
+            gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
+            tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
+        if w is not None and "speed" in w.currents and "direction" in w.currents:
+            V_c = w.currents["speed"]
+            beta_c = w.currents["direction"]
+
+        # Current in BODY frame
+        nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
+        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
+        nu_r = nu - nu_c
+
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
-        Cvv = mf.Cmtrx(self._params.M_rb + self._params.M_a, nu) @ nu
-        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu) @ nu
+        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu)
+        C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r)
+        Cvv = C_RB @ nu + C_A @ nu_r
+        
+        nu_irr = np.array([nu_r[0], nu_r[1], nu[2]]) # irrotational wind currents
+        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu_irr) @ nu_r
+
+        tau = u
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u)
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind)
+
+        U = np.sqrt(nu[0] ** 2 + nu[1] ** 2)
+        if U < 0.1:
+            ode_fun[2] = 0.0
 
         return ode_fun
+    
+    def _compute_wind_coefficients(self, gamma_rw: float) -> Tuple[float, float, float]:
+        """Computes the wind coefficients based on 8.32 - 8.35 in Fossen 2011. See also _compute_wind_forces
+
+        Args:
+            gamma_rw (float): Relative wind angle of attack
+
+        Returns:
+            Tuple[float, float, float]: Wind coefficients for X, Y and N forces and moments
+        """
+        A_ratio = self._params.A_Lw / self._params.A_Fw
+        if abs(gamma_rw) <= np.pi / 2.0:
+            CD_l = self._params.CD_l_AF_0 / A_ratio
+        elif abs(gamma_rw) > np.pi / 2.0:
+            CD_l = self._params.CD_l_AF_pi / A_ratio
+        CD_t = self._params.CD_t
+        CD_ratio = CD_l / CD_t
+        C_X = (
+            -CD_l
+            * A_ratio
+            * (
+                np.cos(gamma_rw)
+                / (1.0 - (0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * (np.sin(2.0 * gamma_rw)) ** 2))
+            )
+        )
+        C_Y = (
+            CD_t
+            * np.sin(gamma_rw)
+            / (1.0 - (0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * (np.sin(2.0 * gamma_rw)) ** 2))
+        )
+        C_N = (self._params.s_L / self._params.length - 0.18 * (gamma_rw - 0.5 * np.pi)) * C_Y
+        return C_X, C_Y, C_N
+
+    def compute_wind_forces(self, V_rw: float, gamma_rw: float) -> np.ndarray:
+        """Computes the wind forces and moments based on 8.23 in Fossen 2011.
+
+        Args:
+            V_rw (float): Relative wind speed
+            gamma_rw (float): Relative wind angle of attack
+
+        Returns:
+            np.ndarray: Wind forces and moments
+        """
+        C_X, C_Y, C_N = self._compute_wind_coefficients(gamma_rw)
+        Fx = 0.5 * self._params.rho_air * V_rw**2 * C_X * self._params.A_Fw
+        Fy = 0.5 * self._params.rho_air * V_rw**2 * C_Y * self._params.A_Lw
+        N = 0.5 * self._params.rho_air * V_rw**2 * C_N * self._params.A_Lw * self._params.length
+        return np.array([Fx, Fy, N])
 
     def bounds(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         lbu = np.array(
@@ -519,7 +614,7 @@ class RVGunnerus(IModel):
 
     The model is implemented originally by Mathias Marley in the MCSim_python repository, managed by the Marine Cybernetics laboratory https://www.ntnu.edu/imt/lab/cybernetics.
 
-    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fosse (2011). A future enhancements is to include support for wave disturbances as well.
+    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Eulers method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
     """
@@ -565,7 +660,7 @@ class RVGunnerus(IModel):
         V_w = 0.0
         beta_w = 0.0
         tau_wind = np.zeros(3)
-        if w is not None and "speed" in w.wind:
+        if w is not None and "speed" in w.wind and "direction" in w.wind:
             V_w = w.wind["speed"]
             beta_w = w.wind["direction"]
             # Compute wind forces and moments
@@ -577,7 +672,7 @@ class RVGunnerus(IModel):
             gamma_w = eta[2] - beta_w - np.pi  # wind angle of attack
             gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
             tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
-        if w is not None and "speed" in w.currents:
+        if w is not None and "speed" in w.currents and "direction" in w.currents:
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 
@@ -594,7 +689,7 @@ class RVGunnerus(IModel):
             self._params.D_l
             + self._params.D_u * abs(nu_r[0])
             + self._params.D_v * abs(nu_r[1])
-            + self._params.D_r * abs(nu[2])
+            + self._params.D_r * abs(nu[2]) # No rotational current
         ) @ nu_r
 
         # Compute wave forces and moments
@@ -642,7 +737,7 @@ class RVGunnerus(IModel):
         )
         C_Y = (
             CD_t
-            * np.cos(gamma_rw)
+            * np.sin(gamma_rw)
             / (1.0 - 0.5 * self._params.delta_crossforce * (1.0 - CD_ratio) * np.sin(2.0 * gamma_rw) ** 2)
         )
         C_N = (self._params.s_L / self._params.length - 0.18 * (gamma_rw - 0.5 * np.pi)) * C_Y
@@ -941,3 +1036,4 @@ class CyberShip2(IModel):
                 * u_rud
             )
         return L
+    
