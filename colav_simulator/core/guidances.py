@@ -197,7 +197,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             linspace = np.linspace(0.0, 1.0, n_wps)
 
-        smoothing = 0.1
+        smoothing = 0.2
         t_x, c_x, k_x = interp.splrep(linspace, waypoints[0, :], s=smoothing, k=3)
         self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
 

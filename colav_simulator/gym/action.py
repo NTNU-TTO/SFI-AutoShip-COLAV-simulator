@@ -11,6 +11,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -38,6 +39,28 @@ class ActionType(ABC):
         """The action space."""
 
     @abstractmethod
+    def normalize(self, action: Action) -> Action:
+        """Normalize the action to the action space.
+
+        Args:
+            action (Action): The action to normalize.
+
+        Returns:
+            Action: The normalized action.
+        """
+
+    @abstractmethod
+    def unnormalize(self, action: Action) -> Action:
+        """Unnormalize the action to the action space.
+
+        Args:
+            action (Action): The action to unnormalize.
+
+        Returns:
+            Action: The unnormalized action.
+        """
+
+    @abstractmethod
     def act(self, action: Action) -> None:
         """Execute the action on the own-ship
 
@@ -56,7 +79,6 @@ class ActionType(ABC):
 
 
 class ContinuousAutopilotReferenceAction(ActionType):
-
     """
     A continuous action space for setting the own-ship autopilot references in speed and course, i.e.
     action a = [speed_ref, course_ref].
@@ -79,6 +101,16 @@ class ContinuousAutopilotReferenceAction(ActionType):
     def space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
 
+    def normalize(self, action: Action) -> Action:
+        course_ref = mf.linear_map(action[0], self.course_range, (-1.0, 1.0))
+        speed_ref = mf.linear_map(action[1], self.speed_range, (-1.0, 1.0))
+        return np.array([course_ref, speed_ref])
+
+    def unnormalize(self, action: Action) -> Action:
+        course_ref = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
+        speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
+        return np.array([course_ref, speed_ref])
+
     def act(self, action: Action) -> None:
         """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
 
@@ -94,19 +126,70 @@ class ContinuousAutopilotReferenceAction(ActionType):
         self._ownship.set_references(refs)
 
 
+class ContinuousRelativeAutopilotReferenceAction(ActionType):
+    """
+    A continuous action space for setting the own-ship autopilot references in speed and course, relative to the current own-ship state, i.e.
+    action a = [speed_ref_rel, course_ref_rel].
+    """
+
+    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
+        """Create a continuous action space for setting the own-ship autopilot references in speed and course.
+
+        Args:
+            env (str, optional): Name of environment. Defaults to "AbstractEnv".
+        """
+        super().__init__(env)
+        assert self._ownship is not None, "Ownship must be set before using the action space"
+        self.size = 2
+        self.course_range = (-np.pi, np.pi)
+        self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
+        self.last_action = np.zeros(self.size)
+        self.name = "ContinuousAutopilotReferenceAction"
+
+    def space(self) -> gym.spaces.Box:
+        return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
+
+    def normalize(self, action: Action) -> Action:
+        course_ref = mf.linear_map(action[0], self.course_range, (-1.0, 1.0))
+        speed_ref = mf.linear_map(action[1], self.speed_range, (-1.0, 1.0))
+        return np.array([course_ref, speed_ref], dtype=np.float32)
+
+    def unnormalize(self, action: Action) -> Action:
+        course_ref = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
+        speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
+        return np.array([course_ref, speed_ref], dtype=np.float32)
+
+    def act(self, action: Action) -> None:
+        """Execute the action on the own-ship, which is to apply new (relative) autopilot references for course and speed.
+
+        Args:
+            action (Action): New course and speed references [course_ref_rel, speed_ref_rel] within [-1, 1], relative to the actual own-ship course and speed.
+        """
+        assert isinstance(action, np.ndarray), "Action must be a numpy array"
+        # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
+        unnorm_action = self.unnormalize(action)
+        course = self._ownship.csog_state[3]
+        speed = self._ownship.csog_state[2]
+        refs = np.array([0.0, 0.0, unnorm_action[0] + course, unnorm_action[1] + speed, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.last_action = action
+        self._ownship.set_references(refs)
+
+
 def action_factory(
-    env: "COLAVEnvironment", action_type: Optional[str] = "continuous_autopilot_reference_action"
+    env: "COLAVEnvironment", action_type: Optional[str] = "continuous_relative_autopilot_reference_action"
 ) -> ActionType:
     """Factory for creating action spaces.
 
     Args:
         env (str, optional): Name of environment. Defaults to COLAVEnvironment.
-        action_type (str, optional): Action type name. Defaults to "continuous_autopilot_reference_action".
+        action_type (str, optional): Action type name. Defaults to "continuous_relative_autopilot_reference_action".
 
     Returns:
         ActionType: Action type to use.
     """
     if action_type == "continuous_autopilot_reference_action":
         return ContinuousAutopilotReferenceAction(env)
+    elif action_type == "continuous_relative_autopilot_reference_action":
+        return ContinuousRelativeAutopilotReferenceAction(env)
     else:
         raise ValueError("Unknown action type")

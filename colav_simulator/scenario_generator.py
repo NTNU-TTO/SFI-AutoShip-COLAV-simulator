@@ -680,25 +680,37 @@ class ScenarioGenerator:
 
         disturbance = self.generate_disturbance(config)
 
-        self._bad_episode = self.check_for_bad_episode(ship_list)
+        self._bad_episode = self.check_for_bad_episode(ship_list, config)
 
         self._prev_ship_list[: len(ship_list)] = copy.deepcopy(ship_list)
         return ship_list, disturbance, config
 
     def check_for_bad_episode(
-        self, ship_list: list, minimum_plan_length: float = 200.0, next_wp_angle_threshold: float = np.deg2rad(120.0)
+        self,
+        ship_list: list,
+        config: sc.ScenarioConfig,
+        minimum_plan_length: float = 200.0,
+        next_wp_angle_threshold: float = np.deg2rad(120.0),
     ) -> bool:
         """Checks if the episode is bad, i.e. if any of the ships are outside the map,
         the plan is less than the minimum length.
 
         Args:
             ship_list (list): List of ships to be considered in simulation.
+            config (sc.ScenarioConfig): Scenario config object.
             minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 200.0.
             next_wp_angle_threshold (float, optional): Threshold for the angle between the LOS to the next waypoint and the ship heading. Defaults to 120.0.
 
         Returns:
             bool: True if the episode is bad, False otherwise.
         """
+        ownship = ship_list[0]
+        if ownship.waypoints.size > 1:
+            os_simple_traj = mhm.trajectory_from_waypoints_and_speed(
+                ownship.waypoints, ownship.speed_plan, config.dt_sim, config.t_end - config.t_start
+            )
+
+        non_risky_situation_counter = 0
         for ship_obj in ship_list:
             if not mapf.point_in_polygon_list(
                 geometry.Point(ship_obj.csog_state[1], ship_obj.csog_state[0]), self.safe_sea_cdt
@@ -706,16 +718,25 @@ class ScenarioGenerator:
                 return True
 
             if ship_obj.waypoints.size == 0:
-                continue  # No plan to check
+                continue
 
             path_length = np.sum(np.linalg.norm(np.diff(ship_obj.waypoints, axis=1), axis=0))
             if path_length < minimum_plan_length:
                 return True
 
-            # next_wp = ship_obj.waypoints[:, 1]
-            # los_next_wp = np.arctan2(next_wp[1] - ship_obj.csog_state[1], next_wp[0] - ship_obj.csog_state[0])
-            # if np.abs(mf.wrap_angle_diff_to_pmpi(los_next_wp, ship_obj.csog_state[3])) > next_wp_angle_threshold:
-            #     return True
+            if ship_obj.id > 0:
+                traj_do = mhm.trajectory_from_waypoints_and_speed(
+                    ship_obj.waypoints, ship_obj.speed_plan, config.dt_sim, config.t_end - config.t_start
+                )
+
+                t_cpa, d_cpa, _ = mhm.compute_actual_vessel_pair_cpa(os_simple_traj, traj_do, config.dt_sim)
+
+                if t_cpa > self._config.t_cpa_threshold or d_cpa > self._config.d_cpa_threshold:
+                    non_risky_situation_counter += 1
+
+        if non_risky_situation_counter == len(ship_list) - 1:
+            return True
+
         return False
 
     def determine_replanning_flags(self, ship_list: list, config: sc.ScenarioConfig) -> list:
@@ -1094,12 +1115,13 @@ class ScenarioGenerator:
         dist_vec_to_bbox = mapf.compute_distance_vector_to_bbox(y, x, self.enc.bbox, self.enc)
         angle_to_bbox = np.arctan2(dist_vec_to_bbox[0], dist_vec_to_bbox[1])
         if heading is None:
+            # If the ship is close to the bounding box or land, we want to make sure it is not heading straight into it.
             heading = self.rng.uniform(0.0, 2.0 * np.pi)
             if np.linalg.norm(dist_vec) < 2.0 * min_land_clearance:
-                heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
+                heading = angle_to_land + np.pi + self.rng.uniform(-np.pi / 3.0, np.pi / 3.0)
 
             if np.linalg.norm(dist_vec_to_bbox) < 2.0 * min_land_clearance:
-                heading = angle_to_bbox + np.pi + self.rng.uniform(-np.pi / 2.0, np.pi / 2.0)
+                heading = angle_to_bbox + np.pi + self.rng.uniform(-np.pi / 3.0, np.pi / 3.0)
 
         return np.array([x, y, speed, mf.wrap_angle_to_pmpi(heading)])
 
