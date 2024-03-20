@@ -375,78 +375,6 @@ class LidarLikeObservation(ObservationType):
         self.grounding_spatial_index = shapely.STRtree(geoms)
 
 
-class VelocityObservation(ObservationType):
-    """Observes the current own-ship 3DOF BODY-velocity, i.e. [u, v, r]."""
-
-    def __init__(
-        self,
-        env: "COLAVEnvironment",
-    ) -> None:
-        super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
-        self.name = "VelocityObservation"
-        self.size = 3
-        self.define_observation_ranges()
-
-    def space(self) -> gym.spaces.Space:
-        """Get the observation space."""
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
-
-    def define_observation_ranges(self) -> None:
-        """Define the ranges for the observation space."""
-        assert self._ownship is not None, "Ownship is not defined"
-        self.observation_range = {
-            "surge": (-self._ownship.max_speed, self._ownship.max_speed),
-            "sway": [-self._ownship.max_speed, self._ownship.max_speed],
-            "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
-        }
-
-    def normalize(self, obs: Observation) -> Observation:
-        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
-
-        Args:
-            obs (Observation): The observation to normalize.
-
-        Returns:
-            Observation: Normalized observation.
-        """
-        normalized_obs = np.array(
-            [
-                mf.linear_map(obs[0], self.observation_range["surge"], (-1.0, 1.0)),
-                mf.linear_map(obs[1], self.observation_range["sway"], (-1.0, 1.0)),
-                mf.linear_map(obs[2], self.observation_range["turn_rate"], (-1.0, 1.0)),
-            ],
-            dtype=np.float32,
-        )
-        return normalized_obs
-
-    def unnormalize(self, obs: Observation) -> Observation:
-        """Unnormalize the input normalized observation to be within the original range
-
-        Args:
-            obs (Observation): The observation to unnormalize.
-
-        Returns:
-            Observation: Unnormalized observation.
-        """
-        unnormalized_obs = np.array(
-            [
-                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["surge"]),
-                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["sway"]),
-                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["turn_rate"]),
-            ],
-            dtype=np.float32,
-        )
-        return unnormalized_obs
-
-    def observe(self) -> Observation:
-        """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
-        state = self._ownship.state[3:6]
-        obs = state
-        return self.normalize(obs)
-
-
 class PathRelativeNavigationObservation(ObservationType):
     """Observes the own-ship navigational info relative to a nominal geometric path on
     the form:
@@ -479,6 +407,9 @@ class PathRelativeNavigationObservation(ObservationType):
         path_vals = np.linspace(0, self._final_arc_length, 1000)
         self._path_coords = self._x_spline(path_vals), self._y_spline(path_vals)
         self._path_linestring = sgeo.LineString(np.array([self._path_coords[0], self._path_coords[1]]).T)
+
+    def space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
         self.observation_range = {
@@ -536,9 +467,6 @@ class PathRelativeNavigationObservation(ObservationType):
             float: The distance from the ownship to the path.
         """
         return self._path_linestring.distance(sgeo.Point(p[0], p[1]))
-
-    def space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
 
     def observe(self) -> Observation:
         state = self._ownship.state - np.array([self._map_origin[0], self._map_origin[1], 0, 0, 0, 0])
@@ -687,7 +615,9 @@ class TrackingObservation(ObservationType):
         self.define_observation_ranges()
 
     def space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(low=-10000.0, high=10000.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
+        return gym.spaces.Box(
+            low=-1000000.0, high=1000000.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32
+        )
 
     def define_observation_ranges(self) -> None:
         (x_min, y_min, x_max, y_max) = self.env.enc.bbox
