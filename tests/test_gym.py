@@ -45,10 +45,18 @@ def save_frames_as_gif(frame_list: list, filename: Path) -> None:
 
 if __name__ == "__main__":
     config_file = dp.scenarios / "rl_scenario.yaml"
-
+    observation_type = {
+        "dict_observation": [
+            "perception_image_observation",
+            "relative_tracking_observation",
+            "navigation_3dof_state_observation",
+            "disturbance_observation",
+        ]
+    }
     env_id = "COLAVEnvironment-v0"
     env_config = {
         "scenario_config": config_file,
+        "observation_type": observation_type,
         "reload_map": True,
         "render_mode": "rgb_array",
         "render_update_rate": 1.0,

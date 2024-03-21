@@ -15,6 +15,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Union
 
+import colav_simulator.core.guidances as guidances
 import gymnasium as gym
 import numpy as np
 
@@ -30,13 +31,22 @@ class ActionType(ABC):
 
     name: str = "AbstractAction"
 
-    def __init__(self, env: "COLAVEnvironment") -> None:
+    def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None) -> None:
         self.env = env
         self._ownship = self.env.ownship
+        self.sample_time = sample_time if sample_time is not None else env.simulator.dt
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
         """The action space."""
+
+    def get_sampling_time(self) -> float:
+        """The action sampling time for the action space, i.e the time between each action computation from the agent/policy.
+
+        Returns:
+            float: The sampling time.
+        """
+        return self.sample_time
 
     @abstractmethod
     def normalize(self, action: Action) -> Action:
@@ -84,13 +94,13 @@ class ContinuousAutopilotReferenceAction(ActionType):
     action a = [speed_ref, course_ref].
     """
 
-    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None, **kwargs) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
-        super().__init__(env)
+        super().__init__(env, sample_time)
         assert self._ownship is not None, "Ownship must be set before using the action space"
         self.size = 2
         self.course_range = (-np.pi, np.pi)
@@ -126,70 +136,103 @@ class ContinuousAutopilotReferenceAction(ActionType):
         self._ownship.set_references(refs)
 
 
-class ContinuousRelativeAutopilotReferenceAction(ActionType):
+class ContinuousRelativeLOSReferenceAction(ActionType):
     """
-    A continuous action space for setting the own-ship autopilot references in speed and course, relative to the current own-ship state, i.e.
-    action a = [speed_ref_rel, course_ref_rel].
+    Action used for the RLMPC agent, composed of
+
+    a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel],
+
+    where
+        - x_ld_rel and y_ld_rel are the relative north and east distances to the look-ahead point which a LOS guidance
+    algorithm uses to compute the low-level motion control course reference.
+        - speed_ref_rel is the relative speed reference to the own-ship speed.
+        - turn_rate_ref_rel is the relative turn rate reference to the own-ship turn rate.
+
+    The action is used as input to a LOS guidance method to compute the low-level motion control references.
     """
 
-    def __init__(self, env: "COLAVEnvironment", **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None, **kwargs) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
-        super().__init__(env)
+        super().__init__(env, sample_time)
         assert self._ownship is not None, "Ownship must be set before using the action space"
-        self.size = 2
-        self.course_range = (-np.pi, np.pi)
-        self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
+        self.size = 4
+        self.position_range = (-1000, 1000)
+        self.turn_rate_range = (-self._ownship.max_turn_rate, self._ownship.max_turn_rate)
+        self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
         self.last_action = np.zeros(self.size)
-        self.name = "ContinuousAutopilotReferenceAction"
+        self.name = "ContinuousRelativeLOSReferenceAction"
+        self._los_params = guidances.LOSGuidanceParams(
+            pass_angle_threshold=90.0 * np.pi / 180.0,
+            R_a=20.0,
+            K_p=0.04,
+            K_i=0.001,
+            max_cross_track_error_int=500.0,
+            cross_track_error_int_threshold=30.0,
+        )
+        self._los: guidances.LOSGuidance = guidances.LOSGuidance(self._los_params)
 
     def space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
 
     def normalize(self, action: Action) -> Action:
-        course_ref = mf.linear_map(action[0], self.course_range, (-1.0, 1.0))
-        speed_ref = mf.linear_map(action[1], self.speed_range, (-1.0, 1.0))
-        return np.array([course_ref, speed_ref], dtype=np.float32)
+        x_ld_rel = mf.linear_map(action[0], self.position_range, (-1.0, 1.0))
+        y_ld_rel = mf.linear_map(action[1], self.position_range, (-1.0, 1.0))
+        speed_ref_rel = mf.linear_map(action[2], self.speed_range, (-1.0, 1.0))
+        turn_rate_ref_rel = mf.linear_map(action[3], self.turn_rate_range, (-1.0, 1.0))
+        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel])
 
     def unnormalize(self, action: Action) -> Action:
-        course_ref = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
-        speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
-        return np.array([course_ref, speed_ref], dtype=np.float32)
+        x_ld_rel = mf.linear_map(action[0], (-1.0, 1.0), self.position_range)
+        y_ld_rel = mf.linear_map(action[1], (-1.0, 1.0), self.position_range)
+        speed_ref_rel = mf.linear_map(action[2], (-1.0, 1.0), self.speed_range)
+        turn_rate_ref_rel = mf.linear_map(action[3], (-1.0, 1.0), self.turn_rate_range)
+        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel])
 
     def act(self, action: Action) -> None:
         """Execute the action on the own-ship, which is to apply new (relative) autopilot references for course and speed.
 
         Args:
-            action (Action): New course and speed references [course_ref_rel, speed_ref_rel] within [-1, 1], relative to the actual own-ship course and speed.
+            action (Action): New action a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel] within [-1, 1].
         """
         assert isinstance(action, np.ndarray), "Action must be a numpy array"
-        # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
         unnorm_action = self.unnormalize(action)
-        course = self._ownship.csog_state[3]
-        speed = self._ownship.csog_state[2]
-        refs = np.array([0.0, 0.0, unnorm_action[0] + course, unnorm_action[1] + speed, 0.0, 0.0, 0.0, 0.0, 0.0])
+        x_ld = self._ownship.state[0] + unnorm_action[0]
+        y_ld = self._ownship.state[1] + unnorm_action[1]
+        turn_rate_ref = self._ownship.state[5] + unnorm_action[2]
+        speed_ref = self._ownship.csog_state[2] + unnorm_action[3]
+        waypoints = np.column_stack((self._ownship.state[:2], np.array([x_ld, y_ld])))
+        speed_plan = np.array([self._ownship.csog_state[2], speed_ref])
+        refs = self._los.compute_references(
+            waypoints=waypoints, speed_plan=speed_plan, times=None, xs=self._ownship.state, dt=self.env.simulator.dt
+        )
+        refs[5] = turn_rate_ref
         self.last_action = action
         self._ownship.set_references(refs)
 
 
 def action_factory(
-    env: "COLAVEnvironment", action_type: Optional[str] = "continuous_relative_autopilot_reference_action"
+    env: "COLAVEnvironment",
+    action_type: Optional[str] = "continuous_relative_autopilot_reference_action",
+    sample_time: Optional[float] = None,
+    **kwargs
 ) -> ActionType:
     """Factory for creating action spaces.
 
     Args:
         env (str, optional): Name of environment. Defaults to COLAVEnvironment.
         action_type (str, optional): Action type name. Defaults to "continuous_relative_autopilot_reference_action".
+        sample_time (float, optional): The time between each action computation from the agent/policy. Defaults to None.
 
     Returns:
         ActionType: Action type to use.
     """
     if action_type == "continuous_autopilot_reference_action":
-        return ContinuousAutopilotReferenceAction(env)
-    elif action_type == "continuous_relative_autopilot_reference_action":
-        return ContinuousRelativeAutopilotReferenceAction(env)
+        return ContinuousAutopilotReferenceAction(env, sample_time=sample_time, **kwargs)
+    elif action_type == "continuous_relative_los_reference_action":
+        return ContinuousRelativeLOSReferenceAction(env, sample_time=sample_time, **kwargs)
     else:
         raise ValueError("Unknown action type")

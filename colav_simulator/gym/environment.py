@@ -46,6 +46,7 @@ class COLAVEnvironment(gym.Env):
         reload_map: Optional[bool] = True,
         rewarder_config: Optional[rw.Config] = None,
         action_type: Optional[str] = None,
+        action_sampling_time: Optional[float] = None,
         observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "rgb_array",
         render_update_rate: Optional[float] = None,
@@ -145,6 +146,8 @@ class COLAVEnvironment(gym.Env):
         self.observation_type_cfg = (
             observation_type if observation_type is not None else self.scenario_config.rl_observation_type
         )
+        self.dt_action = action_sampling_time
+
         self._define_spaces()
 
     def close(self):
@@ -157,7 +160,11 @@ class COLAVEnvironment(gym.Env):
         """Defines the action and observation spaces."""
         assert self.scenario_config is not None, "Scenario config not initialized!"
 
-        self.action_type = action_factory(self, self.action_type_cfg)
+        self.dt_action = self.dt_action if self.dt_action is not None else self.simulator.dt
+        assert (
+            self.dt_action % self.simulator.dt == 0.0
+        ), "Action sampling time must be a multiple of simulator time step!"
+        self.action_type = action_factory(self, self.action_type_cfg, sample_time=self.dt_action)
         self.observation_type = observation_factory(self, self.observation_type_cfg)
 
         self.action_space = self.action_type.space()
@@ -235,7 +242,6 @@ class COLAVEnvironment(gym.Env):
         Returns:
             dict: Dictionary of additional information
         """
-        assert self.ownship is not None, "Environment not initialized!"
         unnormalized_obs = self.observation_type.unnormalize(obs)
         info = {
             "speed": self.ownship.csog_state[2],
@@ -316,12 +322,19 @@ class COLAVEnvironment(gym.Env):
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
         self.action_type.act(action)
-        sim_data_dict = self.simulator.step(remote_actor=True)
+
+        self.dt_action = self.action_type.get_sampling_time()
+        n_steps_between_actions = int(self.dt_action / self.simulator.dt)
+        for _ in range(n_steps_between_actions):
+            _ = self.simulator.step(remote_actor=True)
+
+            terminated = self._is_terminated()
+            truncated = self._is_truncated()
+            if terminated or truncated:
+                break
 
         obs = self.observation_type.observe()
         reward = self.rewarder(obs, action)
-        terminated = self._is_terminated()
-        truncated = self._is_truncated()
         info = self._info(obs, action)
         self.steps += 1
 

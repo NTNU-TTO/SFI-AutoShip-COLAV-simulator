@@ -615,9 +615,7 @@ class TrackingObservation(ObservationType):
         self.define_observation_ranges()
 
     def space(self) -> gym.spaces.Space:
-        return gym.spaces.Box(
-            low=-1000000.0, high=1000000.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32
-        )
+        return gym.spaces.Box(low=-1e12, high=1e12, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
         (x_min, y_min, x_max, y_max) = self.env.enc.bbox

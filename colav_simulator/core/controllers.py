@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional, Tuple
@@ -456,17 +457,17 @@ class FLSH(IController):
         #     f"speed error int: {self._speed_error_int} | speed error: {speed_error} | psi error int: {self._psi_error_int} | psi error: {psi_error}"
         # )
 
-        Fx = (
+        tau_X = (
             Cvv[0]
             + Dvv[0]
             + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
         )
-        Fy = -(Mmtrx[2, 2] / l_r) * (
+        tau_N = (Mmtrx[2, 2] / l_r) * (
             self._params.K_p_psi * psi_error
             + self._params.K_d_psi * (r_d - nu[2])
             + self._params.K_i_psi * self._psi_error_int
         )
 
-        tau = np.array([float(Fx), float(Fy), float(-Fy * l_r)])
+        tau = np.array([float(tau_X), 0.0, float(l_r * tau_N)])
 
         return tau
