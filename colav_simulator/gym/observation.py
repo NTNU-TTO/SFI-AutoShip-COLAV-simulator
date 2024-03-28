@@ -685,7 +685,7 @@ class TimeObservation(ObservationType):
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
+        return gym.spaces.Box(low=0.0, high=1500.0, shape=(1,), dtype=np.float32)
 
     def normalize(self, obs: Observation) -> Observation:
         normalized_obs = np.array(
@@ -890,7 +890,7 @@ class RelativeTrackingObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         assert self._ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 10000.0),
+            "distance": (0.0, 6000.0),
             "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
             "variance": (0.0, 100.0),
@@ -967,8 +967,6 @@ def observation_factory(
     """
     if "lidar_like_observation" in observation_type:
         return LidarLikeObservation(env, **kwargs)
-    elif "velocity_observation" in observation_type:
-        return VelocityObservation(env, **kwargs)
     elif "path_relative_navigation_observation" in observation_type:
         return PathRelativeNavigationObservation(env, **kwargs)
     elif "navigation_3dof_state_observation" in observation_type:
