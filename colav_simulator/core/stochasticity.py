@@ -8,6 +8,7 @@
 
     Author: Trym Tengesdal
 """
+
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -16,6 +17,31 @@ from typing import Optional, Tuple
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
 import numpy as np
+
+
+class MovingAverageFilter:
+    def __init__(self, input_dim: int = 2, window_size: int = 10):
+        """Initializes a moving average filter with a specified window size.
+
+        Args:
+            input_dim (int, optional): Dimension of input. Defaults to 2.
+            window_size (int, optional): Size of averaging window. Defaults to 10.
+        """
+        self._window_size: int = window_size
+        self._window: np.ndarray = np.nan * np.ones((input_dim, window_size))
+
+    def update(self, input_val: np.ndarray) -> np.ndarray:
+        """Updates the filter with the input value, and returns the new moving average.
+
+        Args:
+            input_val (np.ndarray): Input value
+
+        Returns:
+            np.ndarray: New moving average estimate
+        """
+        self._window = np.concatenate((input_val.reshape(-1, 1), self._window[:, :-1]), axis=1)
+        average = np.nanmean(self._window, axis=1)
+        return average
 
 
 @dataclass

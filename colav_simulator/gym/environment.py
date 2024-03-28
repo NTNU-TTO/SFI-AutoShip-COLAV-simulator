@@ -243,13 +243,13 @@ class COLAVEnvironment(gym.Env):
             dict: Dictionary of additional information
         """
         unnormalized_obs = self.observation_type.unnormalize(obs)
+        unnormalized_action = self.action_type.unnormalize(action) if action is not None else None
         info = {
-            "speed": self.ownship.csog_state[2],
-            "course": self.ownship.csog_state[3],
-            "position": self.ownship.csog_state[:2],
+            "state": self.ownship.state,
             "collision": self.simulator.determine_ship_collision(ship_idx=0),
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "action": action,
+            "unnormalized_action": unnormalized_action,
             "obs": obs,
             "unnormalized_obs": unnormalized_obs,
             "reward": self.rewarder(obs, action),

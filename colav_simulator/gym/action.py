@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Union
 
 import colav_simulator.core.guidances as guidances
+import colav_simulator.core.stochasticity as stoch
 import gymnasium as gym
 import numpy as np
 
@@ -143,7 +144,7 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
     a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel],
 
     where
-        - x_ld_rel and y_ld_rel are the relative north and east distances to the look-ahead point which a LOS guidance
+        - x_ld_rel and y_ld_rel are the relative north and east distances to the look-ahead point which a simple LOS/WPP guidance
     algorithm uses to compute the low-level motion control course reference.
         - speed_ref_rel is the relative speed reference to the own-ship speed.
         - turn_rate_ref_rel is the relative turn rate reference to the own-ship turn rate.
@@ -165,15 +166,7 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
         self.last_action = np.zeros(self.size)
         self.name = "ContinuousRelativeLOSReferenceAction"
-        self._los_params = guidances.LOSGuidanceParams(
-            pass_angle_threshold=90.0 * np.pi / 180.0,
-            R_a=20.0,
-            K_p=0.04,
-            K_i=0.001,
-            max_cross_track_error_int=500.0,
-            cross_track_error_int_threshold=30.0,
-        )
-        self._los: guidances.LOSGuidance = guidances.LOSGuidance(self._los_params)
+        self._ma_filter = stoch.MovingAverageFilter(input_dim=2, window_size=10)
 
     def space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
@@ -192,8 +185,35 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         turn_rate_ref_rel = mf.linear_map(action[3], (-1.0, 1.0), self.turn_rate_range)
         return np.array([x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel])
 
+    def compute_disturbance_velocity_estimate(
+        self,
+    ) -> np.ndarray:
+        """Computes the disturbance velocity estimate for the given time.
+
+        Returns:
+            np.ndarray: The disturbance velocity estimate.
+        """
+        w = self.env.disturbance.get() if self.env.disturbance is not None else None
+        v_disturbance = np.array([0.0, 0.0])
+        if w is None:
+            return v_disturbance
+
+        if "speed" in w.wind:
+            V_w = w.wind["speed"]
+            beta_w = w.wind["direction"]
+            v_w = np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w)])
+            v_disturbance += v_w
+        if "speed" in w.currents:
+            V_c = w.currents["speed"]
+            beta_c = w.currents["direction"]
+            v_c = np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c)])
+            v_disturbance += v_c
+        return self._ma_filter.update(v_disturbance)
+
     def act(self, action: Action) -> None:
         """Execute the action on the own-ship, which is to apply new (relative) autopilot references for course and speed.
+
+        If disturbances are present, a feed forward term is used to compensate for their direction(s) in the course reference calculation.
 
         Args:
             action (Action): New action a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel] within [-1, 1].
@@ -202,14 +222,18 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         unnorm_action = self.unnormalize(action)
         x_ld = self._ownship.state[0] + unnorm_action[0]
         y_ld = self._ownship.state[1] + unnorm_action[1]
+
         turn_rate_ref = self._ownship.state[5] + unnorm_action[2]
         speed_ref = self._ownship.csog_state[2] + unnorm_action[3]
-        waypoints = np.column_stack((self._ownship.state[:2], np.array([x_ld, y_ld])))
-        speed_plan = np.array([self._ownship.csog_state[2], speed_ref])
-        refs = self._los.compute_references(
-            waypoints=waypoints, speed_plan=speed_plan, times=None, xs=self._ownship.state, dt=self.env.simulator.dt
-        )
-        refs[5] = turn_rate_ref
+        chi_ref = np.arctan2(y_ld - self._ownship.state[1], x_ld - self._ownship.state[0])
+
+        # Disturbance feed forward in course reference computation
+        v_disturbance = self.compute_disturbance_velocity_estimate()
+        chi_disturbance = np.arctan2(v_disturbance[1], v_disturbance[0])
+        chi_ref -= chi_disturbance
+        refs = np.array(
+            [0.0, 0.0, mf.wrap_angle_to_pmpi(chi_ref), speed_ref, 0.0, turn_rate_ref, 0.0, 0.0, 0.0]
+        ).reshape(-1, 1)
         self.last_action = action
         self._ownship.set_references(refs)
 
