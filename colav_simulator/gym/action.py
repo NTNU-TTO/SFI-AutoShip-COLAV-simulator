@@ -139,17 +139,16 @@ class ContinuousAutopilotReferenceAction(ActionType):
 
 class ContinuousRelativeLOSReferenceAction(ActionType):
     """
-    Action used for the RLMPC agent, composed of
+    Action composed of
 
-    a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel],
+    a = [x_ld_rel, y_ld_rel, speed_ref_rel],
 
     where
         - x_ld_rel and y_ld_rel are the relative north and east distances to the look-ahead point which a simple LOS/WPP guidance
     algorithm uses to compute the low-level motion control course reference.
         - speed_ref_rel is the relative speed reference to the own-ship speed.
-        - turn_rate_ref_rel is the relative turn rate reference to the own-ship turn rate.
 
-    The action is used as input to a LOS guidance method to compute the low-level motion control references.
+    When applying action a, the environmental disturbances are estimated and compensated for in the course reference.
     """
 
     def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None, **kwargs) -> None:
@@ -160,7 +159,7 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         """
         super().__init__(env, sample_time)
         assert self._ownship is not None, "Ownship must be set before using the action space"
-        self.size = 4
+        self.size = 3
         self.position_range = (-1000, 1000)
         self.turn_rate_range = (-self._ownship.max_turn_rate, self._ownship.max_turn_rate)
         self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
@@ -175,15 +174,15 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         x_ld_rel = mf.linear_map(action[0], self.position_range, (-1.0, 1.0))
         y_ld_rel = mf.linear_map(action[1], self.position_range, (-1.0, 1.0))
         speed_ref_rel = mf.linear_map(action[2], self.speed_range, (-1.0, 1.0))
-        turn_rate_ref_rel = mf.linear_map(action[3], self.turn_rate_range, (-1.0, 1.0))
-        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel])
+        # turn_rate_ref_rel = mf.linear_map(action[3], self.turn_rate_range, (-1.0, 1.0))
+        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel])
 
     def unnormalize(self, action: Action) -> Action:
         x_ld_rel = mf.linear_map(action[0], (-1.0, 1.0), self.position_range)
         y_ld_rel = mf.linear_map(action[1], (-1.0, 1.0), self.position_range)
         speed_ref_rel = mf.linear_map(action[2], (-1.0, 1.0), self.speed_range)
-        turn_rate_ref_rel = mf.linear_map(action[3], (-1.0, 1.0), self.turn_rate_range)
-        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel])
+        # turn_rate_ref_rel = mf.linear_map(action[3], (-1.0, 1.0), self.turn_rate_range)
+        return np.array([x_ld_rel, y_ld_rel, speed_ref_rel])
 
     def compute_disturbance_velocity_estimate(
         self,
@@ -216,24 +215,21 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         If disturbances are present, a feed forward term is used to compensate for their direction(s) in the course reference calculation.
 
         Args:
-            action (Action): New action a = [x_ld_rel, y_ld_rel, speed_ref_rel, turn_rate_ref_rel] within [-1, 1].
+            action (Action): New action a = [x_ld_rel, y_ld_rel, speed_ref_rel] within [-1, 1].
         """
         assert isinstance(action, np.ndarray), "Action must be a numpy array"
         unnorm_action = self.unnormalize(action)
         x_ld = self._ownship.state[0] + unnorm_action[0]
         y_ld = self._ownship.state[1] + unnorm_action[1]
 
-        turn_rate_ref = self._ownship.state[5] + unnorm_action[2]
-        speed_ref = self._ownship.csog_state[2] + unnorm_action[3]
+        speed_ref = self._ownship.csog_state[2] + unnorm_action[2]
         chi_ref = np.arctan2(y_ld - self._ownship.state[1], x_ld - self._ownship.state[0])
 
         # Disturbance feed forward in course reference computation
         v_disturbance = self.compute_disturbance_velocity_estimate()
         chi_disturbance = np.arctan2(v_disturbance[1], v_disturbance[0])
         chi_ref -= chi_disturbance
-        refs = np.array(
-            [0.0, 0.0, mf.wrap_angle_to_pmpi(chi_ref), speed_ref, 0.0, turn_rate_ref, 0.0, 0.0, 0.0]
-        ).reshape(-1, 1)
+        refs = np.array([0.0, 0.0, mf.wrap_angle_to_pmpi(chi_ref), speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0]).reshape(-1, 1)
         self.last_action = action
         self._ownship.set_references(refs)
 
