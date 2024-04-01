@@ -9,11 +9,9 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-import seacharts.enc as senc
-from colav_simulator.core.ship import Ship
 from colav_simulator.gym.action import Action
 from colav_simulator.gym.observation import Observation
 
@@ -38,7 +36,7 @@ class ExistenceRewardParams:
 
     def to_dict(self):
         return {"r_exists": self.r_exists}
-    
+
 
 @dataclass
 class CollisionRewardParams:
@@ -57,7 +55,7 @@ class CollisionRewardParams:
 
     def to_dict(self):
         return {"r_collision": self.r_collision}
-    
+
 
 @dataclass
 class GroundingRewardParams:
@@ -204,7 +202,9 @@ class ExistenceRewarder(IReward):
 class DistanceToGoalRewarder(IReward):
     """Reward the agent for getting closer to the goal."""
 
-    def __init__(self, env: "COLAVEnvironment", goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None) -> None:
+    def __init__(
+        self, env: "COLAVEnvironment", goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None
+    ) -> None:
         """Initializes the reward function.
 
         Args:
@@ -217,7 +217,7 @@ class DistanceToGoalRewarder(IReward):
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         if self.env.ownship._goal_state.size > 0:
             self.goal = self.env.ownship._goal_state[:2]
-        elif self.env.ownship._waypoints.size > 1: 
+        elif self.env.ownship._waypoints.size > 1:
             self.goal = self.env.ownship._waypoints[:, -1]
         else:
             raise ValueError("No goal state or waypoints found")
@@ -241,7 +241,7 @@ class TrajectoryTrackingRewarder(IReward):
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         return -float(np.linalg.norm(state[:2] - self.trajectory))
-    
+
 
 class CollisionRewarder(IReward):
     """Reward the agent negatively for colliding."""
@@ -259,9 +259,10 @@ class CollisionRewarder(IReward):
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get collision or not."""
         collision = self.env.simulator.determine_ownship_collision()
-        if collision: 
-            return self.params.r_collision 
-        else: return 0.0
+        if collision:
+            return self.params.r_collision
+        else:
+            return 0.0
 
 
 class GroundingRewarder(IReward):
@@ -280,9 +281,10 @@ class GroundingRewarder(IReward):
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get grounding or not."""
         grounding = self.env.simulator.determine_ownship_grounding()
-        if grounding: 
+        if grounding:
             return self.params.r_grounding
-        else: return 0.0
+        else:
+            return 0.0
 
 
 class GoalReachedRewarder(IReward):
@@ -297,6 +299,7 @@ class GoalReachedRewarder(IReward):
         """
         super().__init__(env)
         self.params = params if params else GoalReachedRewardParams()
+
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get goal reached or not."""
         goal_reached = self.env.simulator.determine_ownship_goal_reached()
@@ -304,10 +307,11 @@ class GoalReachedRewarder(IReward):
             return self.params.r_goal_reached
         return 0.0
 
+
 class Rewarder(IReward):
     """The rewarder class."""
 
-    def __init__(self,  env: "COLAVEnvironment", config: Optional[Config] = None) -> None:
+    def __init__(self, env: "COLAVEnvironment", config: Optional[Config] = None) -> None:
         """Initializes the rewarder.
 
         Args:

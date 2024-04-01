@@ -236,7 +236,7 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
 
 def action_factory(
     env: "COLAVEnvironment",
-    action_type: Optional[str] = "continuous_relative_autopilot_reference_action",
+    action_type: Optional[str] = "continuous_autopilot_reference_action",
     sample_time: Optional[float] = None,
     **kwargs
 ) -> ActionType:

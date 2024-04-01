@@ -502,6 +502,7 @@ class Telemetron(IModel):
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
         nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
+        nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])
 
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
         u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
@@ -515,8 +516,7 @@ class Telemetron(IModel):
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u + tau_wind)
-
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + u + tau_wind) + nu_c_dot
         return ode_fun
 
     def _compute_wind_coefficients(self, gamma_rw: float) -> Tuple[float, float, float]:

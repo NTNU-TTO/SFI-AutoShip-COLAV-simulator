@@ -851,13 +851,13 @@ def convert_3dof_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
     """
     if xs.ndim == 1:
         heading = xs[2]
-        crab_angle = 0.0  # np.arctan2(xs[4], xs[3])
+        crab_angle = np.arctan2(xs[4], xs[3])
         cog = heading + crab_angle
         speed = np.sqrt(xs[3] ** 2 + xs[4] ** 2)
         return np.array([xs[0], xs[1], speed, cog])
     else:
         heading = xs[2, :]
-        crab_angle = np.zeros(len(xs[2, :]))  # np.arctan2(xs[4, :], xs[3, :])
+        crab_angle = np.arctan2(xs[4, :], xs[3, :])
         cog = heading + crab_angle
         speed = np.sqrt(np.multiply(xs[3, :], xs[3, :]) + np.multiply(xs[4, :], xs[4, :]))
         return np.array([xs[0, :], xs[1, :], speed, cog])

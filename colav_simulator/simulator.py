@@ -10,7 +10,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
@@ -48,23 +48,6 @@ class Config:
 class Simulator:
     """Class for simulating collision avoidance/maritime vessel scenarios."""
 
-    config: Config
-    visualizer: viz.Visualizer
-
-    ownship: Ship
-    relevant_grounding_hazards: list  # Grounding hazards relevant for the own-ship
-    ship_list: list
-    disturbance: Optional[stochasticity.Disturbance]
-    enc: senc.ENC
-    sconfig: sc.ScenarioConfig
-    recent_sensor_measurements: list
-
-    t: float
-    t_start: float
-    t_end: float
-    dt: float
-    timestamp_start: int
-
     def __init__(
         self, config: Optional[Config] = None, config_file: Optional[Path] = dp.simulator_config, **kwargs
     ) -> None:
@@ -86,7 +69,22 @@ class Simulator:
         else:
             raise ValueError("No configuration file or configuration object provided.")
 
-        self.visualizer = viz.Visualizer(self._config.visualizer)
+        self.visualizer: viz.Visualizer = viz.Visualizer(self._config.visualizer)
+        self.config: Config = self._config
+
+        self.ownship: Ship = None
+        self.ship_list: List[Ship] = []
+        self.disturbance: Optional[stochasticity.Disturbance] = None
+        self.enc: senc.ENC = None
+        self.sconfig: sc.ScenarioConfig = None
+        self.relevant_grounding_hazards: list = []
+        self.recent_sensor_measurements: list = []
+
+        self.t = 0.0
+        self.t_start = 0.0
+        self.t_end = 0.0
+        self.dt = 0.0
+        self.timestamp_start = 0
 
     def toggle_liveplot_visibility(self, visible: bool) -> None:
         """Toggles the visibility of the live plot.
@@ -98,7 +96,7 @@ class Simulator:
 
     def initialize_scenario_episode(
         self,
-        ship_list: list,
+        ship_list: List[Ship],
         sconfig: sc.ScenarioConfig,
         enc: senc.ENC,
         disturbance: Optional[stochasticity.Disturbance] = None,
@@ -107,7 +105,7 @@ class Simulator:
         """Initializes the simulation through setting relevant internal state objects.
 
         Args:
-            - ship_list (list): 1 x n_ships array of configured Ship objects. Each ship
+            - ship_list (List[Ship]): 1 x n_ships array of configured Ship objects. Each ship
             is assumed to be properly configured and initialized to its initial state at
             the scenario start (t0).
             - sconfig (ScenarioConfig): Scenario episode configuration object.
@@ -279,7 +277,7 @@ class Simulator:
         return pd.DataFrame(sim_data), ship_info, sim_times
 
     def step(self, remote_actor: bool = False) -> dict:
-        """Step through the simulation by one time step, using the specified action for the own-ship.
+        """Step through the simulation by one time step.
 
         Args:
             remote_actor (bool, optional): Whether the own-ship is controlled by a remote actor, i.e. references are set externally from the Ship object. Defaults to False.

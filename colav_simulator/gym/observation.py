@@ -16,7 +16,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
@@ -32,7 +32,7 @@ import shapely
 import shapely.geometry as sgeo
 from matplotlib import gridspec
 
-Observation = Union[tuple, list, np.ndarray]
+Observation = Union[tuple, list, np.ndarray, Dict[str, np.ndarray]]
 
 if TYPE_CHECKING:
     from colav_simulator.gym.environment import COLAVEnvironment
@@ -394,8 +394,11 @@ class PathRelativeNavigationObservation(ObservationType):
         self.name = "PathRelativeNavigationObservation"
         self.size = 5
         self.define_observation_ranges()
-        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
         self._ktp = guidances.KinematicTrajectoryPlanner()
+        self.create_path()
+
+    def create_path(self) -> None:
+        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
         os_nominal_path = self._ktp.compute_splines(
             waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
             speed_plan=self._ownship.speed_plan,
@@ -469,6 +472,8 @@ class PathRelativeNavigationObservation(ObservationType):
         return self._path_linestring.distance(sgeo.Point(p[0], p[1]))
 
     def observe(self) -> Observation:
+        if self.env.time < 0.0001:
+            self.create_path()
         state = self._ownship.state - np.array([self._map_origin[0], self._map_origin[1], 0, 0, 0, 0])
         s = self.get_closest_arclength(state[:2])
         d2path = self.distance_to_path(state[:2])
@@ -601,6 +606,73 @@ class DisturbanceObservation(ObservationType):
             obs[2] = ddata.wind["speed"]
             obs[3] = mf.wrap_angle_diff_to_pmpi(ddata.wind["direction"], os_course)
         return self.normalize(obs)
+
+
+class GroundTruthTrackingObservation(ObservationType):
+    """Observation containing a dict of augmented states [x, y, vx, vy, length, width] and covariances for the dynamic obstacles, non-normalized and non-relative to the own-ship."""
+
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        super().__init__(env)
+        assert self._ownship is not None, "Ownship is not defined"
+        self.max_num_do = 15
+        self.do_info_size = 6  # [x, y, Vx, Vy, length, width]
+        self.name = "GroundTruthTrackingObservation"
+        self.define_observation_ranges()
+
+    def space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(low=-1e12, high=1e12, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
+
+    def define_observation_ranges(self) -> None:
+        (x_min, y_min, x_max, y_max) = self.env.enc.bbox
+        self.observation_range = {
+            "north": (y_min, y_max),
+            "east": (x_min, x_max),
+            "speed": (-20.0, 20.0),
+            "angles": (-np.pi, np.pi),
+            "length": (0.0, 100.0),
+            "width": (0.0, 100.0),
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        norm_obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
+        for idx in range(self.max_num_do):
+            norm_obs[:, idx] = np.array(
+                [
+                    mf.linear_map(obs[0, idx], self.observation_range["north"], (-1.0, 1.0)),
+                    mf.linear_map(obs[1, idx], self.observation_range["east"], (-1.0, 1.0)),
+                    mf.linear_map(obs[2, idx], self.observation_range["speed"], (-1.0, 1.0)),
+                    mf.linear_map(obs[3, idx], self.observation_range["speed"], (-1.0, 1.0)),
+                    mf.linear_map(obs[4, idx], self.observation_range["length"], (-1.0, 1.0)),
+                    mf.linear_map(obs[5, idx], self.observation_range["width"], (-1.0, 1.0)),
+                ]
+            )
+        return norm_obs
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        unnorm_obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
+        for idx in range(self.max_num_do):
+            unnorm_obs[:, idx] = np.array(
+                [
+                    mf.linear_map(obs[0, idx], (-1.0, 1.0), self.observation_range["north"]),
+                    mf.linear_map(obs[1, idx], (-1.0, 1.0), self.observation_range["east"]),
+                    mf.linear_map(obs[2, idx], (-1.0, 1.0), self.observation_range["speed"]),
+                    mf.linear_map(obs[3, idx], (-1.0, 1.0), self.observation_range["speed"]),
+                    mf.linear_map(obs[4, idx], (-1.0, 1.0), self.observation_range["length"]),
+                    mf.linear_map(obs[5, idx], (-1.0, 1.0), self.observation_range["width"]),
+                ]
+            )
+        return unnorm_obs
+
+    def observe(self) -> Observation:
+        """Get an observation of the environment state."""
+        assert self._ownship is not None, "Ownship is not defined"
+        do_list = self.env.dynamic_obstacles
+        obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
+        for idx, do_ship in enumerate(do_list):
+            do_csog_state = do_ship.csog_state
+            do_state = mhm.convert_state_to_vxvy_state(do_csog_state)
+            obs[:6, idx] = np.array([do_state[0], do_state[1], do_state[2], do_state[3], do_ship.length, do_ship.width])
+        return obs
 
 
 class TrackingObservation(ObservationType):
@@ -843,31 +915,24 @@ class DictObservation(ObservationType):
 
         for obs_type in self.observation_types:
             obs_space[obs_type.name] = obs_type.space()
-
         return gym.spaces.Dict(obs_space)
 
     def unnormalize(self, obs: Observation) -> Observation:
         unnormalized_obs = dict()
-
         for obs_type in self.observation_types:
             unnormalized_obs[obs_type.name] = obs_type.unnormalize(obs[obs_type.name])
-
         return unnormalized_obs
 
     def normalize(self, obs: Observation) -> Observation:
         normalized_obs = dict()
-
         for obs_type in self.observation_types:
             normalized_obs[obs_type.name] = obs_type.normalize(obs[obs_type.name])
-
         return normalized_obs
 
     def observe(self) -> Observation:
         obs = dict()
-
         for obs_type in self.observation_types:
             obs[obs_type.name] = obs_type.observe()
-
         return obs
 
 

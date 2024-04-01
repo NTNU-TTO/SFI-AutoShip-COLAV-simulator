@@ -44,7 +44,8 @@ class COLAVEnvironment(gym.Env):
         scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
         scenario_file_folder: Optional[pathlib.Path] = None,
         reload_map: Optional[bool] = True,
-        rewarder_config: Optional[rw.Config] = None,
+        rewarder_class: Optional[rw.IReward] = rw.Rewarder,
+        rewarder_kwargs: Optional[dict] = {},
         action_type: Optional[str] = None,
         action_sampling_time: Optional[float] = None,
         observation_type: Optional[dict | str] = None,
@@ -68,7 +69,8 @@ class COLAVEnvironment(gym.Env):
             scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path. Defaults to None.
             scenario_file_folder (Optional[list | Path): Folder path to scenario episode files. Defaults to None.
             reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False. NOTE: Might cause issues with vectorized environments due to race conditions.
-            rewarder_config (Optional[rw.Config]): Rewarder configuration. Defaults to None.
+            rewarder_class (Optional[rw.IReward]): Rewarder class. Defaults to rw.Rewarder.
+            rewarder_kwargs (Optional[dict]): Rewarder keyword arguments. Defaults to {}.
             action_type (Optional[str]): Action type. Defaults to None.
             observation_type (Optional[dict | str]): Observation type. Defaults to None.
             render_mode (Optional[str]): Render mode. Defaults to "human".
@@ -115,8 +117,6 @@ class COLAVEnvironment(gym.Env):
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
 
-        self.rewarder: rw.Rewarder = rw.Rewarder(env=self, config=rewarder_config)
-
         if self.scenario_file_folder is not None:
             self._load(
                 scenario_file_folder=self.scenario_file_folder,
@@ -148,6 +148,7 @@ class COLAVEnvironment(gym.Env):
         )
         self.dt_action = action_sampling_time
 
+        self.rewarder = rewarder_class(env=self, **rewarder_kwargs)
         self._define_spaces()
 
     def close(self):
