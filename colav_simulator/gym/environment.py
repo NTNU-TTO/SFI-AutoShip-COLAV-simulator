@@ -233,11 +233,12 @@ class COLAVEnvironment(gym.Env):
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
-    def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
+    def _info(self, obs: Observation, reward: float, action: Optional[Action] = None) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
 
         Args:
             obs (Observation): Observation vector from the environment
+            reward (float): Reward from the environment
             action (Optional[Action]): Action vector applied by the agent. Defaults to None.
 
         Returns:
@@ -251,9 +252,8 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "action": action,
             "unnormalized_action": unnormalized_action,
-            "obs": obs,
             "unnormalized_obs": unnormalized_obs,
-            "reward": self.rewarder(obs, action),
+            "reward": reward,
         }
         return info
 
@@ -306,7 +306,7 @@ class COLAVEnvironment(gym.Env):
         self._init_render()
 
         obs = self.observation_type.observe()
-        info = self._info(obs, action=self.action_space.sample())
+        info = self._info(obs, 0.0, action=None)
 
         self.episodes += 1  # Episodes performed
         if self.verbose:
@@ -335,8 +335,9 @@ class COLAVEnvironment(gym.Env):
                 break
 
         obs = self.observation_type.observe()
-        reward = self.rewarder(obs, action)
-        info = self._info(obs, action)
+        rewarder_kwargs = {"num_steps": self.steps}
+        reward = self.rewarder(obs, action, **rewarder_kwargs)
+        info = self._info(obs, reward, action)
         self.steps += 1
 
         return obs, reward, terminated, truncated, info

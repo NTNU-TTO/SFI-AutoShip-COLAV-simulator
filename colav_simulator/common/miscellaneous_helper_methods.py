@@ -840,6 +840,33 @@ def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
         )
 
 
+def extract_do_list_from_do_array(do_array: np.ndarray) -> list:
+    """Extracts the dynamic obstacle list from the dynamic obstacle array (RL observation)
+    with a maximum number of dynamic obstacles.
+
+    Args:
+        do_array (np.ndarray): Dynamic obstacle array.
+
+    Returns:
+        list: List of dynamic obstacles.
+    """
+    do_list = []
+    assert do_array.ndim == 2, "Dynamic obstacle array must be 2D"
+    nx_do = do_array.shape[0]
+    max_num_do = do_array.shape[1]
+
+    for i in range(max_num_do):
+        if np.sum(do_array[:, i]) > 1.0:  # A proper DO entry has non-zeros in its vector
+            do_state = do_array[0:4, i]
+            do_length = do_array[4, i]
+            do_width = do_array[5, i]
+            do_cov = np.zeros((4, 4))
+            if nx_do > 6:
+                do_cov = do_array[6:, i].reshape((4, 4))
+            do_list.append((i, do_state, do_cov, do_length, do_width))
+    return do_list
+
+
 def convert_3dof_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:
     """Converts from a state [x, y, psi, u, v, r]^T x N to [x, y, U, chi]^T x N.
 

@@ -1040,6 +1040,8 @@ def observation_factory(
         return PerceptionImageObservation(env, **kwargs)
     elif "relative_tracking_observation" in observation_type:
         return RelativeTrackingObservation(env, **kwargs)
+    elif "ground_truth_tracking_observation" in observation_type:
+        return GroundTruthTrackingObservation(env, **kwargs)
     elif "tracking_observation" in observation_type:
         return TrackingObservation(env, **kwargs)
     elif "disturbance_observation" in observation_type:
