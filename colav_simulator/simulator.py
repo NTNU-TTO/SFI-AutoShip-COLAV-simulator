@@ -322,6 +322,28 @@ class Simulator:
         self.t += self.dt
         return sim_data_dict
 
+    def distance_to_nearby_vessels(self, ship_idx: int = 0) -> np.ndarray:
+        """Calculates the distance to nearby vessels for a ship.
+
+        Args:
+            ship_idx (int, optional): Index of the ship to calculate the distance to nearby vessels for. Defaults to 0.
+
+        Returns:
+            np.ndarray: Array containing the distances to nearby vessels.
+        """
+        ship_state = self.ship_list[ship_idx].csog_state
+        distances = []
+        for i, other_ship_obj in enumerate(self.ship_list):
+            if i == ship_idx:
+                continue
+            if other_ship_obj.t_start <= self.t:
+                other_ship_state = other_ship_obj.csog_state
+                distances.append(np.linalg.norm(ship_state[:2] - other_ship_state[:2]))
+            else:
+                distances.append(1e12)
+        assert len(distances) == len(self.ship_list) - 1
+        return np.array(distances)
+
     def determine_ship_collision(self, ship_idx: int = 0) -> bool:
         """Determines whether a ship is in a collision state.
 
@@ -331,16 +353,25 @@ class Simulator:
         Returns:
             bool: True if the ship is in a collision state, False otherwise.
         """
-        ship_state = self.ship_list[ship_idx].csog_state
-        for i, other_ship_obj in enumerate(self.ship_list):
-            if i == ship_idx:
-                continue
-            if other_ship_obj.t_start <= self.t:
-                other_ship_state = other_ship_obj.csog_state
-                d2ship = np.linalg.norm(ship_state[:2] - other_ship_state[:2])
-                if d2ship <= self.ship_list[ship_idx].length / 2.0:
-                    return True
+        distances = self.distance_to_nearby_vessels(ship_idx)
+        other_ship_list = [other_ship_obj for i, other_ship_obj in enumerate(self.ship_list) if i != ship_idx]
+        for i, other_ship_obj in enumerate(other_ship_list):
+            if distances[i] <= self.ship_list[ship_idx].length / 2.0:  # + other_ship_obj.length / 2.0:
+                return True
         return False
+
+    def distance_to_grounding(self, ship_idx: int = 0) -> float:
+        """Calculates the distance to grounding for a ship.
+
+        Args:
+            ship_idx (int, optional): Index of the ship to calculate the distance to grounding for. Defaults to 0.
+
+        Returns:
+            float: Distance to grounding for the ship.
+        """
+        ship_state = self.ship_list[ship_idx].csog_state
+        d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ship_state[1], ship_state[0])
+        return d2land
 
     def determine_ship_grounding(self, ship_idx: int = 0) -> bool:
         """Determines whether a ship is in a grounding state.
@@ -351,9 +382,8 @@ class Simulator:
         Returns:
             bool: True if the ship is in a grounding state, False otherwise.
         """
-        ship_state = self.ship_list[ship_idx].csog_state
-        d2land = mapf.min_distance_to_hazards(self.relevant_grounding_hazards, ship_state[1], ship_state[0])
-        return d2land <= self.ship_list[ship_idx].length / 2.0
+        d2grounding = self.distance_to_grounding(ship_idx)
+        return d2grounding <= self.ship_list[ship_idx].length / 2.0
 
     def determine_ship_goal_reached(self, ship_idx: int = 0) -> bool:
         """Determines whether the ship has reached its goal.

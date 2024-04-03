@@ -72,8 +72,8 @@ class ActionType(ABC):
         """
 
     @abstractmethod
-    def act(self, action: Action) -> None:
-        """Execute the action on the own-ship
+    def act(self, action: Action, **kwargs) -> None:
+        """Execute the action on the own-ship. Extra arguments can be passed to the act method.
 
         Args:
             action (Action): The action to execute (normalized). Typically the output autopilot references from the COLAV-algorithm.
@@ -122,7 +122,7 @@ class ContinuousAutopilotReferenceAction(ActionType):
         speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
         return np.array([course_ref, speed_ref])
 
-    def act(self, action: Action) -> None:
+    def act(self, action: Action, **kwargs) -> None:
         """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
 
         Args:
@@ -137,9 +137,9 @@ class ContinuousAutopilotReferenceAction(ActionType):
         self._ownship.set_references(refs)
 
 
-class ContinuousRelativeLOSReferenceAction(ActionType):
+class RelativeLOSWaypointSpeedAction(ActionType):
     """
-    Action composed of
+    Action consisting of the next (relative) waypoint and relative speed reference, thus composed of
 
     a = [x_ld_rel, y_ld_rel, speed_ref_rel],
 
@@ -164,8 +164,19 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
         self.turn_rate_range = (-self._ownship.max_turn_rate, self._ownship.max_turn_rate)
         self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
         self.last_action = np.zeros(self.size)
-        self.name = "ContinuousRelativeLOSReferenceAction"
+        self.name = "RelativeLOSWaypointSpeedAction"
+        self._los_params = guidances.LOSGuidanceParams(
+            pass_angle_threshold=90.0,
+            R_a=10.0,
+            K_p=0.02,
+            K_i=0.0002,
+            max_cross_track_error_int=500.0,
+            cross_track_error_int_threshold=30.0,
+        )
+        self._los = guidances.LOSGuidance(self._los_params)
         self._ma_filter = stoch.MovingAverageFilter(input_dim=2, window_size=10)
+        self._waypoints = np.zeros((2, 2))
+        self._speed_plan = np.zeros(2)
 
     def space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
@@ -209,7 +220,7 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
             v_disturbance += v_c
         return self._ma_filter.update(v_disturbance)
 
-    def act(self, action: Action) -> None:
+    def act(self, action: Action, **kwargs) -> None:
         """Execute the action on the own-ship, which is to apply new (relative) autopilot references for course and speed.
 
         If disturbances are present, a feed forward term is used to compensate for their direction(s) in the course reference calculation.
@@ -218,19 +229,26 @@ class ContinuousRelativeLOSReferenceAction(ActionType):
             action (Action): New action a = [x_ld_rel, y_ld_rel, speed_ref_rel] within [-1, 1].
         """
         assert isinstance(action, np.ndarray), "Action must be a numpy array"
-        unnorm_action = self.unnormalize(action)
-        x_ld = self._ownship.state[0] + unnorm_action[0]
-        y_ld = self._ownship.state[1] + unnorm_action[1]
+        assert (
+            "applied" in kwargs
+        ), "This action type needs to know if the current action is the first one applied in the current episode step."
+        if not kwargs["applied"]:
+            unnorm_action = self.unnormalize(action)
+            x_ld = self._ownship.state[0] + unnorm_action[0]
+            y_ld = self._ownship.state[1] + unnorm_action[1]
+            speed_ref = self._ownship.csog_state[2] + unnorm_action[2]
+            self._waypoints[:, 0] = self._ownship.state[0:2]
+            self._waypoints[:, 1] = np.array([x_ld, y_ld])
+            self._speed_plan = np.array([speed_ref, speed_ref])
 
-        speed_ref = self._ownship.csog_state[2] + unnorm_action[2]
-        chi_ref = np.arctan2(y_ld - self._ownship.state[1], x_ld - self._ownship.state[0])
+        refs = self._los.compute_references(
+            self._waypoints, self._speed_plan, None, self._ownship.state, self.env.time_step
+        )
 
-        # Disturbance feed forward in course reference computation
-        v_disturbance = self.compute_disturbance_velocity_estimate()
-        chi_disturbance = np.arctan2(v_disturbance[1], v_disturbance[0])
-        chi_ref -= chi_disturbance
-        refs = np.array([0.0, 0.0, mf.wrap_angle_to_pmpi(chi_ref), speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0]).reshape(-1, 1)
-        self.last_action = action
+        # # Disturbance feed forward in course reference computation, not used if ILOS is used
+        # v_disturbance = self.compute_disturbance_velocity_estimate()
+        # course_disturbance = np.arctan2(v_disturbance[1], v_disturbance[0])
+        # course_ref -= chi_disturbance
         self._ownship.set_references(refs)
 
 
@@ -253,6 +271,6 @@ def action_factory(
     if action_type == "continuous_autopilot_reference_action":
         return ContinuousAutopilotReferenceAction(env, sample_time=sample_time, **kwargs)
     elif action_type == "continuous_relative_los_reference_action":
-        return ContinuousRelativeLOSReferenceAction(env, sample_time=sample_time, **kwargs)
+        return RelativeLOSWaypointSpeedAction(env, sample_time=sample_time, **kwargs)
     else:
         raise ValueError("Unknown action type")

@@ -235,12 +235,11 @@ class COLAVEnvironment(gym.Env):
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
-    def _info(self, obs: Observation, reward: float, action: Optional[Action] = None) -> dict:
+    def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
 
         Args:
             obs (Observation): Observation vector from the environment
-            reward (float): Reward from the environment
             action (Optional[Action]): Action vector applied by the agent. Defaults to None.
 
         Returns:
@@ -248,16 +247,22 @@ class COLAVEnvironment(gym.Env):
         """
         unnormalized_obs = self.observation_type.unnormalize(obs)
         unnormalized_action = self.action_type.unnormalize(action) if action is not None else None
-        info = {
-            "state": self.ownship.state,
+        self.last_info = {
+            "duration": self.simulator.t,
+            "timesteps": self.steps,
+            "episode": self.episodes,
+            "goal_reached": self.simulator.determine_ship_goal_reached(ship_idx=0),
             "collision": self.simulator.determine_ship_collision(ship_idx=0),
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
+            "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
+            "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
             "action": action,
             "unnormalized_action": unnormalized_action,
             "unnormalized_obs": unnormalized_obs,
-            "reward": reward,
+            "reward": self.last_reward,
+            "cumulative_reward": self.cumulative_reward,
         }
-        return info
+        return self.last_info
 
     def seed(self, seed: Optional[int] = None, options: Optional[dict] = None) -> None:
         """Re-seed the environment. This is useful for reproducibility.
@@ -284,7 +289,7 @@ class COLAVEnvironment(gym.Env):
             Tuple[Observation, dict]: Initial observation and additional information
         """
         self.seed(seed=seed, options=options)
-        self.steps = 0  # Actions performed
+        self.steps = 0  # Actions performed, not necessarily equal to the simulator steps
         self.last_reward = 0.0
         self.cumulative_reward = 0.0
         self.done = False
@@ -310,7 +315,7 @@ class COLAVEnvironment(gym.Env):
         self._init_render()
 
         obs = self.observation_type.observe()
-        info = self._info(obs, 0.0, action=None)
+        info = self._info(obs, action=None)
 
         self.episodes += 1  # Episodes performed
         if self.verbose:
@@ -326,11 +331,13 @@ class COLAVEnvironment(gym.Env):
         Returns:
             Tuple[np.ndarray, float, bool, bool, dict]: New observation, reward, whether the task is terminated, whether the state is truncated, and additional information.
         """
-        self.action_type.act(action)
-
         self.dt_action = self.action_type.get_sampling_time()
         n_steps_between_actions = int(self.dt_action / self.simulator.dt)
+        action_kwargs = {"applied": False}  # Used for action types where it
         for _ in range(n_steps_between_actions):
+            self.action_type.act(action, **action_kwargs)
+            action_kwargs["applied"] = True
+
             _ = self.simulator.step(remote_actor=True)
 
             terminated = self._is_terminated()
@@ -344,7 +351,7 @@ class COLAVEnvironment(gym.Env):
         self.last_reward = reward
         self.cumulative_reward += reward
 
-        info = self._info(obs, reward, action)
+        info = self._info(obs, action)
         self.steps += 1
 
         return obs, reward, terminated, truncated, info
