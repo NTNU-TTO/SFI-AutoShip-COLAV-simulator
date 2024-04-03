@@ -107,6 +107,8 @@ class COLAVEnvironment(gym.Env):
 
         self.done = False
         self.steps: int = 0
+        self.last_reward: float = 0.0
+        self.cumulative_reward: float = 0.0
         self.episodes: int = 0
         self.n_episodes: int = 0
         self.ownship: Optional[Ship] = None
@@ -283,6 +285,8 @@ class COLAVEnvironment(gym.Env):
         """
         self.seed(seed=seed, options=options)
         self.steps = 0  # Actions performed
+        self.last_reward = 0.0
+        self.cumulative_reward = 0.0
         self.done = False
 
         if self.episodes == self.n_episodes:
@@ -337,6 +341,9 @@ class COLAVEnvironment(gym.Env):
         obs = self.observation_type.observe()
         rewarder_kwargs = {"num_steps": self.steps}
         reward = self.rewarder(obs, action, **rewarder_kwargs)
+        self.last_reward = reward
+        self.cumulative_reward += reward
+
         info = self._info(obs, reward, action)
         self.steps += 1
 
