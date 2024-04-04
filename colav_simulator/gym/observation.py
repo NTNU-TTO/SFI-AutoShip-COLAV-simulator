@@ -22,6 +22,7 @@ import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.common.plotters as plotters
 import colav_simulator.core.guidances as guidances
 import cv2
 import gymnasium as gym
@@ -395,18 +396,42 @@ class PathRelativeNavigationObservation(ObservationType):
         self.size = 5
         self.define_observation_ranges()
         self._ktp = guidances.KinematicTrajectoryPlanner()
-        self.create_path()
+        self._debug: bool = True
 
     def create_path(self) -> None:
+        """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
         self._map_origin = self._map_origin = self._ownship.csog_state[:2]
+        speed_plan = self._ownship.speed_plan.copy()
+        speed_plan[-1] = 0.0
         os_nominal_path = self._ktp.compute_splines(
             waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
-            speed_plan=self._ownship.speed_plan,
+            speed_plan=speed_plan,
             arc_length_parameterization=True,
         )
         self._x_spline, self._y_spline, self._heading_spline, self._speed_spline, self._final_arc_length = (
             os_nominal_path
         )
+        if self._debug:
+            self.env.enc.start_display()
+            nominal_trajectory = self._ktp.compute_reference_trajectory(2.0)
+            nominal_trajectory = nominal_trajectory + np.array(
+                [self._map_origin[0], self._map_origin[1], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            ).reshape(9, 1)
+            plotters.plot_waypoints(
+                self._ownship.waypoints[:2, :],
+                draft=1.0,
+                enc=self.env.enc,
+                color="orange",
+                point_buffer=3.0,
+                disk_buffer=6.0,
+                hole_buffer=3.0,
+                alpha=0.4,
+            )
+            plotters.plot_trajectory(
+                nominal_trajectory[:2, :],
+                self.env.enc,
+                "yellow",
+            )
         path_vals = np.linspace(0, self._final_arc_length, 1000)
         self._path_coords = self._x_spline(path_vals), self._y_spline(path_vals)
         self._path_linestring = sgeo.LineString(np.array([self._path_coords[0], self._path_coords[1]]).T)

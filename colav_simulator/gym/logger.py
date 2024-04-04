@@ -32,12 +32,19 @@ class Logger:
     def __init__(self, log_dir: Path, experiment_name: str) -> None:
         if not log_dir.exists():
             log_dir.mkdir(parents=True)
-        self.log_file = tables.open_file(log_dir / (experiment_name + ".h5"), mode="w", title=experiment_name)
-        env_group = self.log_file.create_group("/", "env", "Environment data")
-        self.log_table = self.log_file.create_table(env_group, "data", Log, "Log of environment data")
+        self.file = tables.open_file(log_dir / (experiment_name + ".h5"), mode="w", title=experiment_name)
+        env_group = self.file.create_group("/", "env", "Environment data")
+        self.table = self.file.create_table(env_group, "data", Log, "Log of environment data")
 
     def save_and_close_hdf5(self) -> None:
-        self.log_file.close()
+        self.file.close()
+
+    def load_hdf5(self, file_path: Path) -> Tuple[np.ndarray, np.ndarray]:
+        self.file = tables.open_file(file_path, mode="r")
+        self.table = self.file.root.env.data
+        logdata = self.table.read()
+        self.file.close()
+        return logdata
 
     def __call__(self, env: COLAVEnvironment) -> None:
         """Logs data from the environment in the current step to a HDF5 file.
@@ -46,7 +53,7 @@ class Logger:
             env (COLAVEnvironment): The environment to log data from.
         """
         info = env.get_wrapper_attr("last_info")
-        log_k = self.log_table.row
+        log_k = self.table.row
         log_k["episode"] = info["episode"]
         log_k["timesteps"] = info["timesteps"]
         log_k["duration"] = info["duration"]
@@ -58,4 +65,9 @@ class Logger:
         log_k["reward"] = info["reward"]
         log_k["cumulative_reward"] = info["cumulative_reward"]
         log_k.append()
-        self.log_table.flush()
+        self.table.flush()
+
+
+if __name__ == "__main__":
+    logger = Logger(Path("/logs"), "test")
+    logger.load_hdf5(Path("/logs/test.h5"))

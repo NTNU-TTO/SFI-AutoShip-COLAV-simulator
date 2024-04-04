@@ -116,15 +116,6 @@ class KinematicTrajectoryPlanner(IGuidance):
 
     The main functionality converts a path (described by waypoints) and speed plan into a continuous
     trajectory, using cubic splines, for which 3DOF references in position, speed and acceleration are generated.
-
-    Important internal variables:
-        s (float): Keeps track of the current path variable/state of
-        reference vehicle along the trajectory.
-        init (bool): Flag to indicate if the trajectory has been initialized.
-        x_spline (BSpline): Spline for x setpoints.
-        y_spline (BSpline): Spline for y setpoints.
-        heading_spline (PchipInterpolator): Spline for heading setpoint. Usage of piecewise cubic Hermite interpolator to reduce overshoot.
-        speed_spline (PchipInterpolator): Spline for speed setpoint. Usage of piecewise cubic Hermite interpolator to reduce overshoot.
     """
 
     _x_spline: interp.BSpline
@@ -197,12 +188,6 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             linspace = np.linspace(0.0, 1.0, n_wps)
 
-        smoothing = 0.2
-        t_x, c_x, k_x = interp.splrep(linspace, waypoints[0, :], s=smoothing, k=3)
-        self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
-
-        t_y, c_y, k_y = interp.splrep(linspace, waypoints[1, :], s=smoothing, k=3)
-        self._y_spline = interp.BSpline(t_y, c_y, k_y, extrapolate=False)
         self._speed_spline = interp.PchipInterpolator(linspace, speed_plan)
 
         order = 3
@@ -210,6 +195,8 @@ class KinematicTrajectoryPlanner(IGuidance):
             x_arc_spline, y_arc_spline, arc_lengths = mhm.create_arc_length_spline(
                 waypoints[0, :].tolist(), waypoints[1, :].tolist()
             )
+            n_points = len(arc_lengths)
+            smoothing = 0.005 * (n_points - np.sqrt(2 * n_points))
             expanded_x_values = x_arc_spline(arc_lengths)
             expanded_y_values = y_arc_spline(arc_lengths)
             t_x, c_x, k_x = interp.splrep(arc_lengths, expanded_x_values, s=smoothing, k=order)
@@ -225,6 +212,14 @@ class KinematicTrajectoryPlanner(IGuidance):
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
             self._heading_spline = interp.PchipInterpolator(arc_lengths, self._heading_waypoints)
         else:
+            n_points = len(linspace)
+            smoothing = n_points - np.sqrt(2 * n_points)  # default value
+            t_x, c_x, k_x = interp.splrep(linspace, waypoints[0, :], s=smoothing, k=order)
+            self._x_spline = interp.BSpline(t_x, c_x, k_x, extrapolate=False)
+
+            t_y, c_y, k_y = interp.splrep(linspace, waypoints[1, :], s=smoothing, k=order)
+            self._y_spline = interp.BSpline(t_y, c_y, k_y, extrapolate=False)
+
             x_der_values = self._x_spline(linspace, 1)
             y_der_values = self._y_spline(linspace, 1)
             self._heading_waypoints = mf.unwrap_angle_array(np.arctan2(y_der_values, x_der_values))
