@@ -7,7 +7,6 @@
     Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
 """
 
-import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -204,7 +203,7 @@ class Visualizer:
         """
         plt.close()
         self.frames = []
-        self.fig = plt.figure("Simulation Live Plot", figsize=self._config.figsize)
+        self.fig = plt.figure(figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(1, 1, 1)
         plotters.plot_background(

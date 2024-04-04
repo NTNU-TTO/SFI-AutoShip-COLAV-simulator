@@ -86,9 +86,6 @@ class COLAVEnvironment(gym.Env):
         assert (
             scenario_config is not None or scenario_file_folder is not None
         ), "Either scenario config or scenario file folder must be provided!"
-        assert (
-            scenario_config is None or scenario_file_folder is None
-        ), "Either scenario config or scenario file folder must be provided, not both!"
 
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)

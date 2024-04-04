@@ -22,6 +22,7 @@ import colav_simulator.viz.visualizer as viz
 import numpy as np
 import pandas as pd
 import seacharts.enc as senc
+import yaml
 from colav_simulator.core.ship import Ship
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
@@ -43,6 +44,13 @@ class Config:
             visualizer=viz.Config.from_dict(config_dict["visualizer"]),
         )
         return config
+
+    @classmethod
+    def from_file(cls, config_file: Path):
+        assert config_file.exists(), f"Configuration file {config_file} does not exist."
+        with open(config_file, "r") as f:
+            config_dict = yaml.safe_load(f)
+        return cls.from_dict(config_dict)
 
 
 class Simulator:
