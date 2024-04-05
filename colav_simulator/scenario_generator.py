@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 
 import colav_simulator.behavior_generator as bg
 import colav_simulator.common.config_parsing as cp
+import colav_simulator.common.file_utils as fu
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -129,8 +130,8 @@ class ScenarioGenerator:
             - config (Config): Configuration object containing all parameters/settings related to the creation of scenarios.
             - config_file (Path, optional): Absolute path to the generator config file. Defaults to dp.scenario_generator_config.
             - enc_config_file (Path, optional): Absolute path to the ENC config file. Defaults to dp.seacharts_config.
-            - init_enc (bool, optional): Flag determining whether or not to initialize the ENC object. Defaults to False.
-            - seed (Optional[int], optional): Integer seed. Defaults to None.
+            - init_enc (bool, optional): Flag determining whether or not to initialize the ENC object.
+            - seed (Optional[int], optional): Integer seed.
             - **kwargs: Keyword arguments for the ScenarioGenerator, can be e.g.:
                     new_data (bool): Flag determining whether or not to read ENC data from shapefiles again.
         """
@@ -172,7 +173,7 @@ class ScenarioGenerator:
         """Seeds the random number generator.
 
         Args:
-            seed (Optional[int]): Integer seed. Defaults to None.
+            seed (Optional[int]): Integer seed.
         """
         self.rng = np.random.default_rng(seed=seed)
         self.behavior_generator.seed(seed=seed)
@@ -181,7 +182,7 @@ class ScenarioGenerator:
         """Sets up the constrained Delaunay triangulation for the ENC map, for a vessel minimum depth.
 
         Args:
-            show_plots (bool, optional): Wether to show cdt plots or not. Defaults to False.
+            show_plots (bool, optional): Wether to show cdt plots or not.
         """
         self.safe_sea_cdt = mapf.create_safe_sea_triangulation(
             self.enc, vessel_min_depth=vessel_min_depth, show_plots=show_plots
@@ -290,9 +291,9 @@ class ScenarioGenerator:
             - folder (Path): Path to folder containing scenario files.
             - scenario_name (str): Name of the scenario.
             - reload_map (bool, optional): Flag determining whether or not to reload the map data. Defaults to True.
-            - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts. Defaults to False.
-            - max_number_of_episodes (Optional[int], optional): Maximum number of episodes to load. Defaults to None.
-            - shuffle_episodes (bool, optional): Flag determining whether or not to shuffle the episode list. Defaults to False.
+            - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts.
+            - max_number_of_episodes (Optional[int], optional): Maximum number of episodes to load.
+            - shuffle_episodes (bool, optional): Flag determining whether or not to shuffle the episode list.
 
         Returns:
             - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
@@ -477,6 +478,7 @@ class ScenarioGenerator:
         show_plots: Optional[bool] = False,
         save_scenario: Optional[bool] = False,
         save_scenario_folder: Optional[Path] = dp.scenarios,
+        delete_existing_files: Optional[bool] = False,
         n_episodes: Optional[int] = None,
         episode_idx_save_offset: Optional[int] = 0,
     ) -> Tuple[list, senc.ENC]:
@@ -485,19 +487,23 @@ class ScenarioGenerator:
         If specified, the ENC object provides the geographical environment.
 
         Args:
-            - config (sc.ScenarioConfig, optional): Scenario config object. Defaults to None.
-            - config_file (Path, optional): Absolute path to the scenario config file. Defaults to None.
-            - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment. Defaults to None.
-            - new_load_of_map_data (bool, optional): Flag determining whether or not to read ENC data from shapefiles again. Defaults to True.
-            - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
-            - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition. Defaults to False.
+            - config (sc.ScenarioConfig, optional): Scenario config object.
+            - config_file (Path, optional): Absolute path to the scenario config file.
+            - enc (ENC, optional): Electronic Navigational Chart object containing the geographical environment.
+            - new_load_of_map_data (bool, optional): Flag determining whether or not to read ENC data from shapefiles again.
+            - show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots.
+            - save_scenario (bool, optional): Flag determining whether or not to save the scenario definition.
             - save_scenario_folder (Path, optional): Absolute path to the folder where the scenario definition should be saved. Defaults to dp.scenarios.
-            - n_episodes (int, optional): Number of episodes to generate. Defaults to None.
+            - delete_existing_files (bool, optional): Flag determining whether or not to delete existing files at the "save_scenario_folder" path.
+            - n_episodes (int, optional): Number of episodes to generate.
             - episode_idx_save_offset (int, optional): Offset for the episode index when saving to file. Defaults to 0.
 
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
         """
+        if save_scenario_folder is not None and delete_existing_files:
+            fu.delete_files_in_folder(save_scenario_folder)
+
         if config is None and config_file is not None:
             config = cp.extract(sc.ScenarioConfig, config_file, dp.scenario_schema)
             config.filename = config_file.name
@@ -567,7 +573,7 @@ class ScenarioGenerator:
                 mmsi_list,
                 show_plots=show_plots,
             )
-            if self._bad_episode:
+            if self._bad_episode:  # See the check_for_bad_episode method for more information
                 continue
 
             if self._config.manual_episode_accept:
@@ -647,7 +653,7 @@ class ScenarioGenerator:
                     - config (sc.ScenarioConfig): Scenario config object.
                     - ais_vessel_data_list (Optional[list]): Optional list of AIS vessel data objects.
                     - mmsi_list (Optional[list]): Optional list of corresponding MMSI numbers for the AIS vessels.
-                    - show_plots (Optional[bool]): Flag determining whether or not to show seacharts debugging plots. Defaults to False.
+                    - show_plots (Optional[bool]): Flag determining whether or not to show seacharts debugging plots.
 
                 Returns:
                     - Tuple[list, Optional[stoch.Disturbance], sc.ScenarioConfig]: List of ships in the scenario with initialized poses and plans, the disturbance object for the episode (if specified) and the final scenario config object.
@@ -930,7 +936,7 @@ class ScenarioGenerator:
             - min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
             - t_cpa_threshold (float, optional): Time to CPA threshold. Defaults to 1000.0.
             - d_cpa_threshold (float, optional): Distance to CPA threshold. Defaults to 100.0.
-            - first_episode_csog_state (Optional[np.ndarray], optional): First scenario episode target ship COG-SOG state. Defaults to None.
+            - first_episode_csog_state (Optional[np.ndarray], optional): First scenario episode target ship COG-SOG state.
 
         Returns:
             - np.ndarray: Target ship COG-SOG state = [x, y, speed, heading].
@@ -1089,9 +1095,9 @@ class ScenarioGenerator:
             - U_min (float, optional): Minimum speed of the ship. Defaults to 1.0.
             - U_max (float, optional): Maximum speed of the ship. Defaults to 10.0.
             - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
-            - heading (Optional[float]): Heading of the ship in radians. Defaults to None.
+            - heading (Optional[float]): Heading of the ship in radians.
             - min_land_clearance (float, optional): Minimum distance between ship and land. Defaults to 50.0.
-            - first_episode_csog_state (Optional[np.ndarray], optional): First scenario episode ship COG-SOG state. Defaults to None.
+            - first_episode_csog_state (Optional[np.ndarray], optional): First scenario episode ship COG-SOG state.
 
         Returns:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]

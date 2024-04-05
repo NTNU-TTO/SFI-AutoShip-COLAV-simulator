@@ -824,6 +824,7 @@ class BehaviorGenerator:
         max_iter = 150
         for i in range(1, n_wps):
             iter_count = -1
+            crosses_grounding_hazards = False
             for _ in range(max_iter):
                 iter_count += 1
 

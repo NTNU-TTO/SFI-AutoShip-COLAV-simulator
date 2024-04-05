@@ -56,7 +56,7 @@ class COLAVEnvironment(gym.Env):
         show_loaded_scenario_data: Optional[bool] = False,
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
-        id_number: Optional[int] = None,
+        id_number: Optional[int | str] = None,
         seed: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -81,7 +81,7 @@ class COLAVEnvironment(gym.Env):
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
             shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not. Defaults to True.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
-            id_number (Optional[int]): ID number for the environment. Defaults to None.
+            id_number (Optional[int | str]): ID number or string for the environment. Defaults to None.
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
         """
         super().__init__()

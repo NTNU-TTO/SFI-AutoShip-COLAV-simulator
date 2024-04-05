@@ -6,37 +6,44 @@
 
     Author: Trym Tengesdal
 """
+
 from pathlib import Path
 from typing import Optional, Tuple
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.vessel_data as vd
-import openpyxl
 import pandas as pd
 import yaml
 
 
 def read_yaml_into_dict(file_name: Path) -> dict:
+    """Reads a yaml file into a dictionary.
+
+    Args:
+        file_name (Path): Path to the yaml file.
+
+    Returns:
+        dict: Dictionary containing the yaml file data.
+    """
     with file_name.open(mode="r", encoding="utf-8") as file:
         output_dict = yaml.safe_load(file)
     return output_dict
 
 
-def write_to_excel_file(data_frame: pd.DataFrame, file_prefix: str, sheet_name: str) -> None:
-    file_name = file_prefix + ".xlsx"
-    try:
-        book = openpyxl.load_workbook(file_name)
-        writer = pd.ExcelWriter(file_name, mode="a", engine="openpyxl")  # pylint: disable=abstract-class-instantiated
-        writer.book = book
-        writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
-        data_frame.to_excel(writer, sheet_name=sheet_name, index=False)
-        writer.save()
-    except FileNotFoundError as e:
-        print(e)
-        writer = pd.ExcelWriter(file_name, engine="openpyxl")  # pylint: disable=abstract-class-instantiated
-        data_frame.to_excel(writer, sheet_name=sheet_name, index=False)
-        writer.save()
+def delete_files_in_folder(folder: Path) -> None:
+    """Deletes all files in the specified folder, but not the folder itself.
+    Does nothing if the folder does not exist.
+
+    Args:
+        folder (Path): Path to the folder containing the files to be deleted.
+    """
+    if not folder.is_dir():
+        return
+
+    for file in folder.iterdir():
+        if file.is_file():
+            file.unlink()
 
 
 def read_ais_data(
@@ -78,7 +85,9 @@ def read_ais_data(
         raise FileNotFoundError(f"AIS data file not found: {ais_path}")
 
     if ship_info_path is not None and ship_info_path.is_file():
-        ship_info_df = pd.read_csv(ship_info_path, sep=";", dtype={"mmsi": "uint32", "length": "float16", "width": "float16"})
+        ship_info_df = pd.read_csv(
+            ship_info_path, sep=";", dtype={"mmsi": "uint32", "length": "float16", "width": "float16"}
+        )
 
     origin_buffer = 0.01
     lat0 = min(ais_df.lat) - 0.01

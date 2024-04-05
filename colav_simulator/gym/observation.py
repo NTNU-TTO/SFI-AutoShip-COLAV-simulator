@@ -397,20 +397,14 @@ class PathRelativeNavigationObservation(ObservationType):
         self.define_observation_ranges()
         self._ktp = guidances.KinematicTrajectoryPlanner()
         self._debug: bool = True
+        self._map_origin: np.ndarray = np.array([0.0, 0.0])
+        self._speed_spline = None
+        self._final_arc_length = None
+        self._path_coords = None
+        self._path_linestring = None
 
-    def create_path(self) -> None:
-        """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
-        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
-        speed_plan = self._ownship.speed_plan.copy()
-        speed_plan[-1] = 0.0
-        os_nominal_path = self._ktp.compute_splines(
-            waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
-            speed_plan=speed_plan,
-            arc_length_parameterization=True,
-        )
-        self._x_spline, self._y_spline, self._heading_spline, self._speed_spline, self._final_arc_length = (
-            os_nominal_path
-        )
+    def plot_path(self) -> None:
+        """Plot the nominal path."""
         if self._debug:
             self.env.enc.start_display()
             nominal_trajectory = self._ktp.compute_reference_trajectory(2.0)
@@ -432,8 +426,21 @@ class PathRelativeNavigationObservation(ObservationType):
                 self.env.enc,
                 "yellow",
             )
+
+    def create_path(self) -> None:
+        """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
+        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
+        speed_plan = self._ownship.speed_plan.copy()
+        speed_plan[-1] = 0.0
+        os_nominal_path = self._ktp.compute_splines(
+            waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
+            speed_plan=speed_plan,
+            arc_length_parameterization=True,
+        )
+        x_spline, y_spline, _, self._speed_spline, self._final_arc_length = os_nominal_path
+        self.plot_path()
         path_vals = np.linspace(0, self._final_arc_length, 1000)
-        self._path_coords = self._x_spline(path_vals), self._y_spline(path_vals)
+        self._path_coords = x_spline(path_vals), y_spline(path_vals)
         self._path_linestring = sgeo.LineString(np.array([self._path_coords[0], self._path_coords[1]]).T)
 
     def space(self) -> gym.spaces.Space:

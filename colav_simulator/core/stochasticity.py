@@ -206,6 +206,18 @@ class DisturbanceData:
         self.waves = {}
         self.currents = {}
 
+    def print(self):
+        if self.wind:
+            print("Wind | Speed:", self.wind["speed"], "m/s, Direction:", np.rad2deg(self.wind["direction"]), "deg")
+        if self.currents:
+            print(
+                "Currents | Speed:",
+                self.currents["speed"],
+                "m/s, Direction:",
+                np.rad2deg(self.currents["direction"]),
+                "deg",
+            )
+
 
 class Disturbance:
     """Class for managing the different disturbances affecting the ship motion (wind, waves, currents)."""
