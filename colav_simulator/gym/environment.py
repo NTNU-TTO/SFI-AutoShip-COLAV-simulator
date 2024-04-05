@@ -56,7 +56,7 @@ class COLAVEnvironment(gym.Env):
         show_loaded_scenario_data: Optional[bool] = False,
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
-        id_number: Optional[int | str] = None,
+        identifier: Optional[int | str] = None,
         seed: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -65,24 +65,24 @@ class COLAVEnvironment(gym.Env):
         Note that the scenario config object takes precedence over the scenario config file, which again takes precedence over the scenario file list.
 
         Args:
-            simulator_config (Optional[cssim.Config]): Simulator configuration. Defaults to None.
-            scenario_generator_config (Optional[sg.Config]): Scenario generator configuration. Defaults to None.
-            scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path. Defaults to None.
-            scenario_file_folder (Optional[list | Path): Folder path to scenario episode files. Defaults to None.
-            reload_map (Optional[bool]): Whether to reload the scenario ENC map. Defaults to False. NOTE: Might cause issues with vectorized environments due to race conditions.
-            rewarder_class (Optional[rw.IReward]): Rewarder class. Defaults to rw.Rewarder.
-            rewarder_kwargs (Optional[dict]): Rewarder keyword arguments. Defaults to {}.
-            action_type (Optional[str]): Action type. Defaults to None.
-            observation_type (Optional[dict | str]): Observation type. Defaults to None.
-            render_mode (Optional[str]): Render mode. Defaults to "human".
-            render_update_rate (Optional[float]): Render update rate. Defaults to 0.2.
-            test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path. Defaults to False.
-            verbose (Optional[bool]): Wheter to print debugging info or not. Defaults to False.
-            show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
-            shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not. Defaults to True.
+            simulator_config (Optional[cssim.Config]): Simulator configuration.
+            scenario_generator_config (Optional[sg.Config]): Scenario generator configuration.
+            scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path.
+            scenario_file_folder (Optional[list | Path): Folder path to scenario episode files.
+            reload_map (Optional[bool]): Whether to reload the scenario ENC map. NOTE: Might cause issues with vectorized environments due to race conditions.
+            rewarder_class (Optional[rw.IReward]): Rewarder class.
+            rewarder_kwargs (Optional[dict]): Rewarder keyword arguments.
+            action_type (Optional[str]): Action type.
+            observation_type (Optional[dict | str]): Observation type.
+            render_mode (Optional[str]): Render mode.
+            render_update_rate (Optional[float]): Render update rate.
+            test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path.
+            verbose (Optional[bool]): Wheter to print debugging info or not.
+            show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not.
+            shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
-            id_number (Optional[int | str]): ID number or string for the environment. Defaults to None.
-            seed (Optional[int]): Seed for the random number generator. Defaults to None.
+            identifier (Optional[int | str]): Identifier for the environment.
+            seed (Optional[int]): Seed for the random number generator.
         """
         super().__init__()
         assert (
@@ -104,7 +104,7 @@ class COLAVEnvironment(gym.Env):
         self._has_init_generated: bool = False
         self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
-        self.env_id = id_number
+        self.env_id = identifier
         self.done = False
         self.steps: int = 0
         self.last_reward: float = 0.0
@@ -196,8 +196,8 @@ class COLAVEnvironment(gym.Env):
 
         Args:
             scenario_file_folder (pathlib.Path): Folder path where all episodes for a scenario is found.
-            reload_map (bool): Whether to reload the scenario map. Defaults to False.
-            show (bool): Whether to show the scenario data or not. Defaults to False.
+            reload_map (bool): Whether to reload the scenario map.
+            show (bool): Whether to show the scenario data or not.
         """
         name = scenario_file_folder.name
         self.scenario_data_tup = self.scenario_generator.load_scenario_from_folder(
@@ -218,8 +218,8 @@ class COLAVEnvironment(gym.Env):
         """Generate new scenario from the input configuration.
 
         Args:
-            scenario_config (Optional[sm.ScenarioConfig | pathlib.Path]): Scenario configuration or path to scenario config file. Defaults to None.
-            reload_map (bool): Whether to reload the scenario map. Defaults to False.
+            scenario_config (Optional[sm.ScenarioConfig | pathlib.Path]): Scenario configuration or path to scenario config file.
+            reload_map (bool): Whether to reload the scenario map.
         """
         if isinstance(scenario_config, pathlib.Path):
             self.scenario_data_tup = self.scenario_generator.generate(
@@ -240,7 +240,7 @@ class COLAVEnvironment(gym.Env):
 
         Args:
             obs (Observation): Observation vector from the environment
-            action (Optional[Action]): Action vector applied by the agent. Defaults to None.
+            action (Optional[Action]): Action vector applied by the agent.
 
         Returns:
             dict: Dictionary of additional information
@@ -268,8 +268,8 @@ class COLAVEnvironment(gym.Env):
         """Re-seed the environment. This is useful for reproducibility.
 
         Args:
-            seed (Optional[int]): Seed for the random number generator. Defaults to None.
-            options (Optional[dict]): Options for the environment. Defaults to None.
+            seed (Optional[int]): Seed for the random number generator.
+            options (Optional[dict]): Options for the environment.
         """
         super().reset(seed=None, options=options)
         self.scenario_generator.seed(seed=seed)
@@ -282,8 +282,8 @@ class COLAVEnvironment(gym.Env):
         """Reset the environment to a new scenario episode. If a scenario config or config file is provided, a new scenario is generated. Otherwise, the next episode of the current scenario is used, if any.
 
         Args:
-            seed (Optional[int]): Seed for the random number generator. Defaults to None.
-            options (Optional[dict]): Options for the environment. Defaults to None.
+            seed (Optional[int]): Seed for the random number generator.
+            options (Optional[dict]): Options for the environment.
 
         Returns:
             Tuple[Observation, dict]: Initial observation and additional information
