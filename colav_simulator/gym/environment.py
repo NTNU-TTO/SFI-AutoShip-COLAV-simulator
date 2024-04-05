@@ -56,6 +56,7 @@ class COLAVEnvironment(gym.Env):
         show_loaded_scenario_data: Optional[bool] = False,
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
+        id_number: Optional[int] = None,
         seed: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -80,6 +81,7 @@ class COLAVEnvironment(gym.Env):
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not. Defaults to False.
             shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not. Defaults to True.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
+            id_number (Optional[int]): ID number for the environment. Defaults to None.
             seed (Optional[int]): Seed for the random number generator. Defaults to None.
         """
         super().__init__()
@@ -102,6 +104,7 @@ class COLAVEnvironment(gym.Env):
         self._has_init_generated: bool = False
         self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
+        self.env_id = id_number
         self.done = False
         self.steps: int = 0
         self.last_reward: float = 0.0
@@ -359,7 +362,7 @@ class COLAVEnvironment(gym.Env):
             self._viewer2d.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
                 self._viewer2d.set_update_rate(self.render_update_rate)
-            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list)
+            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list, fignum=self.env_id)
             self._viewer2d.update_live_plot(
                 self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements
             )

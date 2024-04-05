@@ -194,7 +194,7 @@ class Visualizer:
         assert self._config.show_liveplot, "Live plot must be enabled to set this parameter"
         self._config.update_rate_liveplot = update_rate
 
-    def init_figure(self, enc: ENC, extent: list) -> None:
+    def init_figure(self, enc: ENC, extent: list, fignum: Optional[int] = None) -> None:
         """Initialize the figure for live plotting.
 
         Args:
@@ -203,7 +203,7 @@ class Visualizer:
         """
         plt.close()
         self.frames = []
-        self.fig = plt.figure(figsize=self._config.figsize)
+        self.fig = plt.figure(num=fignum, figsize=self._config.figsize)
 
         ax_map = self.fig.add_subplot(1, 1, 1)
         plotters.plot_background(
@@ -282,13 +282,14 @@ class Visualizer:
         data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         return data
 
-    def init_live_plot(self, enc: ENC, ship_list: list) -> None:
+    def init_live_plot(self, enc: ENC, ship_list: list, fignum: Optional[int] = None) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
 
         Args:
             - enc (ENC): ENC object containing the map data.
             - ship_list (list): List of configured ships in the simulation.
+            - fignum (int, optional): Figure number for the live plot.
         """
         if not self._config.show_liveplot:
             return
@@ -299,7 +300,7 @@ class Visualizer:
         matplotlib.rcParams["ps.fonttype"] = 42
 
         self.xlimits, self.ylimits = self.find_plot_limits(enc, ship_list[0])
-        self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]])
+        self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]], fignum=fignum)
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
 

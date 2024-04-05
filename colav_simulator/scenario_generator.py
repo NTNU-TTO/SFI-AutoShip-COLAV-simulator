@@ -206,6 +206,7 @@ class ScenarioGenerator:
             new_data=scenario_config.new_load_of_map_data,
             tolerance=scenario_config.map_tolerance,
             buffer=scenario_config.map_buffer,
+            figname=scenario_config.name,
         )
 
         return copy.deepcopy(self.enc)
