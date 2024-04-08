@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 
+import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.vessel_data as vd
 import colav_simulator.core.colav.colav_interface as ci
@@ -708,6 +709,13 @@ class Ship(IShip):
             return self._state[3]
         else:  # self._state.size == 6
             return self._state[2]
+
+    @property
+    def course(self):
+        if self._state.size == 4:
+            return self._state[3]
+        else:  # self._state.size == 6
+            return mf.wrap_angle_to_pmpi(self._state[2] + np.arctan2(self._state[4], self._state[3]))
 
     @property
     def waypoints(self) -> np.ndarray:

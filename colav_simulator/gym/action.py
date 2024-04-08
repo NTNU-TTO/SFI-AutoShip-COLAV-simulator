@@ -252,6 +252,76 @@ class RelativeLOSWaypointSpeedAction(ActionType):
         self._ownship.set_references(refs)
 
 
+class RelativeCourseSpeedReferenceSequenceAction(ActionType):
+    """(Continuous) Action consisting of a 2-length sequence of course (COG) and speed (SOG) references to be followed by the own-ship."""
+
+    def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None, **kwargs) -> None:
+        """Create a continuous action space for setting the own-ship autopilot references in speed and course.
+
+        Args:
+            env (str, optional): Name of environment. Defaults to "AbstractEnv".
+        """
+        super().__init__(env, sample_time)
+        assert self._ownship is not None, "Ownship must be set before using the action space"
+        self.size = 4
+        self.course_range = (-np.pi, np.pi)
+        self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
+        self.name = "RelativeCourseSpeedReferenceSequenceAction"
+        self.course_refs = np.zeros(2)
+        self.speed_refs = np.zeros(2)
+        self.t_first_apply = 0.0
+        self.reference_duration = 5.0  # equal to sampling time used in the MPC/planner
+
+    def space(self) -> gym.spaces.Box:
+        return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
+
+    def normalize(self, action: list | np.ndarray) -> list | np.ndarray:
+        course_ref_1 = mf.linear_map(action[0], self.course_range, (-1.0, 1.0))
+        speed_ref_1 = mf.linear_map(action[1], self.speed_range, (-1.0, 1.0))
+        course_ref_2 = mf.linear_map(action[2], self.course_range, (-1.0, 1.0))
+        speed_ref_2 = mf.linear_map(action[3], self.speed_range, (-1.0, 1.0))
+        return np.array([course_ref_1, speed_ref_1, course_ref_2, speed_ref_2])
+
+    def unnormalize(self, action: list | np.ndarray) -> list | np.ndarray:
+        course_ref_1 = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
+        speed_ref_1 = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
+        course_ref_2 = mf.linear_map(action[2], (-1.0, 1.0), self.course_range)
+        speed_ref_2 = mf.linear_map(action[3], (-1.0, 1.0), self.speed_range)
+        return np.array([course_ref_1, speed_ref_1, course_ref_2, speed_ref_2])
+
+    def act(self, action: Action, **kwargs) -> None:
+        """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
+
+        Args:
+            action (Action): New course and speed references [course_ref, speed_ref] within [-1, 1]
+        """
+        assert isinstance(action, np.ndarray), "Action must be a numpy array"
+        assert (
+            "applied" in kwargs
+        ), "This action type needs to know if the current action is the first one applied in the current episode step."
+        if not kwargs["applied"]:
+            unnorm_action = self.unnormalize(action)
+            # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
+            course = self._ownship.course
+            speed = self._ownship.speed
+
+            self.course_refs = np.array([unnorm_action[0] + course, unnorm_action[2] + course])
+            self.speed_refs = np.array([unnorm_action[1] + speed, unnorm_action[3] + speed])
+            self.t_first_apply = self.env.time
+
+        t_now = self.env.time
+        if t_now - self.t_first_apply > self.reference_duration:
+            course_ref = self.course_refs[1]
+            speed_ref = self.speed_refs[1]
+        else:
+            course_ref = self.course_refs[0]
+            speed_ref = self.speed_refs[0]
+
+        refs = np.array([0.0, 0.0, course_ref, speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+        self._ownship.set_references(refs)
+
+
 def action_factory(
     env: "COLAVEnvironment",
     action_type: Optional[str] = "continuous_autopilot_reference_action",
@@ -270,7 +340,9 @@ def action_factory(
     """
     if action_type == "continuous_autopilot_reference_action":
         return ContinuousAutopilotReferenceAction(env, sample_time=sample_time, **kwargs)
-    elif action_type == "continuous_relative_los_reference_action":
+    elif action_type == "relative_course_speed_reference_sequence_action":
+        return RelativeCourseSpeedReferenceSequenceAction(env, sample_time=sample_time, **kwargs)
+    elif action_type == "relative_los_waypoint_speed_action":
         return RelativeLOSWaypointSpeedAction(env, sample_time=sample_time, **kwargs)
     else:
         raise ValueError("Unknown action type")

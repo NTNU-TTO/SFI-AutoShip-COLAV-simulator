@@ -456,12 +456,12 @@ class Visualizer:
 
                 # ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
                 #     ShapelyFeature(
-                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", zorder=zorder_patch - 1
                 #     )
                 # )
                 # ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
                 #     ShapelyFeature(
-                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", crs=enc.crs, zorder=zorder_patch - 1
+                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", zorder=zorder_patch - 1
                 #     )
                 # )
 

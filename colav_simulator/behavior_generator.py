@@ -784,7 +784,7 @@ class BehaviorGenerator:
             waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan * horizon_modifier,
             draft,
             self._grounding_hazards,
-            min_dist=np.min([10.0, 3.0 * length]),
+            min_dist=3.0 * length,
         )
         waypoints[:, 1] = end_position
         speed_plan = U * np.ones(2)

@@ -315,7 +315,7 @@ def trajectory_from_waypoints_and_speed(
 
         p = p + speed * np.array([np.cos(alpha), np.sin(alpha)]) * dt
 
-        if np.linalg.norm(p - waypoints[:, wp_idx]) < 1.0:
+        if np.linalg.norm(p - waypoints[:, wp_idx]) < 1.0 and wp_leg < n_wps - 1:
             wp_leg += 1
 
     return traj

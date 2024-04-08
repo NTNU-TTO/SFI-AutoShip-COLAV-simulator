@@ -396,7 +396,7 @@ class PathRelativeNavigationObservation(ObservationType):
         self.size = 5
         self.define_observation_ranges()
         self._ktp = guidances.KinematicTrajectoryPlanner()
-        self._debug: bool = True
+        self._debug: bool = False
         self._map_origin: np.ndarray = np.array([0.0, 0.0])
         self._speed_spline = None
         self._final_arc_length = None

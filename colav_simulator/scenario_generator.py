@@ -302,6 +302,8 @@ class ScenarioGenerator:
         first = True
         file_list = [file for file in folder.iterdir()]
         file_list.sort(key=lambda x: x.name.split("_")[-3])
+        if shuffle_episodes:
+            self.rng.shuffle(file_list)
         for file_idx, file in enumerate(file_list):
             if not (scenario_name in file.name and file.suffix == ".yaml"):
                 continue
@@ -331,8 +333,6 @@ class ScenarioGenerator:
         if show:
             input("Press enter to continue...")
             enc.close_display()
-        if shuffle_episodes:
-            self.rng.shuffle(scenario_episode_list)
         return (scenario_episode_list, enc)
 
     def visualize_disturbance(self, disturbance: stoch.Disturbance | None, enc: senc.ENC) -> None:
