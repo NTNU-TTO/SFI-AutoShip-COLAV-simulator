@@ -124,7 +124,12 @@ class RRTConfig:
     )
     los: guidances.LOSGuidanceParams = field(
         default_factory=lambda: guidances.LOSGuidanceParams(
-            K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+            K_p=0.035,
+            K_i=0.0,
+            pass_angle_threshold=90.0,
+            R_a=25.0,
+            max_cross_track_error_int=200.0,
+            cross_track_error_int_threshold=30.0,
         )
     )
 
@@ -140,6 +145,13 @@ class RRTConfig:
         config.model = models.KinematicCSOGParams.from_dict(config_dict["model"]["csog"])
         config.los = guidances.LOSGuidanceParams.from_dict(config_dict["los"])
         return config
+
+    def to_dict(self):
+        output = asdict(self)
+        output["params"] = self.params.to_dict()
+        output["model"] = self.model.to_dict()
+        output["los"] = self.los.to_dict()
+        return output
 
 
 class BehaviorGenerationMethod(Enum):

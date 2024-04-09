@@ -923,7 +923,7 @@ class PerceptionImageObservation(ObservationType):
         if self.image_dim[0] > 1:
             self.previous_image_stack = np.roll(self.previous_image_stack, shift=1, axis=0)
         self.previous_image_stack[0, :, :] = grayscale_img
-        print("Time to process image: ", time.time() - t_now)
+        # print("Time to process image: ", time.time() - t_now)
         # save_image = False
         # if save_image:
         #     cv2.imwrite("image.png", downsampled_img)

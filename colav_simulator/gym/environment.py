@@ -107,6 +107,7 @@ class COLAVEnvironment(gym.Env):
         self.env_id = identifier
         self.done = False
         self.steps: int = 0
+        self.last_info: dict = {}
         self.last_reward: float = 0.0
         self.cumulative_reward: float = 0.0
         self.episodes: int = 0

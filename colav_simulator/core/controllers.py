@@ -453,10 +453,10 @@ class FLSH(IController):
         psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
         self.update_integrators(speed_error, psi_error, dt)
 
-        if psi_error > 0.2 and u_d < 5.0:
-            print(
-                f"speed error: {speed_error} | psi error: {psi_error} | speed error int: {self._speed_error_int} | psi error int: {self._psi_error_int}"
-            )
+        # if psi_error > 0.2 and u_d < 5.0:
+        #     print(
+        #         f"speed error: {speed_error} | psi error: {psi_error} | speed error int: {self._speed_error_int} | psi error int: {self._psi_error_int}"
+        #     )
 
         tau_X = (
             Cvv[0]

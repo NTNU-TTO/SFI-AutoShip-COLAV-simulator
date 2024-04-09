@@ -409,7 +409,8 @@ class Simulator:
             )
         ship_state = self.ship_list[ship_idx].csog_state
         d2goal = np.linalg.norm(ship_state[:2] - goal_state[:2])
-        return d2goal <= self.ownship.length
+        scale_factor = 10.0
+        return d2goal <= self.ship_list[ship_idx].length * scale_factor
 
 
 def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:

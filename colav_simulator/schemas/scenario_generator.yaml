@@ -234,6 +234,9 @@ behavior_generator:
             max_cross_track_error_int:
               required: True
               type: float
+            cross_track_error_int_threshold:
+              required: True
+              type: float
     rrtstar:
       required: True
       type: dict
@@ -327,6 +330,10 @@ behavior_generator:
             max_cross_track_error_int:
               required: True
               type: float
+            cross_track_error_int_threshold:
+              required: True
+              type: float
+
     rrt:
       required: True
       type: dict
@@ -412,5 +419,8 @@ behavior_generator:
               required: True
               type: float
             max_cross_track_error_int:
+              required: True
+              type: float
+            cross_track_error_int_threshold:
               required: True
               type: float
