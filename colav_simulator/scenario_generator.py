@@ -716,6 +716,13 @@ class ScenarioGenerator:
             os_simple_traj = mhm.trajectory_from_waypoints_and_speed(
                 ownship.waypoints, ownship.speed_plan, config.dt_sim, config.t_end - config.t_start
             )
+        elif ownship.goal_csog_state.size > 0:
+            os_simple_traj = mhm.trajectory_from_waypoints_and_speed(
+                np.array([ownship.csog_state[0:2], ownship.goal_csog_state[0:2]]).T,
+                np.array([ownship.speed, ownship.goal_csog_state[2]]),
+                config.dt_sim,
+                config.t_end - config.t_start,
+            )
 
         non_risky_situation_counter = 0
         for ship_obj in ship_list:
