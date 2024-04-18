@@ -14,12 +14,16 @@ type: HO
 n_random_ships: 1
 #n_random_ships_range: [1, 2]
 n_episodes: 1
-rl_action_type: "continuous_autopilot_reference_action"
-rl_observation_type:
-  dict_observation:
-    - "navigation_3dof_state_observation"
-    - "tracking_observation"
-    - "time_observation"
+rl:
+  action_type: "continuous_autopilot_reference_action"
+  action_sample_time: 0.5
+  observation_type:
+    dict_observation:
+      - "path_relative_navigation_observation"
+      - "perception_image_observation"
+      - "navigation_3dof_state_observation"
+      - "ground_truth_tracking_observation"
+      - "disturbance_observation"
 stochasticity:
   currents:
     constant: True

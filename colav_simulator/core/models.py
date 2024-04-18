@@ -457,11 +457,13 @@ class Telemetron(IModel):
     eta_dot = Rpsi(eta) * nu
     nu_dot = nu_c_dot + (M_rb + M_a)^-1 (- C_rb(nu_r) * nu_r - C_a(nu_r) * nu_r - (D_l + D_nl(nu_r)) * nu_r + tau + tau_wind)
 
-    with eta = [x, y, psi]^T, nu = [u, v, r]^T, xs = [eta, nu]^T and nu_c_dot = [r * v_c, -r * u_c, 0]^T
+    with eta = [x, y, psi]^T, nu = [u, v, r]^T, xs = [eta, nu]^T, nu_c_dot = [r * v_c, -r * u_c, 0]^T and nu_r = nu - nu_c.
 
-    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
+    Disturbances from winds and currents have been added, with a simple model for wind forces and moments (Blendermann model) as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+
+    Ref: See e.g. https://github.com/cybergalactic/FossenHandbook?tab=readme-ov-file Chapter 10, slide 55.
     """
 
     _n_x: int = 6
@@ -488,7 +490,6 @@ class Telemetron(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
         nu = xs[3:6]
 
         V_c = 0.0
@@ -542,11 +543,8 @@ class Telemetron(IModel):
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 
-        # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
         nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
-
-        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
@@ -644,9 +642,11 @@ class RVGunnerus(IModel):
 
     The model is implemented originally by Mathias Marley in the MCSim_python repository, managed by the Marine Cybernetics laboratory https://www.ntnu.edu/imt/lab/cybernetics.
 
-    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
+    Disturbances from winds and currents have been added, with a simple model for wind forces and moments (Blendermann model) as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Eulers method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+
+    Ref: See e.g. https://github.com/cybergalactic/FossenHandbook?tab=readme-ov-file Chapter 10, slide 55.
     """
 
     _n_x: int = 6
@@ -673,7 +673,6 @@ class RVGunnerus(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
         nu = xs[3:6]
 
         # Guesstimate limits
@@ -706,11 +705,8 @@ class RVGunnerus(IModel):
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 
-        # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
         nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
-
-        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)

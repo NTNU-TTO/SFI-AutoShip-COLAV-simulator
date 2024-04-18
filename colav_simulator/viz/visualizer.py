@@ -473,14 +473,14 @@ class Visualizer:
                     self._config.ownship_waypoint_color if ship_obj.id == 0 else self._config.target_waypoint_color
                 )
                 path_poly = mapf.create_path_polygon(
-                    ship_obj.waypoints, point_buffer=3, disk_buffer=6, hole_buffer=3, show_annuluses=True
+                    ship_obj.waypoints, point_buffer=2, disk_buffer=4, hole_buffer=2, show_annuluses=True
                 )
                 ship_i_handles["waypoints"] = ax_map.plot(
                     *path_poly.exterior.xy,
                     # ship_obj.waypoints[1, :],
                     # ship_obj.waypoints[0, :],
                     color=waypoint_color,
-                    linewidth=2,
+                    linewidth=1,
                     alpha=0.6,
                     label=ship_name + " waypoints",
                     zorder=-6,

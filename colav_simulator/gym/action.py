@@ -263,7 +263,7 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
         """
         super().__init__(env, sample_time)
         assert self._ownship is not None, "Ownship must be set before using the action space"
-        self.size = 4
+        self.size = 4  # Enhancement: make the sequence length a parameter
         self.course_range = (-np.pi, np.pi)
         self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
         self.name = "RelativeCourseSpeedReferenceSequenceAction"

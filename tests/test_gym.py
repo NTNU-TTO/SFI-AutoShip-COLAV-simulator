@@ -11,6 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from colav_simulator.gym.environment import COLAVEnvironment
+from colav_simulator.scenario_generator import ScenarioGenerator
 from matplotlib import animation
 
 # Depending on your OS, you might need to change these paths
@@ -44,27 +45,30 @@ def save_frames_as_gif(frame_list: list, filename: Path) -> None:
 
 
 if __name__ == "__main__":
-    config_file = dp.scenarios / "rl_scenario.yaml"
-    observation_type = {
-        "dict_observation": [
-            "perception_image_observation",
-            "relative_tracking_observation",
-            "navigation_3dof_state_observation",
-            "disturbance_observation",
-        ]
-    }
+    config_file = dp.scenarios / "rl_scenario_smaller.yaml"
+
+    # scenario_generator = ScenarioGenerator(seed=0)
+    # scenario_data = scenario_generator.generate(
+    #     config_file=config_file,
+    #     new_load_of_map_data=True,
+    #     save_scenario=True,
+    #     save_scenario_folder=dp.scenarios / "test_data" / "rl_scenario_smaller",
+    #     show_plots=True,
+    #     episode_idx_save_offset=0,
+    #     delete_existing_files=True,
+    # )
+
     env_id = "COLAVEnvironment-v0"
     env_config = {
         "scenario_config": config_file,
-        "observation_type": observation_type,
         "reload_map": True,
         "render_mode": "rgb_array",
-        "render_update_rate": 5.0,
+        "render_update_rate": 1.0,
         "test_mode": False,
     }
     env = gym.make(id=env_id, **env_config)
 
-    record = True
+    record = False
     if record:
         video_path = dp.animation_output / "demo.mp4"
         env = gym.wrappers.RecordVideo(env, video_path.as_posix(), episode_trigger=lambda x: x == 0)

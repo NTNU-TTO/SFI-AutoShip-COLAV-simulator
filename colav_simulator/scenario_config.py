@@ -51,6 +51,34 @@ class ScenarioType(Enum):
 
 
 @dataclass
+class RLConfig:
+    """Configuration class for an RL agent."""
+
+    observation_type: Optional[dict] = field(
+        default_factory=lambda: {"dict_observation": ["navigation_3dof_state_observation", "lidar_like_observation"]}
+    )
+    action_type: Optional[str] = "continuous_autopilot_reference_action"
+    action_sample_time: Optional[float] = (
+        None  # Time between each action sample, equal to simulation time step if not specified.
+    )
+
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        config = RLConfig()
+        if "observation_type" in config_dict:
+            config.observation_type = config_dict["observation_type"]
+        if "action_type" in config_dict:
+            config.action_type = config_dict["action_type"]
+        if "action_sample_time" in config_dict:
+            config.action_sample_time = config_dict["action_sample_time"]
+        return config
+
+    def to_dict(self):
+        output = asdict(self)
+        return output
+
+
+@dataclass
 class EpisodeGenerationConfig:
     """Class describing how the episodes are generated, i.e. how often the own-ship plan+state, dynamic obstacle state, dynamic obstacle plan and disturbance are updated/re-randomized."""
 
@@ -146,11 +174,8 @@ class ScenarioConfig:
     stochasticity: Optional[stoch.Config] = (
         None  # Configuration class containing stochasticity parameters for the scenario
     )
-    rl_observation_type: Optional[dict] = field(
-        default_factory=lambda: {"tuple_observation": ["navigation_state_observation", "lidar_like_observation"]}
-    )  # Observation type settings configured for an  RL agent
-    rl_action_type: Optional[str] = (
-        "continuous_autopilot_reference_action"  # Observation type configured for an  RL agent
+    rl: Optional[RLConfig] = (
+        None  # Configuration class containing COLAVEnvironment observation and action  parameters for the scenario
     )
 
     @classmethod
@@ -214,8 +239,7 @@ class ScenarioConfig:
             "allowed_nav_statuses": self.allowed_nav_statuses,
             "filename": self.filename if self.filename is not None else None,
             "stochasticity": self.stochasticity.to_dict() if self.stochasticity is not None else None,
-            "rl_observation_type": self.rl_observation_type,
-            "rl_action_type": self.rl_action_type,
+            "rl": self.rl.to_dict() if self.rl is not None else None,
             "ship_list": [],
         }
 
@@ -251,10 +275,13 @@ class ScenarioConfig:
             stochasticity=(
                 stoch.Config.from_dict(config_dict["stochasticity"]) if "stochasticity" in config_dict else None
             ),
-            rl_observation_type=config_dict["rl_observation_type"] if "rl_observation_type" in config_dict else None,
-            rl_action_type=config_dict["rl_action_type"] if "rl_action_type" in config_dict else None,
+            rl=RLConfig.from_dict(config_dict["rl"]) if "rl" in config_dict else None,
             ship_list=[],
         )
+
+        if config.rl is not None and config.rl.action_sample_time is None:
+            config.rl.action_sample_time = config.dt_sim
+
         ep_gen_cfg = ScenarioConfig.parse_episode_generation_config(config_dict)
         config.episode_generation = ep_gen_cfg
         if config.ais_data_file is not None:

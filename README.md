@@ -240,6 +240,8 @@ NOTE: The random generation of scenarios (poses, waypoints, speed plans etc.) ar
 
 Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. A basic live plotting feature when simulating scenarios is available. The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
+Note that the visualizer uses matplotlib, and scales badly with a large number of vessels and plot data. Use with care.
+
 ### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
 

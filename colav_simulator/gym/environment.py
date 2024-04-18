@@ -47,7 +47,7 @@ class COLAVEnvironment(gym.Env):
         rewarder_class: Optional[rw.IReward] = rw.Rewarder,
         rewarder_kwargs: Optional[dict] = {},
         action_type: Optional[str] = None,
-        action_sampling_time: Optional[float] = None,
+        action_sample_time: Optional[float] = None,
         observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "rgb_array",
         render_update_rate: Optional[float] = None,
@@ -145,11 +145,13 @@ class COLAVEnvironment(gym.Env):
         )
         self.ownship = self.simulator.ownship
 
-        self.action_type_cfg = action_type if action_type is not None else self.scenario_config.rl_action_type
+        self.action_type_cfg = action_type if action_type is not None else self.scenario_config.rl.action_type
         self.observation_type_cfg = (
-            observation_type if observation_type is not None else self.scenario_config.rl_observation_type
+            observation_type if observation_type is not None else self.scenario_config.rl.observation_type
         )
-        self.dt_action = action_sampling_time
+        self.dt_action = (
+            action_sample_time if action_sample_time is not None else self.scenario_config.rl.action_sample_time
+        )
 
         self.rewarder = rewarder_class(env=self, **rewarder_kwargs)
         self._define_spaces()
@@ -227,12 +229,14 @@ class COLAVEnvironment(gym.Env):
                 config_file=scenario_config,
                 new_load_of_map_data=reload_map,
                 n_episodes=self.max_number_of_episodes,
+                show_plots=False,
             )
         else:
             self.scenario_data_tup = self.scenario_generator.generate(
                 config=scenario_config,
                 new_load_of_map_data=reload_map,
                 n_episodes=self.max_number_of_episodes,
+                show_plots=False,
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 

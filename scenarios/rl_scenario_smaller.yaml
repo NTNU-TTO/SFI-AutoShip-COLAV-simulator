@@ -4,16 +4,16 @@ t_start: 0.0
 t_end: 100.0
 dt_sim: 0.5
 utm_zone: 33
-map_size: [4500.0, 5200.0]
-map_origin_enu: [-33324.0, 6573500.0]
+map_size: [2500.0, 2500.0]
+map_origin_enu: [-32824.0, 6573500.0]
 map_data_files: ["Rogaland_utm33.gdb"]
 map_tolerance: 1
 map_buffer: 0
 new_load_of_map_data: True
 type: MS
-n_random_ships: 1
+n_random_ships: 3
 #n_random_ships_range: [1, 2]
-n_episodes: 1
+n_episodes: 5
 rl:
   action_type: "continuous_autopilot_reference_action"
   action_sample_time: 0.5
@@ -49,7 +49,7 @@ ship_list:
   - id: 0
     mmsi: 100
     csog_state: [6574280.0, -31824.0, 5.0, 0.0]
-    goal_csog_state: [6578500.0, -29300.0, 5.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
+    # goal_csog_state: [6578500.0, -29300.0, 5.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
     random_generated: False
     tracker:
       kf:

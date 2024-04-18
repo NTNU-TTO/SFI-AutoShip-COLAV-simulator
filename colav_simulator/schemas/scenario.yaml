@@ -101,7 +101,7 @@ map_size:
     type: float
 
 map_origin_enu:
-  required: False
+  required: True
   type: list
   maxlength: 2
   minlength: 2
@@ -165,47 +165,38 @@ max_dist_between_ships:
   type: float
   nullable: True
 
-rl_observation_type:
+rl:
   required: False
   type: dict
   nullable: True
   schema:
-    tuple_observation:
-      required: False
-      type: list
-      minlength: 1
+    observation_type:
+      required: True
+      type: dict
+      nullable: True
       schema:
-        type: string
-    navigation_3dof_state_observation:
-      required: False
+        tuple_observation:
+          required: False
+          excludes: [dict_observation]
+          type: list
+          minlength: 1
+          schema:
+            type: string
+        dict_observation:
+          excludes: [tuple_observation]
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: string
+    action_type:
+      required: True
       type: string
-      empty: True
-    navigation_csog_state_observation:
-      required: False
-      type: string
-      empty: True
-    lidar_like_observation:
-      required: False
-      type: string
-      empty: True
-    tracking_observation:
-      required: False
-      type: string
-      empty: True
-    time_observation:
-      required: False
-      type: string
-      empty: True
-    dict_observation:
-      required: False
-      type: list
-      minlength: 1
-      schema:
-        type: string
-rl_action_type:
-  required: False
-  type: string
-  nullable: True
+      nullable: True
+    action_sample_time:
+        required: True
+        type: float
+
 
 filename:
   required: False

@@ -501,8 +501,11 @@ class ScenarioGenerator:
         Returns:
             - Tuple[list, ENC]: List of scenario episodes, each containing a dictionary of episode information. Also, the corresponding ENC object is returned.
         """
-        if save_scenario_folder is not None and delete_existing_files:
-            fu.delete_files_in_folder(save_scenario_folder)
+        if save_scenario_folder is not None:
+            if not save_scenario_folder.exists():
+                save_scenario_folder.mkdir(parents=True, exist_ok=True)
+            if delete_existing_files:
+                fu.delete_files_in_folder(save_scenario_folder)
 
         if config is None and config_file is not None:
             config = cp.extract(sc.ScenarioConfig, config_file, dp.scenario_schema)
@@ -573,7 +576,7 @@ class ScenarioGenerator:
                 mmsi_list,
                 show_plots=show_plots,
             )
-            if self._bad_episode:  # See the check_for_bad_episode method for more information
+            if self._bad_episode and n_episodes > 1:  # See the check_for_bad_episode method for more information
                 continue
 
             if self._config.manual_episode_accept:

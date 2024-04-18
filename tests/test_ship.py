@@ -46,11 +46,11 @@ if __name__ == "__main__":
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(
-        K_p=0.02,
+        K_p=0.01,
         K_i=0.0004,
         R_a=80.0,
-        max_cross_track_error_int=1000.0,
-        cross_track_error_int_threshold=30.0,
+        max_cross_track_error_int=500.0,
+        cross_track_error_int_threshold=100.0,
         pass_angle_threshold=90.0,
     )
     guidance_method = guidances.LOSGuidance(guidance_params)
@@ -77,8 +77,8 @@ if __name__ == "__main__":
     # disturbance._wind = None
 
     rng = np.random.default_rng(seed=1)
-    horizon = 500.0
-    dt = 0.5
+    horizon = 300.0
+    dt = 0.1
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
