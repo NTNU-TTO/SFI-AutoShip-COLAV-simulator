@@ -52,7 +52,7 @@ class GaussMarkovDisturbanceParams:
     """
 
     constant: bool = True
-    initial_speed: float = 2.0
+    initial_speed: float = 3.0
     initial_direction: float = 0.0
     speed_range: Tuple[float, float] = (0.0, 3.0)
     direction_range: Tuple[float, float] = (-np.pi, np.pi)

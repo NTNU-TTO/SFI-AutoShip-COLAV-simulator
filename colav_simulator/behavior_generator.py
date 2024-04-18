@@ -276,6 +276,7 @@ class BehaviorGenerator:
         self._grounding_hazards: list = []
         self._seed: Optional[int] = None
         self._bg_method_list: list = []
+        self._initialized: bool = False
 
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the behavior generator, i.e. all RRTs/pqrrtstars.
@@ -310,6 +311,7 @@ class BehaviorGenerator:
 
     def reset(self) -> None:
         """Resets the behavior generator, i.e. all RRTs and data structures for the environment."""
+        self._initialized = False
         self._prev_ship_plans = []
         self._prev_ship_states = []
         self._ship_replan_flags = []
@@ -346,7 +348,7 @@ class BehaviorGenerator:
         ]
         return self._rrt_list, self._rrtstar_list, self._pqrrtstar_list
 
-    def initialize(self, n_ships: int) -> None:
+    def initialize_data_structures(self, n_ships: int) -> None:
         """Initializes data structures and RRTs (if enabled). The number of RRTs is determined by the number of ships.
 
         If the number of ships in the input list is different from the number of RRTs, the data structures and RRTs are either extended or truncated to match the number of ships.

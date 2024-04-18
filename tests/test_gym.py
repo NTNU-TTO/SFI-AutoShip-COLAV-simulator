@@ -59,7 +59,7 @@ if __name__ == "__main__":
         "observation_type": observation_type,
         "reload_map": True,
         "render_mode": "rgb_array",
-        "render_update_rate": 1.0,
+        "render_update_rate": 5.0,
         "test_mode": False,
     }
     env = gym.make(id=env_id, **env_config)
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     env.reset(seed=1)
     frames = []
-    for i in range(500):
+    for i in range(100):
         obs, reward, terminated, truncated, info = env.step(np.array([-0.2, 0.0]))
 
         frames.append(env.render())

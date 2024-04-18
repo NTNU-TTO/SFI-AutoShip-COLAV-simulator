@@ -46,7 +46,7 @@ if __name__ == "__main__":
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(
         K_p=0.02,
-        K_i=0.0003,
+        K_i=0.0004,
         R_a=80.0,
         max_cross_track_error_int=1000.0,
         cross_track_error_int_threshold=30.0,
@@ -81,6 +81,7 @@ if __name__ == "__main__":
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
+    scenario_generator.behavior_generator.initialize_data_structures(1)
     scenario_generator.behavior_generator.setup(
         rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
     )
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     n_x, n_u = model.dims
     n_r = 9
     n_samples = round(horizon / dt)
-    disturbances = np.zeros((10, n_samples))
+    disturbances = np.zeros((4, n_samples))
     trajectory = np.zeros((n_x, n_samples))
     refs = np.zeros((n_r, n_samples))
     tau = np.zeros((n_u, n_samples))
@@ -118,15 +119,30 @@ if __name__ == "__main__":
 
     # Plots
     scenario_generator.enc.start_display()
-    initial_wind_speed = disturbances[0, 0]
-    initial_wind_direction = disturbances[1, 0]
-    # if initial_wind_speed > 0.0:
-    #     wind_arrow_start = (origin[1] + 500.0, origin[0] + 500.0)
-    #     wind_arrow_end = (
-    #         wind_arrow_start[0] + 100.0 * initial_wind_speed * np.sin(initial_wind_direction),
-    #         wind_arrow_start[1] + 100.0 * initial_wind_speed * np.cos(initial_wind_direction),
-    #     )
-    #     scenario_generator.enc.draw_arrow(wind_arrow_start, wind_arrow_end, "white", width=15, fill=False, head_size=60, thickness=2)
+    if disturbance_data.currents is not None and disturbance_data.currents["speed"] > 0.0:
+        plotters.plot_disturbance(
+            magnitude=70.0,
+            direction=disturbance_data.currents["direction"],
+            name="current: " + str(disturbance_data.currents["speed"]) + " m/s",
+            enc=enc,
+            color="white",
+            linewidth=1.0,
+            location="topright",
+            text_location_offset=(0.0, 0.0),
+        )
+
+    if disturbance_data.wind is not None and disturbance_data.wind["speed"] > 0.0:
+        plotters.plot_disturbance(
+            magnitude=70.0,
+            direction=disturbance_data.wind["direction"],
+            name="wind: " + str(disturbance_data.wind["speed"]) + " m/s",
+            enc=enc,
+            color="peru",
+            linewidth=1.0,
+            location="topright",
+            text_location_offset=(0.0, -20.0),
+        )
+
     plotters.plot_waypoints(
         waypoints,
         scenario_generator.enc,
@@ -137,7 +153,7 @@ if __name__ == "__main__":
         alpha=0.6,
     )
     plotters.plot_trajectory(trajectory, scenario_generator.enc, "black")
-    for k in range(0, n_samples, 10):
+    for k in range(0, n_samples, 20):
         ship_poly = mapf.create_ship_polygon(
             trajectory[0, k], trajectory[1, k], trajectory[2, k], ownship.length, ownship.width
         )

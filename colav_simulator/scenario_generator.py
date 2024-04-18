@@ -548,7 +548,7 @@ class ScenarioGenerator:
             n_random_ships_list = [0 for _ in range(n_episodes)]
         max_number_of_ships = max(n_random_ships_list) + 1  # +1 for own-ship
 
-        self.behavior_generator.initialize(max_number_of_ships)
+        self.behavior_generator.initialize_data_structures(max_number_of_ships)
         self.determine_indices_of_episode_parameter_updates(config)
         self._position_generation = config.episode_generation.position_generation
 
