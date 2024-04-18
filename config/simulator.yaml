@@ -5,15 +5,15 @@ visualizer:
   show_liveplot_colav_results: True
   show_liveplot_measurements: False
   show_liveplot_target_tracks: True
-  show_liveplot_target_waypoints: False
+  show_liveplot_target_waypoints: True
   show_liveplot_target_trajectories: True
   show_liveplot_ownship_waypoints: True
   show_liveplot_ownship_trajectory: True
   show_liveplot_ground_truth_target_pose: False
   zoom_in_liveplot_on_ownship: True
-  zoom_window_width: 2000.0
+  zoom_window_width: 1000.0
   show_liveplot_map_axes: False
-  show_liveplot_scalebar: False
+  show_liveplot_scalebar: True
   show_liveplot_time: True
   show_results: True
   show_target_tracking_results: True

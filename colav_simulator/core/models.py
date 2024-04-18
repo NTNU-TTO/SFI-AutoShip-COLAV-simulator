@@ -447,20 +447,15 @@ class Telemetron(IModel):
     """Implements a 3DOF underactuated vessel maneuvering model for the MR Telemetron vessel:
 
     eta_dot = Rpsi(eta) * nu
-    (M_rb + M_a) * nu_dot + C_rb(nu) * nu + C_a(nu_r) * nu_r + (D_l + D_nl(nu_irr)) * nu_r = tau + tau_wind
+    nu_dot = nu_c_dot + (M_rb + M_a)^-1 (- C_rb(nu_r) * nu_r - C_a(nu_r) * nu_r - (D_l + D_nl(nu_r)) * nu_r + tau + tau_wind)
 
-    with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
+    with eta = [x, y, psi]^T, nu = [u, v, r]^T, xs = [eta, nu]^T, nu_c_dot = [r * v_c, -r * u_c, 0]^T and nu_r = nu - nu_c.
 
-    Parameters:
-        M_rb: Rigid body mass matrix
-        M_a: Added mass matrix
-        C: Coriolis matrix, computed from M = M_rb + M_a
-        D_l: Linear damping matrix
-        D_nl: Nonlinear damping matrix
-
-    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
+    Disturbances from winds and currents have been added, with a simple model for wind forces and moments (Blendermann model) as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Euler`s method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+
+    Ref: See e.g. https://github.com/cybergalactic/FossenHandbook?tab=readme-ov-file Chapter 10, slide 55.
     """
 
     _n_x: int = 6
@@ -487,7 +482,6 @@ class Telemetron(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
         nu = xs[3:6]
 
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
@@ -514,17 +508,14 @@ class Telemetron(IModel):
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 
-        # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
         nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
-
-        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
-        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu)
+        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu_r)
         C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r)
-        Cvv = C_RB @ nu + C_A @ nu_r
+        Cvv = C_RB @ nu_r + C_A @ nu_r
 
         Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu_r) @ nu_r
 
@@ -609,21 +600,18 @@ class Telemetron(IModel):
 
 
 class RVGunnerus(IModel):
-    """Implements a 3DOF underactuated vessel maneuvering model for the R/V Gunnerus vessel with linear+quadratic viscous loads:
-
-    eta_dot = Rpsi(eta) * nu
-    (M_rb + M_a) * nu_dot + C_rb(nu) * nu + C_a(nu_r) * nu_r + (D_l(nu_r) + D_nl) * nu_r = tau + tau_wind + tau_wave
-
-    with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
+    """Implements a 3DOF underactuated vessel maneuvering model for the R/V Gunnerus vessel with linear+quadratic viscous loads.
 
     An actuator model for a single azimuth thruster (by combining the two existing azimuth pods into one at the centerline for simplicity) is included,
     but not used in the current framework. This removes the need for thrust allocation
 
     The model is implemented originally by Mathias Marley in the MCSim_python repository, managed by the Marine Cybernetics laboratory https://www.ntnu.edu/imt/lab/cybernetics.
 
-    Disturbances from winds have been added, with a simple model for wind forces and moments as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
+    Disturbances from winds and currents have been added, with a simple model for wind forces and moments (Blendermann model) as in Fossen (2011). A future enhancement is to include support for wave disturbances as well.
 
     NOTE: When using Eulers method, keep the time step small enough (e.g. around 0.1 or less) to ensure numerical stability.
+
+    Ref: See e.g. https://github.com/cybergalactic/FossenHandbook?tab=readme-ov-file Chapter 10, slide 55.
     """
 
     _n_x: int = 6
@@ -650,7 +638,6 @@ class RVGunnerus(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-
         nu = xs[3:6]
 
         # Guesstimate limits
@@ -683,25 +670,20 @@ class RVGunnerus(IModel):
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 
-        # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
         nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
-
-        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
         Minv = np.linalg.inv(self._params.M_rb + self._params.M_a)
-        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu)
+        C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu_r)
         C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r)
-        Cvv = C_RB @ nu + C_A @ nu_r
+        Cvv = C_RB @ nu_r + C_A @ nu_r
         Dvv = (
             self._params.D_l
             + self._params.D_u * abs(nu_r[0])
             + self._params.D_v * abs(nu_r[1])
             + self._params.D_r * abs(nu_r[2])
         ) @ nu_r
-
-        # Compute wave forces and moments
 
         # Compute thruster forces and moments (NOT USED IN CURRENT FRAMEWORK for simplicity),
         # would then need azimuth angle and propeller speed as input
