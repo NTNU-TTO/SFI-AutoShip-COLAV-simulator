@@ -142,12 +142,18 @@ class Simulator:
         self.dt = sconfig.dt_sim
         self.recent_sensor_measurements: list = [None] * len(self.ship_list)
 
-    def run(self, scenario_data_list: list, colav_systems: Optional[list] = None) -> list:
+    def run(
+        self,
+        scenario_data_list: list,
+        colav_systems: Optional[list] = None,
+        terminate_on_collision_or_grounding: bool = True,
+    ) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
         Args:
             - scenario_data_list (list): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects.
             - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
+            - terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
 
         Returns:
             list: List of dictionaries containing the following simulation data for each scenario:
@@ -181,7 +187,7 @@ class Simulator:
 
                 if self._config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
-                sim_data, ship_info, sim_times = self.run_scenario_episode()
+                sim_data, ship_info, sim_times = self.run_scenario_episode(terminate_on_collision_or_grounding)
                 if self._config.verbose:
                     print(
                         f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}."
@@ -215,7 +221,7 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
-    def is_terminated(self, verbose: bool = False) -> bool:
+    def is_terminated(self, verbose: bool = False, terminate_on_collision_or_grounding: bool = True) -> bool:
         """Check whether the current own-ship state is a terminal state.
 
         Args:
@@ -225,8 +231,8 @@ class Simulator:
             bool: Whether the current own-ship state is a terminal state
         """
         goal_reached = self.determine_ship_goal_reached(ship_idx=0)
-        collided = self.determine_ship_collision(ship_idx=0)
-        grounded = self.determine_ship_grounding(ship_idx=0)
+        collided = self.determine_ship_collision(ship_idx=0) and terminate_on_collision_or_grounding
+        grounded = self.determine_ship_grounding(ship_idx=0) and terminate_on_collision_or_grounding
         if verbose and collided:
             print(f"Collision at t = {self.t}!")
         if verbose and grounded:
@@ -249,8 +255,13 @@ class Simulator:
             print("Time limit reached!")
         return truncated
 
-    def run_scenario_episode(self) -> Tuple[pd.DataFrame, dict, np.ndarray]:
+    def run_scenario_episode(
+        self, terminate_on_collision_or_grounding: bool = True
+    ) -> Tuple[pd.DataFrame, dict, np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
+
+        Args:
+            terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
 
         Returns: a tuple containing:
             - sim_data (DataFrame): Dataframe/table containing the ship simulation data.
@@ -273,7 +284,9 @@ class Simulator:
 
             self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
 
-            terminated = self.is_terminated(verbose=True)
+            terminated = self.is_terminated(
+                verbose=True, terminate_on_collision_or_grounding=terminate_on_collision_or_grounding
+            )
             truncated = self.is_truncated(verbose=True)
             if terminated or truncated:
                 t_end = self.t

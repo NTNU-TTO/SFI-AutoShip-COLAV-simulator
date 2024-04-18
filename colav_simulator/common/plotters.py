@@ -193,6 +193,7 @@ def plot_waypoints(
     show_annuluses: Optional[bool] = True,
     draft: Optional[float] = 5.0,
 ):
+    assert waypoints.shape[1] > 1, "Waypoints must have at least two points"
     path = mapf.create_path_polygon(waypoints, point_buffer, disk_buffer, hole_buffer, show_annuluses)
 
     # hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)[0]

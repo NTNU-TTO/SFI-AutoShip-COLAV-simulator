@@ -43,7 +43,12 @@ class RRTConfig:
         U_max=15.0,
     )
     los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
-        K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+        K_p=0.03,
+        K_i=0.0001,
+        pass_angle_threshold=90.0,
+        R_a=25.0,
+        max_cross_track_error_int=1000.0,
+        cross_track_error_int_threshold=30.0,
     )
 
     @classmethod
@@ -134,7 +139,7 @@ class PQRRTStar(ci.ICOLAV):
         assert goal_state is not None, "Goal state must be provided to the RRT"
         assert enc is not None, "ENC must be provided to the RRT"
         if not self._initialized:
-            self._min_depth = 0  # mapf.find_minimum_depth(kwargs["os_draft"], enc)
+            self._min_depth = 5  # mapf.find_minimum_depth(kwargs["os_draft"], enc)
             self._t_prev = t
             self._map_origin = ownship_state[:2]
             self._initialized = True
@@ -157,8 +162,10 @@ class PQRRTStar(ci.ICOLAV):
                 return_on_first_solution=False,
             )
             self._rrt_waypoints, self._rrt_trajectory, self._rrt_inputs, times, cost = parse_rrt_solution(rrt_solution)
+
             if enc is not None and t == 0.0:
                 plotters.plot_rrt_tree(self._rrt.get_tree_as_list_of_dicts(), enc)
+                enc.draw_circle(center=(goal_state[1], goal_state[0]), radius=20.0, color="magenta", alpha=0.7)
                 plotters.plot_waypoints(
                     self._rrt_waypoints,
                     enc,
@@ -178,7 +185,7 @@ class PQRRTStar(ci.ICOLAV):
                 )
                 print(f"Num tree nodes: {self._rrt.get_num_nodes()}")
                 enc.draw_polygon(ship_poly, color="yellow")
-                enc.draw_circle(center=(goal_state[1], goal_state[0]), radius=20.0, color="magenta", alpha=0.7)
+
         else:
             self._rrt_trajectory = self._rrt_trajectory[:, 1:]
             self._rrt_inputs = self._rrt_inputs[:, 1:]
@@ -222,13 +229,13 @@ class PQRRTStar(ci.ICOLAV):
 if __name__ == "__main__":
     params = RRTPlannerParams()
     params.rrt.params = PQRRTStarParams(
-        max_nodes=10000,
-        max_iter=25000,
-        max_time=50.0,
+        max_nodes=3000,
+        max_iter=10000,
+        max_time=10.0,
         iter_between_direct_goal_growth=500,
         min_node_dist=5.0,
-        goal_radius=100.0,
-        step_size=0.5,
+        goal_radius=300.0,
+        step_size=1.0,
         min_steering_time=1.0,
         max_steering_time=30.0,
         steering_acceptance_radius=10.0,
@@ -241,9 +248,10 @@ if __name__ == "__main__":
 
     rrt = PQRRTStar(params)
 
-    scenario_file = dp.scenarios / "rogaland_random_rl.yaml"
+    scenario_file = dp.scenarios / "rrt_test.yaml"
     scenario_generator = ScenarioGenerator()
     scenario_data = scenario_generator.generate(config_file=scenario_file, new_load_of_map_data=True)
     simulator = Simulator()
-    output = simulator.run([scenario_data], colav_systems=[(0, rrt)])
+    simulator.toggle_liveplot_visibility(True)
+    output = simulator.run([scenario_data], colav_systems=[(0, rrt)], terminate_on_collision_or_grounding=False)
     print("done")
