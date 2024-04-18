@@ -70,6 +70,6 @@ class Logger:
 
 if __name__ == "__main__":
     logger = Logger(Path("./logs"), "test")
-    logger.load_hdf5(Path("home/doctor/Desktop/machine_learning/rlmpc/test.h5"))
+    logger.load_hdf5(Path("test.h5"))
 
     print("Logger loaded successfully.")

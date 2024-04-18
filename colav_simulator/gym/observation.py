@@ -639,7 +639,6 @@ class DisturbanceObservation(ObservationType):
             obs[3] = mf.wrap_angle_diff_to_pmpi(ddata.wind["direction"], os_course)
         return self.normalize(obs)
 
-
 class GroundTruthTrackingObservation(ObservationType):
     """Observation containing a dict of augmented states [x, y, vx, vy, length, width] and covariances for the dynamic obstacles, non-normalized and non-relative to the own-ship."""
 

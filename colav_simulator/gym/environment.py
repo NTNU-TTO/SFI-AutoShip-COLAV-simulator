@@ -61,7 +61,6 @@ class COLAVEnvironment(gym.Env):
         **kwargs,
     ) -> None:
         """Initializes the environment.
-
         Note that the scenario config object takes precedence over the scenario config file, which again takes precedence over the scenario file list.
 
         Args:
