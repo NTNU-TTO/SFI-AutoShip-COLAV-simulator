@@ -448,7 +448,7 @@ class PathRelativeNavigationObservation(ObservationType):
 
     def define_observation_ranges(self) -> None:
         self.observation_range = {
-            "distance": (0.0, 10000.0),
+            "distance": (0.0, 2000.0),
             "speed": (-self._ownship.max_speed, self._ownship.max_speed),
             "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
         }
@@ -510,7 +510,7 @@ class PathRelativeNavigationObservation(ObservationType):
         s = self.get_closest_arclength(state[:2])
         d2path = self.distance_to_path(state[:2])
         speed = np.linalg.norm(state[3:5])
-        speed_diff = np.sqrt(np.power(self._speed_spline(s) - speed, 2))
+        speed_diff = self._speed_spline(s) - speed
         obs = np.array([d2path, speed_diff, state[3], state[4], state[5]])
         return self.normalize(obs)
 
@@ -975,7 +975,7 @@ class RelativeTrackingObservation(ObservationType):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
-        self.max_num_do = 15
+        self.max_num_do = 10
         self.do_info_size = 6  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
         self.name = "RelativeTrackingObservation"
         self.define_observation_ranges()
@@ -987,7 +987,7 @@ class RelativeTrackingObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         assert self._ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 6000.0),
+            "distance": (0.0, 5000.0),
             "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
             "variance": (0.0, 100.0),
