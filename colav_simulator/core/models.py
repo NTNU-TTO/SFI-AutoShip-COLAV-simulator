@@ -7,6 +7,7 @@
 
     Author: Trym Tengesdal
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from typing import Optional, Tuple
@@ -74,8 +75,8 @@ class TelemetronParams:
 
     name: str = "Telemetron"
     draft: float = 0.5
-    length: float = 8.45 # Source: https://folk.ntnu.no/torarnj/Oceans17_Paper_Final_A.pdf
-    width: float = 2.71 # Source: https://arxiv.org/pdf/1907.04877.pdf
+    length: float = 8.45  # Source: https://folk.ntnu.no/torarnj/Oceans17_Paper_Final_A.pdf
+    width: float = 2.71  # Source: https://arxiv.org/pdf/1907.04877.pdf
     ship_vertices: np.ndarray = field(
         default_factory=lambda: np.array([[3.75, 1.5], [4.25, 0.0], [3.75, -1.5], [-3.75, -1.5], [-3.75, 1.5]]).T
     )
@@ -92,14 +93,23 @@ class TelemetronParams:
     U_max: float = 10.0
 
     # NB! Very crude assumed/guessed values.
-    A_Fw: float = 3.5 * width          # Guess 3.5 m height 
-    A_Lw: float = 0.45 * 3.5 * length  # Guess 3.5 m height, the cab covers about half of the length, front is open  
-    rho_air: float = 1.225             # Density of air
-    CD_l_AF_0: float = 0.55            # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = 0). Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
-    CD_l_AF_pi: float = 0.60           # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = pi) Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
-    CD_t: float = 0.85                 # Guess transversal resistance used to compute wind coefficients in wind model. Table 10.3 Fossen 2011: Research vessel, chosen due to expectation of lower sim speeds
-    delta_crossforce: float = 0.60     # Guess cross-force parameter. Table 10.3 Fossen 2011: Sped boat, assumed OK for this RIB
-    s_L: float = -1.0                  # Guess x-coordinate of the centre of "A_lw", vessel is asymmetric, see sideprofile 
+    A_Fw: float = 3.5 * width  # Guess 3.5 m height
+    A_Lw: float = 0.45 * 3.5 * length  # Guess 3.5 m height, the cab covers about half of the length, front is open
+    rho_air: float = 1.225  # Density of air
+    CD_l_AF_0: float = (
+        0.55  # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = 0). Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
+    )
+    CD_l_AF_pi: float = (
+        0.60  # Guess longitudinal resistance used to compute wind coefficients in wind model (gamma_w = pi) Table 10.3 Fossen 2011: Speed boat, assumed OK for this RIB
+    )
+    CD_t: float = (
+        0.85  # Guess transversal resistance used to compute wind coefficients in wind model. Table 10.3 Fossen 2011: Research vessel, chosen due to expectation of lower sim speeds
+    )
+    delta_crossforce: float = (
+        0.60  # Guess cross-force parameter. Table 10.3 Fossen 2011: Sped boat, assumed OK for this RIB
+    )
+    s_L: float = -1.0  # Guess x-coordinate of the centre of "A_lw", vessel is asymmetric, see sideprofile
+
 
 @dataclass
 class RVGunnerusParams:
@@ -477,7 +487,7 @@ class Telemetron(IModel):
 
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
-        
+
         nu = xs[3:6]
 
         u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
@@ -506,6 +516,8 @@ class Telemetron(IModel):
 
         # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
+        nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
+
         nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
@@ -513,22 +525,17 @@ class Telemetron(IModel):
         C_RB = mf.coriolis_matrix_rigid_body(self._params.M_rb, nu)
         C_A = mf.coriolis_matrix_added_mass(self._params.M_a, nu_r)
         Cvv = C_RB @ nu + C_A @ nu_r
-        
-        nu_irr = np.array([nu_r[0], nu_r[1], nu[2]]) # irrotational wind currents
-        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu_irr) @ nu_r
+
+        Dvv = mf.Dmtrx(self._params.D_l, self._params.D_q, self._params.D_c, nu_r) @ nu_r
 
         tau = u
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind)
-
-        U = np.sqrt(nu[0] ** 2 + nu[1] ** 2)
-        if U < 0.1:
-            ode_fun[2] = 0.0
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind) + nu_c_dot
 
         return ode_fun
-    
+
     def _compute_wind_coefficients(self, gamma_rw: float) -> Tuple[float, float, float]:
         """Computes the wind coefficients based on 8.32 - 8.35 in Fossen 2011. See also _compute_wind_forces
 
@@ -678,6 +685,8 @@ class RVGunnerus(IModel):
 
         # Current in BODY frame
         nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
+        nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])  # under the assumption of irrotational current
+
         nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
         nu_r = nu - nu_c
 
@@ -689,7 +698,7 @@ class RVGunnerus(IModel):
             self._params.D_l
             + self._params.D_u * abs(nu_r[0])
             + self._params.D_v * abs(nu_r[1])
-            + self._params.D_r * abs(nu[2]) # No rotational current
+            + self._params.D_r * abs(nu_r[2])
         ) @ nu_r
 
         # Compute wave forces and moments
@@ -703,11 +712,7 @@ class RVGunnerus(IModel):
 
         ode_fun = np.zeros(6)
         ode_fun[0:3] = mf.Rmtrx(eta[2]) @ nu
-        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind)
-
-        U = np.sqrt(nu[0] ** 2 + nu[1] ** 2)
-        if U < 0.1:
-            ode_fun[2] = 0.0
+        ode_fun[3:6] = Minv @ (-Cvv - Dvv + tau + tau_wind) + nu_c_dot
 
         return ode_fun
 
@@ -1036,4 +1041,3 @@ class CyberShip2(IModel):
                 * u_rud
             )
         return L
-    
