@@ -23,8 +23,7 @@ import shapely.ops as ops
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
-                              MultiPolygon, Point, Polygon)
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 
 def create_bbox_from_points(
@@ -220,7 +219,7 @@ def extract_safe_sea_area(
     """
     seabed = enc.seabed[min_depth].geometry
     if buffer is not None:
-        seabed = seabed.buffer(-buffer)
+        seabed = seabed.buffer(-buffer, cap_style=3, join_style=2)
     safe_sea = seabed.intersection(enveloping_polygon)
 
     if enc is not None and show_plots:

@@ -422,7 +422,7 @@ class Simulator:
             )
         ship_state = self.ship_list[ship_idx].csog_state
         d2goal = np.linalg.norm(ship_state[:2] - goal_state[:2])
-        scale_factor = 10.0
+        scale_factor = 4.0
         return d2goal <= self.ship_list[ship_idx].length * scale_factor
 
 

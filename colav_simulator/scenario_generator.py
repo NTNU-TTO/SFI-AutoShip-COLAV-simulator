@@ -12,7 +12,7 @@
 import copy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.behavior_generator as bg
 import colav_simulator.common.config_parsing as cp
@@ -276,64 +276,98 @@ class ScenarioGenerator:
         scenario_data_list = self.generate_scenarios_from_files(files)
         return scenario_data_list
 
-    def load_scenario_from_folder(
+    def load_scenario_from_folders(
         self,
-        folder: Path,
+        folder: Path | List[Path],
         scenario_name: str,
         reload_map: bool = True,
         show: bool = False,
         max_number_of_episodes: Optional[int] = None,
         shuffle_episodes: bool = False,
-    ) -> Tuple[list, senc.ENC]:
-        """Loads all episode files for a given scenario from a folder that match the specified `scenario_name`.
+        merge_scenario_episodes: bool = True,
+    ) -> Tuple[list, senc.ENC] | List[Tuple[list, senc.ENC]]:
+        """Loads all episode files for the input scenario(s) from folder(s) that match the specified scenario_name(s).
 
         Args:
-            - folder (Path): Path to folder containing scenario files.
-            - scenario_name (str): Name of the scenario.
+            - folder (Path | List[Path]): Path to folder(s) containing scenario files.
+            - scenario_name (str | List[str]): Name(s) of the scenario(s). In case of multiple folders, the scenario names should be in the same order as the folders and of the same length.
             - reload_map (bool, optional): Flag determining whether or not to reload the map data. Defaults to True.
             - show (bool, optional): Flag determining whether or not to show the episode setups through seacharts.
             - max_number_of_episodes (Optional[int], optional): Maximum number of episodes to load.
             - shuffle_episodes (bool, optional): Flag determining whether or not to shuffle the episode list.
+            - merge_scenario_episodes (bool, optional): Flag determining whether or not to merge the scenario episodes into a single list, and return a single ENC object. This only works if the same map is used for all scenarios.
 
         Returns:
-            - Tuple[list, senc.ENC]: List of scenario files and the corresponding ENC object.
+            - Tuple[list, senc.ENC] | List[Tuple[list, senc.ENC]]: List of scenario files and the corresponding ENC object in case of single folder, or a list of these for multiple folders.
         """
-        scenario_episode_list = []
-        first = True
-        file_list = [file for file in folder.iterdir()]
-        file_list.sort(key=lambda x: x.name.split("_")[-3])
-        if shuffle_episodes:
-            self.rng.shuffle(file_list)
-        for file_idx, file in enumerate(file_list):
-            if not (scenario_name in file.name and file.suffix == ".yaml"):
-                continue
+        folder_list = [folder] if isinstance(folder, Path) else folder
+        scenario_name_list = [scenario_name] if isinstance(scenario_name, str) else scenario_name
+        assert len(folder_list) == len(
+            scenario_name_list
+        ), "Number of folders and scenario names should match and be the same."
+
+        scenario_data_list = []
+        for i, folder in enumerate(folder_list):
+            first = True
+            scenario_episode_list = []
+            sname = scenario_name_list[i]
+            file_list = [file for file in folder.iterdir()]
+            file_list.sort(key=lambda x: x.name.split("_")[-3])
+            for file_idx, file in enumerate(file_list):
+                if not (sname in file.name and file.suffix == ".yaml"):
+                    continue
+
+                if self._config.verbose:
+                    print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
+                ship_list, disturbance, config = self.load_episode(config_file=file)
+                if first or (not first and merge_scenario_episodes):
+                    first = False
+                    config.new_load_of_map_data = reload_map
+                    enc = self._configure_enc(config)
+                else:
+                    config.new_load_of_map_data = False
+
+                scenario_episode_list.append({"ship_list": ship_list, "disturbance": disturbance, "config": config})
+
+                if show:
+                    self.visualize_episode(ship_list, disturbance, enc, config)
+
+                self._episode_counter += 1
+
+                if max_number_of_episodes is not None and file_idx >= max_number_of_episodes - 1:
+                    break
 
             if self._config.verbose:
-                print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
-            ship_list, disturbance, config = self.load_episode(config_file=file)
-            if first:
-                first = False
-                config.new_load_of_map_data = reload_map
-                enc = self._configure_enc(config)
-            else:
-                config.new_load_of_map_data = False
-
-            scenario_episode_list.append({"ship_list": ship_list, "disturbance": disturbance, "config": config})
+                print(f"ScenarioGenerator: Finished loading scenario episode files for {sname}.")
 
             if show:
-                self.visualize_episode(ship_list, disturbance, enc, config)
+                input("Press enter to continue...")
+                self._clear_disturbance_handles()
+                enc.close_display()
 
-            self._episode_counter += 1
+            if shuffle_episodes:
+                self.rng.shuffle(scenario_episode_list)
 
-            if max_number_of_episodes is not None and file_idx >= max_number_of_episodes - 1:
-                break
+            if len(folder_list) == 1:
+                return (scenario_episode_list, enc)
 
-        if self._config.verbose:
-            print(f"ScenarioGenerator: Finished loading scenario episode files for {scenario_name}.")
-        if show:
-            input("Press enter to continue...")
-            enc.close_display()
-        return (scenario_episode_list, enc)
+            scenario_data_list.append((scenario_episode_list, enc))
+
+        if merge_scenario_episodes:
+            merged_episode_list = [episode for scenario in scenario_data_list for episode in scenario[0]]
+            if shuffle_episodes:
+                self.rng.shuffle(merged_episode_list)
+            enc = scenario_data_list[0][1]
+            return (merged_episode_list, enc)
+
+        return scenario_data_list
+
+    def _clear_disturbance_handles(self) -> None:
+        """Clears the disturbance handles."""
+        if self._disturbance_handles:
+            for handle in self._disturbance_handles:
+                handle.remove()
+            self._disturbance_handles = []
 
     def visualize_disturbance(self, disturbance: stoch.Disturbance | None, enc: senc.ENC) -> None:
         """Visualizes the disturbance object.
@@ -346,17 +380,16 @@ class ScenarioGenerator:
             return
 
         ddata = disturbance.get()
-        if self._disturbance_handles:
-            for handle in self._disturbance_handles:
-                handle.remove()
+        self._clear_disturbance_handles()
 
         handles = []
         if ddata.currents is not None and ddata.currents["speed"] > 0.0:
+            speed = ddata.currents["speed"]
             handles.extend(
                 plotters.plot_disturbance(
                     magnitude=70.0,
                     direction=ddata.currents["direction"],
-                    name="current: " + str(ddata.currents["speed"]) + " m/s",
+                    name=f"current: {speed:.2f} m/s",
                     enc=enc,
                     color="white",
                     linewidth=1.0,
@@ -366,11 +399,12 @@ class ScenarioGenerator:
             )
 
         if ddata.wind is not None and ddata.wind["speed"] > 0.0:
+            speed = ddata.wind["speed"]
             handles.extend(
                 plotters.plot_disturbance(
                     magnitude=70.0,
                     direction=ddata.wind["direction"],
-                    name="wind: " + str(ddata.wind["speed"]) + " m/s",
+                    name=f"wind: {speed:.2f} m/s",
                     enc=enc,
                     color="peru",
                     linewidth=1.0,
@@ -574,7 +608,7 @@ class ScenarioGenerator:
                 config_copy,
                 ais_vessel_data_list,
                 mmsi_list,
-                show_plots=show_plots,
+                show_plots=False,  # set to true for debugging
             )
             if self._bad_episode and n_episodes > 1:  # See the check_for_bad_episode method for more information
                 continue
@@ -589,6 +623,9 @@ class ScenarioGenerator:
                         self._os_state_update_indices[ep + 1] = ep + 1
                         self._do_plan_update_indices[ep + 1] = ep + 1
                     continue
+
+            if show_plots:
+                self.visualize_episode(episode["ship_list"], episode["disturbance"], self.enc, episode["config"])
 
             self._episode_counter += 1
             if self._config.verbose:
@@ -607,6 +644,7 @@ class ScenarioGenerator:
             input(
                 "Press enter to continue. Will take a while to load plots if you generated 500+ episodes with visualization on..."
             )
+            self._clear_disturbance_handles()
             self.enc.close_display()
         if self._config.verbose:
             print(f"ScenarioGenerator: Number of accepted episodes: {self._episode_counter} out of {n_episodes}.")
@@ -699,7 +737,8 @@ class ScenarioGenerator:
         self,
         ship_list: list,
         config: sc.ScenarioConfig,
-        minimum_plan_length: float = 200.0,
+        minimum_os_plan_length: float = 300.0,
+        minimum_do_plan_length: float = 100.0,
         next_wp_angle_threshold: float = np.deg2rad(120.0),
     ) -> bool:
         """Checks if the episode is bad, i.e. if any of the ships are outside the map,
@@ -708,7 +747,7 @@ class ScenarioGenerator:
         Args:
             ship_list (list): List of ships to be considered in simulation.
             config (sc.ScenarioConfig): Scenario config object.
-            minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 200.0.
+            minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 400.0.
             next_wp_angle_threshold (float, optional): Threshold for the angle between the LOS to the next waypoint and the ship heading. Defaults to 120.0.
 
         Returns:
@@ -734,11 +773,20 @@ class ScenarioGenerator:
             ):
                 return True
 
+            dist_os_to_ship = np.linalg.norm(ownship.state[:2] - ship_obj.state[:2])
+            if ship_obj.id > 0 and dist_os_to_ship < self._config.dist_between_ships_range[0]:
+                return True
+
             if ship_obj.waypoints.size == 0:
                 continue
 
             path_length = np.sum(np.linalg.norm(np.diff(ship_obj.waypoints, axis=1), axis=0))
-            if path_length < minimum_plan_length:
+            if (
+                ship_obj.id == 0
+                and path_length < minimum_os_plan_length
+                or ship_obj.id > 0
+                and path_length < minimum_do_plan_length
+            ):
                 return True
 
             if ship_obj.id > 0:

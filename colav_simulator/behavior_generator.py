@@ -801,6 +801,9 @@ class BehaviorGenerator:
             min_dist=3.0 * length,
         )
         waypoints[:, 1] = end_position
+        waypoints, _ = mhm.clip_waypoint_segment_to_bbox(
+            waypoints, (self._enc.bbox[1], self._enc.bbox[0], self._enc.bbox[3], self._enc.bbox[2])
+        )
         speed_plan = U * np.ones(2)
         return waypoints, speed_plan
 

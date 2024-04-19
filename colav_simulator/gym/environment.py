@@ -9,7 +9,7 @@
 """
 
 import pathlib
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.core.stochasticity as stoch
 import colav_simulator.gym.reward as rw
@@ -42,7 +42,7 @@ class COLAVEnvironment(gym.Env):
         simulator_config: Optional[cssim.Config] = None,
         scenario_generator_config: Optional[sg.Config] = None,
         scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
-        scenario_file_folder: Optional[pathlib.Path] = None,
+        scenario_file_folder: Optional[pathlib.Path | List[pathlib.Path]] = None,
         reload_map: Optional[bool] = True,
         rewarder_class: Optional[rw.IReward] = rw.Rewarder,
         rewarder_kwargs: Optional[dict] = {},
@@ -52,10 +52,11 @@ class COLAVEnvironment(gym.Env):
         render_mode: Optional[str] = "rgb_array",
         render_update_rate: Optional[float] = None,
         test_mode: Optional[bool] = False,
-        verbose: Optional[bool] = False,
+        verbose: Optional[bool] = True,
         show_loaded_scenario_data: Optional[bool] = False,
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
+        merge_loaded_scenario_episodes: Optional[bool] = False,
         identifier: Optional[int | str] = None,
         seed: Optional[int] = None,
         **kwargs,
@@ -67,7 +68,7 @@ class COLAVEnvironment(gym.Env):
             simulator_config (Optional[cssim.Config]): Simulator configuration.
             scenario_generator_config (Optional[sg.Config]): Scenario generator configuration.
             scenario_config (Optional[sc.ScenarioConfig | Path]): Scenario configuration, either config object or path.
-            scenario_file_folder (Optional[list | Path): Folder path to scenario episode files.
+            scenario_file_folder (Optional[List[Path] | Path): Folder path(s) to scenario episode files.
             reload_map (Optional[bool]): Whether to reload the scenario ENC map. NOTE: Might cause issues with vectorized environments due to race conditions.
             rewarder_class (Optional[rw.IReward]): Rewarder class.
             rewarder_kwargs (Optional[dict]): Rewarder keyword arguments.
@@ -80,6 +81,7 @@ class COLAVEnvironment(gym.Env):
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not.
             shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
+            merge_loaded_scenario_episodes (Optional[bool]): Whether to merge the loaded scenario episodes into one scenario or not.
             identifier (Optional[int | str]): Identifier for the environment.
             seed (Optional[int]): Seed for the random number generator.
         """
@@ -108,7 +110,6 @@ class COLAVEnvironment(gym.Env):
         self.steps: int = 0
         self.last_info: dict = {}
         self.last_reward: float = 0.0
-        self.cumulative_reward: float = 0.0
         self.episodes: int = 0
         self.n_episodes: int = 0
         self.ownship: Optional[Ship] = None
@@ -125,6 +126,7 @@ class COLAVEnvironment(gym.Env):
                 reload_map=self.reload_map,
                 show=show_loaded_scenario_data,
                 shuffle=shuffle_loaded_scenario_data,
+                merge_loaded_scenario_episodes=merge_loaded_scenario_episodes,
             )
             self.loaded_scenario_data = True
         else:
@@ -192,23 +194,35 @@ class COLAVEnvironment(gym.Env):
         return bool(self.simulator.is_truncated(self.verbose))
 
     def _load(
-        self, scenario_file_folder: pathlib.Path, reload_map: bool = True, show: bool = False, shuffle: bool = False
+        self,
+        scenario_file_folder: pathlib.Path | List[pathlib.Path],
+        reload_map: bool = True,
+        show: bool = False,
+        shuffle: bool = False,
+        merge_loaded_scenario_episodes: bool = False,
     ) -> None:
         """Load scenario episodes from files or a folder.
 
         Args:
-            scenario_file_folder (pathlib.Path): Folder path where all episodes for a scenario is found.
-            reload_map (bool): Whether to reload the scenario map.
-            show (bool): Whether to show the scenario data or not.
+            scenario_file_folder (pathlib.Path | List[pathlib.Path]): Folder path(s) where all episodes for the scenario(s) are found.
+            reload_map (bool): Whether to reload the scenario(s) map.
+            show (bool): Whether to show the scenario(s) data or not.
+            shuffle (bool): Whether to shuffle the scenario(s) episode data or not.
+            merge_loaded_scenario_episodes (bool): Whether to merge the scenario episodes into one scenario or not.
         """
-        name = scenario_file_folder.name
-        self.scenario_data_tup = self.scenario_generator.load_scenario_from_folder(
+        name = (
+            scenario_file_folder.name
+            if isinstance(scenario_file_folder, pathlib.Path)
+            else [f.name for f in scenario_file_folder]
+        )
+        self.scenario_data_tup = self.scenario_generator.load_scenario_from_folders(
             scenario_file_folder,
             scenario_name=name,
             reload_map=reload_map,
             show=show,
             max_number_of_episodes=self.max_number_of_episodes,
             shuffle_episodes=shuffle,
+            merge_scenario_episodes=merge_loaded_scenario_episodes,
         )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
@@ -254,7 +268,7 @@ class COLAVEnvironment(gym.Env):
         self.last_info = {
             "duration": self.simulator.t,
             "timesteps": self.steps,
-            "episode": self.episodes,
+            "episode_nr": self.episodes,
             "goal_reached": self.simulator.determine_ship_goal_reached(ship_idx=0),
             "collision": self.simulator.determine_ship_collision(ship_idx=0),
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
@@ -264,7 +278,6 @@ class COLAVEnvironment(gym.Env):
             "unnormalized_action": unnormalized_action,
             "unnormalized_obs": unnormalized_obs,
             "reward": self.last_reward,
-            "cumulative_reward": self.cumulative_reward,
         }
         return self.last_info
 
@@ -295,7 +308,6 @@ class COLAVEnvironment(gym.Env):
         self.seed(seed=seed, options=options)
         self.steps = 0  # Actions performed, not necessarily equal to the simulator steps
         self.last_reward = 0.0
-        self.cumulative_reward = 0.0
         self.done = False
 
         if self.episodes == self.n_episodes:
@@ -322,8 +334,6 @@ class COLAVEnvironment(gym.Env):
         info = self._info(obs, action=None)
 
         self.episodes += 1  # Episodes performed
-        if self.verbose:
-            print(f"Episode {self.episodes} started!")
         return obs, info
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, bool, dict]:
@@ -353,7 +363,6 @@ class COLAVEnvironment(gym.Env):
         rewarder_kwargs = {"num_steps": self.steps}
         reward = self.rewarder(obs, action, **rewarder_kwargs)
         self.last_reward = reward
-        self.cumulative_reward += reward
 
         info = self._info(obs, action)
         self.steps += 1
