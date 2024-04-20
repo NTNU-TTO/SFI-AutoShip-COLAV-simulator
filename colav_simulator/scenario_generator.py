@@ -307,8 +307,10 @@ class ScenarioGenerator:
         ), "Number of folders and scenario names should match and be the same."
 
         scenario_data_list = []
+        generate_map = True
         for i, folder in enumerate(folder_list):
-            first = True
+            if not merge_scenario_episodes:
+                generate_map = True
             scenario_episode_list = []
             sname = scenario_name_list[i]
             file_list = [file for file in folder.iterdir()]
@@ -320,8 +322,8 @@ class ScenarioGenerator:
                 if self._config.verbose:
                     print(f"ScenarioGenerator: Loading scenario file: {file.name}...")
                 ship_list, disturbance, config = self.load_episode(config_file=file)
-                if first or (not first and merge_scenario_episodes):
-                    first = False
+                if generate_map:
+                    generate_map = False
                     config.new_load_of_map_data = reload_map
                     enc = self._configure_enc(config)
                 else:
@@ -363,7 +365,6 @@ class ScenarioGenerator:
         return scenario_data_list
 
     def _clear_disturbance_handles(self) -> None:
-        """Clears the disturbance handles."""
         if self._disturbance_handles:
             for handle in self._disturbance_handles:
                 handle.remove()
@@ -374,7 +375,7 @@ class ScenarioGenerator:
 
         Args:
             disturbance (stoch.Disturbance | None): Disturbance object.
-            enc (senc.ENC): _description_
+            enc (senc.ENC): ENC object to visualize on.
         """
         if disturbance is None:
             return

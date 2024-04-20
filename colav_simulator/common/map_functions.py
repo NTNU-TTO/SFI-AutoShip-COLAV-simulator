@@ -1082,7 +1082,11 @@ def generate_enveloping_polygon(trajectory: np.ndarray, buffer: float) -> Polygo
 
 
 def extract_hazards_within_bounding_box(
-    hazards: list, bbox: Tuple[float, float, float, float], enc: Optional[ENC] = None, show_plots: bool = False
+    hazards: list,
+    bbox: Tuple[float, float, float, float],
+    enc: Optional[ENC] = None,
+    merge_hazards: bool = False,
+    show_plots: bool = False,
 ) -> list:
     """Extracts the hazards that are inside the given bounding box.
 
@@ -1090,6 +1094,7 @@ def extract_hazards_within_bounding_box(
         hazards (list): List of Multipolygon hazards to consider.
         bbox (Tuple[float, float, float, float]): Bounding box to consider in the form (x_min, y_min, x_max, y_max), x = easting, y = northing.
         enc (Optional[ENC], optional): Electronic Navigational Chart object. Defaults to None.
+        merge_hazards (bool, optional): Option for merging hazards. Defaults to False.
         show_plots (bool, optional): Whether to show plots or not. Defaults to False.
 
     Returns:
@@ -1100,19 +1105,24 @@ def extract_hazards_within_bounding_box(
     for hazard in hazards:
         if bbox_poly.intersects(hazard):
             overlap = bbox_poly.intersection(hazard)
-            if isinstance(overlap, Polygon):
-                overlap = MultiPolygon([overlap])
-            elif isinstance(overlap, Point):
-                overlap = MultiPolygon([overlap.buffer(0.1)])
+            if isinstance(overlap, Point):
+                intersections.append(Polygon(overlap.buffer(0.1)))
             elif isinstance(overlap, LineString):
-                overlap = MultiPolygon([overlap.buffer(0.1)])
-            intersections.append(overlap)
+                intersections.append(Polygon(overlap.buffer(0.1)))
+            elif isinstance(overlap, MultiLineString):
+                intersections.append(Polygon(overlap.buffer(0.1)))
+            elif isinstance(overlap, MultiPolygon):
+                intersections.extend(overlap.geoms)
+            elif isinstance(overlap, Polygon):
+                intersections.append(overlap)
+    multipoly_hazard = MultiPolygon(intersections)
 
     if enc and show_plots:
         enc.start_display()
-        for intersection in intersections:
-            enc.draw_polygon(intersection, color="full_horizon", fill=True, alpha=0.5)
-    return intersections
+        for h in multipoly_hazard.geoms:
+            enc.draw_polygon(h, color="red", fill=True, alpha=0.5)
+
+    return [multipoly_hazard]
 
 
 def extract_polygons_near_trajectory(
