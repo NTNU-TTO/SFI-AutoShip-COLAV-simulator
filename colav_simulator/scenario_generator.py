@@ -975,8 +975,8 @@ class ScenarioGenerator:
         self,
         scenario_type: sc.ScenarioType,
         os_csog_state: np.ndarray,
-        U_min: float = 1.0,
-        U_max: float = 10.0,
+        U_min: float = 2.0,
+        U_max: float = 8.0,
         draft: float = 2.0,
         min_land_clearance: float = 50.0,
         t_cpa_threshold: float = 1000.0,
@@ -989,8 +989,8 @@ class ScenarioGenerator:
         Args:
             - scenario_type (sc.ScenarioType): Type of scenario.
             - os_csog_state (np.ndarray): Own-ship COG-SOG state = [x, y, speed, heading].
-            - U_min (float, optional): Obstacle minimum speed. Defaults to 1.0.
-            - U_max (float, optional): Obstacle maximum speed. Defaults to 10.0.
+            - U_min (float, optional): Obstacle minimum speed. Defaults to 2.0.
+            - U_max (float, optional): Obstacle maximum speed. Defaults to 8.0.
             - draft (float, optional): Draft of target ship. Defaults to 2.0.
             - min_land_clearance (float, optional): Minimum distance between target ship and land. Defaults to 100.0.
             - t_cpa_threshold (float, optional): Time to CPA threshold. Defaults to 1000.0.

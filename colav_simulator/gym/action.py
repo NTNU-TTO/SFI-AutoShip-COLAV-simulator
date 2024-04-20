@@ -34,7 +34,6 @@ class ActionType(ABC):
 
     def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None) -> None:
         self.env = env
-        self._ownship = self.env.ownship
         self.sample_time = sample_time if sample_time is not None else env.simulator.dt
 
     @abstractmethod
@@ -79,15 +78,6 @@ class ActionType(ABC):
             action (Action): The action to execute (normalized). Typically the output autopilot references from the COLAV-algorithm.
         """
 
-    @property
-    def ownship(self):
-        """The ownship acted upon."""
-        return self._ownship
-
-    @ownship.setter
-    def ownship(self, ship):
-        self._ownship = ship
-
 
 class ContinuousAutopilotReferenceAction(ActionType):
     """
@@ -102,10 +92,10 @@ class ContinuousAutopilotReferenceAction(ActionType):
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
         super().__init__(env, sample_time)
-        assert self._ownship is not None, "Ownship must be set before using the action space"
+        assert self.env.ownship is not None, "Ownship must be set before using the action space"
         self.size = 2
         self.course_range = (-np.pi, np.pi)
-        self.speed_range = (self._ownship.min_speed, self._ownship.max_speed)
+        self.speed_range = (self.env.ownship.min_speed, self.env.ownship.max_speed)
         self.last_action = np.zeros(self.size)
         self.name = "ContinuousAutopilotReferenceAction"
 
@@ -134,7 +124,7 @@ class ContinuousAutopilotReferenceAction(ActionType):
         speed_ref = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
         refs = np.array([0.0, 0.0, course_ref, speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0])
         self.last_action = action
-        self._ownship.set_references(refs)
+        self.env.ownship.set_references(refs)
 
 
 class RelativeLOSWaypointSpeedAction(ActionType):
@@ -158,11 +148,11 @@ class RelativeLOSWaypointSpeedAction(ActionType):
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
         super().__init__(env, sample_time)
-        assert self._ownship is not None, "Ownship must be set before using the action space"
+        assert self.env.ownship is not None, "Ownship must be set before using the action space"
         self.size = 3
         self.position_range = (-1000, 1000)
-        self.turn_rate_range = (-self._ownship.max_turn_rate, self._ownship.max_turn_rate)
-        self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
+        self.turn_rate_range = (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate)
+        self.speed_range = (-self.env.ownship.max_speed, self.env.ownship.max_speed)
         self.last_action = np.zeros(self.size)
         self.name = "RelativeLOSWaypointSpeedAction"
         self._los_params = guidances.LOSGuidanceParams(
@@ -234,22 +224,22 @@ class RelativeLOSWaypointSpeedAction(ActionType):
         ), "This action type needs to know if the current action is the first one applied in the current episode step."
         if not kwargs["applied"]:
             unnorm_action = self.unnormalize(action)
-            x_ld = self._ownship.state[0] + unnorm_action[0]
-            y_ld = self._ownship.state[1] + unnorm_action[1]
-            speed_ref = self._ownship.csog_state[2] + unnorm_action[2]
-            self._waypoints[:, 0] = self._ownship.state[0:2]
+            x_ld = self.env.ownship.state[0] + unnorm_action[0]
+            y_ld = self.env.ownship.state[1] + unnorm_action[1]
+            speed_ref = self.env.ownship.csog_state[2] + unnorm_action[2]
+            self._waypoints[:, 0] = self.env.ownship.state[0:2]
             self._waypoints[:, 1] = np.array([x_ld, y_ld])
             self._speed_plan = np.array([speed_ref, speed_ref])
 
         refs = self._los.compute_references(
-            self._waypoints, self._speed_plan, None, self._ownship.state, self.env.time_step
+            self._waypoints, self._speed_plan, None, self.env.ownship.state, self.env.time_step
         )
 
         # # Disturbance feed forward in course reference computation, not used if ILOS is used
         # v_disturbance = self.compute_disturbance_velocity_estimate()
         # course_disturbance = np.arctan2(v_disturbance[1], v_disturbance[0])
         # course_ref -= chi_disturbance
-        self._ownship.set_references(refs)
+        self.env.ownship.set_references(refs)
 
 
 class RelativeCourseSpeedReferenceSequenceAction(ActionType):
@@ -262,10 +252,10 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
             env (str, optional): Name of environment. Defaults to "AbstractEnv".
         """
         super().__init__(env, sample_time)
-        assert self._ownship is not None, "Ownship must be set before using the action space"
+        assert self.env.ownship is not None, "Ownship must be set before using the action space"
         self.size = 4  # Enhancement: make the sequence length a parameter
         self.course_range = (-np.pi, np.pi)
-        self.speed_range = (-self._ownship.max_speed, self._ownship.max_speed)
+        self.speed_range = (-self.env.ownship.max_speed, self.env.ownship.max_speed)
         self.name = "RelativeCourseSpeedReferenceSequenceAction"
         self.course_refs = np.zeros(2)
         self.speed_refs = np.zeros(2)
@@ -302,8 +292,8 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
         if not kwargs["applied"]:
             unnorm_action = self.unnormalize(action)
             # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
-            course = self._ownship.course
-            speed = self._ownship.speed
+            course = self.env.ownship.course
+            speed = self.env.ownship.speed
 
             self.course_refs = np.array([unnorm_action[0] + course, unnorm_action[2] + course])
             self.speed_refs = np.array([unnorm_action[1] + speed, unnorm_action[3] + speed])
@@ -319,7 +309,7 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
 
         refs = np.array([0.0, 0.0, course_ref, speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-        self._ownship.set_references(refs)
+        self.env.ownship.set_references(refs)
 
 
 def action_factory(

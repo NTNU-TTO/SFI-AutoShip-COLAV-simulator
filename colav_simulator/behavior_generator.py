@@ -561,8 +561,9 @@ class BehaviorGenerator:
 
             method = self._bg_method_list[ship_obj.id]
             if method == BehaviorGenerationMethod.ConstantSpeedAndCourse:
+                min_dist_to_hazards = ship_obj.length * 4.0 if ship_obj.id == 0 else ship_obj.length * 3.0
                 waypoints, speed_plan = self.generate_constant_speed_and_course_waypoints(
-                    ship_obj.csog_state, ship_obj.draft, ship_obj.length, simulation_timespan
+                    ship_obj.csog_state, ship_obj.draft, simulation_timespan, min_dist_to_hazards=min_dist_to_hazards
                 )
             elif method == BehaviorGenerationMethod.ConstantSpeedRandomWaypoints:
                 waypoints, _ = self.generate_random_waypoints(
@@ -571,7 +572,7 @@ class BehaviorGenerator:
                     ship_obj.csog_state[1],
                     ship_obj.csog_state[3],
                     ship_obj.draft,
-                    ship_obj.length,
+                    min_dist_to_hazards=ship_obj.length * 3.0,
                 )
                 speed_plan = ship_obj.csog_state[2] * np.ones(waypoints.shape[1])
             elif method == BehaviorGenerationMethod.VaryingSpeedRandomWaypoints:
@@ -581,7 +582,7 @@ class BehaviorGenerator:
                     ship_obj.csog_state[1],
                     ship_obj.csog_state[3],
                     ship_obj.draft,
-                    ship_obj.length,
+                    min_dist_to_hazards=ship_obj.length * 3.0,
                 )
                 speed_plan = self.generate_random_speed_plan(
                     rng,
@@ -772,9 +773,9 @@ class BehaviorGenerator:
         self,
         csog_state: np.ndarray,
         draft: float,
-        length: float,
         simulation_timespan: float,
         horizon_modifier: float = 5.0,
+        min_dist_to_hazards: float = 20.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Generates waypoints and speed plan for a ship with constant speed and course.
 
@@ -784,6 +785,7 @@ class BehaviorGenerator:
             length (float): Length of the ship.
             simulation_timespan (float): Simulation timespan.
             horizon_modifier (float, optional): Endpoint scaling. Defaults to 5.0.
+            min_dist_to_hazards (float, optional): Minimum distance to hazards. Defaults to 20.0.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Tuple containing the waypoints and speed plan.
@@ -798,7 +800,7 @@ class BehaviorGenerator:
             waypoints[:, 0] + U * np.array([np.cos(chi), np.sin(chi)]) * simulation_timespan * horizon_modifier,
             draft,
             self._grounding_hazards,
-            min_dist=3.0 * length,
+            min_dist=min_dist_to_hazards,
         )
         waypoints[:, 1] = end_position
         waypoints, _ = mhm.clip_waypoint_segment_to_bbox(
@@ -814,7 +816,7 @@ class BehaviorGenerator:
         y: float,
         psi: float,
         draft: float = 2.0,
-        length: float = 5.0,
+        min_dist_to_hazards: float = 20.0,
         n_wps: Optional[int] = None,
     ) -> Tuple[np.ndarray, bool]:
         """Creates random waypoints starting from a ship position and heading.
@@ -825,7 +827,7 @@ class BehaviorGenerator:
             - y (float): y position (east) of the ship.
             - psi (float): heading of the ship in radians.
             - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
-            - length (float, optional): Length of the ship. Defaults to 5.0.
+            - min_dist_to_hazards (float, optional): Minimum distance to hazards. Defaults to 20.0.
             - n_wps (Optional[int]): Number of waypoints to create.
 
         Returns:
@@ -863,7 +865,7 @@ class BehaviorGenerator:
                 )
 
                 wp_dist_to_hazards = mapf.min_distance_to_hazards(self._grounding_hazards, new_wp[1], new_wp[0])
-                if wp_dist_to_hazards < 2.0 * length:
+                if wp_dist_to_hazards < min_dist_to_hazards:
                     continue
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
@@ -880,7 +882,7 @@ class BehaviorGenerator:
                     new_wp,
                     draft,
                     self._grounding_hazards,
-                    min_dist=np.min([10.0, 3.0 * length]),
+                    min_dist=min_dist_to_hazards,
                 )
                 clipped = True
 
@@ -904,15 +906,15 @@ class BehaviorGenerator:
         return waypoints, clipped
 
     def generate_random_speed_plan(
-        self, rng: np.random.Generator, U: float, U_min: float = 1.0, U_max: float = 15.0, n_wps: Optional[int] = None
+        self, rng: np.random.Generator, U: float, U_min: float = 2.0, U_max: float = 8.0, n_wps: Optional[int] = None
     ) -> np.ndarray:
         """Creates a random speed plan using the input speed and min/max speed of the ship.
 
         Args:
             - rng (np.random.Generator): Random number generator.
             - U (float): The ship's speed.
-            - U_min (float, optional): The ship's minimum speed. Defaults to 1.0.
-            - U_max (float, optional): The ship's maximum speed. Defaults to 15.0.
+            - U_min (float, optional): The ship's minimum speed. Defaults to 2.0.
+            - U_max (float, optional): The ship's maximum speed. Defaults to 8.0.
             - n_wps (Optional[int]): Number of waypoints to create.
 
         Returns:

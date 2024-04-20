@@ -307,7 +307,6 @@ class Simulator:
             dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.
         """
         sim_data_dict = {}
-        true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
 
         disturbance_data: Optional[stochasticity.DisturbanceData] = None
         if self.disturbance is not None:
@@ -317,6 +316,7 @@ class Simulator:
             sim_data_dict["wind"] = disturbance_data.wind
             sim_data_dict["waves"] = disturbance_data.waves
 
+        true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
         for i, ship_obj in enumerate(self.ship_list):
             relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
             tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)

@@ -46,7 +46,6 @@ class ObservationType(ABC):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self._ownship = self.env.ownship
 
     @abstractmethod
     def space(self) -> gym.spaces.Space:
@@ -152,14 +151,14 @@ class LidarLikeObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
 
         ownship_pos = sgeo.Point(
-            (self._ownship.state[1], self._ownship.state[0])
+            (self.env.ownship.state[1], self.env.ownship.state[0])
         )  # Ownship position as (easting, northing) coordinates
 
         sensor_range = self.sensing_range
-        sensor_angles = self._sensor_angles + self._ownship.heading  # Rotation of sensor suite
+        sensor_angles = self._sensor_angles + self.env.ownship.heading  # Rotation of sensor suite
 
         grounding_hazards = self.grounding_hazards
         dynamic_obstacles = self.env.dynamic_obstacles
@@ -226,7 +225,7 @@ class LidarLikeObservation(ObservationType):
             float: Longest feasible distance within the current sector
 
         """
-        ship_width = self._ownship.get_ship_info()["width"]
+        ship_width = self.env.ownship.get_ship_info()["width"]
         theta = self._delta_sensor_angle
 
         # Get sorted list of x with corresponding indices
@@ -388,9 +387,9 @@ class PathRelativeNavigationObservation(ObservationType):
         env: "COLAVEnvironment",
     ) -> None:
         super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         assert (
-            self._ownship.waypoints is not None and self._ownship.speed_plan is not None
+            self.env.ownship.waypoints is not None and self.env.ownship.speed_plan is not None
         ), "Ownship waypoints and speed plan are not defined"
         self.name = "PathRelativeNavigationObservation"
         self.size = 5
@@ -412,7 +411,7 @@ class PathRelativeNavigationObservation(ObservationType):
                 [self._map_origin[0], self._map_origin[1], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             ).reshape(9, 1)
             plotters.plot_waypoints(
-                self._ownship.waypoints[:2, :],
+                self.env.ownship.waypoints[:2, :],
                 draft=1.0,
                 enc=self.env.enc,
                 color="orange",
@@ -429,11 +428,11 @@ class PathRelativeNavigationObservation(ObservationType):
 
     def create_path(self) -> None:
         """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
-        self._map_origin = self._map_origin = self._ownship.csog_state[:2]
-        speed_plan = self._ownship.speed_plan.copy()
+        self._map_origin = self._map_origin = self.env.ownship.csog_state[:2]
+        speed_plan = self.env.ownship.speed_plan.copy()
         speed_plan[-1] = 0.0
         os_nominal_path = self._ktp.compute_splines(
-            waypoints=self._ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
+            waypoints=self.env.ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
             speed_plan=speed_plan,
             arc_length_parameterization=True,
         )
@@ -449,8 +448,8 @@ class PathRelativeNavigationObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         self.observation_range = {
             "distance": (0.0, 2000.0),
-            "speed": (-self._ownship.max_speed, self._ownship.max_speed),
-            "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
+            "speed": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
+            "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
         }
 
     def normalize(self, obs: Observation) -> Observation:
@@ -506,7 +505,7 @@ class PathRelativeNavigationObservation(ObservationType):
     def observe(self) -> Observation:
         if self.env.time < 0.0001:
             self.create_path()
-        state = self._ownship.state - np.array([self._map_origin[0], self._map_origin[1], 0, 0, 0, 0])
+        state = self.env.ownship.state - np.array([self._map_origin[0], self._map_origin[1], 0, 0, 0, 0])
         s = self.get_closest_arclength(state[:2])
         d2path = self.distance_to_path(state[:2])
         speed = np.linalg.norm(state[3:5])
@@ -523,9 +522,9 @@ class Navigation3DOFStateObservation(ObservationType):
         env: "COLAVEnvironment",
     ) -> None:
         super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         self.name = "Navigation3DOFStateObservation"
-        self.size = len(self._ownship.state)
+        self.size = len(self.env.ownship.state)
         self.define_observation_ranges()
 
     def space(self) -> gym.spaces.Space:
@@ -537,9 +536,9 @@ class Navigation3DOFStateObservation(ObservationType):
             "north": (y_min, y_max),
             "east": (x_min, x_max),
             "angles": (-np.pi, np.pi),
-            "surge": (-self._ownship.max_speed, self._ownship.max_speed),
-            "sway": [-self._ownship.max_speed, self._ownship.max_speed],
-            "turn_rate": (-self._ownship.max_turn_rate, self._ownship.max_turn_rate),
+            "surge": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
+            "sway": [-self.env.ownship.max_speed, self.env.ownship.max_speed],
+            "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
         }
 
     def normalize(self, obs: Observation) -> Observation:
@@ -571,8 +570,8 @@ class Navigation3DOFStateObservation(ObservationType):
         return unnormalized_obs
 
     def observe(self) -> Observation:
-        assert self._ownship is not None, "Ownship is not defined"
-        state = self._ownship.state
+        assert self.env.ownship is not None, "Ownship is not defined"
+        state = self.env.ownship.state
         obs = state
         return self.normalize(obs)
 
@@ -585,7 +584,7 @@ class DisturbanceObservation(ObservationType):
         env: "COLAVEnvironment",
     ) -> None:
         super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         self.name = "DisturbanceObservation"
         self.size = 4  # only current and wind is considered
         self.define_observation_ranges()
@@ -624,7 +623,7 @@ class DisturbanceObservation(ObservationType):
         return unnormalized_obs
 
     def observe(self) -> Observation:
-        os_course = self._ownship.csog_state[3]
+        os_course = self.env.ownship.csog_state[3]
         disturbance = self.env.disturbance
         obs = np.zeros(self.size)
         if disturbance is None:
@@ -639,12 +638,13 @@ class DisturbanceObservation(ObservationType):
             obs[3] = mf.wrap_angle_diff_to_pmpi(ddata.wind["direction"], os_course)
         return self.normalize(obs)
 
+
 class GroundTruthTrackingObservation(ObservationType):
     """Observation containing a dict of augmented states [x, y, vx, vy, length, width] and covariances for the dynamic obstacles, non-normalized and non-relative to the own-ship."""
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         self.max_num_do = 15
         self.do_info_size = 6  # [x, y, Vx, Vy, length, width]
         self.name = "GroundTruthTrackingObservation"
@@ -696,7 +696,7 @@ class GroundTruthTrackingObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         do_list = self.env.dynamic_obstacles
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         for idx, do_ship in enumerate(do_list):
@@ -711,7 +711,7 @@ class TrackingObservation(ObservationType):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         self.max_num_do = 15
         self.do_info_size = 6 + 16  # [x, y, Vx, Vy, length, width] + covariance matrix of 4x4
         self.name = "TrackingObservation"
@@ -768,8 +768,12 @@ class TrackingObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
-        tracks, _ = self._ownship.get_do_track_information()
+        assert self.env.ownship is not None, "Ownship is not defined"
+        if self.env.time < 0.0001:
+            true_do_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.dynamic_obstacles)
+            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
+
+        tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
             obs[:6, idx] = np.array([do_state[0], do_state[1], do_state[2], do_state[3], do_length, do_width])
@@ -805,7 +809,7 @@ class TimeObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         obs = np.array([self.env.time], dtype=np.float32)
         return obs
 
@@ -839,14 +843,14 @@ class PerceptionImageObservation(ObservationType):
         return obs
 
     def observe(self) -> Observation:
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         t_now = time.time()
         img = self.env.liveplot_image
         pruned_img = img
         # pruned_img = imghf.remove_whitespace(img)
         # os_liveplot_zoom_width = self.env.liveplot_zoom_width
 
-        os_heading = self._ownship.heading
+        os_heading = self.env.ownship.heading
         #
         # Rotate the image to align with the ownship heading
         rotated_img = scimg.rotate(pruned_img, np.rad2deg(os_heading), reshape=False)
@@ -984,7 +988,7 @@ class RelativeTrackingObservation(ObservationType):
         return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.do_info_size, self.max_num_do), dtype=np.float32)
 
     def define_observation_ranges(self) -> None:
-        assert self._ownship is not None, "Ownship is not defined"
+        assert self.env.ownship is not None, "Ownship is not defined"
         self.observation_range = {
             "distance": (0.0, 5000.0),
             "speed": (-20.0, 20.0),
@@ -1024,9 +1028,13 @@ class RelativeTrackingObservation(ObservationType):
         return unnorm_obs
 
     def observe(self) -> Observation:
-        assert self._ownship is not None, "Ownship is not defined"
-        os_state = self._ownship.state
-        tracks, _ = self._ownship.get_do_track_information()
+        assert self.env.ownship is not None, "Ownship is not defined"
+        if self.env.time < 0.0001:
+            true_do_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.dynamic_obstacles)
+            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
+
+        os_state = self.env.ownship.state
+        tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):

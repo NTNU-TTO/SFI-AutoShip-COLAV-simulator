@@ -717,12 +717,11 @@ def find_closest_collision_free_point_on_segment(
     assert p1.shape == (2,) and p2.shape == (2,), "p1 and p2 must be 2D vectors"
     segment = LineString([(p1[1], p1[0]), (p2[1], p2[0])])
     if hazards is None:
-        hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc, buffer=min_dist)
+        hazards = extract_relevant_grounding_hazards_as_union(find_minimum_depth(draft, enc), enc)
 
     for hazard in hazards:
         if hazard.is_empty:
             continue
-
         hazard = hazard.buffer(min_dist)
 
         # enc.draw_polygon(hazard, color="orange", fill=False)

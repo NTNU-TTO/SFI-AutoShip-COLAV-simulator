@@ -11,9 +11,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
+import colav_simulator.core.sensing as sens
 import numpy as np
 import scipy.linalg as la
 
@@ -107,14 +108,16 @@ class GodTracker(ITracker):
         if sensor_list is None:
             raise ValueError("Sensor list must be provided.")
 
-        self.sensors: list = sensor_list
+        self.sensors: List[sens.ISensor] = sensor_list
 
         self._initialized: bool = False
         self._labels: list = []
         self._xs_upd: list = []
         self._P_upd: list = []
         self._length_upd: list = []
+        self._t_prev: float = -1.0
         self._width_upd: list = []
+        self._recent_sensor_measurements: list = []
 
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles perfectly within the sensor range.
@@ -128,6 +131,13 @@ class GodTracker(ITracker):
         Returns:
             Tuple[list, list]: List of ground truth dynamic obstacle tracks (ID, state, cov, length, width). Also, the sensor measurements list (not used).
         """
+        # If the function is run at the same time as the previous, return the same tracks
+        if t <= self._t_prev:
+            tracks, _ = self.get_track_information()
+            return tracks, self._recent_sensor_measurements
+
+        self._t_prev = t
+
         if not self._initialized:
             for do_idx, do_state, do_length, do_width in true_do_states:
                 self._labels.append(do_idx)
@@ -142,6 +152,7 @@ class GodTracker(ITracker):
         for sensor in self.sensors:
             z = sensor.generate_measurements(t, true_do_states, ownship_state)
             sensor_measurements.append(z)
+        self._recent_sensor_measurements = sensor_measurements
 
         tracks = []
         n_tracked_do = len(true_do_states)
@@ -187,7 +198,7 @@ class KF(ITracker):
 
         self._model = CVModel(self._params.q)
 
-        self.sensors: list = sensor_list
+        self.sensors: List[sens.ISensor] = sensor_list
 
         self._track_initialized: list = []
         self._track_terminated: list = []
@@ -199,6 +210,8 @@ class KF(ITracker):
         self._length_upd: list = []  # List of DO length estimates. Assumed known
         self._width_upd: list = []  # List of DO width estimates. Assumed known
         self._NIS: list = []
+        self._t_prev: float = -1.0
+        self._recent_sensor_measurements: list = []
 
         self._measurement_index = []
 
@@ -217,6 +230,12 @@ class KF(ITracker):
         Returns:
             Tuple[list, list]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
         """
+        # If the function is run at the same time as the previous, return the same tracks
+        if t <= self._t_prev:
+            tracks, _ = self.get_track_information()
+            return tracks, self._recent_sensor_measurements
+
+        self._t_prev = t
         max_sensor_range = max([sensor.max_range for sensor in self.sensors])
         for i, (do_idx, do_state, do_length, do_width) in enumerate(true_do_states):
             dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
@@ -246,6 +265,7 @@ class KF(ITracker):
         for sensor in self.sensors:
             z = sensor.generate_measurements(t, true_do_states, ownship_state)
             sensor_measurements.append(z)
+        self._recent_sensor_measurements = sensor_measurements
 
         tracks = []
         for i in range(n_tracked_do):

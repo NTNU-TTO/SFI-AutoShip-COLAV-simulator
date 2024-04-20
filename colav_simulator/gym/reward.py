@@ -100,7 +100,6 @@ class IReward(ABC):
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         self.env = env
-        self._ownship = self.env.ownship
 
     @abstractmethod
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
@@ -173,10 +172,10 @@ class DistanceToGoalRewarder(IReward):
         self.params = params if params else DistanceToGoalRewardParams()
 
     def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
-        if self.env.ownship._goal_state.size > 0:
-            self.goal = self.env.ownship._goal_state[:2]
-        elif self.env.ownship._waypoints.size > 1:
-            self.goal = self.env.ownship._waypoints[:, -1]
+        if self.env.ownship.goal_csog_state.size > 0:
+            self.goal = self.env.ownship.goal_csog_state[:2]
+        elif self.env.ownship.waypoints.size > 1:
+            self.goal = self.env.ownship.waypoints[:, -1]
         else:
             raise ValueError("No goal state or waypoints found")
         return -self.params.r_d2g * float(np.linalg.norm(self.env.ownship.csog_state[:2] - self.goal))
