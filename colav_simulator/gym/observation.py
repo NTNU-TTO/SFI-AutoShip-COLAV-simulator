@@ -70,7 +70,6 @@ class LidarLikeObservation(ObservationType):
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
         self.n_do = len(self.env.dynamic_obstacles)
-        self.enc = self.env.enc
         self.define_observation_ranges()
         self.name = "LidarLikeObservation"
 
