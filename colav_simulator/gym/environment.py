@@ -425,6 +425,11 @@ class COLAVEnvironment(gym.Env):
         return self.simulator.t_end
 
     @property
+    def ship_list(self) -> list:
+        """The ships in the environment."""
+        return self.simulator.ship_list
+
+    @property
     def dynamic_obstacles(self) -> list:
         """The dynamic obstacles in the environment, seen from the own-ship perspective (which has ID 0)."""
         return self.simulator.ship_list[1:]

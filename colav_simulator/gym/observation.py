@@ -769,8 +769,9 @@ class TrackingObservation(ObservationType):
         """Get an observation of the environment state."""
         assert self.env.ownship is not None, "Ownship is not defined"
         if self.env.time < 0.0001:
-            true_do_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.dynamic_obstacles)
-            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
+            true_ship_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.ship_list)
+            relevant_do_states = mhm.get_relevant_do_states(true_ship_states, idx=0)
+            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, relevant_do_states)
 
         tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
@@ -808,7 +809,8 @@ class TimeObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation of the environment state."""
-        assert self.env.ownship is not None, "Ownship is not defined"
+        if self.env.time < 0.0001:
+            self.t_start = self.env.time
         obs = np.array([self.env.time], dtype=np.float32)
         return obs
 
@@ -990,7 +992,7 @@ class RelativeTrackingObservation(ObservationType):
         assert self.env.ownship is not None, "Ownship is not defined"
         self.observation_range = {
             "distance": (0.0, 5000.0),
-            "speed": (-20.0, 20.0),
+            "speed": (-30.0, 30.0),
             "angles": (-np.pi, np.pi),
             "variance": (0.0, 100.0),
             "cross_variance": (-100.0, 100.0),
@@ -1029,10 +1031,12 @@ class RelativeTrackingObservation(ObservationType):
     def observe(self) -> Observation:
         assert self.env.ownship is not None, "Ownship is not defined"
         if self.env.time < 0.0001:
-            true_do_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.dynamic_obstacles)
-            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, true_do_states)
+            true_ship_states = mhm.extract_do_states_from_ship_list(self.env.time, self.env.ship_list)
+            relevant_do_states = mhm.get_relevant_do_states(true_ship_states, idx=0)
+            self.env.ownship.track_obstacles(self.env.time, self.env.time_step, relevant_do_states)
 
         os_state = self.env.ownship.state
+        chi = os_state[2] + np.arctan2(os_state[4], os_state[3])
         tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value

@@ -1156,16 +1156,20 @@ def extract_polygons_near_trajectory(
         if isinstance(intersection_poly, MultiPolygon):
             for sub_poly in intersection_poly.geoms:
                 relevant_poly_list.append(sub_poly)
-        else:
+        elif isinstance(intersection_poly, Polygon):
             relevant_poly_list.append(intersection_poly)
+        elif isinstance(intersection_poly, LineString):
+            relevant_poly_list.append(intersection_poly.buffer(0.1))
+        elif isinstance(intersection_poly, Point):
+            relevant_poly_list.append(Polygon(intersection_poly.buffer(0.1)))
         poly_list.append((relevant_poly_list, poly))
 
     if enc is not None and show_plots:
         enc.start_display()
         enc.draw_polygon(enveloping_polygon, color="yellow", alpha=0.2)
-        # for poly_sublist, _ in poly_list:
-        #     for poly in poly_sublist:
-        #         enc.draw_polygon(poly, color="red", fill=False)
+        for poly_sublist, _ in poly_list:
+            for poly in poly_sublist:
+                enc.draw_polygon(poly, color="red", fill=True, alpha=0.5)
 
     return poly_list, enveloping_polygon
 

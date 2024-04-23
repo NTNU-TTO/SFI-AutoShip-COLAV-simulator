@@ -295,7 +295,9 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
             course = self.env.ownship.course
             speed = self.env.ownship.speed
 
-            self.course_refs = np.array([unnorm_action[0] + course, unnorm_action[2] + course])
+            self.course_refs = np.array(
+                [mf.wrap_angle_to_pmpi(unnorm_action[0] + course), mf.wrap_angle_to_pmpi(unnorm_action[2] + course)]
+            )
             self.speed_refs = np.array([unnorm_action[1] + speed, unnorm_action[3] + speed])
             self.t_first_apply = self.env.time
 
