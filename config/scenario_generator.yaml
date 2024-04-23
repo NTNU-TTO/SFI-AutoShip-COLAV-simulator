@@ -39,7 +39,7 @@ behavior_generator:
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
-      step_size: 0.5
+      step_size: 2.5
       min_steering_time: 1.0
       max_steering_time: 30.0
       steering_acceptance_radius: 10.0
@@ -68,12 +68,12 @@ behavior_generator:
   rrtstar:
     params:
       max_nodes: 3000
-      max_iter: 25000
+      max_iter: 10000
       max_time: 3.0
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
-      step_size: 0.5
+      step_size: 2.5
       min_steering_time: 1.0
       max_steering_time: 30.0
       steering_acceptance_radius: 10.0
@@ -103,7 +103,7 @@ behavior_generator:
       max_time: 3.0
       iter_between_direct_goal_growth: 100
       goal_radius: 200.0
-      step_size: 0.5
+      step_size: 2.5
       min_steering_time: 2.0
       max_steering_time: 30.0
       steering_acceptance_radius: 10.0

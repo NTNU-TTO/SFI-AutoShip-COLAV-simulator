@@ -499,16 +499,24 @@ class Ship(IShip):
         """
         self._references = references.reshape((9, 1))
 
-    def set_colav_system(self, colav: Any | ci.ICOLAV) -> None:
+    def set_colav_system(self, colav: ci.ICOLAV) -> None:
         """Sets the COLAV system to be used by the ship.
 
         Args:
-            colav (Any | ICOLAV): COLAV system, must implement the ICOLAV interface.
+            colav (ICOLAV): COLAV system, must implement the ICOLAV interface.
         """
         self._colav = colav
 
         if self._guidance is not None:
             self._guidance = None
+
+    def set_controller(self, controller: controllers.IController) -> None:
+        """Sets the controller to be used by the ship.
+
+        Args:
+            controller (IController): Controller to be used.
+        """
+        self._controller = controller
 
     def get_colav_data(self) -> dict:
         """Returns COLAV related data for the ship, if any.

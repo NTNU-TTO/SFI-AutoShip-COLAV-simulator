@@ -61,10 +61,11 @@ if __name__ == "__main__":
     env_id = "COLAVEnvironment-v0"
     env_config = {
         "scenario_config": config_file,
-        "reload_map": True,
+        "reload_map": False,
         "render_mode": "rgb_array",
         "render_update_rate": 1.0,
         "test_mode": False,
+        "seed": 1,
     }
     env = gym.make(id=env_id, **env_config)
 

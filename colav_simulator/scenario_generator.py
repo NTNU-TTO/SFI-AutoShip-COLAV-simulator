@@ -649,6 +649,11 @@ class ScenarioGenerator:
             self.enc.close_display()
         if self._config.verbose:
             print(f"ScenarioGenerator: Number of accepted episodes: {self._episode_counter} out of {n_episodes}.")
+
+        if self._episode_counter == 0:
+            print(
+                "WARNING: No episodes were generated. Check the scenario configuration or try different seed and increase the number of episodes."
+            )
         return scenario_episode_list, enc_copy
 
     def _create_partially_defined_ships(self, config: sc.ScenarioConfig) -> Tuple[list, sc.ScenarioConfig]:

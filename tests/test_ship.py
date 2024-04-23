@@ -17,32 +17,33 @@ fig_size = [25, 13]  # figure1 size in cm
 dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
-    n_wps = 8
+    horizon = 100.0
+    dt = 0.05
 
     utm_zone = 33
-    map_size = [5000.0, 5000.0]
-    map_origin_enu = [-35544.0, 6579000.0]
+    map_size = [1500.0, 1500.0]
+    map_origin_enu = [-31824.0, 6573700.0]
     map_data_files = ["Rogaland_utm33.gdb"]
 
     # Put new_data to True to load map data in ENC if it is not already loaded
     scenario_generator = ScenarioGenerator(
-        init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
+        init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
     )
     origin = scenario_generator.enc_origin
 
-    model = models.RVGunnerus()
-    ctrl_params = controllers.FLSHParams(
-        K_p_u=1.0,
-        K_i_u=0.005,
-        K_p_psi=1.0,
-        K_d_psi=0.6,
-        K_i_psi=0.02,
-        max_speed_error_int=0.5,
+    model = models.Telemetron()
+    ctrl_params = controllers.FLSCParams(
+        K_p_u=3.0,
+        K_i_u=0.3,
+        K_p_chi=2.5,
+        K_d_chi=3.0,
+        K_i_chi=0.1,
+        max_speed_error_int=4.0,
         speed_error_int_threshold=0.5,
-        max_psi_error_int=15.0 * np.pi / 180.0,
-        psi_error_int_threshold=15.0 * np.pi / 180.0,
+        max_chi_error_int=90.0 * np.pi / 180.0,
+        chi_error_int_threshold=20.0 * np.pi / 180.0,
     )
-    controller = controllers.FLSH(model.params, ctrl_params)
+    controller = controllers.FLSC(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(
@@ -69,16 +70,12 @@ if __name__ == "__main__":
     csog_state = scenario_generator.generate_random_csog_state(
         draft=ownship.draft, min_land_clearance=100.0, U_min=2.0, U_max=ownship.max_speed
     )
+    csog_state = np.array(
+        [6574229.448438326, -31157.753734698883, 5.805685027679189, -131.1969202238676 * np.pi / 180.0]
+    )
     ownship.set_initial_state(csog_state)
 
-    disturbance_config = stochasticity.Config()
-    disturbance = stochasticity.Disturbance(disturbance_config)
-    # disturbance._currents = None
-    # disturbance._wind = None
-
     rng = np.random.default_rng(seed=1)
-    horizon = 300.0
-    dt = 0.1
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
@@ -100,8 +97,7 @@ if __name__ == "__main__":
     disturbance = stochasticity.Disturbance(disturbance_config)
     # disturbance._currents = None
     # disturbance._wind = None
-    horizon = 400.0
-    dt = 0.5
+
     n_x, n_u = model.dims
     n_r = 9
     n_samples = round(horizon / dt)
@@ -110,6 +106,134 @@ if __name__ == "__main__":
     refs = np.zeros((n_r, n_samples))
     tau = np.zeros((n_u, n_samples))
     time = np.zeros(n_samples)
+
+    map_orig = np.array([6574234.5638, -31158.2928])
+    traj = np.array(
+        [
+            [
+                -10.8436,
+                -12.1109,
+                -14.1172,
+                -19.7815,
+                -29.9166,
+                -44.1482,
+                -61.6429,
+                -81.5254,
+                -103.0452,
+                -125.6093,
+                -148.7625,
+                -168.9708,
+                -182.7403,
+                -190.1094,
+                -193.2888,
+                -195.3983,
+                -197.6000,
+            ],
+            [
+                -24.8234,
+                -52.4508,
+                -80.0572,
+                -107.1298,
+                -132.8302,
+                -156.4532,
+                -177.6805,
+                -196.5452,
+                -213.3069,
+                -228.3423,
+                -242.0761,
+                -253.1981,
+                -260.4683,
+                -264.2923,
+                -265.9332,
+                -267.0207,
+                -267.9646,
+            ],
+            [
+                -1.6413,
+                -1.5919,
+                -1.6947,
+                -1.8594,
+                -2.0335,
+                -2.1926,
+                -2.3277,
+                -2.4373,
+                -2.5225,
+                -2.5852,
+                -2.6273,
+                -2.6509,
+                -2.6615,
+                -2.6648,
+                -2.6656,
+                -2.6656,
+                -2.8070,
+            ],
+            [
+                5.5268,
+                5.5369,
+                5.5396,
+                5.5364,
+                5.5282,
+                5.5149,
+                5.4964,
+                5.4722,
+                5.4420,
+                5.4056,
+                5.3632,
+                3.8637,
+                2.3647,
+                0.9561,
+                0.4750,
+                0.4744,
+                0.4846,
+            ],
+            [
+                28.5692,
+                56.4046,
+                84.2553,
+                112.1301,
+                140.0287,
+                167.9385,
+                195.8336,
+                223.6731,
+                251.4019,
+                278.9517,
+                306.2435,
+                328.1394,
+                341.0805,
+                347.5990,
+                350.4900,
+                352.4344,
+                354.3136,
+            ],
+            [
+                5.5662,
+                5.5680,
+                5.5723,
+                5.5776,
+                5.5818,
+                5.5822,
+                5.5759,
+                5.5599,
+                5.5316,
+                5.4883,
+                5.4284,
+                3.3300,
+                1.8464,
+                0.7610,
+                0.3954,
+                0.3824,
+                0.3693,
+            ],
+        ]
+    )
+    traj[:2, :] += map_orig.reshape(2, 1)
+    state = np.array([6574226.0000, -31169.2031, -1.8932, 5.5457, 0.0, 0.0], dtype=np.float32)
+    ownship._state = state
+
+    ref_counter = 1
+    t_prev_upd = 0.0
+    chi_ref = traj[2, 1]
+    U_ref = traj[3, 1]
     for k in range(n_samples):
         time[k] = k * dt
         disturbance_data = disturbance.get()
@@ -119,13 +243,21 @@ if __name__ == "__main__":
         if disturbance_data.currents:
             disturbances[2, k] = disturbance_data.currents["speed"]
             disturbances[3, k] = disturbance_data.currents["direction"]
-        ownship.plan(time[k], dt, [], None, w=disturbance_data)
+
+        # ownship.plan(time[k], dt, [], None, w=disturbance_data)
+        if time[k] - t_prev_upd >= 5.0:
+            ref_counter += 1 if ref_counter < traj.shape[1] - 1 else 0
+            t_prev_upd = time[k]
+            chi_ref = traj[2, ref_counter]
+            U_ref = traj[3, ref_counter]
+
+        ownship.set_references(np.array([0.0, 0.0, chi_ref, U_ref, 0.0, 0.0, 0.0, 0.0, 0.0]))
         trajectory[:, k], tau[:, k], refs[:, k] = ownship.forward(dt, w=disturbance_data)
         disturbance.update(time[k], dt)
 
     # Plots
     scenario_generator.enc.start_display()
-    if disturbance_data.currents is not None and disturbance_data.currents["speed"] > 0.0:
+    if disturbance_data.currents and disturbance_data.currents["speed"] > 0.0:
         plotters.plot_disturbance(
             magnitude=100.0,
             direction=disturbance_data.currents["direction"],
@@ -137,7 +269,7 @@ if __name__ == "__main__":
             text_location_offset=(0.0, 0.0),
         )
 
-    if disturbance_data.wind is not None and disturbance_data.wind["speed"] > 0.0:
+    if disturbance_data.wind and disturbance_data.wind["speed"] > 0.0:
         plotters.plot_disturbance(
             magnitude=100.0,
             direction=disturbance_data.wind["direction"],
@@ -149,12 +281,12 @@ if __name__ == "__main__":
             text_location_offset=(0.0, -20.0),
         )
     plotters.plot_waypoints(
-        waypoints,
+        traj[:2, :],
         scenario_generator.enc,
         "orange",
-        point_buffer=5.0,
-        disk_buffer=10.0,
-        hole_buffer=5.0,
+        point_buffer=2.0,
+        disk_buffer=4.0,
+        hole_buffer=2.0,
         alpha=0.6,
     )
     plotters.plot_trajectory(trajectory, scenario_generator.enc, "black")
@@ -168,39 +300,39 @@ if __name__ == "__main__":
     fig = plt.figure(figsize=(mf.cm2inch(fig_size[0]), mf.cm2inch(fig_size[1])), dpi=dpi_value)
     axs = fig.subplot_mosaic(
         [
-            ["xy", "psi", "r"],
-            ["U", "x", "y"],
+            ["xy", "chi", "r"],
+            ["U", "u", "v"],
         ]
     )
-    axs["xy"].plot(waypoints[1, :] - origin[1], waypoints[0, :] - origin[0], "rx", label="Waypoints")
+    axs["xy"].plot(traj[1, :] - origin[1], traj[0, :] - origin[0], "rx", label="Waypoints")
     axs["xy"].plot(trajectory[1, :] - origin[1], trajectory[0, :] - origin[0], "k", label="Trajectory")
     axs["xy"].set_xlabel("East (m)")
     axs["xy"].set_ylabel("North (m)")
     axs["xy"].grid()
     axs["xy"].legend()
 
-    axs["x"].plot(time, refs[0] - origin[0], "r--", label="North reference")
-    axs["x"].plot(time, trajectory[0] - origin[0], "k", label="North")
-    axs["x"].set_xlabel("Time (s)")
-    axs["x"].set_ylabel("North (m)")
-    axs["x"].grid()
-    axs["x"].legend()
+    axs["u"].plot(time, refs[3], "r--", label="Surge reference")
+    axs["u"].plot(time, trajectory[3], "k", label="Surge")
+    axs["u"].set_xlabel("Time (s)")
+    axs["u"].set_ylabel("North (m)")
+    axs["u"].grid()
+    axs["u"].legend()
 
-    axs["y"].plot(time, refs[1] - origin[1], "r--", label="East reference")
-    axs["y"].plot(time, trajectory[1] - origin[1], "k", label="East")
-    axs["y"].set_xlabel("Time (s)")
-    axs["y"].set_ylabel("East (m)")
-    axs["y"].grid()
-    axs["y"].legend()
+    axs["v"].plot(time, refs[4], "r--", label="Sway reference")
+    axs["v"].plot(time, trajectory[4], "k", label="Sway")
+    axs["v"].set_xlabel("Time (s)")
+    axs["v"].set_ylabel("East (m)")
+    axs["v"].grid()
+    axs["v"].legend()
 
     # heading_error = mf.wrap_angle_diff_to_pmpi(refs[2, :], trajectory[2, :])
-
-    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[2, :])), "r--", label="Heading reference")
-    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[2, :])), "k", label="Heading")
-    axs["psi"].set_xlabel("Time (s)")
-    axs["psi"].set_ylabel("Heading (deg)")
-    axs["psi"].grid()
-    axs["psi"].legend()
+    crab = np.arctan2(trajectory[4, :], trajectory[3, :])
+    axs["chi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[2, :])), "r--", label="Course reference")
+    axs["chi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[2, :] + crab)), "k", label="Course")
+    axs["chi"].set_xlabel("Time (s)")
+    axs["chi"].set_ylabel("Course (deg)")
+    axs["chi"].grid()
+    axs["chi"].legend()
 
     axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[5, :])), "r--", label="Yaw rate reference")
     axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[5])), "k", label="Yaw rate")

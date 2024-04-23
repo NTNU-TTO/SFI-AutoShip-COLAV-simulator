@@ -73,6 +73,7 @@ class COLAVEnvironment(gym.Env):
             rewarder_class (Optional[rw.IReward]): Rewarder class.
             rewarder_kwargs (Optional[dict]): Rewarder keyword arguments.
             action_type (Optional[str]): Action type.
+            action_sample_time (Optional[float]): Action sample time, i.e. the time between each applied action.
             observation_type (Optional[dict | str]): Observation type.
             render_mode (Optional[str]): Render mode.
             render_update_rate (Optional[float]): Render update rate.

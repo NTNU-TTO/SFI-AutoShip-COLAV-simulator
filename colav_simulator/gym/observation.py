@@ -843,7 +843,7 @@ class PerceptionImageObservation(ObservationType):
 
     def observe(self) -> Observation:
         assert self.env.ownship is not None, "Ownship is not defined"
-        t_now = time.time()
+        # t_now = time.time()
         img = self.env.liveplot_image
         pruned_img = img
         # pruned_img = imghf.remove_whitespace(img)

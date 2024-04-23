@@ -16,7 +16,7 @@
         See an example for the Kuwata VO and SBMPC below.
         6: Add configuration support for the algorithm by expanding the `colav` entry under `schemas/scenario.yaml` in the `ship_list` section.
 
-        Alternatively, to be able to use a third-party COLAV planning algorithm:
+        Alternatively (AND EASIER), to be able to use a third-party COLAV planning algorithm:
 
         1: Import this module in your own code.
         2: Create a wrapper class for your COLAV algorithm that implements the ICOLAV interface.

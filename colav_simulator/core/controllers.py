@@ -76,22 +76,22 @@ class SHPIDParams:
 
 
 @dataclass
-class FLSHParams:
+class FLSCParams:
     "Parameters for the feedback linearizing surge-heading controller."
     K_p_u: float = 2.0
     K_i_u: float = 0.1
-    K_p_psi: float = 2.5
-    K_d_psi: float = 1.75
-    K_i_psi: float = 0.003
+    K_p_chi: float = 2.5
+    K_d_chi: float = 1.75
+    K_i_chi: float = 0.003
     max_speed_error_int: float = 2.0
     speed_error_int_threshold: float = 1.0
-    max_psi_error_int: float = 50.0 * np.pi / 180.0
-    psi_error_int_threshold: float = 15.0 * np.pi / 180.0
+    max_chi_error_int: float = 50.0 * np.pi / 180.0
+    chi_error_int_threshold: float = 15.0 * np.pi / 180.0
 
     def to_dict(self):
         output = asdict(self)
-        output["max_psi_error_int"] = float(np.rad2deg(output["max_psi_error_int"]))
-        output["psi_error_int_threshold"] = float(np.rad2deg(output["psi_error_int_threshold"]))
+        output["max_chi_error_int"] = float(np.rad2deg(output["max_chi_error_int"]))
+        output["chi_error_int_threshold"] = float(np.rad2deg(output["chi_error_int_threshold"]))
         return output
 
 
@@ -113,13 +113,13 @@ class Config:
     """Configuration class for managing controller parameters."""
 
     pid: Optional[MIMOPIDParams] = None
-    flsh: Optional[FLSHParams] = None
+    flsc: Optional[FLSCParams] = None
     pass_through_cs: Optional[bool] = True
     pass_through_inputs: Optional[PassThroughInputsParams] = None
 
     @classmethod
     def from_dict(cls, config_dict: dict):
-        config = Config(pid=None, flsh=None, pass_through_cs=None, pass_through_inputs=None)
+        config = Config(pid=None, flsc=None, pass_through_cs=None, pass_through_inputs=None)
         if "pid" in config_dict:
             config.pid = MIMOPIDParams(
                 wn=np.diag(config_dict["pid"]["wn"]),
@@ -127,10 +127,10 @@ class Config:
                 eta_diff_max=np.array(config_dict["pid"]["eta_diff_max"]),
             )
 
-        if "flsh" in config_dict:
-            config.flsh = cp.convert_settings_dict_to_dataclass(FLSHParams, config_dict["flsh"])
-            config.flsh.max_psi_error_int = np.deg2rad(config.flsh.max_psi_error_int)
-            config.flsh.psi_error_int_threshold = np.deg2rad(config.flsh.psi_error_int_threshold)
+        if "flsc" in config_dict:
+            config.flsc = cp.convert_settings_dict_to_dataclass(FLSCParams, config_dict["flsc"])
+            config.flsc.max_chi_error_int = np.deg2rad(config.flsc.max_chi_error_int)
+            config.flsc.chi_error_int_threshold = np.deg2rad(config.flsc.chi_error_int_threshold)
 
         if "pass_through_cs" in config_dict:
             config.pass_through_cs = True
@@ -145,8 +145,8 @@ class Config:
         if self.pid is not None:
             config_dict["pid"] = self.pid.to_dict()
 
-        if self.flsh is not None:
-            config_dict["flsh"] = self.flsh.to_dict()
+        if self.flsc is not None:
+            config_dict["flsc"] = self.flsc.to_dict()
 
         if self.pass_through_cs is not None:
             config_dict["pass_through_cs"] = ""
@@ -181,8 +181,8 @@ class ControllerBuilder:
         """
         if config and config.pid:
             return MIMOPID(model_params, config.pid)
-        elif config and config.flsh:
-            return FLSH(model_params, config.flsh)
+        elif config and config.flsc:
+            return FLSC(model_params, config.flsc)
         elif config and config.pass_through_cs:
             return PassThroughCS()
         elif config and config.pass_through_inputs:
@@ -346,63 +346,80 @@ def pole_placement(
 
 
 @dataclass
-class FLSH(IController):
-    """Implements a feedback-linearizing surge-course (FLSH) controller for a single thruster+rudder
+class FLSC(IController):
+    """Implements a feedback-linearizing surge-course (FLSC) controller for a single thruster+rudder
     (NOT true in practice, as the vessel has an outboard engine) Telemetron vessel using
 
     Fx = (C(nu) * nu)[0] + (D(nu) * nu)[0] + M[0, 0] * (K_p,u * (u_d - u) + int_0^t K_i,u * (u_d - u))
-    Fy = (M[2, 2] / l_r) * (K_p,psi * (psi_d - psi) + K_d,psi * (r_d - r) + int_0^t K_i,psi * (psi_d - psi))
+    Fy = (M[2, 2] / l_r) * (K_p,chi * (chi_d - chi) + K_d,chi * (r_d - r) + int_0^t K_i,chi * (chi_d - chi))
 
     for the system
 
     eta_dot = J_Theta(eta) * nu
     M * nu_dot + C(nu) * nu + D(nu) * nu = tau
 
-    with a rudder placed l_r units away from CG, such that tau = [Fx, Fy, Fy * l_r]^T.
+    with a rudder placed l_r units away from CG, such that we set tau = [Fx, 0.0, Fy * l_r]^T.
     Here, J_Theta(eta) = R(eta) for the 3DOF case with eta = [x, y, psi]^T, nu = [u, v, r]^T and xs = [eta, nu]^T.
-
-    NOTE: We typically feed in and control the COURSE instead of the heading here, as this is more typical to control in practice.
     """
 
-    def __init__(self, model_params, params: Optional[FLSHParams] = None) -> None:
+    def __init__(
+        self, model_params, params: Optional[FLSCParams] = None, enable_separate_low_speed_control: bool = True
+    ) -> None:
         self._model_params = model_params
         if params is not None:
-            self._params: FLSHParams = params
+            self._params: FLSCParams = params
         else:
-            self._params = FLSHParams()
-        self._speed_error_int = 0.0
-        self._psi_error_int = 0.0
-        self._psi_d_prev = 0.0
-        self._psi_prev = 0.0
+            self._params = FLSCParams()
 
-    def update_integrators(self, speed_error: float, psi_error: float, dt: float) -> None:
+        self._low_speed_ctrl_params = None
+        if enable_separate_low_speed_control:
+            # Tuned for the telemetron model with disturbances considered
+            self._low_speed_ctrl_params = FLSCParams(
+                K_p_u=3.0,
+                K_i_u=0.2,
+                K_p_chi=1.5,
+                K_d_chi=4.0,
+                K_i_chi=0.1,
+                max_speed_error_int=4.0,
+                speed_error_int_threshold=0.4,
+                max_chi_error_int=90.0 * np.pi / 180.0,
+                chi_error_int_threshold=15.0 * np.pi / 180.0,
+            )
+        self.reset()
+
+    def reset(self):
+        self._speed_error_int = 0.0
+        self._chi_error_int = 0.0
+        self._chi_d_prev = 0.0
+        self._chi_prev = 0.0
+        self._t = 0.0
+
+    def update_integrators(self, speed_error: float, chi_error: float, dt: float) -> None:
         if abs(speed_error) <= self._params.speed_error_int_threshold:
             self._speed_error_int += speed_error * dt
 
-        if abs(speed_error) < 0.05:
+        if abs(speed_error) < 0.01:
             self._speed_error_int = 0.0
 
-        if abs(psi_error) <= self._params.psi_error_int_threshold:
-            self._psi_error_int = mf.unwrap_angle(self._psi_error_int, psi_error * dt)
+        if abs(chi_error) <= self._params.chi_error_int_threshold:
+            self._chi_error_int = mf.unwrap_angle(self._chi_error_int, chi_error * dt)
 
-        if abs(psi_error) < 0.5 * np.pi / 180.0:
-            self._psi_error_int = 0.0
+        if abs(chi_error) < 0.1 * np.pi / 180.0:
+            self._chi_error_int = 0.0
 
         self._speed_error_int = mf.sat(
             self._speed_error_int, -self._params.max_speed_error_int, self._params.max_speed_error_int
         )
-        self._psi_error_int = mf.sat(
-            self._psi_error_int, -self._params.max_psi_error_int, self._params.max_psi_error_int
+        self._chi_error_int = mf.sat(
+            self._chi_error_int, -self._params.max_chi_error_int, self._params.max_chi_error_int
         )
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the proposed control law.
 
-        NOTE: We typically feed in and control the COURSE instead of the heading here, as this is more typical in practice.
-
         Args:
-            refs (np.ndarray): Desired/reference state xs_d = [eta_d^T, eta_dot_d^T, eta_ddot_d^T]^T
-            (equal to [0, 0, psi_d, U_d, 0, 0, 0, 0, 0]^T in case of LOSGuidance)
+            refs (np.ndarray): Desired/reference states [eta_d^T, eta_dot_d^T, eta_ddot_d^T]^T
+            (equal to [0, 0, chi_d, U_d, 0, 0, 0, 0, 0]^T in case of LOSGuidance)
             xs (np.ndarray): State xs = [eta^T, nu^T]^T
             dt (float): Time step
 
@@ -420,15 +437,19 @@ class FLSH(IController):
 
         # assume eta_dot_d is in BODY frame
         u_d = refs[3]
-        psi_d: float = mf.wrap_angle_to_pmpi(refs[2])
-        psi_d_unwrapped = mf.unwrap_angle(self._psi_d_prev, psi_d)
+        chi_d: float = mf.wrap_angle_to_pmpi(refs[2])
+        chi_d_unwrapped = mf.unwrap_angle(self._chi_d_prev, chi_d)
         r_d = mf.sat(refs[5], -self._model_params.r_max, self._model_params.r_max)
 
-        psi: float = mf.wrap_angle_to_pmpi(eta[2])
-        psi_unwrapped = mf.unwrap_angle(self._psi_prev, psi)
+        psi = mf.wrap_angle_to_pmpi(eta[2])
+        speed = np.sqrt(nu[0] ** 2 + nu[1] ** 2)
+        crab = np.arctan2(nu[1], nu[0])  # if speed > 1.5 else 0.0  # to avoid oscillations when speed is low
+        chi = mf.wrap_angle_to_pmpi(psi + crab)
+        chi_unwrapped = mf.unwrap_angle(self._chi_prev, chi)
 
-        self._psi_d_prev = psi_d
-        self._psi_prev = eta[2]
+        self._chi_d_prev = chi_d
+        self._chi_prev = eta[2]
+        chi_error_prev = chi_d - chi
 
         Cvv = np.zeros(3)
         Dvv = np.zeros(3)
@@ -450,23 +471,24 @@ class FLSH(IController):
             l_r = abs(self._model_params.r_t[0])
 
         speed_error = u_d - nu[0]
-        psi_error: float = mf.wrap_angle_diff_to_pmpi(psi_d_unwrapped, psi_unwrapped)
-        self.update_integrators(speed_error, psi_error, dt)
+        chi_error: float = mf.wrap_angle_diff_to_pmpi(chi_d_unwrapped, chi_unwrapped)
+        chi_error_unwrapped = mf.unwrap_angle(chi_error_prev, chi_error)
+        self.update_integrators(speed_error, chi_error_unwrapped, dt)
 
-        # if psi_error > 0.2 and u_d < 5.0:
+        params = self._params
+        if self._low_speed_ctrl_params is not None:
+            params = self._params if speed > 1.5 else self._low_speed_ctrl_params
+
+        # if chi_error > 0.2 and u_d < 1.0:
+        # self._t += dt
+        # if self._t > 50.0:
         #     print(
-        #         f"speed error: {speed_error} | psi error: {psi_error} | speed error int: {self._speed_error_int} | psi error int: {self._psi_error_int}"
+        #         f"speed error: {speed_error} | chi error: {180.0 * chi_error_unwrapped / np.pi} | speed error int: {self._speed_error_int} | chi error int: {180.0 * self._chi_error_int / np.pi}"
         #     )
 
-        tau_X = (
-            Cvv[0]
-            + Dvv[0]
-            + Mmtrx[0, 0] * (self._params.K_p_u * speed_error + self._params.K_i_u * self._speed_error_int)
-        )
+        tau_X = Cvv[0] + Dvv[0] + Mmtrx[0, 0] * (params.K_p_u * speed_error + params.K_i_u * self._speed_error_int)
         tau_N = (Mmtrx[2, 2] / l_r) * (
-            self._params.K_p_psi * psi_error
-            + self._params.K_d_psi * (r_d - nu[2])
-            + self._params.K_i_psi * self._psi_error_int
+            params.K_p_chi * chi_error + params.K_d_chi * (r_d - nu[2]) + params.K_i_chi * self._chi_error_int
         )
 
         tau = np.array([float(tau_X), 0.0, float(l_r * tau_N)])

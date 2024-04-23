@@ -465,7 +465,7 @@ ship_list:
         schema:
           pid:
             type: dict
-            excludes: [flsh, pass_through_cs, csog, pass_through_inputs]
+            excludes: [flsc, pass_through_cs, csog, pass_through_inputs]
             schema:
               wn:
                 required: True
@@ -491,7 +491,7 @@ ship_list:
                 schema:
                   type: float
                   min: 0.0
-          flsh:
+          flsc:
             type: dict
             excludes: [pid, pass_through_cs, pass_through_inputs, csog]
             schema:
@@ -503,15 +503,15 @@ ship_list:
                 required: True
                 type: float
                 min: 0.0
-              K_p_psi:
+              K_p_chi:
                 required: True
                 type: float
                 min: 0.0
-              K_d_psi:
+              K_d_chi:
                 required: True
                 type: float
                 min: 0.0
-              K_i_psi:
+              K_i_chi:
                 required: True
                 type: float
                 min: 0.0
@@ -523,21 +523,21 @@ ship_list:
                 required: True
                 type: float
                 min: 0.0
-              max_psi_error_int:
+              max_chi_error_int:
                 required: True
                 type: float
                 min: 0.0
-              psi_error_int_threshold:
+              chi_error_int_threshold:
                 required: True
                 type: float
                 min: 0.0
           pass_through_cs:
             type: string
             empty: True
-            excludes: [pid, flsh, csog, pass_through_inputs]
+            excludes: [pid, flsc, csog, pass_through_inputs]
           pass_through_inputs:
             type: dict
-            excludes: [pid, flsh, pass_through_cs, csog]
+            excludes: [pid, flsc, pass_through_cs, csog]
             schema:
               rudder_propeller_mapping:
                 required: True

@@ -35,15 +35,15 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
 @dataclass
 class PQRRTStarParams:
-    max_nodes: int = 10000  # Maximum allowable number of nodes in the tree
-    max_iter: int = 25000  # Maximum allowable number of iterations
-    max_time: float = 5000.0  # Maximum allowable runtime in seconds
-    iter_between_direct_goal_growth: int = 100000  # Number of iterations between direct growth towards the goal
+    max_nodes: int = 3000  # Maximum allowable number of nodes in the tree
+    max_iter: int = 12000  # Maximum allowable number of iterations
+    max_time: float = 5.0  # Maximum allowable runtime in seconds
+    iter_between_direct_goal_growth: int = 100  # Number of iterations between direct growth towards the goal
     min_node_dist: float = 10.0  # Minimum distance between nodes in nearest neighbor search
-    goal_radius: float = 50.0  # Radius of goal region
+    goal_radius: float = 500.0  # Radius of goal region
     step_size: float = 1.0  # Step size for steering/dynamics
-    min_steering_time: float = 2.0  # Minimum steering time allowed
-    max_steering_time: float = 20.0  # Maximum steering time allowed
+    min_steering_time: float = 1.0  # Minimum steering time allowed
+    max_steering_time: float = 30.0  # Maximum steering time allowed
     steering_acceptance_radius: float = 10.0  # Radius of acceptance for steering (using LOS)
     gamma: float = 1500.0  # Nearest neighbor search radius parameter
     max_sample_adjustments: int = 100  # Maximum number of sample adjustments allowed in Potential field sampling
@@ -64,15 +64,15 @@ class PQRRTStarParams:
 
 @dataclass
 class RRTStarParams:
-    max_nodes: int = 10000  # Maximum allowable number of nodes in the tree
-    max_iter: int = 25000  # Maximum allowable number of iterations
-    max_time: float = 5000.0  # Maximum allowable runtime in seconds
-    iter_between_direct_goal_growth: int = 100000  # Number of iterations between direct growth towards the goal
+    max_nodes: int = 3000  # Maximum allowable number of nodes in the tree
+    max_iter: int = 12000  # Maximum allowable number of iterations
+    max_time: float = 5.0  # Maximum allowable runtime in seconds
+    iter_between_direct_goal_growth: int = 100  # Number of iterations between direct growth towards the goal
     min_node_dist: float = 10.0  # Minimum distance between nodes in nearest neighbor search
-    goal_radius: float = 50.0  # Radius of goal region
+    goal_radius: float = 500.0  # Radius of goal region
     step_size: float = 1.0  # Step size for steering/dynamics
-    min_steering_time: float = 2.0  # Minimum steering time allowed
-    max_steering_time: float = 20.0  # Maximum steering time allowed
+    min_steering_time: float = 1.0  # Minimum steering time allowed
+    max_steering_time: float = 30.0  # Maximum steering time allowed
     steering_acceptance_radius: float = 10.0  # Radius of acceptance for steering (using LOS)
     gamma: float = 1500.0  # Nearest neighbor search radius parameter
 
@@ -87,14 +87,14 @@ class RRTStarParams:
 
 @dataclass
 class RRTParams:
-    max_nodes: int = 10000  # Maximum allowable number of nodes in the tree
-    max_iter: int = 25000  # Maximum allowable number of iterations
-    max_time: float = 5000.0  # Maximum allowable runtime in seconds
-    iter_between_direct_goal_growth: int = 100000  # Number of iterations between direct growth towards the goal
-    goal_radius: float = 50.0  # Radius of goal region
+    max_nodes: int = 3000  # Maximum allowable number of nodes in the tree
+    max_iter: int = 12000  # Maximum allowable number of iterations
+    max_time: float = 5.0  # Maximum allowable runtime in seconds
+    iter_between_direct_goal_growth: int = 100  # Number of iterations between direct growth towards the goal
+    goal_radius: float = 500.0  # Radius of goal region
     step_size: float = 1.0  # Step size for steering/dynamics
-    min_steering_time: float = 2.0  # Minimum steering time allowed
-    max_steering_time: float = 20.0  # Maximum steering time allowed
+    min_steering_time: float = 1.0  # Minimum steering time allowed
+    max_steering_time: float = 30.0  # Maximum steering time allowed
     steering_acceptance_radius: float = 10.0  # Radius of acceptance for steering (using LOS)
 
     @classmethod
@@ -457,7 +457,7 @@ class BehaviorGenerator:
                 safe_sea_cdt_weights=self._safe_sea_cdt_weights,
                 bbox=ownship_bbox,
                 min_distance_from_start=500.0,
-                max_distance_from_start=5.0 * ship_obj.speed * simulation_timespan,
+                max_distance_from_start=min(1200.0, 5.0 * ship_obj.speed * simulation_timespan),
                 show_plots=False,
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
@@ -467,7 +467,7 @@ class BehaviorGenerator:
 
             bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=800.0)
             relevant_hazards = mapf.extract_hazards_within_bounding_box(
-                self._grounding_hazards, bbox, self._enc, show_plots=False
+                self._grounding_hazards, bbox, self._enc, show_plots=show_plots
             )
             planning_cdt = mapf.create_safe_sea_triangulation(
                 self._enc,
@@ -686,7 +686,6 @@ class BehaviorGenerator:
         )
 
         planning_bbox = self._planning_bbox_list[ship_obj.id]
-        planning_cdt = self._planning_cdt_list[ship_obj.id]
         if rrt_method == BehaviorGenerationMethod.RRT:
             planner = self._rrt_list[ship_obj.id]
             # print("Using RRT for behavior generation...")
@@ -714,7 +713,7 @@ class BehaviorGenerator:
         corridor_diameter = 150.0
         for s in range(n_samples):
             time_now = time.time()
-            for iter in range(100):
+            for iter in range(10):
                 if sampling_method.value == RRTBehaviorSamplingMethod.UniformlyInMap.value:
                     x_rand = rng.uniform(planning_bbox[1], planning_bbox[3])
                     y_rand = rng.uniform(planning_bbox[0], planning_bbox[2])

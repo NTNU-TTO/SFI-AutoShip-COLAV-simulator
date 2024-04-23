@@ -41,16 +41,16 @@ ship_list:
         max_cross_track_error_int: 200.0
         cross_track_error_int_threshold: 30.0
     controller:
-      flsh:
+      flsc:
         K_p_u: 3.0
-        K_i_u: 0.1
-        K_p_psi: 3.0
-        K_d_psi: 1.75
-        K_i_psi: 0.003
-        max_speed_error_int: 2.0
-        speed_error_int_threshold: 1.0
-        max_psi_error_int: 50.0
-        psi_error_int_threshold: 15.0
+        K_i_u: 0.3
+        K_p_chi: 2.5
+        K_d_chi: 3.0
+        K_i_chi: 0.1
+        max_speed_error_int: 4.0
+        speed_error_int_threshold: 0.5
+        max_chi_error_int: 90.0
+        chi_error_int_threshold: 20.0
     model:
       telemetron: ''
   - csog_state: [6958000.0, 40000.0, 7.0, 45.0]
@@ -82,15 +82,15 @@ ship_list:
         max_cross_track_error_int: 200.0
         cross_track_error_int_threshold: 30.0
     controller:
-      flsh:
+      flsc:
         K_p_u: 3.0
-        K_i_u: 0.1
-        K_p_psi: 3.0
-        K_d_psi: 1.75
-        K_i_psi: 0.003
-        max_speed_error_int: 2.0
-        speed_error_int_threshold: 1.0
-        max_psi_error_int: 50.0
-        psi_error_int_threshold: 15.0
+        K_i_u: 0.3
+        K_p_chi: 2.5
+        K_d_chi: 3.0
+        K_i_chi: 0.1
+        max_speed_error_int: 4.0
+        speed_error_int_threshold: 0.5
+        max_chi_error_int: 90.0
+        chi_error_int_threshold: 20.0
     model:
       telemetron: ''

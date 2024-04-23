@@ -76,16 +76,16 @@ ship_list:
         max_cross_track_error_int: 1000.0
         cross_track_error_int_threshold: 30.0
     controller:
-      flsh:
+      flsc:
         K_p_u: 1.0
         K_i_u: 0.005
-        K_p_psi: 1.0
-        K_d_psi: 3.0
-        K_i_psi: 0.02
+        K_p_chi: 1.0
+        K_d_chi: 3.0
+        K_i_chi: 0.02
         max_speed_error_int: 0.5
         speed_error_int_threshold: 0.5
-        max_psi_error_int: 15.0
-        psi_error_int_threshold: 15.0
+        max_chi_error_int: 15.0
+        chi_error_int_threshold: 15.0
     model:
       telemetron: ''
       #rvgunnerus: ''

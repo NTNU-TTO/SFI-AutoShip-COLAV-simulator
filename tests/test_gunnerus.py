@@ -30,18 +30,18 @@ if __name__ == "__main__":
     origin = scenario_generator.enc_origin
 
     model = models.RVGunnerus()
-    ctrl_params = controllers.FLSHParams(
+    ctrl_params = controllers.FLSCParams(
         K_p_u=1.0,
         K_i_u=0.005,
-        K_p_psi=1.0,
-        K_d_psi=0.6,
-        K_i_psi=0.02,
+        K_p_chi=1.0,
+        K_d_chi=0.6,
+        K_i_chi=0.02,
         max_speed_error_int=0.5,
         speed_error_int_threshold=0.5,
-        max_psi_error_int=15.0 * np.pi / 180.0,
-        psi_error_int_threshold=15.0 * np.pi / 180.0,
+        max_chi_error_int=15.0 * np.pi / 180.0,
+        chi_error_int_threshold=15.0 * np.pi / 180.0,
     )
-    controller = controllers.FLSH(model.params, ctrl_params)
+    controller = controllers.FLSC(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(

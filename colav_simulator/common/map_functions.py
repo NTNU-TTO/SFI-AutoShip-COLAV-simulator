@@ -1084,7 +1084,6 @@ def extract_hazards_within_bounding_box(
     hazards: list,
     bbox: Tuple[float, float, float, float],
     enc: Optional[ENC] = None,
-    merge_hazards: bool = False,
     show_plots: bool = False,
 ) -> list:
     """Extracts the hazards that are inside the given bounding box.
@@ -1093,7 +1092,6 @@ def extract_hazards_within_bounding_box(
         hazards (list): List of Multipolygon hazards to consider.
         bbox (Tuple[float, float, float, float]): Bounding box to consider in the form (x_min, y_min, x_max, y_max), x = easting, y = northing.
         enc (Optional[ENC], optional): Electronic Navigational Chart object. Defaults to None.
-        merge_hazards (bool, optional): Option for merging hazards. Defaults to False.
         show_plots (bool, optional): Whether to show plots or not. Defaults to False.
 
     Returns:
