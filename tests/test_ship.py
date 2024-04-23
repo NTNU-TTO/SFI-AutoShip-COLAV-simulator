@@ -18,7 +18,7 @@ dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
     horizon = 100.0
-    dt = 0.05
+    dt = 0.1  # NOTE: time step affects the dynamics accuracy and also control performance
 
     utm_zone = 33
     map_size = [1500.0, 1500.0]
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     # Put new_data to True to load map data in ENC if it is not already loaded
     scenario_generator = ScenarioGenerator(
-        init_enc=True, new_data=False, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
+        init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
     )
     origin = scenario_generator.enc_origin
 

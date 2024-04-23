@@ -17,6 +17,9 @@ fig_size = [25, 13]  # figure1 size in cm
 dpi_value = 150  # figure dpi value
 
 if __name__ == "__main__":
+    horizon = 300.0
+    dt = 0.1  # NOTE: time step affects the dynamics accuracy and also control performance
+
     utm_zone = 33
     map_size = [2000.0, 2000.0]
     map_origin_enu = [-35544.0, 6579000.0]
@@ -33,22 +36,22 @@ if __name__ == "__main__":
     ctrl_params = controllers.FLSCParams(
         K_p_u=1.0,
         K_i_u=0.005,
-        K_p_chi=1.0,
-        K_d_chi=0.6,
+        K_p_chi=0.3,
+        K_d_chi=3.4,
         K_i_chi=0.02,
-        max_speed_error_int=0.5,
+        max_speed_error_int=2.0,
         speed_error_int_threshold=0.5,
-        max_chi_error_int=15.0 * np.pi / 180.0,
-        chi_error_int_threshold=15.0 * np.pi / 180.0,
+        max_chi_error_int=90.0 * np.pi / 180.0,
+        chi_error_int_threshold=20.0 * np.pi / 180.0,
     )
     controller = controllers.FLSC(model.params, ctrl_params)
     sensor_list = [sensorss.Radar()]
     tracker = trackers.KF(sensor_list=sensor_list)
     guidance_params = guidances.LOSGuidanceParams(
-        K_p=0.02,
-        K_i=0.0004,
-        R_a=80.0,
-        max_cross_track_error_int=1000.0,
+        K_p=0.005,
+        K_i=0.0001,
+        R_a=50.0,
+        max_cross_track_error_int=500.0,
         cross_track_error_int_threshold=30.0,
         pass_angle_threshold=90.0,
     )
@@ -76,8 +79,6 @@ if __name__ == "__main__":
     # disturbance._wind = None
 
     rng = np.random.default_rng(seed=1)
-    horizon = 500.0
-    dt = 0.5
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
@@ -86,7 +87,7 @@ if __name__ == "__main__":
         rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
     )
 
-    n_wps = 4
+    n_wps = 5
     waypoints, _ = scenario_generator.behavior_generator.generate_random_waypoints(
         rng, x=csog_state[0], y=csog_state[1], psi=csog_state[3], draft=ownship.draft, n_wps=n_wps
     )
@@ -163,8 +164,8 @@ if __name__ == "__main__":
     fig = plt.figure(figsize=(mf.cm2inch(fig_size[0]), mf.cm2inch(fig_size[1])), dpi=dpi_value)
     axs = fig.subplot_mosaic(
         [
-            ["xy", "psi", "r"],
-            ["U", "x", "y"],
+            ["xy", "chi", "r"],
+            ["U", "u", "v"],
         ]
     )
     axs["xy"].plot(waypoints[1, :] - origin[1], waypoints[0, :] - origin[0], "rx", label="Waypoints")
@@ -175,28 +176,28 @@ if __name__ == "__main__":
     axs["xy"].grid()
     axs["xy"].legend()
 
-    axs["x"].plot(time, refs[0] - origin[0], "r--", label="North reference")
-    axs["x"].plot(time, trajectory[0] - origin[0], "k", label="North")
-    axs["x"].set_xlabel("Time (s)")
-    axs["x"].set_ylabel("North (m)")
-    axs["x"].grid()
-    axs["x"].legend()
+    axs["u"].plot(time, refs[3], "r--", label="Surge reference")
+    axs["u"].plot(time, trajectory[3], "k", label="Surge")
+    axs["u"].set_xlabel("Time (s)")
+    axs["u"].set_ylabel("North (m)")
+    axs["u"].grid()
+    axs["u"].legend()
 
-    axs["y"].plot(time, refs[1] - origin[1], "r--", label="East reference")
-    axs["y"].plot(time, trajectory[1] - origin[1], "k", label="East")
-    axs["y"].set_xlabel("Time (s)")
-    axs["y"].set_ylabel("East (m)")
-    axs["y"].grid()
-    axs["y"].legend()
+    axs["v"].plot(time, refs[4], "r--", label="Sway reference")
+    axs["v"].plot(time, trajectory[4], "k", label="Sway")
+    axs["v"].set_xlabel("Time (s)")
+    axs["v"].set_ylabel("East (m)")
+    axs["v"].grid()
+    axs["v"].legend()
 
     # heading_error = mf.wrap_angle_diff_to_pmpi(refs[2, :], trajectory[2, :])
-
-    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[2, :])), "r--", label="Heading reference")
-    axs["psi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[2, :])), "k", label="Heading")
-    axs["psi"].set_xlabel("Time (s)")
-    axs["psi"].set_ylabel("Heading (deg)")
-    axs["psi"].grid()
-    axs["psi"].legend()
+    crab = np.arctan2(trajectory[4, :], trajectory[3, :])
+    axs["chi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[2, :])), "r--", label="Course reference")
+    axs["chi"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[2, :] + crab)), "k", label="Course")
+    axs["chi"].set_xlabel("Time (s)")
+    axs["chi"].set_ylabel("Course (deg)")
+    axs["chi"].grid()
+    axs["chi"].legend()
 
     axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(refs[5, :])), "r--", label="Yaw rate reference")
     axs["r"].plot(time, np.rad2deg(mf.wrap_angle_to_pmpi(trajectory[5])), "k", label="Yaw rate")
@@ -205,10 +206,10 @@ if __name__ == "__main__":
     axs["r"].grid()
     axs["r"].legend()
 
-    u_d = refs[3, :]
-    u = trajectory[3, :]
-    axs["U"].plot(time, u_d, "r--", label="Speed reference")
-    axs["U"].plot(time, u, "k", label="Speed")
+    U_d = np.sqrt(refs[3] ** 2 + refs[4] ** 2)
+    U = np.sqrt(trajectory[3, :] ** 2 + trajectory[4, :] ** 2)
+    axs["U"].plot(time, U_d, "r--", label="Speed reference")
+    axs["U"].plot(time, U, "k", label="Speed")
     axs["U"].set_xlabel("Time (s)")
     axs["U"].set_ylabel("Speed (m/s)")
     axs["U"].grid()
