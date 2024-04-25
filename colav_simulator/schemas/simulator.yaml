@@ -17,6 +17,9 @@ visualizer:
     show_results:
       required: True
       type: boolean
+    show_liveplot_disturbances:
+      required: True
+      type: boolean
     show_liveplot_measurements:
       required: True
       type: boolean

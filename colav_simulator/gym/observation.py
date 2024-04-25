@@ -429,6 +429,8 @@ class PathRelativeNavigationObservation(ObservationType):
         """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
         self._map_origin = self._map_origin = self.env.ownship.csog_state[:2]
         speed_plan = self.env.ownship.speed_plan.copy()
+        speed_plan[speed_plan > 7.0] = 6.0
+        speed_plan[speed_plan < 2.0] = 2.0
         speed_plan[-1] = 0.0
         os_nominal_path = self._ktp.compute_splines(
             waypoints=self.env.ownship.waypoints - np.array([self._map_origin[0], self._map_origin[1]]).reshape(2, 1),
@@ -827,7 +829,6 @@ class PerceptionImageObservation(ObservationType):
         super().__init__(env)
         self.name = "PerceptionImageObservation"
         self.image_dim = image_dim
-        self.n_images = image_dim[2]  # Number of images (grayscale) to store in the observation
         self.observation_counter = 0
         self.previous_image_stack = np.zeros(image_dim, dtype=np.uint8)  # All black
 

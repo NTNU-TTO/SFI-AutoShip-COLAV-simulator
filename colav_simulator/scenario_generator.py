@@ -929,8 +929,8 @@ class ScenarioGenerator:
             if ship_cfg_idx == 0:
                 if ep == self._os_state_update_indices[ep]:
                     csog_state = self.generate_random_csog_state(
-                        U_min=2.0,
-                        U_max=0.9 * ship_obj.max_speed,
+                        U_min=3.0,
+                        U_max=0.6 * ship_obj.max_speed,
                         draft=ship_obj.draft,
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                         first_episode_csog_state=(
@@ -951,7 +951,7 @@ class ScenarioGenerator:
                         config.type,
                         csog_state_list[0],
                         U_min=2.0,
-                        U_max=0.9 * ship_obj.max_speed,
+                        U_max=0.7 * ship_obj.max_speed,
                         draft=ship_obj.draft,
                         min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
                         t_cpa_threshold=self._config.t_cpa_threshold,

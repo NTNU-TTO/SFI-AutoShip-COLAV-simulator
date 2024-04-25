@@ -15,6 +15,7 @@ visualizer:
   show_liveplot_map_axes: False
   show_liveplot_scalebar: True
   show_liveplot_time: True
+  show_liveplot_disturbances: True
   show_liveplot_target_ships: True
   show_target_tracking_results: True
   show_trajectory_tracking_results: True

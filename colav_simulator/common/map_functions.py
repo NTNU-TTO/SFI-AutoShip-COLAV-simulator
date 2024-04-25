@@ -1127,6 +1127,7 @@ def extract_polygons_near_trajectory(
     geometry_tree: strtree.STRtree,
     buffer: float,
     enc: ENC = None,
+    clip_to_bbox: bool = True,
     show_plots: bool = False,
 ) -> Tuple[list, Polygon]:
     """Extracts the polygons that are relevant for the trajectory of the vessel, inside a corridor of the given buffer size.
@@ -1136,14 +1137,16 @@ def extract_polygons_near_trajectory(
         - geometry_tree (strtree.STRtree): The rtree containing the relevant grounding hazard polygons.
         - buffer (float): Buffer size
         - enc (Optional[ENC]): Electronic Navigational Chart object used for plotting. Defaults to None.
+        - clip_to_bbox (bool, optional): Whether to clip the polygons to the bounding box or not.
         - show_plots (bool, optional): Whether to show plots or not. Defaults to False.
 
     Returns:
         Tuple[list, Polygon]: List of tuples of relevant polygons inside query/envelope polygon and the corresponding original polygon they belong to. Also returns the query polygon.
     """
     enveloping_polygon = generate_enveloping_polygon(trajectory, buffer)
-    bbox_poly = bbox_to_polygon(enc.bbox)
-    enveloping_polygon = enveloping_polygon.intersection(bbox_poly)
+    if clip_to_bbox:
+        bbox_poly = bbox_to_polygon(enc.bbox)
+        enveloping_polygon = enveloping_polygon.intersection(bbox_poly)
     polygons_near_trajectory_indices = geometry_tree.query(enveloping_polygon)
     polygons_near_trajectory = [geometry_tree.geometries[idx] for idx in polygons_near_trajectory_indices]
     poly_list = []

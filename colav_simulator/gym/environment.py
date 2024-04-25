@@ -117,6 +117,7 @@ class COLAVEnvironment(gym.Env):
         self.render_mode = render_mode
         self.render_update_rate = render_update_rate
         self._viewer2d = self.simulator.visualizer
+        self._live_plot_closed: bool = True
         self.test_mode = test_mode
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
@@ -163,6 +164,7 @@ class COLAVEnvironment(gym.Env):
         self.done = True
         if self._viewer2d is not None:
             self._viewer2d.close_live_plot()
+            self._live_plot_closed = True
 
     def _define_spaces(self) -> None:
         """Defines the action and observation spaces."""
@@ -348,7 +350,9 @@ class COLAVEnvironment(gym.Env):
         """
         self.dt_action = self.action_type.get_sampling_time()
         n_steps_between_actions = int(self.dt_action / self.simulator.dt)
-        action_kwargs = {"applied": False}  # Used for action types where it
+        action_kwargs = {
+            "applied": False
+        }  # Used for action types where it is important to know if the action has been applied
         for _ in range(n_steps_between_actions):
             self.action_type.act(action, **action_kwargs)
             action_kwargs["applied"] = True
@@ -378,17 +382,28 @@ class COLAVEnvironment(gym.Env):
                 self._viewer2d.set_update_rate(self.render_update_rate)
             self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list, fignum=self.env_id)
             self._viewer2d.update_live_plot(
-                self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements
+                self.simulator.t,
+                self.enc,
+                self.simulator.ship_list,
+                self.simulator.recent_sensor_measurements,
+                remote_actor=True,
             )
+            self._live_plot_closed = False
 
     def render(self):
         """Renders the environment in 2D."""
         img = None
-        self._viewer2d.update_live_plot(
-            self.simulator.t, self.enc, self.simulator.ship_list, self.simulator.recent_sensor_measurements
-        )
+        if self._live_plot_closed:
+            self._init_render()
 
         if self.render_mode == "rgb_array":
+            self._viewer2d.update_live_plot(
+                self.simulator.t,
+                self.enc,
+                self.simulator.ship_list,
+                self.simulator.recent_sensor_measurements,
+                remote_actor=True,
+            )
             self.current_frame = self._viewer2d.get_live_plot_image()
             img = self.current_frame
         return img
