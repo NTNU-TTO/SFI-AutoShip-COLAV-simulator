@@ -13,7 +13,10 @@ from typing import Tuple
 
 import colav_simulator.common.math_functions as mf
 import cv2
+import matplotlib
 import matplotlib.pyplot as plt
+
+matplotlib.use("Agg")
 import numpy as np
 import skimage.morphology as ski_morph
 import skimage.util as ski_util

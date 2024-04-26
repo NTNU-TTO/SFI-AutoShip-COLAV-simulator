@@ -19,6 +19,8 @@ import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import matplotlib
 import matplotlib.pyplot as plt
+
+matplotlib.use("Agg")
 import matplotlib.ticker as mticker
 import numpy as np
 from matplotlib import animation
@@ -296,9 +298,9 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        if self.fig is not None:
-            self.fig.clf()
-            self.background = None
+        # if self.fig is not None:
+        #     self.fig.clf(fignum)
+        #     self.background = None
 
         self._t_prev_update = 0.0
         plt.rcParams.update(matplotlib.rcParamsDefault)
@@ -363,7 +365,7 @@ class Visualizer:
                                 linewidth=lw,
                                 color=do_c,
                                 alpha=0.5,
-                                label=f"DO {j - 1} est. 3sigma cov.",
+                                label=f"DO {j - 1} est. 1sigma cov.",
                                 zorder=zorder_patch - 2,
                             )[0]
                         )
@@ -511,27 +513,15 @@ class Visualizer:
             )
 
         if self._config.show_liveplot_disturbances:
+            corner_offset = (-70, -70)
+            self.misc_plt_handles["disturbance"] = {}
             dhandles = {
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] - 40,
-                        xlim[1] - 50,
+                        ylim[1] + corner_offset[0],
+                        xlim[1] + corner_offset[1] - 120,
                         "Currents: 0.0 m/s",
-                        fontsize=15,
-                        color="purple",
-                        verticalalignment="top",
-                        horizontalalignment="right",
-                        zorder=10,
-                        label="",
-                    ),
-                },
-                "wind": {
-                    "arrow": ax_map.quiver([], [], [], [], color="red", scale=1000, zorder=10),
-                    "text": ax_map.text(
-                        ylim[1] - 40,
-                        xlim[1] - 80,
-                        "Wind: 0.0 m/s",
                         fontsize=15,
                         color="white",
                         verticalalignment="top",
@@ -540,8 +530,31 @@ class Visualizer:
                         label="",
                     ),
                 },
+                "wind": {
+                    "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
+                    "text": ax_map.text(
+                        ylim[1] + corner_offset[0],
+                        xlim[1] + corner_offset[1] - 140,
+                        "Wind: 0.0 m/s",
+                        fontsize=15,
+                        color="yellow",
+                        verticalalignment="top",
+                        horizontalalignment="right",
+                        zorder=10,
+                        label="",
+                    ),
+                },
+                "circle": ax_map.fill(
+                    [],
+                    [],
+                    linewidth=1.0,
+                    color="white",
+                    alpha=0.2,
+                    label="",
+                    zorder=zorder_patch - 2,
+                )[0],
             }
-            self._misc_plt_handles["disturbance"] = dhandles
+            self.misc_plt_handles["disturbance"] = dhandles
 
         plt.tight_layout()
         # self.frames.append(self.get_live_plot_image())
@@ -559,8 +572,68 @@ class Visualizer:
 
         assert "disturbance" in self.misc_plt_handles, "Disturbance handles not initialized"
         dhandles = self.misc_plt_handles["disturbance"]
+        ylim = ax_map.get_xlim()  # easting
+        xlim = ax_map.get_ylim()  # northing
+        arrow_scale = 60
+        circ_x, circ_y = mhm.create_circle(75, 100)
+        corner_offset = (-100, -100)
+        circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
+        dhandles["circle"].remove()
+        dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
         if w.currents is not None and w.currents["speed"] > 0.0:
-            dhandles["currents"]["arrow"]
+            speed = w.currents["speed"]
+            direction = w.currents["direction"]
+            dhandles["currents"]["text"].remove()
+            dhandles["currents"]["text"] = ax_map.text(
+                ylim[1] + corner_offset[0] - 50,
+                xlim[1] + corner_offset[1] - 85,
+                f"Currents: {speed:.2f} m/s",
+                fontsize=10,
+                color="white",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
+            )
+            dhandles["currents"]["arrow"].remove()
+            dhandles["currents"]["arrow"] = ax_map.arrow(
+                ylim[1] + corner_offset[0],
+                xlim[1] + corner_offset[1],
+                arrow_scale * np.sin(direction),
+                arrow_scale * np.cos(direction),
+                color="white",
+                head_width=7.0,
+                shape="full",
+                linewidth=3.0,
+                zorder=10,
+            )
+        if w.wind is not None and w.wind["speed"] > 0.0:
+            speed = w.wind["speed"]
+            direction = w.wind["direction"]
+            dhandles["wind"]["text"].remove()
+            dhandles["wind"]["text"] = ax_map.text(
+                ylim[1] + corner_offset[0] - 50,
+                xlim[1] + corner_offset[1] - 105,
+                f"Wind: {speed:.2f} m/s",
+                fontsize=10,
+                color="yellow",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
+            )
+            dhandles["wind"]["arrow"].remove()
+            dhandles["wind"]["arrow"] = ax_map.arrow(
+                ylim[1] + corner_offset[0],
+                xlim[1] + corner_offset[1],
+                arrow_scale * np.sin(direction),
+                arrow_scale * np.cos(direction),
+                head_width=7.0,
+                shape="full",
+                linewidth=3.0,
+                color="yellow",
+                zorder=10,
+            )
 
     def update_ownship_live_tracking_data(
         self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC
@@ -641,7 +714,7 @@ class Visualizer:
                         linewidth=lw,
                         color="orange",
                         alpha=0.2,
-                        label=f"DO {j - 1} est. 3sigma cov.",
+                        label=f"DO {j - 1} est. 1sigma cov.",
                         zorder=zorder_patch - 2,
                     )[0]
 

@@ -386,6 +386,7 @@ class COLAVEnvironment(gym.Env):
                 self.enc,
                 self.simulator.ship_list,
                 self.simulator.recent_sensor_measurements,
+                self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
                 remote_actor=True,
             )
             self._live_plot_closed = False
@@ -402,6 +403,7 @@ class COLAVEnvironment(gym.Env):
                 self.enc,
                 self.simulator.ship_list,
                 self.simulator.recent_sensor_measurements,
+                self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
                 remote_actor=True,
             )
             self.current_frame = self._viewer2d.get_live_plot_image()

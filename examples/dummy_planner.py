@@ -3,6 +3,7 @@
 
     Author: Trym Tengesdal
 """
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -10,7 +11,10 @@ import colav_simulator.common.paths as dp
 import colav_simulator.core.colav.colav_interface as ci
 import colav_simulator.core.guidances as guidances
 import colav_simulator.core.stochasticity as stochasticity
+import matplotlib
 import matplotlib.pyplot as plt
+
+matplotlib.use("Agg")
 import numpy as np
 import seacharts.enc as senc
 from colav_simulator.scenario_generator import ScenarioGenerator

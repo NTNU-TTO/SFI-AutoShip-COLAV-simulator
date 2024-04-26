@@ -572,6 +572,8 @@ class Navigation3DOFStateObservation(ObservationType):
 
     def observe(self) -> Observation:
         assert self.env.ownship is not None, "Ownship is not defined"
+        if self.env.time < 0.0001:
+            self.define_observation_ranges()
         state = self.env.ownship.state
         obs = state
         return self.normalize(obs)

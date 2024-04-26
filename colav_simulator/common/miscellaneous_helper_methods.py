@@ -744,6 +744,22 @@ def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tupl
     return ellipse_xy[0, :].tolist(), ellipse_xy[1, :].tolist()
 
 
+def create_circle(radius: float, n_points: int) -> Tuple[list, list]:
+    """Creates a circle with a given radius and number of points.
+
+    Args:
+        radius (float): Radius of the circle.
+        n_points (int): Number of points.
+
+    Returns:
+        Tuple[list, list]: Circle data in x and y coordinates.
+    """
+    t = np.linspace(0, 2.01 * np.pi, n_points)
+    x = radius * np.cos(t)
+    y = radius * np.sin(t)
+    return x.tolist(), y.tolist()
+
+
 def get_list_except_element_idx(input_list: list, idx: int) -> list:
     """Returns a list with all elements of input_list except the element at idx.
 
