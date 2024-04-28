@@ -535,19 +535,17 @@ def extract_relevant_grounding_hazards_as_union(
     relevant_hazards = [enc.land.geometry.union(enc.shore.geometry).union(dangerous_seabed)]
     filtered_relevant_hazards = []
     for hazard in relevant_hazards:
-        if isinstance(hazard, MultiPolygon):
-            poly = MultiPolygon(Polygon(p.exterior) for p in hazard.geoms if isinstance(p, Polygon))
-        elif isinstance(hazard, Polygon):
-            poly = MultiPolygon([Polygon(hazard.exterior)])
-        else:
-            continue
-
+        poly = hazard
         if buffer is not None:
             poly = poly.buffer(buffer)
+
+        if isinstance(hazard, Polygon):
+            poly = MultiPolygon([Polygon(hazard.exterior)])
 
         # remove interior
         if isinstance(poly, MultiPolygon):
             poly = MultiPolygon(Polygon(p.exterior) for p in poly.geoms if isinstance(p, Polygon))
+
         filtered_relevant_hazards.append(poly)
 
     if show_plots:
