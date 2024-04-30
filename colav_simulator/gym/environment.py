@@ -313,7 +313,7 @@ class COLAVEnvironment(gym.Env):
         self.last_reward = 0.0
         self.done = False
 
-        if self.episodes == self.n_episodes:
+        if self.episodes == self.n_episodes or self.scenario_data_tup[0] == []:
             self._generate(scenario_config=self.scenario_config, reload_map=False)
             self.episodes = 0
 
