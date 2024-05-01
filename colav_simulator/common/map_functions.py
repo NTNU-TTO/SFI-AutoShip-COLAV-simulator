@@ -293,16 +293,18 @@ def bbox_to_polygon(bbox: Tuple[float, float, float, float]) -> Polygon:
     return Polygon([(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)])
 
 
-def point_in_polygon_list(point: Point, polygons: list) -> bool:
+def point_in_polygon_list(point: Point | np.ndarray, polygons: list) -> bool:
     """Checks if a point is in a list of polygons.
 
     Args:
-        point (Point): The point to check.
+        point (Point | np.ndarray): The point to check, with x being easting.
         polygons (list): List of polygons.
 
     Returns:
         bool: True if the point is in a hazard, False otherwise.
     """
+    if isinstance(point, np.ndarray):
+        point = Point(point[1], point[0])
     for poly in polygons:
         if point.within(poly) or point.touches(poly):
             return True

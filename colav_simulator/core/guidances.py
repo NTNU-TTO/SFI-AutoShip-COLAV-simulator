@@ -156,7 +156,7 @@ class KinematicTrajectoryPlanner(IGuidance):
         _, n_wps = waypoints.shape
 
         if n_wps == 2:
-            wp_near_last = waypoints[:, -1] - 0.1 * (waypoints[:, -1] - waypoints[:, -2])
+            wp_near_last = waypoints[:, -1] - 0.05 * (waypoints[:, -1] - waypoints[:, -2])
             waypoints = np.insert(waypoints, 1, wp_near_last, axis=1)
             speed_plan = np.insert(speed_plan, 1, speed_plan[0])
 
