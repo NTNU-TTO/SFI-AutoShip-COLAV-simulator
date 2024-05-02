@@ -27,7 +27,7 @@ def plot_trajectory(
     buffer: Optional[float] = 0.5,
     linewidth: Optional[float] = 1.0,
     alpha: Optional[float] = 1.0,
-) -> None:
+):
     """Plots the trajectory on the ENC.
 
     Args:
@@ -44,7 +44,7 @@ def plot_trajectory(
     trajectory_line = []
     for k in range(trajectory.shape[1]):
         trajectory_line.append((trajectory[1, k], trajectory[0, k]))
-    enc.draw_line(
+    return enc.draw_line(
         trajectory_line,
         color=color,
         buffer=buffer,
@@ -201,7 +201,7 @@ def plot_waypoints(
     #     overlap = path.intersection(hazards)
     #     enc.draw_polygon(overlap, "red", thickness=linewidth, alpha=alpha)
     #     path = path.difference(hazards)
-    enc.draw_polygon(path, color, thickness=linewidth, alpha=alpha)
+    return enc.draw_polygon(path, color, thickness=linewidth, alpha=alpha)
 
 
 def plot_dynamic_obstacles(
