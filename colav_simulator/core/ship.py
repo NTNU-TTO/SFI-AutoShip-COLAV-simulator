@@ -45,9 +45,6 @@ class Config:
     id: int = -1  # Ship identifier
     t_start: Optional[float] = None  # Determines when the ship should start in the simulation
     t_end: Optional[float] = None  # Determines when the ship ends its part in the simulation
-    random_generated: Optional[bool] = (
-        True  # True if the ship should have randomly generated COG-SOG-state, wps and speed plan. Takes priority over mmsi.
-    )
     csog_state: Optional[np.ndarray] = None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
     goal_csog_state: Optional[np.ndarray] = (
         None  # In format [x[north], y[east], SOG [m/s], COG[deg]], similar to AIS data.
@@ -80,9 +77,6 @@ class Config:
 
         if "t_end" in config_dict:
             config.t_end = config_dict["t_end"]
-
-        if "random_generated" in config_dict:
-            config.random_generated = config_dict["random_generated"]
 
         config.id = config_dict["id"]
         config.mmsi = config_dict["mmsi"]
@@ -133,9 +127,6 @@ class Config:
 
         if self.t_end is not None:
             config_dict["t_end"] = self.t_end
-
-        if self.random_generated is not None:
-            config_dict["random_generated"] = self.random_generated
 
         config_dict["id"] = self.id
         config_dict["mmsi"] = self.mmsi

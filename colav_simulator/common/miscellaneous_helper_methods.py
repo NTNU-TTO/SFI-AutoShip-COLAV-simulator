@@ -744,6 +744,45 @@ def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tupl
     return ellipse_xy[0, :].tolist(), ellipse_xy[1, :].tolist()
 
 
+def sample_state_along_waypoints(
+    rng: np.random.Generator, initial_state: np.ndarray, waypoints: np.ndarray, speed_plan: np.ndarray, timespan: float
+) -> np.ndarray:
+    """Samples a CSOG state along a set of waypoints, with course over ground aligned with the waypoint segment chosen, and corresponding speed ref.
+
+    Args:
+        rng (np.random.Generator): Numpy random generator.
+        initial_state (np.ndarray): Initial state of the vessel on the form [x, y, U, chi]^T.
+        waypoints (np.ndarray): Waypoint data.
+        speed_plan (np.ndarray): Speed plan data.
+        timespan (float): Total time span to consider.
+
+    Returns:
+        np.ndarray: Sampled state data along the waypoints.
+    """
+    assert (
+        waypoints.shape[0] == 2 and waypoints.shape[1] > 2
+    ), "Waypoints must be 2 x n_waypoints, with at least 2 waypoints"
+    assert speed_plan.size == waypoints.shape[1], "Speed plan must have the same number of elements as waypoints"
+    max_iter = 1000
+    for _ in range(max_iter):
+        # choose random wp segment
+        wp_idx = rng.integers(1, waypoints.shape[1])
+        wp_seg_course = np.arctan2(
+            waypoints[1, wp_idx] - waypoints[1, wp_idx - 1], waypoints[0, wp_idx] - waypoints[0, wp_idx - 1]
+        )
+        speed = speed_plan[wp_idx]
+
+        # sample a point along the segment
+        path_var = rng.uniform(0.0, 1.0)
+        pos = waypoints[:, wp_idx - 1] + path_var * (waypoints[:, wp_idx] - waypoints[:, wp_idx - 1])
+        wp_seg_lengths = np.linalg.norm(waypoints[:, 1:] - waypoints[:, :-1], axis=0)
+        d2pos = np.sum(wp_seg_lengths[:wp_idx]) + path_var * wp_seg_lengths[wp_idx]
+        t_reach_pos = d2pos / speed
+        if t_reach_pos <= timespan:
+            break
+    return np.array([pos[0], pos[1], speed, wp_seg_course])
+
+
 def create_circle(radius: float, n_points: int) -> Tuple[list, list]:
     """Creates a circle with a given radius and number of points.
 

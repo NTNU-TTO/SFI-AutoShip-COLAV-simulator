@@ -21,11 +21,25 @@ import numpy as np
 import yaml
 
 
-class PositionGenerationMethod(Enum):
-    """Enum for the different possible methods of generating ship positions in a scenario."""
+class OwnshipPositionGenerationMethod(Enum):
+    """Enum for the different possible methods of generating ownship positions in a scenario."""
 
     UniformlyInMap = 0  # Positions are uniformly generated in the map (safe sea area)
     UniformInTheMapThenGaussian = 1  # Every "delta_uniform_position_sample" (default=10000000) position is uniformly generated in the map, then the next positions are generated through a Gaussian centered around the first position.
+    MapUniformThenPerpendicular = 2  # Every "delta_uniform_position_sample" (default=10000000) position is uniformly generated in the map, then the next positions are generated along a line perpendicular to the first OS positon and heading direction
+
+
+class TargetPositionGenerationMethod(Enum):
+    """Enum for the different possible methods of generating target positions in a scenario."""
+
+    BasedOnOwnshipPosition = (
+        0  # Positions are generated based on the own-ship position and heading direction, uniformly
+    )
+    BasedOnOwnshipPositionThenGaussian = 1  # Positions are generated based on the own-ship position and heading direction, with subsequent positions generated through a Gaussian centered around the first position.
+    BasedOnOwnshipPositionThenPerpendicular = 2  # Positions are generated based on the own-ship initial state, with subsequent positions generated along a line perpendicular to the first position and heading direction
+    BasedOnOwnshipWaypoints = 3  # Positions are generated based on the own-ship waypoints and heading direction, uniformly in a corridor around the waypoints.
+    BasedOnOwnshipWaypointsThenGaussian = 4  # Positions are generated based on the own-ship waypoints and heading direction, with subsequent positions generated through a Gaussian centered around the first position.
+    BasedOnOwnshipWaypointsThenPerpendicular = 5  # Positions are generated based on the own-ship waypoints, with subsequent positions generated along a line perpendicular to the first position and heading direction
 
 
 class ScenarioType(Enum):
@@ -98,11 +112,14 @@ class EpisodeGenerationConfig:
     n_constant_disturbance_episodes: Optional[int] = (
         None  # Number of episodes to run with the same disturbance realizzation (applicable only if stocastic disturbances are used), before generating a new one.
     )
-    position_generation: PositionGenerationMethod = (
-        PositionGenerationMethod.UniformInTheMapThenGaussian  # Method for generating ship positions in the scenario.
+    ownship_position_generation: OwnshipPositionGenerationMethod = (
+        OwnshipPositionGenerationMethod.UniformInTheMapThenGaussian  # Method for generating ship positions in the scenario.
+    )
+    target_position_generation: TargetPositionGenerationMethod = (
+        TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenGaussian
     )
     delta_uniform_position_sample: Optional[int] = (
-        10000000  # Number of episodes/position samples between each UniformlyInTheMap position sample. Not applicable if position_generation is set to UniformlyInMap.
+        10000000  # Number of episodes/position samples between each UniformlyInTheMap position sample (for the ownship). Not applicable if position_generation is set to UniformlyInMap.
     )
 
     @classmethod
@@ -122,13 +139,20 @@ class EpisodeGenerationConfig:
             config.n_constant_disturbance_episodes = config_dict["n_constant_disturbance_episodes"]
         if "delta_uniform_position_sample" in config_dict:
             config.delta_uniform_position_sample = config_dict["delta_uniform_position_sample"]
-        if "position_generation" in config_dict:
-            config.position_generation = PositionGenerationMethod[config_dict["position_generation"]]
+        if "ownship_position_generation" in config_dict:
+            config.ownship_position_generation = OwnshipPositionGenerationMethod[
+                config_dict["ownship_position_generation"]
+            ]
+        if "target_position_generation" in config_dict:
+            config.target_position_generation = TargetPositionGenerationMethod[
+                config_dict["target_position_generation"]
+            ]
         return config
 
     def to_dict(self):
         config_dict = asdict(self)
-        config_dict["position_generation"] = self.position_generation.name
+        config_dict["ownship_position_generation"] = self.ownship_position_generation.name
+        config_dict["target_position_generation"] = self.target_position_generation.name
         return config_dict
 
 
@@ -203,9 +227,14 @@ class ScenarioConfig:
         n_episodes = 1
         if "n_episodes" in config_dict:
             n_episodes = config_dict["n_episodes"]
-        position_generation = PositionGenerationMethod.UniformInTheMapThenGaussian
-        if "position_generation" in config_dict:
-            position_generation = PositionGenerationMethod[config_dict["position_generation"]]
+
+        ownship_position_generation = OwnshipPositionGenerationMethod.UniformInTheMapThenGaussian
+        if "ownship_position_generation" in config_dict:
+            ownship_position_generation = OwnshipPositionGenerationMethod[config_dict["ownship_position_generation"]]
+
+        target_position_generation = TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenGaussian
+        if "target_position_generation" in config_dict:
+            target_position_generation = TargetPositionGenerationMethod[config_dict["target_position_generation"]]
 
         return EpisodeGenerationConfig(
             n_episodes=n_episodes,
@@ -213,7 +242,8 @@ class ScenarioConfig:
             n_constant_do_state_episodes=n_constant_do_state_episodes,
             n_plans_per_do_state=n_plans_per_do_state,
             n_constant_disturbance_episodes=n_constant_disturbance_episodes,
-            position_generation=position_generation,
+            ownship_position_generation=ownship_position_generation,
+            target_position_generation=target_position_generation,
         )
 
     def to_dict(self) -> dict:

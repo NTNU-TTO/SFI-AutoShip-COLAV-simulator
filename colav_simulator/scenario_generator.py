@@ -63,9 +63,12 @@ class Config:
     dist_between_ships_range: list = field(
         default_factory=lambda: [200, 10000]
     )  # Range of [min, max] distance variations possible between ships.
-    csog_state_perturbation_covariance: np.array = field(default_factory=lambda: np.diag([25.0, 25.0, 0.5, 3.0]))
-    t_cpa_threshold: float = 1000.0  # Threshold for the maximum time to CPA for vessel pairs in a scenario
-    d_cpa_threshold: float = 200.0  # Threshold for the maximum distance to CPA for vessel pairs in a scenario
+    gaussian_csog_state_perturbation_covariance: np.ndarray = field(
+        default_factory=lambda: np.diag([25.0, 25.0, 0.5, 3.0])
+    )
+    perpendicular_csog_state_perturbation_distance_range: list = field(default_factory=lambda: [-100.0, 100.0])
+    t_cpa_threshold: float = 200.0  # Threshold for the maximum time to CPA for vessel pairs in a scenario
+    d_cpa_threshold: float = 100.0  # Threshold for the maximum distance to CPA for vessel pairs in a scenario
     scenario_files: Optional[list] = None  # Default list of scenario files to load from.
     scenario_folder: Optional[str] = None  # Default scenario folder to load from.
 
@@ -84,9 +87,16 @@ class Config:
             dist_between_ships_range=config_dict["dist_between_ships_range"],
             t_cpa_threshold=config_dict["t_cpa_threshold"],
             d_cpa_threshold=config_dict["d_cpa_threshold"],
-            csog_state_perturbation_covariance=np.diag(config_dict["csog_state_perturbation_covariance"]),
+            gaussian_csog_state_perturbation_covariance=np.diag(
+                config_dict["gaussian_csog_state_perturbation_covariance"]
+            ),
+            perpendicular_csog_state_perturbation_distance_range=config_dict[
+                "perpendicular_csog_state_perturbation_distance_range"
+            ],
         )
-        config.csog_state_perturbation_covariance[3, 3] = np.deg2rad(config.csog_state_perturbation_covariance[3, 3])
+        config.gaussian_csog_state_perturbation_covariance[3, 3] = np.deg2rad(
+            config.gaussian_csog_state_perturbation_covariance[3, 3]
+        )
 
         if "scenario_files" in config_dict:
             config.scenario_files = config_dict["scenario_files"]
@@ -101,9 +111,11 @@ class Config:
     def to_dict(self):
         output = asdict(self)
         output["behavior_generator"] = self.behavior_generator.to_dict()
-        output["csog_state_perturbation_covariance"] = self.csog_state_perturbation_covariance.diagonal().tolist()
-        output["csog_state_perturbation_covariance"][3] = float(
-            np.rad2deg(output["csog_state_perturbation_covariance"][3])
+        output["gaussian_csog_state_perturbation_covariance"] = (
+            self.gaussian_csog_state_perturbation_covariance.diagonal().tolist()
+        )
+        output["gaussian_csog_state_perturbation_covariance"][3] = float(
+            np.rad2deg(output["gaussian_csog_state_perturbation_covariance"][3])
         )
         return output
 
@@ -165,9 +177,12 @@ class ScenarioGenerator:
         self._prev_disturbance: Optional[stoch.Disturbance] = None
         self._prev_ship_list: list = []
         self._first_csog_states: list = []
-        self._position_generation: sc.PositionGenerationMethod = (
-            sc.PositionGenerationMethod.UniformInTheMapThenGaussian
+        self._ownship_position_generation: sc.OwnshipPositionGenerationMethod = (
+            sc.OwnshipPositionGenerationMethod.UniformInTheMapThenGaussian
         )  # set by scenario config
+        self._target_position_generation: sc.TargetPositionGenerationMethod = (
+            sc.TargetPositionGenerationMethod.BasedOnOwnshipPositionThenGaussian
+        )
 
     def seed(self, seed: Optional[int] = None) -> None:
         """Seeds the random number generator.
@@ -587,8 +602,10 @@ class ScenarioGenerator:
         max_number_of_ships = max(n_random_ships_list) + 1  # +1 for own-ship
 
         self.behavior_generator.initialize_data_structures(max_number_of_ships)
+        self.behavior_generator.setup_enc(self.enc, self.safe_sea_cdt, self.safe_sea_cdt_weights, show_plots=show_plots)
         self.determine_indices_of_episode_parameter_updates(config)
-        self._position_generation = config.episode_generation.position_generation
+        self._ownship_position_generation = config.episode_generation.ownship_position_generation
+        self._target_position_generation = config.episode_generation.target_position_generation
 
         scenario_episode_list = []
         if show_plots:
@@ -709,15 +726,23 @@ class ScenarioGenerator:
 
         ship_list, config = self.transfer_vessel_ais_data(ship_list, config, ais_vessel_data_list, mmsi_list)
 
-        ship_list, config, _ = self.generate_ship_csog_states(ship_list, config)
+        # Setup and generate own-ship state and behavior first, as this will be used for generating the target ship behavior, depending on the
+        # target position generation method used.
+        ship_list[0], config, _ = self.generate_ownship_csog_state(ship_list[0], config)
 
+        self.behavior_generator.setup_ship(
+            self.rng, ship_list[0], config.ship_list[0], config.t_end - config.t_start, show_plots=show_plots
+        )
+        self.behavior_generator.generate_ship_behavior(
+            self.rng, ship_list[0], config.ship_list[0], config.t_end - config.t_start
+        )
+
+        # Then generate target ship states and behavior based on the own-ship state and behavior.
+        ship_list, config, _ = self.generate_target_ship_csog_states(ship_list, config)
         self.behavior_generator.setup(
             self.rng,
             ship_list,
             ship_replan_flags,
-            self.enc,
-            self.safe_sea_cdt,
-            self.safe_sea_cdt_weights,
             config.t_end - config.t_start,
             show_plots=show_plots,
         )
@@ -745,7 +770,6 @@ class ScenarioGenerator:
         config: sc.ScenarioConfig,
         minimum_os_plan_length: float = 300.0,
         minimum_do_plan_length: float = 100.0,
-        next_wp_angle_threshold: float = np.deg2rad(120.0),
     ) -> bool:
         """Checks if the episode is bad, i.e. if any of the ships are outside the map,
         the plan is less than the minimum length.
@@ -754,7 +778,6 @@ class ScenarioGenerator:
             ship_list (list): List of ships to be considered in simulation.
             config (sc.ScenarioConfig): Scenario config object.
             minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 400.0.
-            next_wp_angle_threshold (float, optional): Threshold for the angle between the LOS to the next waypoint and the ship heading. Defaults to 120.0.
 
         Returns:
             bool: True if the episode is bad, False otherwise.
@@ -857,8 +880,6 @@ class ScenarioGenerator:
 
         for ship_cfg_idx, ship_config in enumerate(config.ship_list):
             use_ais_ship_trajectory = True
-            if ship_config.random_generated:
-                continue
 
             # The own-ship (with index 0) will not use the predefined AIS trajectory, but can use the AIS data
             # for the initial state.
@@ -903,7 +924,36 @@ class ScenarioGenerator:
         self._prev_disturbance = copy.deepcopy(disturbance)
         return disturbance
 
-    def generate_ship_csog_states(
+    def generate_ownship_csog_state(
+        self, ownship: ship.Ship, config: sc.ScenarioConfig
+    ) -> Tuple[ship.Ship, sc.ScenarioConfig, np.ndarray]:
+        """Generates the initial own-ship pose for the scenario episode.
+
+        Args:
+            ownship (ship.Ship): Own-ship object.
+            config (sc.ScenarioConfig): Scenario config object.
+
+        Returns:
+            Tuple[ship.Ship, sc.ScenarioConfig, np.ndarray]: Partially initialized own-ship in the scenario with pose set, the updated scenario config object and the generated/set own-ship csog state.
+        """
+        # Use 90% of the maximum speed as the maximum speed for the ships
+        ep = self._episode_counter
+        uniform_in_map_sample = self._uniform_os_state_update_indices[ep] == ep
+        if ep == self._os_state_update_indices[ep]:
+            csog_state = self.generate_random_csog_state(
+                U_min=3.0,
+                U_max=0.6 * ownship.max_speed,
+                draft=ownship.draft,
+                min_land_clearance=np.min([30.0, ownship.length * 3.0]),
+                first_episode_csog_state=(self._first_csog_states[0] if not uniform_in_map_sample else None),
+            )
+        else:
+            csog_state = self._prev_ship_list[0].csog_state
+        ownship.set_initial_state(csog_state)
+        config.ship_list[0].csog_state = csog_state
+        return ownship, config, csog_state
+
+    def generate_target_ship_csog_states(
         self, ship_list: list, config: sc.ScenarioConfig
     ) -> Tuple[list, sc.ScenarioConfig, list]:
         """Generates the initial ship poses for the scenario episode.
@@ -915,58 +965,43 @@ class ScenarioGenerator:
         Returns:
             Tuple[list, sc.ScenarioConfig, list]: List of partially initialized ships in the scenario with poses set, the updated scenario config object and list of generated/set csog states.
         """
-        csog_state_list = []
         ep = self._episode_counter
         uniform_in_map_sample = self._uniform_os_state_update_indices[ep] == ep
-        for ship_cfg_idx, ship_config in enumerate(config.ship_list):
+        ownship = ship_list[0]
+        csog_state_list = [ownship.csog_state]
+        for ship_cfg_idx, ship_config in enumerate(config.ship_list[1:]):
             if ship_config.csog_state is not None:
                 csog_state_list.append(ship_config.csog_state)
                 continue
 
-            ship_obj = ship_list[ship_cfg_idx]
-            # Use 90% of the maximum speed as the maximum speed for the ships
-            new_uniform_os_state = ep == self._os_state_update_indices[ep] and uniform_in_map_sample
-            if ship_cfg_idx == 0:
-                if ep == self._os_state_update_indices[ep]:
-                    csog_state = self.generate_random_csog_state(
-                        U_min=3.0,
-                        U_max=0.6 * ship_obj.max_speed,
-                        draft=ship_obj.draft,
-                        min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
-                        first_episode_csog_state=(
-                            self._first_csog_states[ship_cfg_idx] if not uniform_in_map_sample else None
-                        ),
-                    )
-                else:
-                    csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
+            ship_obj = ship_list[ship_cfg_idx + 1]
 
-            ship_distance_to_ownship = np.linalg.norm(ship_obj.csog_state[:2] - ship_list[0].csog_state[:2])
-            if ship_cfg_idx > 0:
-                if (
-                    ep == self._do_state_update_indices[ep]
-                    or new_uniform_os_state
-                    or self._prev_ship_list[ship_cfg_idx] is None
-                ):
-                    csog_state = self.generate_target_ship_csog_state(
-                        config.type,
-                        csog_state_list[0],
-                        U_min=2.0,
-                        U_max=0.7 * ship_obj.max_speed,
-                        draft=ship_obj.draft,
-                        min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
-                        t_cpa_threshold=self._config.t_cpa_threshold,
-                        d_cpa_threshold=self._config.d_cpa_threshold,
-                        first_episode_csog_state=(
-                            None
-                            if (
-                                uniform_in_map_sample
-                                or (ship_distance_to_ownship > self._config.dist_between_ships_range[1])
-                            )
-                            else self._first_csog_states[ship_cfg_idx]
-                        ),
-                    )
-                else:
-                    csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
+            ship_distance_to_ownship = np.linalg.norm(ship_obj.csog_state[:2] - ownship.csog_state[:2])
+            if (
+                ep == self._do_state_update_indices[ep]
+                or uniform_in_map_sample
+                or self._prev_ship_list[ship_cfg_idx] is None
+            ):
+                csog_state = self.generate_target_ship_csog_state(
+                    config.type,
+                    ownship,
+                    U_min=2.0,
+                    U_max=0.7 * ship_obj.max_speed,
+                    draft=ship_obj.draft,
+                    min_land_clearance=np.min([30.0, ship_obj.length * 3.0]),
+                    t_cpa_threshold=self._config.t_cpa_threshold,
+                    d_cpa_threshold=self._config.d_cpa_threshold,
+                    first_episode_csog_state=(
+                        None
+                        if (
+                            uniform_in_map_sample
+                            or (ship_distance_to_ownship > self._config.dist_between_ships_range[1])
+                        )
+                        else self._first_csog_states[ship_cfg_idx]
+                    ),
+                )
+            else:
+                csog_state = self._prev_ship_list[ship_cfg_idx].csog_state
 
             ship_config.csog_state = csog_state
             ship_obj.set_initial_state(ship_config.csog_state)
@@ -974,12 +1009,13 @@ class ScenarioGenerator:
 
         if ep % config.episode_generation.delta_uniform_position_sample == 0:
             self._first_csog_states[: len(ship_list)] = csog_state_list
+
         return ship_list, config, csog_state_list
 
     def generate_target_ship_csog_state(
         self,
         scenario_type: sc.ScenarioType,
-        os_csog_state: np.ndarray,
+        ownship: ship.Ship,
         U_min: float = 2.0,
         U_max: float = 8.0,
         draft: float = 2.0,
@@ -993,7 +1029,7 @@ class ScenarioGenerator:
 
         Args:
             - scenario_type (sc.ScenarioType): Type of scenario.
-            - os_csog_state (np.ndarray): Own-ship COG-SOG state = [x, y, speed, heading].
+            - ownship (ship.Ship): Own-ship object.
             - U_min (float, optional): Obstacle minimum speed. Defaults to 2.0.
             - U_max (float, optional): Obstacle maximum speed. Defaults to 8.0.
             - draft (float, optional): Draft of target ship. Defaults to 2.0.
@@ -1005,17 +1041,21 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Target ship COG-SOG state = [x, y, speed, heading].
         """
-        if (
-            first_episode_csog_state is not None
-            and self._position_generation == sc.PositionGenerationMethod.UniformInTheMapThenGaussian
+        if first_episode_csog_state is not None and (
+            self._target_position_generation == sc.TargetPositionGenerationMethod.BasedOnOwnshipPositionThenGaussian
+            or self._target_position_generation == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenGaussian
         ):
             return self.generate_gaussian_csog_state(
-                first_episode_csog_state, self._config.csog_state_perturbation_covariance, draft
+                first_episode_csog_state, self._config.gaussian_csog_state_perturbation_covariance, draft
             )
-
-        if any(np.isnan(os_csog_state)):
-            return self.generate_random_csog_state(
-                U_min=U_min, U_max=U_max, draft=draft, min_land_clearance=min_land_clearance
+        elif first_episode_csog_state is not None and (
+            self._target_position_generation
+            == sc.TargetPositionGenerationMethod.BasedOnOwnshipPositionThenPerpendicular
+            or self._target_position_generation
+            == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenPerpendicular
+        ):
+            return self.generate_perpendicular_csog_state(
+                first_episode_csog_state, U_min, U_max, draft, min_land_clearance, scenario_type
             )
 
         if scenario_type == sc.ScenarioType.MS:
@@ -1029,17 +1069,28 @@ class ScenarioGenerator:
                 ]
             )
 
-        if scenario_type == sc.ScenarioType.OT_en and U_max - 2.0 <= os_csog_state[2]:
+        os_csog_state_basis = ownship.csog_state
+        if (
+            self._target_position_generation == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypoints
+            or self._target_position_generation == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenGaussian
+            or self._target_position_generation
+            == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenPerpendicular
+        ):
+            os_csog_state_basis = self.sample_csog_state_along_waypoints(
+                ownship.csog_state, ownship.waypoints, ownship.speed_plan
+            )
+
+        if scenario_type == sc.ScenarioType.OT_en and U_max - 1.0 <= os_csog_state[2]:
             print(
-                "WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 2.0. Selecting a different scenario type..."
+                "WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of 1.0. Selecting a different scenario type..."
             )
             scenario_type = self.rng.choice(
                 [sc.ScenarioType.HO, sc.ScenarioType.OT_ing, sc.ScenarioType.CR_GW, sc.ScenarioType.CR_SO]
             )
 
-        if scenario_type == sc.ScenarioType.OT_ing and U_min >= os_csog_state[2] - 2.0:
+        if scenario_type == sc.ScenarioType.OT_ing and U_min >= os_csog_state[2] - 1.0:
             print(
-                "WARNING: ScenarioType = OT_ing: Own-ship speed minus margin of 2.0 should be above the minimum target ship speed. Selecting a different scenario type..."
+                "WARNING: ScenarioType = OT_ing: Own-ship speed minus margin of 1.0 should be above the minimum target ship speed. Selecting a different scenario type..."
             )
             scenario_type = self.rng.choice(
                 [sc.ScenarioType.HO, sc.ScenarioType.OT_en, sc.ScenarioType.CR_GW, sc.ScenarioType.CR_SO]
@@ -1144,8 +1195,33 @@ class ScenarioGenerator:
             perturbed_state = self.rng.multivariate_normal(mean, cov)
         return perturbed_state
 
+    def generate_perpendicular_csog_state(
+        self, initial_csog_state: np.ndarray, draft: float, min_land_clearance: float = 30.0
+    ) -> np.ndarray:
+        """Generates a COG-SOG state on a line perpendicular to the input initial_csog_state with given course, that (hopefully)
+        statisfies the minimum land clearance.
+
+        Args:
+            initial_csog_state (np.ndarray): Initial COG-SOG state to generate the perpendicular line from.
+            draft (float): Draft of the ship.
+            min_land_clearance (float, optional): Minimum land clearance. Defaults to 30.0.
+
+        Returns:
+            np.ndarray: Array containing the perpendicular vessel state = [x, y, speed, course]
+        """
+        perp_course = initial_csog_state[3] + np.pi / 2.0
+        x, y = initial_csog_state[0], initial_csog_state[1]
+        max_iter = 2000
+        for _ in range(max_iter):
+            dist_from_initial = self.rng.uniform(-100.0, 100.0)
+            x = x + 100.0 * np.cos(perp_course)
+            y = y + 100.0 * np.sin(perp_course)
+            if mapf.point_in_polygon_list(geometry.Point(y, x), self.safe_sea_cdt):
+                break
+
     def generate_random_csog_state(
         self,
+        method: sc.OwnshipPositionGenerationMethod | sc.TargetPositionGenerationMethod,
         U_min: float = 1.0,
         U_max: float = 10.0,
         draft: float = 5.0,
@@ -1156,6 +1232,7 @@ class ScenarioGenerator:
         """Creates a random COG-SOG state which adheres to the ship's draft and maximum speed.
 
         Args:
+            - method (sc.OwnshipPositionGenerationMethod | sc.TargetPositionGenerationMethod): Method for generating the position.
             - U_min (float, optional): Minimum speed of the ship. Defaults to 1.0.
             - U_max (float, optional): Maximum speed of the ship. Defaults to 10.0.
             - draft (float, optional): How deep the ship keel is into the water. Defaults to 5.
@@ -1166,13 +1243,21 @@ class ScenarioGenerator:
         Returns:
             - np.ndarray: Array containing the vessel state = [x, y, speed, heading]
         """
-        if (
-            first_episode_csog_state is not None
-            and self._position_generation == sc.PositionGenerationMethod.UniformInTheMapThenGaussian
+        if first_episode_csog_state is not None and (
+            method == sc.OwnshipPositionGenerationMethod.UniformInTheMapThenGaussian
+            or method == sc.TargetPositionGenerationMethod.BasedOnOwnshipPositionThenGaussian
         ):
             return self.generate_gaussian_csog_state(
-                first_episode_csog_state, self._config.csog_state_perturbation_covariance, draft
+                first_episode_csog_state,
+                self._config.gaussian_csog_state_perturbation_covariance,
+                draft,
+                min_land_clearance,
             )
+        elif first_episode_csog_state is not None and (
+            method == sc.TargetPositionGenerationMethod.BasedOnOwnshipPositionThenPerpendicular
+            or method == sc.TargetPositionGenerationMethod.BasedOnOwnshipWaypointsThenPerpendicular
+        ):
+            return self.generate_perpendicular_csog_state(first_episode_csog_state, draft, min_land_clearance)
 
         x, y = mapf.generate_random_position_from_draft(
             self.rng, self.enc, draft, self.safe_sea_cdt, self.safe_sea_cdt_weights, min_land_clearance
