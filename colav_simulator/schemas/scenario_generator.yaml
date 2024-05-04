@@ -79,11 +79,11 @@ gaussian_csog_state_perturbation_covariance:
   maxlength: 4
   schema:
     type: float
-perpendicular_csog_state_perturbation_distance_range:
+perpendicular_csog_state_perturbation_pm_range:
   required: True
   type: list
-  minlength: 2
-  maxlength: 2
+  minlength: 3
+  maxlength: 3
   schema:
     type: float
 

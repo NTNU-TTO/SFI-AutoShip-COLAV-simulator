@@ -508,13 +508,15 @@ class Ship(IShip):
         tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
         return tracks
 
-    def set_initial_state(self, csog_state: np.ndarray) -> None:
+    def set_initial_state(self, csog_state: np.ndarray, t_start: float = 0.0) -> None:
         """Sets the initial state of the ship based on the input kinematic state.
 
         Args:
             csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
+            t_start (float, optional): Time when the ship appears in the simulation. Defaults to 0.0.
         """
         self._state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
+        self.t_start = t_start
 
     def set_goal_state(self, csog_state: np.ndarray) -> None:
         """Sets the goal state of the ship based on the input kinematic state.

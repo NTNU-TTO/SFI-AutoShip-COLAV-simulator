@@ -50,10 +50,15 @@ episode_generation:
       required: False
       nullable: True
       type: integer
-    position_generation:
+    ownship_position_generation:
       required: False
       nullable: True
       type: string
+    target_position_generation:
+      required: False
+      nullable: True
+      type: string
+
     delta_uniform_position_sample:
       required: False
       nullable: True

@@ -417,6 +417,7 @@ class BehaviorGenerator:
         """
         ownship = ship_list[0]
         self._simulation_timespan = simulation_timespan
+        self._ship_replan_flags = ship_replan_flags
         for idx, ship_obj in enumerate(ship_list):
             self.setup_ship(rng, ship_obj, ship_replan_flags[idx], ownship, simulation_timespan, show_plots)
 
@@ -478,21 +479,22 @@ class BehaviorGenerator:
             pmax = np.array([xmax, ymax])
             bbox = mapf.create_bbox_from_points(self._enc, pmin, pmax, buffer=500.0)
 
-        goal_position = mapf.generate_random_goal_position(
-            rng=rng,
-            enc=self._enc,
-            xs_start=ship_obj.csog_state,
-            safe_sea_cdt=self._safe_sea_cdt,
-            safe_sea_cdt_weights=self._safe_sea_cdt_weights,
-            bbox=ownship_bbox,
-            min_distance_from_start=500.0,
-            max_distance_from_start=min(1200.0, 5.0 * ship_obj.speed * simulation_timespan),
-            show_plots=False,
-        )
-        goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
-        if ship_obj.goal_state.size > 0:
-            goal_state = ship_obj.goal_state
-        ship_obj.set_goal_state(goal_state)
+        goal_state = ship_obj.goal_state
+        if goal_state.size < 1:
+            goal_position = mapf.generate_random_goal_position(
+                rng=rng,
+                enc=self._enc,
+                xs_start=ship_obj.csog_state,
+                safe_sea_cdt=self._safe_sea_cdt,
+                safe_sea_cdt_weights=self._safe_sea_cdt_weights,
+                bbox=ownship_bbox,
+                min_distance_from_start=500.0,
+                max_distance_from_start=min(1200.0, 5.0 * ship_obj.speed * simulation_timespan),
+                show_plots=False,
+            )
+            goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
+
+            ship_obj.set_goal_state(goal_state)
 
         bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=800.0)
         relevant_hazards = mapf.extract_hazards_within_bounding_box(
@@ -603,7 +605,7 @@ class BehaviorGenerator:
         ownship = ship_list[0]
         for ship_cfg_idx, ship_config in enumerate(ship_config_list):
             ship_obj, ship_config = self.generate_ship_behavior(
-                rng, ship_list[ship_cfg_idx], ship_config, ownship, simulation_timespan
+                rng, ship_list[ship_cfg_idx], ship_config, simulation_timespan, ownship=ownship
             )
             ship_list[ship_cfg_idx] = ship_obj
             ship_config_list[ship_cfg_idx] = ship_config
@@ -632,7 +634,7 @@ class BehaviorGenerator:
         Returns:
             Tuple[ship.Ship, ship.Config]: Tuple containing the updated ship and its configuration.
         """
-        if ship_config.waypoints is not None or ship_obj.trajectory.size > 1 or ship_config.goal_csog_state is not None:
+        if ship_config.waypoints is not None or ship_obj.trajectory.size > 1 or ship_obj.waypoints.size > 1:
             return ship_obj, ship_config
 
         replan = self._ship_replan_flags[ship_obj.id]
@@ -684,6 +686,7 @@ class BehaviorGenerator:
         ship_config.waypoints = waypoints
         ship_config.speed_plan = speed_plan
         ship_obj.set_nominal_plan(ship_config.waypoints, ship_config.speed_plan)
+        return ship_obj, ship_config
 
     def generate_rrt_behavior(
         self,
@@ -710,10 +713,10 @@ class BehaviorGenerator:
             or rrt_method == BehaviorGenerationMethod.RRTStar
             or rrt_method == BehaviorGenerationMethod.PQRRTStar
         )
-        if ship_obj.id == ownship.id == 0:
+        if ship_obj.id == 0:
             # If the own-ship uses RRT for behavior/wp+speed plan generation, its plan has
             # already been set in the `setup` method, so we can just return it here
-            return ownship.waypoints, ownship.speed_plan, np.zeros((0, 6))
+            return ship_obj.waypoints, ship_obj.speed_plan, np.zeros((0, 6))
 
         p_os = ownship.csog_state[0:2]
         v_os = np.array(
