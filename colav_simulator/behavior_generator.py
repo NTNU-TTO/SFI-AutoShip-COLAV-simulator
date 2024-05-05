@@ -713,10 +713,25 @@ class BehaviorGenerator:
             or rrt_method == BehaviorGenerationMethod.RRTStar
             or rrt_method == BehaviorGenerationMethod.PQRRTStar
         )
+
+        if rrt_method == BehaviorGenerationMethod.RRT:
+            planner = self._rrt_list[ship_obj.id]
+            # print("Using RRT for behavior generation...")
+        elif rrt_method == BehaviorGenerationMethod.RRTStar:
+            planner = self._rrtstar_list[ship_obj.id]
+            # print("Using RRT* for behavior generation...")
+        elif rrt_method == BehaviorGenerationMethod.PQRRTStar:
+            planner = self._pqrrtstar_list[ship_obj.id]
+            # print("Using PQ-RRT* for behavior generation...")
+
         if ship_obj.id == 0:
-            # If the own-ship uses RRT for behavior/wp+speed plan generation, its plan has
-            # already been set in the `setup` method, so we can just return it here
-            return ship_obj.waypoints, ship_obj.speed_plan, np.zeros((0, 6))
+            # If the own-ship uses RRT for behavior/wp+speed plan generation,
+            # we use the optimal solution.
+            opt_soln = planner.get_optimal_solution()
+            waypoints, trajectory, _, _ = mhm.parse_rrt_solution(opt_soln)
+            speed_plan = waypoints[2, :]
+            waypoints = waypoints[:2, :]
+            return waypoints, speed_plan, trajectory
 
         p_os = ownship.csog_state[0:2]
         v_os = np.array(
@@ -738,17 +753,7 @@ class BehaviorGenerator:
             if ownship.waypoints is not None
             else np.hstack([ownship.csog_state[0:2].reshape(2, 1), ownship.goal_csog_state[0:2].reshape(2, 1)])
         )
-
         planning_bbox = self._planning_bbox_list[ship_obj.id]
-        if rrt_method == BehaviorGenerationMethod.RRT:
-            planner = self._rrt_list[ship_obj.id]
-            # print("Using RRT for behavior generation...")
-        elif rrt_method == BehaviorGenerationMethod.RRTStar:
-            planner = self._rrtstar_list[ship_obj.id]
-            # print("Using RRT* for behavior generation...")
-        elif rrt_method == BehaviorGenerationMethod.PQRRTStar:
-            planner = self._pqrrtstar_list[ship_obj.id]
-            # print("Using PQ-RRT* for behavior generation...")
 
         sampling_method = self._config.target_ship_rrt_behavior_sampling_method
         if sampling_method == RRTBehaviorSamplingMethod.Randomized:

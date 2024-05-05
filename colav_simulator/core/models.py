@@ -29,7 +29,7 @@ class KinematicCSOGParams:
     """
 
     name: str = "KinematicCSOG"
-    draft: float = 2.0
+    draft: float = 0.5
     length: float = 10.0
     ship_vertices: np.ndarray = field(default_factory=lambda: np.empty(2))
     width: float = 3.0

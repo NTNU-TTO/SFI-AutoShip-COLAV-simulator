@@ -60,6 +60,7 @@ class GaussMarkovDisturbanceParams:
     mu_direction: float = 1e-05
     sigma_speed: float = 0.005
     sigma_direction: float = 0.005
+    add_impulse_noise: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -81,6 +82,7 @@ class GaussMarkovDisturbanceParams:
         params.sigma_speed = config_dict["sigma_speed"]
         params.sigma_direction = config_dict["sigma_direction"]
         params.constant = config_dict["constant"]
+        params.add_impulse_noise = config_dict["add_impulse_noise"]
         return params
 
     def to_dict(self) -> dict:
@@ -94,6 +96,7 @@ class GaussMarkovDisturbanceParams:
             "mu_direction": self.mu_direction,
             "sigma_speed": self.sigma_speed,
             "sigma_direction": self.sigma_direction,
+            "add_impulse_noise": self.add_impulse_noise,
         }
         config_dict["direction_range"] = [
             float(np.rad2deg(self.direction_range[0])),
@@ -175,6 +178,10 @@ class GaussMarkovDisturbance(IDisturbance):
         w_beta = random.normalvariate(0.0, self._params.sigma_direction)
         V_dot = -self._params.mu_speed * self._speed + w_V
         beta_dot = -self._params.mu_direction * self._direction + w_beta
+
+        # Sample impulse noise in speed and direction if specified
+        if self._params.add_impulse_noise:
+            # speed_impulse = random.uniform(-0.1, 1.0)
 
         # Euler integration
         self._speed = mf.sat(self._speed + V_dot * dt, self._params.speed_range[0], self._params.speed_range[1])

@@ -745,13 +745,12 @@ def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tupl
 
 
 def sample_state_along_waypoints(
-    rng: np.random.Generator, initial_state: np.ndarray, waypoints: np.ndarray, speed_plan: np.ndarray, timespan: float
+    rng: np.random.Generator, waypoints: np.ndarray, speed_plan: np.ndarray, timespan: float
 ) -> Tuple[np.ndarray, float]:
     """Samples a CSOG state along a set of waypoints, with course over ground aligned with the waypoint segment chosen, and corresponding speed ref.
 
     Args:
         rng (np.random.Generator): Numpy random generator.
-        initial_state (np.ndarray): Initial state of the vessel on the form [x, y, U, chi]^T.
         waypoints (np.ndarray): Waypoint data.
         speed_plan (np.ndarray): Speed plan data.
         timespan (float): Total time span to consider.
@@ -775,7 +774,7 @@ def sample_state_along_waypoints(
         speed = speed_plan[wp_idx]
 
         # sample a point along the segment
-        path_var = rng.uniform(0.0, 1.0)
+        path_var = rng.uniform(0.2, 1.0) if wp_idx == 1 else rng.uniform(0.0, 1.0)
         pos = waypoints[:, wp_idx - 1] + path_var * (waypoints[:, wp_idx] - waypoints[:, wp_idx - 1])
 
         t_arrival = np.sum(wp_seg_times[: wp_idx - 1]) + path_var * wp_seg_times[wp_idx - 1]

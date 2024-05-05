@@ -24,7 +24,7 @@ ho_bearing_range:
     type: float
     min: -22.5
     max: 22.5
-ho_heading_range:
+ho_course_range:
   required: True
   type: list
   maxlength: 2
@@ -40,7 +40,7 @@ ot_bearing_range:
     type: float
     min: -22.5
     max: 22.5
-ot_heading_range:
+ot_course_range:
   required: True
   type: list
   maxlength: 2
@@ -56,7 +56,7 @@ cr_bearing_range:
     type: float
     min: 0.0
     max: 120.0
-cr_heading_range:
+cr_course_range:
   required: True
   type: list
   maxlength: 2
