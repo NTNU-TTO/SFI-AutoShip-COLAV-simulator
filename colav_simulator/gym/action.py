@@ -243,9 +243,11 @@ class RelativeLOSWaypointSpeedAction(ActionType):
 
 
 class RelativeCourseSpeedReferenceSequenceAction(ActionType):
-    """(Continuous) Action consisting of a 2-length sequence of course (COG) and speed (SOG) references to be followed by the own-ship."""
+    """(Continuous) Action consisting of a sequence of course (COG) and speed (SOG) references to be followed by the own-ship."""
 
-    def __init__(self, env: "COLAVEnvironment", sample_time: Optional[float] = None, **kwargs) -> None:
+    def __init__(
+        self, env: "COLAVEnvironment", sample_time: Optional[float] = None, seq_length: int = 1, **kwargs
+    ) -> None:
         """Create a continuous action space for setting the own-ship autopilot references in speed and course.
 
         Args:
@@ -253,31 +255,32 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
         """
         super().__init__(env, sample_time)
         assert self.env.ownship is not None, "Ownship must be set before using the action space"
-        self.size = 4  # Enhancement: make the sequence length a parameter
+        self.seq_length = seq_length  # Enhancement: make the sequence length a parameter
         self.course_range = (-np.pi, np.pi)
         self.speed_range = (-self.env.ownship.max_speed, self.env.ownship.max_speed)
         self.name = "RelativeCourseSpeedReferenceSequenceAction"
-        self.course_refs = np.zeros(2)
-        self.speed_refs = np.zeros(2)
+        self.course_refs = np.zeros(seq_length)
+        self.speed_refs = np.zeros(seq_length)
         self.t_first_apply = 0.0
-        self.reference_duration = 5.0  # equal to sampling time used in the MPC/planner
+        self.reference_duration = 2.5  # equal to sampling time used in the MPC/planner
+        self.ref_counter = 0
 
     def space(self) -> gym.spaces.Box:
-        return gym.spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
+        return gym.spaces.Box(-1.0, 1.0, shape=(self.seq_length * 2,), dtype=np.float32)
 
     def normalize(self, action: list | np.ndarray) -> list | np.ndarray:
-        course_ref_1 = mf.linear_map(action[0], self.course_range, (-1.0, 1.0))
-        speed_ref_1 = mf.linear_map(action[1], self.speed_range, (-1.0, 1.0))
-        course_ref_2 = mf.linear_map(action[2], self.course_range, (-1.0, 1.0))
-        speed_ref_2 = mf.linear_map(action[3], self.speed_range, (-1.0, 1.0))
-        return np.array([course_ref_1, speed_ref_1, course_ref_2, speed_ref_2])
+        action_norm = np.zeros(self.seq_length * 2)
+        for i in range(self.seq_length):
+            action_norm[i * 2] = mf.linear_map(action[i * 2], self.course_range, (-1.0, 1.0))
+            action_norm[i * 2 + 1] = mf.linear_map(action[i * 2 + 1], self.speed_range, (-1.0, 1.0))
+        return action_norm
 
     def unnormalize(self, action: list | np.ndarray) -> list | np.ndarray:
-        course_ref_1 = mf.linear_map(action[0], (-1.0, 1.0), self.course_range)
-        speed_ref_1 = mf.linear_map(action[1], (-1.0, 1.0), self.speed_range)
-        course_ref_2 = mf.linear_map(action[2], (-1.0, 1.0), self.course_range)
-        speed_ref_2 = mf.linear_map(action[3], (-1.0, 1.0), self.speed_range)
-        return np.array([course_ref_1, speed_ref_1, course_ref_2, speed_ref_2])
+        action_unnorm = np.zeros(self.seq_length * 2)
+        for i in range(self.seq_length):
+            action_unnorm[i * 2] = mf.linear_map(action[i * 2], (-1.0, 1.0), self.course_range)
+            action_unnorm[i * 2 + 1] = mf.linear_map(action[i * 2 + 1], (-1.0, 1.0), self.speed_range)
+        return action_unnorm
 
     def act(self, action: Action, **kwargs) -> None:
         """Execute the action on the own-ship, which is to apply new autopilot references for course and speed.
@@ -290,24 +293,24 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
             "applied" in kwargs
         ), "This action type needs to know if the current action is the first one applied in the current episode step."
         if not kwargs["applied"]:
+            self.ref_counter = 0
             unnorm_action = self.unnormalize(action)
             # ship references in general is a 9-entry array consisting of 3DOF pose, velocity and acceleartion
             course = self.env.ownship.course
             speed = self.env.ownship.speed
-
-            self.course_refs = np.array(
-                [mf.wrap_angle_to_pmpi(unnorm_action[0] + course), mf.wrap_angle_to_pmpi(unnorm_action[2] + course)]
-            )
-            self.speed_refs = np.array([unnorm_action[1] + speed, unnorm_action[3] + speed])
+            self.course_refs = np.zeros(self.seq_length)
+            self.speed_refs = np.zeros(self.seq_length)
+            for i in range(self.seq_length):
+                self.course_refs[i] = mf.wrap_angle_to_pmpi(unnorm_action[i * 2] + course)
+                self.speed_refs[i] = unnorm_action[i * 2 + 1] + speed
             self.t_first_apply = self.env.time
 
         t_now = self.env.time
         if t_now - self.t_first_apply > self.reference_duration:
-            course_ref = self.course_refs[1]
-            speed_ref = self.speed_refs[1]
-        else:
-            course_ref = self.course_refs[0]
-            speed_ref = self.speed_refs[0]
+            self.ref_counter += 1 if self.ref_counter < self.seq_length - 1 else 0
+
+        course_ref = self.course_refs[self.ref_counter]
+        speed_ref = self.speed_refs[self.ref_counter]
 
         refs = np.array([0.0, 0.0, course_ref, speed_ref, 0.0, 0.0, 0.0, 0.0, 0.0])
 

@@ -332,6 +332,7 @@ class ScenarioGenerator:
 
         scenario_data_list = []
         generate_map = True
+        enc = None
         for i, folder in enumerate(folder_list):
             if not merge_scenario_episodes:
                 generate_map = True
@@ -744,7 +745,7 @@ class ScenarioGenerator:
         self.behavior_generator.setup_ship(
             self.rng, ship_list[0], ship_replan_flags[0], config.t_end - config.t_start, show_plots=False
         )
-        self.behavior_generator.generate_ship_behavior(
+        ship_list[0], config.ship_list[0] = self.behavior_generator.generate_ship_behavior(
             self.rng, ship_list[0], config.ship_list[0], config.t_end - config.t_start
         )
 
@@ -1215,7 +1216,7 @@ class ScenarioGenerator:
             )
             x, y = new_start_pos[0], new_start_pos[1]
             # self.enc.draw_circle((y, x), radius=10.0, color="red", fill=True, alpha=0.6)
-        return np.array([x, y, speed, course]), t_start, os_csog_state_basis
+        return np.array([x, y, speed, course]), float(t_start), os_csog_state_basis
 
     def generate_gaussian_csog_state(
         self,

@@ -634,7 +634,9 @@ class BehaviorGenerator:
         Returns:
             Tuple[ship.Ship, ship.Config]: Tuple containing the updated ship and its configuration.
         """
-        if ship_config.waypoints is not None or ship_obj.trajectory.size > 1 or ship_obj.waypoints.size > 1:
+        if ship_obj.trajectory.size > 1 or ship_obj.waypoints.size > 1:
+            ship_config.waypoints = ship_obj.waypoints
+            ship_config.speed_plan = ship_obj.speed_plan
             return ship_obj, ship_config
 
         replan = self._ship_replan_flags[ship_obj.id]

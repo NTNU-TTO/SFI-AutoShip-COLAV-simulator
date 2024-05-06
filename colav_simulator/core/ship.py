@@ -123,10 +123,10 @@ class Config:
             config_dict["speed_plan"] = self.speed_plan.tolist()
 
         if self.t_start is not None:
-            config_dict["t_start"] = self.t_start
+            config_dict["t_start"] = float(self.t_start)
 
         if self.t_end is not None:
-            config_dict["t_end"] = self.t_end
+            config_dict["t_end"] = float(self.t_end)
 
         config_dict["id"] = self.id
         config_dict["mmsi"] = self.mmsi

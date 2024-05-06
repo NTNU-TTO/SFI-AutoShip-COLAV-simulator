@@ -12,7 +12,7 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -49,6 +49,9 @@ class GaussMarkovDisturbanceParams:
     """Parameters for a gauss-markov disturbance model with random speed and direction (of e.g. wind or current).
 
     Initial speed and direction are optional, and if not configured, they are drawn from the specified ranges.
+
+    If constant is set to True, the speed and direction will remain constant. If add_impulse_noise is set to True,
+    impulse noise will be added to the speed and direction dynamics (within the specified ranges).
     """
 
     constant: bool = True
@@ -60,7 +63,14 @@ class GaussMarkovDisturbanceParams:
     mu_direction: float = 1e-05
     sigma_speed: float = 0.005
     sigma_direction: float = 0.005
-    add_impulse_noise: bool = False
+    add_impulse_noise: bool = False  # Add impulse noise to the speed and direction dynamics if constant=False
+    speed_impulses: List[float] = field(
+        default_factory=lambda: [-1.0, 1.0]
+    )  # List of impulse noise values to randomly choose from
+    direction_impulses: List[float] = field(
+        default_factory=lambda: [-np.pi / 4, np.pi / 4]
+    )  # List of impulse noise values to randomly choose from
+    impulse_times: List[float] = field(default_factory=lambda: [70.0])
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -83,6 +93,15 @@ class GaussMarkovDisturbanceParams:
         params.sigma_direction = config_dict["sigma_direction"]
         params.constant = config_dict["constant"]
         params.add_impulse_noise = config_dict["add_impulse_noise"]
+        if "speed_impulses" in config_dict:
+            params.speed_impulses = config_dict["speed_impulses"]
+        if "direction_impulses" in config_dict:
+            params.direction_impulses = np.deg2rad(config_dict["direction_impulses"])
+        if "impulse_times" in config_dict:
+            params.impulse_times = config_dict["impulse_times"]
+        else:
+            params.impulse_times = np.random.random_integers(20, 150, 1).tolist()
+            params.impulse_times.sort()
         return params
 
     def to_dict(self) -> dict:
@@ -97,6 +116,9 @@ class GaussMarkovDisturbanceParams:
             "sigma_speed": self.sigma_speed,
             "sigma_direction": self.sigma_direction,
             "add_impulse_noise": self.add_impulse_noise,
+            "speed_impulses": self.speed_impulses,
+            "direction_impulses": [float(np.rad2deg(di)) for di in self.direction_impulses],
+            "impulse_times": [float(t) for t in self.impulse_times],
         }
         config_dict["direction_range"] = [
             float(np.rad2deg(self.direction_range[0])),
@@ -163,6 +185,7 @@ class GaussMarkovDisturbance(IDisturbance):
         self._params: GaussMarkovDisturbanceParams = params
         self._speed: float = params.initial_speed
         self._direction: float = params.initial_direction
+        self._impulse_counter: int = 0
 
     def update(self, t: float, dt: float) -> None:
         """Update speed and direction dynamics in the gauss-marko process
@@ -174,19 +197,32 @@ class GaussMarkovDisturbance(IDisturbance):
         """
         if self._params.constant:
             return
+
         w_V = random.normalvariate(0.0, self._params.sigma_speed)
         w_beta = random.normalvariate(0.0, self._params.sigma_direction)
         V_dot = -self._params.mu_speed * self._speed + w_V
         beta_dot = -self._params.mu_direction * self._direction + w_beta
 
-        # Sample impulse noise in speed and direction if specified
-        if self._params.add_impulse_noise:
-            # speed_impulse = random.uniform(-0.1, 1.0)
+        speed_impulse = 0.0
+        direction_impulse = 0.0
+        if (
+            self._params.add_impulse_noise
+            and self._params.impulse_times[self._impulse_counter]
+            <= t
+            < self._params.impulse_times[self._impulse_counter] + 3.0 * dt
+        ):
+            speed_impulse = random.choice(self._params.speed_impulses)
+            direction_impulse = random.choice(self._params.direction_impulses)
+            self._impulse_counter += 1 if self._impulse_counter < len(self._params.impulse_times) else 0
 
-        # Euler integration
-        self._speed = mf.sat(self._speed + V_dot * dt, self._params.speed_range[0], self._params.speed_range[1])
+        # "Euler integration"
+        self._speed = mf.sat(
+            self._speed + V_dot * dt + speed_impulse, self._params.speed_range[0], self._params.speed_range[1]
+        )
         self._direction = mf.sat(
-            self._direction + beta_dot * dt, self._params.direction_range[0], self._params.direction_range[1]
+            self._direction + beta_dot * dt + direction_impulse,
+            self._params.direction_range[0],
+            self._params.direction_range[1],
         )
         self._direction = mf.wrap_angle_to_pmpi(self._direction)
 
