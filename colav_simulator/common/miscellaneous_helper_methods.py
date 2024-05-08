@@ -759,7 +759,7 @@ def sample_state_along_waypoints(
         np.ndarray: Sampled state data along the waypoints, and the corresponding approximate vessel time of arrival.
     """
     assert (
-        waypoints.shape[0] == 2 and waypoints.shape[1] > 2
+        waypoints.shape[0] == 2 and waypoints.shape[1] > 1
     ), "Waypoints must be 2 x n_waypoints, with at least 2 waypoints"
     assert speed_plan.size == waypoints.shape[1], "Speed plan must have the same number of elements as waypoints"
     max_iter = 1000

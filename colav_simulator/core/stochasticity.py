@@ -92,7 +92,8 @@ class GaussMarkovDisturbanceParams:
         params.sigma_speed = config_dict["sigma_speed"]
         params.sigma_direction = config_dict["sigma_direction"]
         params.constant = config_dict["constant"]
-        params.add_impulse_noise = config_dict["add_impulse_noise"]
+        if "add_impulse_noise" in config_dict:
+            params.add_impulse_noise = config_dict["add_impulse_noise"]
         if "speed_impulses" in config_dict:
             params.speed_impulses = config_dict["speed_impulses"]
         if "direction_impulses" in config_dict:

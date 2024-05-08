@@ -363,6 +363,7 @@ class BehaviorGenerator:
         self._planning_hazard_list = [None for _ in range(n_ships)]
         self._planning_cdt_list = [None for _ in range(n_ships)]
         self._bg_method_list = [None for _ in range(n_ships)]
+        self._ship_replan_flags = [True for _ in range(n_ships)]
         if (
             self._config.ownship_method.value >= BehaviorGenerationMethod.RRT.value
             or self._config.target_ship_method.value >= BehaviorGenerationMethod.RRT.value
@@ -445,6 +446,7 @@ class BehaviorGenerator:
             method = BehaviorGenerationMethod(rng.integers(0, BehaviorGenerationMethod.Randomize.value))
 
         self._bg_method_list[ship_obj.id] = method
+        # self._ship_replan_flags[ship_obj.id] = replan
 
         run_rrt = not np.array_equal(ship_obj.csog_state, self._prev_ship_states[ship_obj.id])
         if (

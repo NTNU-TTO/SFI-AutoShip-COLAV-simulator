@@ -325,7 +325,7 @@ class Ship(IShip):
         self._mmsi = mmsi
         self._id = identifier
         self._ais_msg_nr: int = 18
-        self._state: np.ndarray = np.zeros(6)
+        self._state: np.ndarray = np.empty(0)
         self._goal_state: np.ndarray = np.empty(0)
         self._waypoints: np.ndarray = np.empty(0)
         self._speed_plan: np.ndarray = np.empty(0)
@@ -740,6 +740,9 @@ class Ship(IShip):
         Returns:
             np.ndarray: Ship csog-state.
         """
+        if self._state.size < 6:
+            return np.empty(0)
+
         if self._model.dims[0] == 4:
             return np.array([self._state[0], self._state[1], self._state[3], self._state[2]])
         else:  # self._model.dims[0] == 6
