@@ -580,7 +580,7 @@ class Visualizer:
         circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
         dhandles["circle"].remove()
         dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
-        if w.currents is not None and w.currents["speed"] > 0.0:
+        if w.currents is not None:
             speed = w.currents["speed"]
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
@@ -607,7 +607,7 @@ class Visualizer:
                 linewidth=3.0,
                 zorder=10,
             )
-        if w.wind is not None and w.wind["speed"] > 0.0:
+        if w.wind is not None:
             speed = w.wind["speed"]
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()

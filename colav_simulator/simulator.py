@@ -109,6 +109,7 @@ class Simulator:
         enc: senc.ENC,
         disturbance: Optional[stochasticity.Disturbance] = None,
         colav_systems: Optional[list] = None,
+        seed: int | None = None,
     ) -> None:
         """Initializes the simulation through setting relevant internal state objects.
 
@@ -120,6 +121,7 @@ class Simulator:
             - enc (senc.ENC): ENC object relevant for the scenario.
             - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
             - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
+            - seed (int | None): Seed for the random number generator. Defaults to None.
         """
         self.ship_list = ship_list
         self.sconfig = sconfig
@@ -135,12 +137,18 @@ class Simulator:
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
 
+        for ship_obj in self.ship_list:
+            ship_obj.reset(seed=seed)
+
         self.timestamp_start = mhm.current_utc_timestamp()
         self.t = sconfig.t_start
         self.t_start = sconfig.t_start
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
         self.recent_sensor_measurements: list = [None] * len(self.ship_list)
+        print(
+            f"Initialized scenario ep={sconfig.name} with {len(self.ship_list)} ships and Disturbance={disturbance is not None}."
+        )
 
     def run(
         self,
@@ -149,6 +157,8 @@ class Simulator:
         terminate_on_collision_or_grounding: bool = True,
     ) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
+
+        Seeds for the random number generator are set and incremented for each scenario episode.
 
         Args:
             - scenario_data_list (list): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects.
@@ -167,6 +177,8 @@ class Simulator:
         if self._config.verbose:
             print("\rSimulator: Started running through scenarios...")
 
+        seed_val = 0
+
         scenario_simdata_list = []
         for i, (scenario_episode_list, scenario_enc) in enumerate(scenario_data_list):
             scenario_simdata = {}
@@ -182,7 +194,7 @@ class Simulator:
                 scenario_episode_file = episode_config.filename
 
                 self.initialize_scenario_episode(
-                    ship_list, episode_config, scenario_enc, episode_disturbance, colav_systems
+                    ship_list, episode_config, scenario_enc, episode_disturbance, colav_systems, seed=seed_val
                 )
 
                 if self._config.verbose:
@@ -209,6 +221,8 @@ class Simulator:
                 episode_simdata["sim_data"] = sim_data
                 episode_simdata["ship_info"] = ship_info
                 episode_simdata_list.append(episode_simdata)
+
+                seed_val += 1
 
             if self._config.verbose:
                 print(f"\rSimulator: Finished running through episodes of scenario nr {i + 1}.")
@@ -318,8 +332,10 @@ class Simulator:
 
         true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
         for i, ship_obj in enumerate(self.ship_list):
-            relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
-            tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
+            tracks, sensor_measurements_i = [], []
+            if i == 0:
+                relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
+                tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
 
             self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(
                 self.t, self.recent_sensor_measurements[i], sensor_measurements_i

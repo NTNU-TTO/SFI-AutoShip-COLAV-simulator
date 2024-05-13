@@ -91,6 +91,10 @@ class IGuidance(ABC):
     ) -> np.ndarray:
         "Computes guidance reference states for the ship controller to track. 9 x n_samples (typically n_samples = 1) array of reference states are returned, consisting of reference pose, velocity and acceleration."
 
+    @abstractmethod
+    def reset(self) -> None:
+        "Resets the guidance system to its initial state."
+
 
 class GuidanceBuilder:
     @classmethod
@@ -115,7 +119,7 @@ class KinematicTrajectoryPlanner(IGuidance):
     """Class which implements a simple kinematic trajectory planner.
 
     The main functionality converts a path (described by waypoints) and speed plan into a continuous
-    trajectory, using cubic splines, for which 3DOF references in position, speed and acceleration are generated.
+    trajectory spline for which 3DOF references in position, speed and acceleration can be generated.
     """
 
     _x_spline: interp.BSpline
@@ -127,9 +131,19 @@ class KinematicTrajectoryPlanner(IGuidance):
         self._epsilon: float = 0.00001
         self._s: float = 0.0001
         self._s_dot: float = 0.0
+        self._final_arc_length: float = 0.0
         self._s_ddot: float = 0.0
         self._init: bool = False
         self._heading_waypoints: np.ndarray = np.array([])
+
+    def reset(self) -> None:
+        """Resets the guidance system to its initial state."""
+        self._s = 0.0001
+        self._s_dot = 0.0
+        self._s_ddot = 0.0
+        self._init = False
+        self._heading_waypoints = np.array([])
+        self._final_arc_length = 0.0
 
     def compute_splines(
         self,
@@ -469,9 +483,10 @@ class LOSGuidance(IGuidance):
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
-    def reset_wp_counter(self) -> None:
-        """Resets the waypoint counter to zero."""
+    def reset(self) -> None:
+        """Resets the guidance system to its initial state."""
         self._wp_counter = 0
+        self._e_int = 0.0
 
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float

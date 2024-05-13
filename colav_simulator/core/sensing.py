@@ -32,6 +32,14 @@ class ISensor(ABC):
         """Returns the measurement function for the input state."""
 
     @abstractmethod
+    def reset(self, seed: int | None) -> None:
+        """Resets the sensor to its initial state."""
+
+    @abstractmethod
+    def seed(self, seed: int | None) -> None:
+        """Sets the seed for the sensor's random number generator."""
+
+    @abstractmethod
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
         """Generates sensor measurements from the input tuple list of true dynamic obstacle indices and states, (do_idx, do_state) x n_do,
         and own-ship state."""
@@ -167,6 +175,15 @@ class Radar(ISensor):
         self._params: RadarParams = params
         self._prev_meas_time: float = 0.0
         self._initialized: bool = False
+        self._rng: np.random.Generator = np.random.default_rng()
+
+    def reset(self, seed: int | None) -> None:
+        self.seed(seed)
+        self._prev_meas_time = 0.0
+        self._initialized = False
+
+    def seed(self, seed: int) -> None:
+        self._rng = np.random.default_rng(seed)
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -189,7 +206,7 @@ class Radar(ISensor):
         for i, (_, do_state, do_length, do_width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
             if dist_ownship_to_do <= self._params.max_range:
-                z = self.h(do_state) + np.random.multivariate_normal(np.zeros(2), self._params.R_true)
+                z = self.h(do_state) + self._rng.multivariate_normal(np.zeros(2), self._params.R_true)
             else:
                 z = np.nan * np.ones(2)
             measurements.append(z)
@@ -231,6 +248,15 @@ class AIS(ISensor):
         self._params: AISParams = params
         self._prev_meas_time: list = []
         self._initialized: bool = False
+        self._rng: np.random.Generator = np.random.default_rng()
+
+    def reset(self, seed: int | None) -> None:
+        self.seed(seed)
+        self._prev_meas_time = []
+        self._initialized = False
+
+    def seed(self, seed: int | None) -> None:
+        self._rng = np.random.default_rng(seed)
 
     def R(self, xs: np.ndarray) -> np.ndarray:
         return self._params.R
@@ -258,7 +284,7 @@ class AIS(ISensor):
             if (t - self._prev_meas_time[i]) >= (
                 1.0 / self.measurement_rate(xs)
             ) and dist_ownship_to_do <= self._params.max_range:
-                z = self.h(xs) + np.random.multivariate_normal(np.zeros(4), self._params.R_true)
+                z = self.h(xs) + self._rng.multivariate_normal(np.zeros(4), self._params.R_true)
                 self._prev_meas_time[i] = t
             else:
                 z = np.nan * np.ones(4)

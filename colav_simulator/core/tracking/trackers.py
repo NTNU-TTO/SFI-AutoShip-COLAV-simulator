@@ -25,6 +25,7 @@ class ITracker(ABC):
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
         generated from the input true dynamic obstacle states. Returns tracks and sensor measurements (if any)"""
 
+    @abstractmethod
     def get_track_information(self) -> Tuple[list, list]:
         """Returns the dynamic obstacle track information (ID, state, cov, length, width).
         Also, it returns the associated Normalized Innovation error Squared (NIS) values for
@@ -33,6 +34,10 @@ class ITracker(ABC):
         Returns:
             Tuple[list, list]: List of tracks and list of NISes.
         """
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Resets the tracker to its initial state."""
 
 
 @dataclass
@@ -222,7 +227,21 @@ class KF(ITracker):
         self._NIS: list = []
         self._t_prev: float = -1.0
         self._recent_sensor_measurements: list = []
+        self._measurement_index = []
 
+    def reset(self) -> None:
+        self._track_initialized = []
+        self._track_terminated = []
+        self._labels = []
+        self._xs_p = []
+        self._P_p = []
+        self._xs_upd = []
+        self._P_upd = []
+        self._length_upd = []
+        self._width_upd = []
+        self._NIS = []
+        self._t_prev = -1.0
+        self._recent_sensor_measurements = []
         self._measurement_index = []
 
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:

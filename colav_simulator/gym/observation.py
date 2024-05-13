@@ -1059,7 +1059,9 @@ class RelativeTrackingObservation(ObservationType):
                     rel_speed_cov[0, 1],
                 ]
             )
-        return self.normalize(obs)
+        norm_obs = self.normalize(obs)
+        norm_obs = np.clip(norm_obs, -1.0, 1.0)
+        return norm_obs
 
 
 def observation_factory(

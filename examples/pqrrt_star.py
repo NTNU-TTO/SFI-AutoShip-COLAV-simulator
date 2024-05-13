@@ -124,6 +124,19 @@ class PQRRTStar(ci.ICOLAV):
         self._initialized = False
         self._t_prev: float = 0.0
 
+    def reset(self) -> None:
+        self._references = np.zeros((9, 1))
+        self._t_prev = 0.0
+        self._initialized = False
+        self._rrt.reset(0)
+        self._rrt_inputs = np.empty(3)
+        self._rrt_trajectory = np.empty(6)
+        self._rrt_waypoints = np.empty(3)
+        self._geometry_tree = strtree.STRtree([])
+        self._min_depth = 0
+        self._map_origin = np.array([])
+        self._los.reset()
+
     def plan(
         self,
         t: float,

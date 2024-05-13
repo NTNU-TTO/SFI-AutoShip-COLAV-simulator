@@ -178,6 +178,13 @@ class IDisturbance(ABC):
             - np.ndarray: Disturbance data
         """
 
+    def reset(self, seed: int | None) -> None:
+        """Resets the disturbance process.
+
+        Args:
+            - seed (int | None): Random seed
+        """
+
 
 class GaussMarkovDisturbance(IDisturbance):
     """Gauss-Markov disturbance model with random speed and direction (of e.g. wind or current) in the North-East frame."""
@@ -187,6 +194,13 @@ class GaussMarkovDisturbance(IDisturbance):
         self._speed: float = params.initial_speed
         self._direction: float = params.initial_direction
         self._impulse_counter: int = 0
+        self._rng = np.random.default_rng()
+
+    def reset(self, seed: int | None) -> None:
+        self._speed = self._params.initial_speed
+        self._direction = self._params.initial_direction
+        self._impulse_counter = 0
+        self._rng = np.random.default_rng(seed)
 
     def update(self, t: float, dt: float) -> None:
         """Update speed and direction dynamics in the gauss-marko process
@@ -252,12 +266,12 @@ class DisturbanceData:
 
     def print(self):
         if self.wind:
-            print("Wind | Speed:", self.wind["speed"], "m/s, Direction:", np.rad2deg(self.wind["direction"]), "deg")
+            print("Wind speed:", self.wind["speed"], "m/s, Wind direction:", np.rad2deg(self.wind["direction"]), "deg")
         if self.currents:
             print(
-                "Currents | Speed:",
+                "Current speed:",
                 self.currents["speed"],
-                "m/s, Direction:",
+                "m/s, Current direction:",
                 np.rad2deg(self.currents["direction"]),
                 "deg",
             )
@@ -276,6 +290,18 @@ class Disturbance:
 
         if config.currents is not None:
             self._currents = GaussMarkovDisturbance(config.currents)
+
+    def reset(self, seed: int | None) -> None:
+        """Resets the disturbance processes.
+
+        Args:
+            - seed (int | None): Random seed
+        """
+        if self._wind is not None:
+            self._wind.reset(seed)
+
+        if self._currents is not None:
+            self._currents.reset(seed)
 
     def update(self, t: float, dt: float) -> None:
         """Updates the disturbance processes from time t to t + dt

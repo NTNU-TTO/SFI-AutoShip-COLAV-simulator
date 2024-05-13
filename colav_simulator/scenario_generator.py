@@ -763,7 +763,7 @@ class ScenarioGenerator:
             ship_list,
             config.ship_list,
             simulation_timespan=config.t_end - config.t_start,
-            show_plots=False,
+            show_plots=show_plots,
         )
 
         ship_list.sort(key=lambda x: x.id)
@@ -846,6 +846,11 @@ class ScenarioGenerator:
         # Prune DOs with bad paths
         new_ship_list = [ship_obj for ship_obj in ship_list if ship_obj.id not in bad_do_path_indices]
         new_ship_config_list = [ship_cfg for ship_cfg in config.ship_list if ship_cfg.id not in bad_do_path_indices]
+        id_counter = 0
+        for ship_obj, ship_config in zip(new_ship_list, new_ship_config_list):
+            ship_obj.set_id(id_counter)
+            ship_config.id = id_counter
+            id_counter += 1
         config.ship_list = new_ship_config_list
 
         return False, new_ship_list, config

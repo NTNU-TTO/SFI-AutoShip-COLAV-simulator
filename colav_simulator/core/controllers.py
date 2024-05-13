@@ -34,26 +34,27 @@ class MIMOPIDParams:
 @dataclass
 class SHPIDParams:
     "Parameters for a PID controller for surge, sway + heading control with feedback linearization of the mass+coriolis+damping."
-    K_p: np.ndarray
-    K_d: np.ndarray
-    K_i: np.ndarray
-    z_diff_max: np.ndarray
-    V: np.ndarray
+    K_p: np.ndarray = field(default_factory=lambda: np.diag([5.0, 1.3, 1.4]))
+    K_d: np.ndarray = field(default_factory=lambda: np.diag([0.0, 5.0, 15.0]))
+    K_i: np.ndarray = field(default_factory=lambda: np.diag([0.25, 0.1, 0.1]))
+    z_diff_max: np.ndarray = field(default_factory=lambda: np.array([2.0, 2.0, 15.0 * np.pi / 180.0]))
+    V: np.ndarray = field(
+        default_factory=lambda: np.array(
+            [[0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]
+        )
+    )
 
     def __init__(
         self,
-        K_p: np.ndarray = field(default_factory=lambda: np.diag([5.0, 1.3, 1.4])),
-        K_d: np.ndarray = field(default_factory=lambda: np.diag([0.0, 5.0, 15.0])),
-        K_i: np.ndarray = field(default_factory=lambda: np.diag([0.25, 0.1, 0.1])),
-        z_diff_max: np.ndarray = field(default_factory=lambda: np.array([2.0, 2.0, 15.0 * np.pi / 180.0])),
+        K_p: np.ndarray,
+        K_d: np.ndarray,
+        K_i: np.ndarray,
+        z_diff_max: np.ndarray,
     ) -> None:
         self.K_p = K_p
         self.K_d = K_d
         self.K_i = K_i
         self.z_diff_max = z_diff_max
-        self.V = np.array(
-            [[0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]
-        )
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -166,6 +167,10 @@ class IController(ABC):
         pose derivative (NED or BODY), and pose double derivative (NED or BODY).
         """
 
+    @abstractmethod
+    def reset(self) -> None:
+        """Resets the controller to its initial state."""
+
 
 class ControllerBuilder:
     @classmethod
@@ -215,6 +220,9 @@ class PassThroughCS(IController):
         # Course taken directly as heading reference.
         return np.array([refs[2], np.sqrt(refs[3] ** 2 + refs[4] ** 2), 0.0])
 
+    def reset(self) -> None:
+        return
+
 
 @dataclass
 class PassThroughInputs(IController):
@@ -254,6 +262,9 @@ class PassThroughInputs(IController):
         else:
             return np.array([refs[0], refs[1], refs[2]])
 
+    def reset(self) -> None:
+        return
+
 
 @dataclass
 class MIMOPID(IController):
@@ -285,6 +296,9 @@ class MIMOPID(IController):
 
     def _reset_integrator(self):
         self._eta_diff_int = np.zeros(3)
+
+    def reset(self):
+        self._reset_integrator()
 
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs based on the PID law.
@@ -385,7 +399,11 @@ class FLSC(IController):
                 max_chi_error_int=90.0 * np.pi / 180.0,
                 chi_error_int_threshold=15.0 * np.pi / 180.0,
             )
-        self.reset()
+        self._speed_error_int: float = 0.0
+        self._chi_error_int: float = 0.0
+        self._chi_d_prev: float = 0.0
+        self._chi_prev: float = 0.0
+        self._t: float = 0.0
 
     def reset(self):
         self._speed_error_int = 0.0
@@ -395,6 +413,13 @@ class FLSC(IController):
         self._t = 0.0
 
     def update_integrators(self, speed_error: float, chi_error: float, dt: float) -> None:
+        """Updates the integrators for the FLSC controller.
+
+        Args:
+            speed_error (float): Current speed error
+            chi_error (float): Current course error
+            dt (float): Time step
+        """
         if abs(speed_error) <= self._params.speed_error_int_threshold:
             self._speed_error_int += speed_error * dt
 

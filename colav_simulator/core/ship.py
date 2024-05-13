@@ -11,7 +11,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -232,6 +232,14 @@ class IShip(ABC):
         w: Optional[stochasticity.DisturbanceData] = None,
     ) -> np.ndarray:
         "Plan a new trajectory for the ship, either using the onboard guidance system or COLAV system employed."
+
+    @abstractmethod
+    def reset(self, seed: int | None) -> None:
+        "Reset the ship, e.g. the controller, tracker, guidance, etc. system internal variables/states. Also re-initialize and re-seed sensors."
+
+    @abstractmethod
+    def set_id(self, identifier: int) -> None:
+        "Set the ship identifier."
 
     @abstractmethod
     def set_initial_state(self, csog_state: np.ndarray) -> None:
@@ -507,6 +515,23 @@ class Ship(IShip):
         """Tracks obstacles in the vicinity of the ship. Returns the obstacle tracks and sensor measurements."""
         tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
         return tracks
+
+    def reset(self, seed: int | None) -> None:
+        self._controller.reset()
+        self._tracker.reset()
+        for sensor in self._sensors:
+            sensor.reset(seed)
+
+        if self._guidance is not None:
+            self._guidance.reset()
+
+        if self._colav is not None:
+            self._colav.reset()
+
+    def set_id(self, identifier: int) -> None:
+        """Sets the ship identifier."""
+        assert identifier >= 0, "Ship identifier must be a non-negative integer!"
+        self._id = identifier
 
     def set_initial_state(self, csog_state: np.ndarray, t_start: Optional[float] = None) -> None:
         """Sets the initial state of the ship based on the input kinematic state.

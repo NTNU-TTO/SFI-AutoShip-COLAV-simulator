@@ -35,6 +35,11 @@ class DummyPlanner(ci.ICOLAV):
         self._references = np.zeros((9, 1))
         self._t_prev = 0.0
 
+    def reset(self) -> None:
+        self._references = np.zeros((9, 1))
+        self._t_prev = 0.0
+        self._los.reset()
+
     def plan(
         self,
         t: float,

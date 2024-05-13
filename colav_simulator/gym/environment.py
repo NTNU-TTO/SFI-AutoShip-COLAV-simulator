@@ -129,10 +129,15 @@ class COLAVEnvironment(gym.Env):
                 show=show_loaded_scenario_data,
                 shuffle=shuffle_loaded_scenario_data,
                 merge_loaded_scenario_episodes=merge_loaded_scenario_episodes,
+                max_number_of_episodes=self.max_number_of_episodes,
             )
             self.loaded_scenario_data = True
         else:
-            self._generate(scenario_config=self.scenario_config, reload_map=self.reload_map)
+            self._generate(
+                scenario_config=self.scenario_config,
+                reload_map=self.reload_map,
+                max_number_of_episodes=self.max_number_of_episodes,
+            )
 
         assert isinstance(self.scenario_config, sc.ScenarioConfig), "Scenario config not initialized properly!"
         self._has_init_generated = True
@@ -145,6 +150,7 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
+            seed=seed,
         )
         self.ownship = self.simulator.ownship
 
@@ -203,6 +209,7 @@ class COLAVEnvironment(gym.Env):
         show: bool = False,
         shuffle: bool = False,
         merge_loaded_scenario_episodes: bool = False,
+        max_number_of_episodes: Optional[int] = None,
     ) -> None:
         """Load scenario episodes from files or a folder.
 
@@ -212,6 +219,7 @@ class COLAVEnvironment(gym.Env):
             show (bool): Whether to show the scenario(s) data or not.
             shuffle (bool): Whether to shuffle the scenario(s) episode data or not.
             merge_loaded_scenario_episodes (bool): Whether to merge the scenario episodes into one scenario or not.
+            max_number_of_episodes (Optional[int]): Maximum number of episodes to load.
         """
         name = (
             scenario_file_folder.name
@@ -223,7 +231,7 @@ class COLAVEnvironment(gym.Env):
             scenario_name=name,
             reload_map=reload_map,
             show=show,
-            max_number_of_episodes=self.max_number_of_episodes,
+            max_number_of_episodes=max_number_of_episodes,
             shuffle_episodes=shuffle,
             merge_scenario_episodes=merge_loaded_scenario_episodes,
         )
@@ -233,25 +241,27 @@ class COLAVEnvironment(gym.Env):
         self,
         scenario_config: Optional[sc.ScenarioConfig | pathlib.Path] = None,
         reload_map: Optional[bool] = None,
+        max_number_of_episodes: Optional[int] = None,
     ) -> None:
         """Generate new scenario from the input configuration.
 
         Args:
             scenario_config (Optional[sm.ScenarioConfig | pathlib.Path]): Scenario configuration or path to scenario config file.
             reload_map (bool): Whether to reload the scenario map.
+            max_number_of_episodes (Optional[int]): Maximum number of episodes to generate.
         """
         if isinstance(scenario_config, pathlib.Path):
             self.scenario_data_tup = self.scenario_generator.generate(
                 config_file=scenario_config,
                 new_load_of_map_data=reload_map,
-                n_episodes=self.max_number_of_episodes,
+                n_episodes=max_number_of_episodes,
                 show_plots=False,
             )
         else:
             self.scenario_data_tup = self.scenario_generator.generate(
                 config=scenario_config,
                 new_load_of_map_data=reload_map,
-                n_episodes=self.max_number_of_episodes,
+                n_episodes=max_number_of_episodes,
                 show_plots=False,
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
@@ -314,7 +324,11 @@ class COLAVEnvironment(gym.Env):
         self.done = False
 
         if self.episodes == self.n_episodes or self.scenario_data_tup[0] == []:
-            self._generate(scenario_config=self.scenario_config, reload_map=False)
+            self._generate(
+                scenario_config=self.scenario_config,
+                reload_map=False,
+                max_number_of_episodes=self.max_number_of_episodes,
+            )
             self.episodes = 0
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
@@ -327,6 +341,7 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
+            seed=seed,
         )
         self.ownship = self.simulator.ownship
 
