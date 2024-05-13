@@ -146,9 +146,9 @@ class Simulator:
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
         self.recent_sensor_measurements: list = [None] * len(self.ship_list)
-        print(
-            f"Initialized scenario ep={sconfig.name} with {len(self.ship_list)} ships and Disturbance={disturbance is not None}."
-        )
+        # print(
+        #     f"Initialized scenario ep={sconfig.name} with {len(self.ship_list)} ships and Disturbance={disturbance is not None}."
+        # )
 
     def run(
         self,
