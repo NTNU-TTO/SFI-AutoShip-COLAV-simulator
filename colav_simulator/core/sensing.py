@@ -179,7 +179,7 @@ class Radar(ISensor):
 
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
         measurements = []
-        if not self._initialized:
+        if not self._initialized or t < 0.0001:
             self._prev_meas_time = t
             self._initialized = True
 
@@ -244,9 +244,13 @@ class AIS(ISensor):
 
     def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
         measurements = []
-        if not self._initialized:
+        if not self._initialized or t < 0.0001:
             self._prev_meas_time = [t] * len(true_do_states)
             self._initialized = True
+
+        if len(true_do_states) > len(self._prev_meas_time):
+            diff = len(true_do_states) - len(self._prev_meas_time)
+            self._prev_meas_time.extend([t] * diff)
 
         for i, (_, xs, length, width) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)

@@ -119,6 +119,16 @@ class GodTracker(ITracker):
         self._width_upd: list = []
         self._recent_sensor_measurements: list = []
 
+    def reset(self) -> None:
+        self._initialized = False
+        self._labels = []
+        self._xs_upd = []
+        self._P_upd = []
+        self._length_upd = []
+        self._t_prev = -1.0
+        self._width_upd = []
+        self._recent_sensor_measurements = []
+
     def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
         """Tracks/updates estimates on dynamic obstacles perfectly within the sensor range.
 
@@ -131,6 +141,7 @@ class GodTracker(ITracker):
         Returns:
             Tuple[list, list]: List of ground truth dynamic obstacle tracks (ID, state, cov, length, width). Also, the sensor measurements list (not used).
         """
+
         # If the function is run at the same time as the previous, return the same tracks
         if t <= self._t_prev:
             tracks, _ = self.get_track_information()
@@ -138,14 +149,13 @@ class GodTracker(ITracker):
 
         self._t_prev = t
 
-        if not self._initialized:
-            for do_idx, do_state, do_length, do_width in true_do_states:
+        for do_idx, do_state, do_length, do_width in true_do_states:
+            if do_idx not in self._labels:
                 self._labels.append(do_idx)
                 self._xs_upd.append(do_state)
                 self._P_upd.append(np.zeros((4, 4)))
                 self._length_upd.append(do_length)
                 self._width_upd.append(do_width)
-            self._initialized = True
 
         # Only generate measurements for initialized tracks
         sensor_measurements = []
