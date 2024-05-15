@@ -9,6 +9,7 @@ import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stochasticity
 import colav_simulator.core.tracking.trackers as trackers
 import numpy as np
+from colav_simulator.scenario_config import OwnshipPositionGenerationMethod
 from colav_simulator.scenario_generator import ScenarioGenerator
 from matplotlib import pyplot as plt
 
@@ -69,7 +70,11 @@ if __name__ == "__main__":
 
     scenario_generator.seed(1)
     csog_state = scenario_generator.generate_random_csog_state(
-        draft=ownship.draft, min_land_clearance=100.0, U_min=2.0, U_max=ownship.max_speed
+        method=OwnshipPositionGenerationMethod.UniformInTheMapThenGaussian,
+        draft=ownship.draft,
+        min_hazard_clearance=100.0,
+        U_min=2.0,
+        U_max=ownship.max_speed,
     )
     ownship.set_initial_state(csog_state)
 
@@ -83,8 +88,11 @@ if __name__ == "__main__":
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
     scenario_generator.behavior_generator.initialize_data_structures(1)
-    scenario_generator.behavior_generator.setup(
-        rng, [ownship], [True], enc, safe_sea_cdt, safe_sea_cdt_weights, horizon, show_plots=True
+    scenario_generator.behavior_generator.setup_enc(
+        enc=enc, safe_sea_cdt=safe_sea_cdt, safe_sea_cdt_weights=safe_sea_cdt_weights
+    )
+    scenario_generator.behavior_generator.setup_ship(
+        rng=rng, ship_obj=ownship, replan=True, simulation_timespan=horizon, show_plots=True
     )
 
     n_wps = 5

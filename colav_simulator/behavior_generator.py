@@ -420,7 +420,14 @@ class BehaviorGenerator:
         self._simulation_timespan = simulation_timespan
         self._ship_replan_flags = ship_replan_flags
         for idx, ship_obj in enumerate(ship_list):
-            self.setup_ship(rng, ship_obj, ship_replan_flags[idx], ownship, simulation_timespan, show_plots)
+            self.setup_ship(
+                rng=rng,
+                ship_obj=ship_obj,
+                replan=ship_replan_flags[idx],
+                ownship=ownship,
+                simulation_timespan=simulation_timespan,
+                show_plots=show_plots,
+            )
 
     def setup_ship(
         self,

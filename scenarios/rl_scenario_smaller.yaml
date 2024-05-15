@@ -11,11 +11,21 @@ map_tolerance: 1
 map_buffer: 0
 new_load_of_map_data: True
 type: MS
-n_random_ships: 3
+n_random_ships: 5
 #n_random_ships_range: [1, 2]
-n_episodes: 10
+episode_generation:
+  n_episodes: 1
+  n_constant_os_state_episodes: 1
+  n_constant_os_plan_episodes: 100
+  n_constant_do_state_episodes: 1
+  n_plans_per_do_state: 1
+  n_constant_disturbance_episodes: 5
+  delta_uniform_position_sample: 5
+  ownship_position_generation: "MapUniformThenPerpendicular"
+  target_position_generation: "BasedOnOwnshipPositionThenGaussian"
+
 rl:
-  action_type: "continuous_autopilot_reference_action"
+  action_type: "relative_course_speed_reference_sequence_action"
   action_sample_time: 0.5
   observation_type:
     dict_observation:
@@ -26,25 +36,31 @@ rl:
       - "disturbance_observation"
 stochasticity:
   currents:
-    constant: True
-    initial_speed: 0.0
+    constant: False
     initial_direction: 180.0
-    speed_range: [0.0, 1.0]
+    speed_range: [0.0, 1.5]
     direction_range: [-360.0, 360.0]
     mu_speed: 0.00001
     mu_direction: 0.00001
     sigma_speed: 0.005
     sigma_direction: 0.005
+    add_impulse_noise: False
+    speed_impulses: [5.0]
+    direction_impulses: [45.0]
   wind:
     constant: True
     initial_speed: 0.0
     initial_direction: 180.0
-    speed_range: [0.0, 1.0]
+    speed_range: [0.0, 5.0]
     direction_range: [-360.0, 360.0]
     mu_speed: 0.00001
     mu_direction: 0.00001
     sigma_speed: 0.005
     sigma_direction: 0.005
+    add_impulse_noise: True
+    speed_impulses: [1.0, 2.5, 5.0]
+    direction_impulses: [-90.0, -45.0, 45.0, 90.0]
+    # impulse_times: [100.0]
 ship_list:
   - id: 0
     mmsi: 100

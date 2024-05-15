@@ -994,11 +994,11 @@ class RelativeTrackingObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         assert self.env.ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 5000.0),
-            "speed": (-30.0, 30.0),
+            "distance": (0.0, 3000.0),
+            "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
-            "variance": (0.0, 100.0),
-            "cross_variance": (-100.0, 100.0),
+            "variance": (0.0, 25.0),
+            "cross_variance": (-25.0, 25.0),
         }
 
     def normalize(self, obs: Observation) -> Observation:
@@ -1043,6 +1043,7 @@ class RelativeTrackingObservation(ObservationType):
         tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
+
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
             speed_cov = do_cov[2:4, 2:4]
             R_psi = mf.Rmtrx2D(os_state[2])
@@ -1059,6 +1060,8 @@ class RelativeTrackingObservation(ObservationType):
                     rel_speed_cov[0, 1],
                 ]
             )
+        obs = obs.T[obs.T[:, 0].argsort()][::-1].T
+        # print(f"first tracking obs row = {obs[0, :]}")
         norm_obs = self.normalize(obs)
         norm_obs = np.clip(norm_obs, -1.0, 1.0)
         return norm_obs

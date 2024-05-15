@@ -663,6 +663,7 @@ class ScenarioGenerator:
 
             ep_str = str(self._episode_counter + self._ep0).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
+            episode["config"].n_random_ships = len(episode["ship_list"]) - 1
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
                     episode["config"], save_scenario_folder

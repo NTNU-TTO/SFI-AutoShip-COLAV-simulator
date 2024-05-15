@@ -140,6 +140,9 @@ class Simulator:
         for ship_obj in self.ship_list:
             ship_obj.reset(seed=seed)
 
+        if self.disturbance is not None:
+            self.disturbance.reset(seed=seed)
+
         self.timestamp_start = mhm.current_utc_timestamp()
         self.t = sconfig.t_start
         self.t_start = sconfig.t_start

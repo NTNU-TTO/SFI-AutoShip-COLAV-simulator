@@ -77,7 +77,7 @@ if __name__ == "__main__":
     env.reset(seed=1)
     frames = []
     for i in range(100):
-        obs, reward, terminated, truncated, info = env.step(np.array([-0.2, 0.0]))
+        obs, reward, terminated, truncated, info = env.step(np.array([0.0, -0.01]))
 
         frames.append(env.render())
 
