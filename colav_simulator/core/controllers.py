@@ -377,7 +377,7 @@ class FLSC(IController):
     """
 
     def __init__(
-        self, model_params, params: Optional[FLSCParams] = None, enable_separate_low_speed_control: bool = True
+        self, model_params, params: Optional[FLSCParams] = None, enable_separate_low_speed_control: bool = False
     ) -> None:
         self._model_params = model_params
         if params is not None:
