@@ -296,7 +296,7 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 
 ## Future Enhancements (Roadmap)
 - Improve random generation of vessel COLREGS scenarios. E.g. use AIS data to sample "realistic" vessel trajectories based on a fitted distribution for historical vessel positions and velocities.
-- Improve live-visualization in the simulator w.r.t. code readability and run-time.
+- Improve live-visualization in the simulator w.r.t. code readability and run-time. Switch out matplotlib for a faster backend.
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.

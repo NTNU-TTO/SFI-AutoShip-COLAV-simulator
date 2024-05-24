@@ -87,7 +87,7 @@ if __name__ == "__main__":
     enc = scenario_generator.enc
     safe_sea_cdt = scenario_generator.safe_sea_cdt
     safe_sea_cdt_weights = scenario_generator.safe_sea_cdt_weights
-    scenario_generator.behavior_generator.initialize_data_structures(1)
+    scenario_generator.behavior_generator.initialize_data_structures(n_ships=1)
     scenario_generator.behavior_generator.setup_enc(
         enc=enc, safe_sea_cdt=safe_sea_cdt, safe_sea_cdt_weights=safe_sea_cdt_weights
     )
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         alpha=0.6,
     )
     plotters.plot_trajectory(trajectory, scenario_generator.enc, "black")
-    for k in range(0, n_samples, 20):
+    for k in range(0, n_samples, 40):
         ship_poly = mapf.create_ship_polygon(
             trajectory[0, k], trajectory[1, k], trajectory[2, k], ownship.length, ownship.width
         )
