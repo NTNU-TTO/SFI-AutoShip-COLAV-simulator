@@ -305,7 +305,7 @@ if __name__ == "__main__":
         alpha=0.6,
     )
     plotters.plot_trajectory(trajectory, scenario_generator.enc, "black")
-    for k in range(0, n_samples, 20):
+    for k in range(0, n_samples, 40):
         ship_poly = mapf.create_ship_polygon(
             trajectory[0, k], trajectory[1, k], trajectory[2, k], ownship.length, ownship.width
         )
