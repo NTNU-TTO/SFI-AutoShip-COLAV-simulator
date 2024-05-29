@@ -61,7 +61,7 @@ if __name__ == "__main__":
     env_id = "COLAVEnvironment-v0"
     env_config = {
         "scenario_config": config_file,
-        "reload_map": False,
+        "reload_map": True,
         "render_mode": "rgb_array",
         "render_update_rate": 1.0,
         "test_mode": False,
