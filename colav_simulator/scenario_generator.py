@@ -1155,8 +1155,12 @@ class ScenarioGenerator:
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
         )
-        x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + np.pi / 2.0)
-        y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + np.pi / 2.0)
+        if scenario_type == sc.ScenarioType.OT_en:
+            x = os_csog_state_basis[0] - distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+            y = os_csog_state_basis[1] - distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+        else:
+            x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+            y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
         speed = self.rng.uniform(U_min, U_max)
         accepted = False
         for i in range(max_iter):
@@ -1202,8 +1206,12 @@ class ScenarioGenerator:
             distance_os_ts = self.rng.uniform(
                 self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
             )
-            x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
-            y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+            if scenario_type == sc.ScenarioType.OT_en:
+                x = os_csog_state_basis[0] - distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+                y = os_csog_state_basis[1] - distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+            else:
+                x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+                y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
 
             inside_bbox = mhm.inside_bbox(np.array([x, y]), (x_min, y_min, x_max, y_max))
             risky_enough = mhm.check_if_situation_is_risky_enough(
