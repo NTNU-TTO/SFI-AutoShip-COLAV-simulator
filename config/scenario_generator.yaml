@@ -18,7 +18,7 @@ dist_between_ships_range: [150.0, 800.0] #[500.0, 800.0] # [300.0, 800.0] # [500
 gaussian_csog_state_perturbation_covariance: [100.0, 100.0, 0.5, 1.0] # for state [x, y, U, chi], with last entry in degrees
 perpendicular_csog_state_perturbation_pm_range: [100.0, 0.5, 15.0]
 t_cpa_threshold: 500.0
-d_cpa_threshold: 300.0
+d_cpa_threshold: 100.0
 
 behavior_generator:
   ownship_method: "RRTStar" # "ConstantSpeedRandomWaypoints" # "ConstantSpeedRandomWaypoints" # "VaryingSpeedRandomWaypoints"
