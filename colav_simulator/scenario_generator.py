@@ -641,6 +641,7 @@ class ScenarioGenerator:
                 show_plots=False,  # set to true for debugging
             )
             if self._bad_episode and n_episodes > 1:  # See the check_for_bad_episode method for more information
+                print("ScenarioGenerator: Bad episode detected. Skipping episode.")
                 continue
 
             if self._config.manual_episode_accept:
@@ -747,7 +748,11 @@ class ScenarioGenerator:
             self.rng, ship_list[0], ship_replan_flags[0], config.t_end - config.t_start, show_plots=False
         )
         ship_list[0], config.ship_list[0] = self.behavior_generator.generate_ship_behavior(
-            self.rng, ship_list[0], config.ship_list[0], config.t_end - config.t_start
+            self.rng,
+            ship_list[0],
+            config.ship_list[0],
+            config.t_end - config.t_start,
+            reuse_old_behavior=not ship_replan_flags[0],
         )
 
         # Then generate target ship states and behavior based on the own-ship state and behavior.
@@ -775,6 +780,7 @@ class ScenarioGenerator:
         self._bad_episode, ship_list, config = self.check_for_bad_episode(ship_list, config)
 
         self._prev_ship_list[: len(ship_list)] = copy.deepcopy(ship_list)
+        self._prev_ship_list[len(ship_list) :] = [None for _ in range(len(ship_list), len(self._prev_ship_list))]
         return ship_list, disturbance, config
 
     def check_for_bad_episode(
@@ -997,11 +1003,12 @@ class ScenarioGenerator:
         ownship = ship_list[0]
         csog_state_list = [(ownship.csog_state, ownship.t_start, None)]
         for ship_cfg_idx, ship_config in enumerate(config.ship_list[1:]):
+            ship_cfg_idx += 1  # Skip own-ship
             if ship_config.csog_state is not None:
                 csog_state_list.append((ship_config.csog_state, ship_config.t_start, None))
                 continue
 
-            ship_obj = ship_list[ship_cfg_idx + 1]
+            ship_obj = ship_list[ship_cfg_idx]
 
             if (
                 ep == self._do_state_update_indices[ep]
@@ -1148,8 +1155,12 @@ class ScenarioGenerator:
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
         )
-        x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + np.pi / 2.0)
-        y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + np.pi / 2.0)
+        if scenario_type == sc.ScenarioType.OT_en:
+            x = os_csog_state_basis[0] - distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+            y = os_csog_state_basis[1] - distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+        else:
+            x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+            y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
         speed = self.rng.uniform(U_min, U_max)
         accepted = False
         for i in range(max_iter):
@@ -1195,8 +1206,12 @@ class ScenarioGenerator:
             distance_os_ts = self.rng.uniform(
                 self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
             )
-            x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
-            y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+            if scenario_type == sc.ScenarioType.OT_en:
+                x = os_csog_state_basis[0] - distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+                y = os_csog_state_basis[1] - distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
+            else:
+                x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
+                y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
 
             inside_bbox = mhm.inside_bbox(np.array([x, y]), (x_min, y_min, x_max, y_max))
             risky_enough = mhm.check_if_situation_is_risky_enough(

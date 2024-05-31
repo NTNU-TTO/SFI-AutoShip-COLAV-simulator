@@ -87,7 +87,10 @@ class Config:
 
         config.sensors = sensing.Config.from_dict(config_dict["sensors"])
 
-        config.tracker = trackers.Config.from_dict(config_dict["tracker"])
+        if "tracker" in config_dict:
+            config.tracker = trackers.Config.from_dict(config_dict["tracker"])
+        else:
+            config.tracker = trackers.Config()
 
         if "guidance" in config_dict:
             config.guidance = guidances.Config.from_dict(config_dict["guidance"])

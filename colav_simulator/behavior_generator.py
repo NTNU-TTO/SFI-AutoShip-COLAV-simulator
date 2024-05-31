@@ -453,8 +453,6 @@ class BehaviorGenerator:
             method = BehaviorGenerationMethod(rng.integers(0, BehaviorGenerationMethod.Randomize.value))
 
         self._bg_method_list[ship_obj.id] = method
-        # self._ship_replan_flags[ship_obj.id] = replan
-
         run_rrt = not np.array_equal(ship_obj.csog_state, self._prev_ship_states[ship_obj.id])
         if (
             method.value < BehaviorGenerationMethod.RRT.value
@@ -497,7 +495,7 @@ class BehaviorGenerator:
                 safe_sea_cdt=self._safe_sea_cdt,
                 safe_sea_cdt_weights=self._safe_sea_cdt_weights,
                 bbox=ownship_bbox,
-                min_distance_from_start=500.0,
+                min_distance_from_start=300.0,
                 max_distance_from_start=min(1200.0, 5.0 * ship_obj.speed * simulation_timespan),
                 show_plots=False,
             )
@@ -614,7 +612,12 @@ class BehaviorGenerator:
         ownship = ship_list[0]
         for ship_cfg_idx, ship_config in enumerate(ship_config_list):
             ship_obj, ship_config = self.generate_ship_behavior(
-                rng, ship_list[ship_cfg_idx], ship_config, simulation_timespan, ownship=ownship
+                rng,
+                ship_list[ship_cfg_idx],
+                ship_config,
+                simulation_timespan,
+                ownship=ownship,
+                reuse_old_behavior=not self._ship_replan_flags[ship_cfg_idx],
             )
             ship_list[ship_cfg_idx] = ship_obj
             ship_config_list[ship_cfg_idx] = ship_config
@@ -630,6 +633,7 @@ class BehaviorGenerator:
         ship_config: ship.Config,
         simulation_timespan: float,
         ownship: Optional[ship.Ship] = None,
+        reuse_old_behavior: bool = False,
     ) -> Tuple[ship.Ship, ship.Config]:
         """Generates a ship behavior using the specified method by the ship configuration.
 
@@ -639,6 +643,7 @@ class BehaviorGenerator:
             ship_config (ship.Config): Ship configuration.
             simulation_timespan (float): Simulation timespan.
             ownship (ship.Ship, optional): The ownship, used if an RRT-based method is chosen for the target ship.
+            reuse_old_behavior (bool, optional): Whether to reuse the old behavior. Defaults to False.
 
         Returns:
             Tuple[ship.Ship, ship.Config]: Tuple containing the updated ship and its configuration.
@@ -648,8 +653,7 @@ class BehaviorGenerator:
             ship_config.speed_plan = ship_obj.speed_plan
             return ship_obj, ship_config
 
-        replan = self._ship_replan_flags[ship_obj.id]
-        if not replan:
+        if reuse_old_behavior:
             prev_waypoints, prev_speed_plan = self._prev_ship_plans[ship_obj.id]
             ship_config.waypoints = prev_waypoints
             ship_config.speed_plan = prev_speed_plan
