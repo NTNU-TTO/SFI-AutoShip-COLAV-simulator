@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rrt_star_lib
 import seacharts.enc as senc
-from colav_simulator.behavior_generator import PQRRTStarParams
+from colav_simulator.behavior_generator import BehaviorGenerationMethod, PQRRTStarParams
 from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 from shapely import strtree
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     params.rrt.params = PQRRTStarParams(
         max_nodes=3000,
         max_iter=10000,
-        max_time=10.0,
+        max_time=2.0,
         iter_between_direct_goal_growth=500,
         min_node_dist=5.0,
         goal_radius=300.0,
@@ -263,8 +263,11 @@ if __name__ == "__main__":
 
     scenario_file = dp.scenarios / "rrt_test.yaml"
     scenario_generator = ScenarioGenerator()
-    scenario_data = scenario_generator.generate(config_file=scenario_file, new_load_of_map_data=True)
+    scenario_generator.behavior_generator.set_ownship_method(BehaviorGenerationMethod.ConstantSpeedAndCourse)
+
+    scenario_data = scenario_generator.generate(config_file=scenario_file, new_load_of_map_data=True, show_plots=False)
     simulator = Simulator()
     simulator.toggle_liveplot_visibility(True)
+    # Hint: Close ENC Seacharts plot with RRT tree to speed up livesim
     output = simulator.run([scenario_data], colav_systems=[(0, rrt)], terminate_on_collision_or_grounding=False)
     print("done")
