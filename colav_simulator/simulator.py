@@ -423,7 +423,7 @@ class Simulator:
             bool: True if the ship is in a grounding state, False otherwise.
         """
         d2grounding = self.distance_to_grounding(ship_idx)
-        return d2grounding <= self.ship_list[ship_idx].length
+        return d2grounding <= self.ship_list[ship_idx].length / 2.0
 
     def determine_ship_goal_reached(self, ship_idx: int = 0) -> bool:
         """Determines whether the ship has reached its goal.

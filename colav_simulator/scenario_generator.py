@@ -1155,10 +1155,13 @@ class ScenarioGenerator:
         distance_os_ts = self.rng.uniform(
             self._config.dist_between_ships_range[0], self._config.dist_between_ships_range[1]
         )
+        bearing = self.rng.uniform(0.0, 2.0 * np.pi)
         if scenario_type == sc.ScenarioType.OT_en:
+            bearing = self.rng.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
             x = os_csog_state_basis[0] - distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
             y = os_csog_state_basis[1] - distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
         else:
+            bearing = self.rng.uniform(self._config.ot_bearing_range[0], self._config.ot_bearing_range[1])
             x = os_csog_state_basis[0] + distance_os_ts * np.cos(os_csog_state_basis[3] + bearing)
             y = os_csog_state_basis[1] + distance_os_ts * np.sin(os_csog_state_basis[3] + bearing)
         speed = self.rng.uniform(U_min, U_max)
