@@ -15,13 +15,13 @@ import colav_simulator.common.miscellaneous_helper_methods as mhm
 import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.display.colors as colors
-from seacharts.enc import ENC
+import seacharts.enc as senc
 from shapely.geometry import MultiPolygon, Polygon
 
 
 def plot_trajectory(
     trajectory: np.ndarray,
-    enc: ENC,
+    enc: senc.ENC,
     color: str,
     edge_style: Optional[str] = None,
     buffer: Optional[float] = 0.5,
@@ -58,7 +58,7 @@ def plot_disturbance(
     magnitude: float,
     direction: float,
     name: str,
-    enc: ENC,
+    enc: senc.ENC,
     color: str,
     linewidth: Optional[float] = 2.5,
     location: Optional[str] = "topright",
@@ -127,7 +127,7 @@ def plot_shapely_multipolygon(
 
 def plot_background(
     ax: plt.Axes,
-    enc: ENC,
+    enc: senc.ENC,
     show_shore: bool = True,
     show_seabed: bool = True,
     dark_mode: bool = True,
@@ -183,7 +183,7 @@ def plot_background(
 
 def plot_waypoints(
     waypoints: np.ndarray,
-    enc: ENC,
+    enc: senc.ENC,
     color: str,
     point_buffer: Optional[float] = 10,
     disk_buffer: Optional[float] = 80,
@@ -205,7 +205,7 @@ def plot_waypoints(
 
 
 def plot_dynamic_obstacles(
-    dynamic_obstacles: list, color: str, enc: ENC, T: float, dt: float, map_origin: Optional[np.ndarray] = None
+    dynamic_obstacles: list, color: str, enc: senc.ENC, T: float, dt: float, map_origin: Optional[np.ndarray] = None
 ) -> None:
     """Plots the dynamic obstacles as ellipses and ship polygons.
 
@@ -244,7 +244,7 @@ def plot_dynamic_obstacles(
         enc.draw_polygon(do_poly, color=color)
 
 
-def plot_rrt_tree(node_list: list, enc: ENC) -> None:
+def plot_rrt_tree(node_list: list, enc: senc.ENC) -> None:
     """Plots an RRT tree given by the list of nodes containing (state, parent_id, id, trajectory, inputs, cost)
 
     Args:

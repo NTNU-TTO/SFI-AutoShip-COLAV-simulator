@@ -101,7 +101,7 @@ class GaussMarkovDisturbanceParams:
         if "impulse_times" in config_dict:
             params.impulse_times = config_dict["impulse_times"]
         else:
-            params.impulse_times = np.random.random_integers(20, 150, 1).tolist()
+            params.impulse_times = np.random.randint(low=20, high=150, size=1).tolist()
             params.impulse_times.sort()
         return params
 

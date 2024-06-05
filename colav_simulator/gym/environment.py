@@ -11,7 +11,10 @@
 import pathlib
 from typing import List, Optional, Tuple
 
+import colav_simulator.core.ship as cs_ship
 import colav_simulator.core.stochasticity as stoch
+import colav_simulator.gym.action as csgym_action
+import colav_simulator.gym.observation as csgym_obs
 import colav_simulator.gym.reward as rw
 import colav_simulator.scenario_config as sc
 import colav_simulator.scenario_generator as sg
@@ -19,9 +22,6 @@ import colav_simulator.simulator as cssim
 import gymnasium as gym
 import numpy as np
 import seacharts.enc as senc
-from colav_simulator.core.ship import Ship
-from colav_simulator.gym.action import Action, ActionType, action_factory
-from colav_simulator.gym.observation import Observation, ObservationType, observation_factory
 
 
 class COLAVEnvironment(gym.Env):
@@ -32,8 +32,8 @@ class COLAVEnvironment(gym.Env):
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30, "video.frames_per_second": 30}
-    observation_type: ObservationType
-    action_type: ActionType
+    observation_type: csgym_obs.ObservationType
+    action_type: csgym_action.ActionType
     scenario_config: sc.ScenarioConfig
     scenario_data_tup: tuple
 
@@ -113,7 +113,7 @@ class COLAVEnvironment(gym.Env):
         self.last_reward: float = 0.0
         self.episodes: int = 0
         self.n_episodes: int = 0
-        self.ownship: Optional[Ship] = None
+        self.ownship: Optional[cs_ship.Ship] = None
         self.render_mode = render_mode
         self.render_update_rate = render_update_rate
         self._viewer2d = self.simulator.visualizer
@@ -180,8 +180,8 @@ class COLAVEnvironment(gym.Env):
         assert (
             self.dt_action % self.simulator.dt == 0.0
         ), "Action sampling time must be a multiple of simulator time step!"
-        self.action_type = action_factory(self, self.action_type_cfg, sample_time=self.dt_action)
-        self.observation_type = observation_factory(self, self.observation_type_cfg)
+        self.action_type = csgym_action.action_factory(self, self.action_type_cfg, sample_time=self.dt_action)
+        self.observation_type = csgym_obs.observation_factory(self, self.observation_type_cfg)
 
         self.action_space = self.action_type.space()
         self.observation_space = self.observation_type.space()
@@ -266,7 +266,7 @@ class COLAVEnvironment(gym.Env):
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
-    def _info(self, obs: Observation, action: Optional[Action] = None) -> dict:
+    def _info(self, obs: csgym_obs.Observation, action: Optional[csgym_action.Action] = None) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
 
         Args:
@@ -308,7 +308,7 @@ class COLAVEnvironment(gym.Env):
         self,
         seed: Optional[int] = None,
         options: Optional[dict] = None,
-    ) -> Tuple[Observation, dict]:
+    ) -> Tuple[csgym_obs.Observation, dict]:
         """Reset the environment to a new scenario episode. If a scenario config or config file is provided, a new scenario is generated. Otherwise, the next episode of the current scenario is used, if any.
 
         Args:
@@ -354,7 +354,7 @@ class COLAVEnvironment(gym.Env):
         self.episodes += 1  # Episodes performed
         return obs, info
 
-    def step(self, action: Action) -> Tuple[Observation, float, bool, bool, dict]:
+    def step(self, action: csgym_action.Action) -> Tuple[csgym_obs.Observation, float, bool, bool, dict]:
         """Perform an action in the environment and return the new observation, the reward, whether the task is terminated, and additional information.
 
         Args:

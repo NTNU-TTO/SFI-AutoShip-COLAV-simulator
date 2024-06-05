@@ -11,9 +11,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
+import colav_simulator.gym.action as csgym_action
+import colav_simulator.gym.observation as csgym_obs
 import numpy as np
-from colav_simulator.gym.action import Action
-from colav_simulator.gym.observation import Observation
 
 if TYPE_CHECKING:
     from colav_simulator.gym.environment import COLAVEnvironment
@@ -102,7 +102,7 @@ class IReward(ABC):
         self.env = env
 
     @abstractmethod
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Get the reward for the current state-action pair. Additional arguments can be passed if necessary."""
 
 
@@ -152,7 +152,7 @@ class ExistenceRewarder(IReward):
         """
         self.params = params if params else ExistenceRewardParams()
 
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         return -self.params.r_exists
 
 
@@ -171,7 +171,7 @@ class DistanceToGoalRewarder(IReward):
         super().__init__(env)
         self.params = params if params else DistanceToGoalRewardParams()
 
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         if self.env.ownship.goal_csog_state.size > 0:
             self.goal = self.env.ownship.goal_csog_state[:2]
         elif self.env.ownship.waypoints.size > 1:
@@ -194,7 +194,7 @@ class CollisionRewarder(IReward):
         super().__init__(env)
         self.params = params if params else CollisionRewardParams()
 
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get collision or not."""
         collision = self.env.simulator.determine_ship_collision()
         if collision:
@@ -216,7 +216,7 @@ class GroundingRewarder(IReward):
         self.params = params if params else GroundingRewardParams()
         super().__init__(env)
 
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get grounding or not."""
         grounding = self.env.simulator.determine_ship_grounding()
         if grounding:
@@ -247,7 +247,7 @@ class Rewarder(IReward):
             elif isinstance(rewarder, GroundingRewardParams):
                 self.rewarders.append(GroundingRewarder(env, rewarder))
 
-    def __call__(self, state: Observation, action: Optional[Action] = None, **kwargs) -> float:
+    def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         reward = 0.0
         for rewarder in self.rewarders:
             reward += rewarder(state, action, **kwargs)

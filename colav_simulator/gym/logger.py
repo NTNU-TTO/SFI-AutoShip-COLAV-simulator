@@ -10,9 +10,9 @@
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import colav_simulator.gym.environment as csgym_env
 import numpy as np
 import tables
-from colav_simulator.gym.environment import COLAVEnvironment
 
 
 class Log(tables.IsDescription):
@@ -57,7 +57,7 @@ class Logger:
         self.file.close()
         return logdata
 
-    def __call__(self, env: COLAVEnvironment) -> None:
+    def __call__(self, env: csgym_env.COLAVEnvironment) -> None:
         """Logs data from the environment in the current step to a HDF5 file.
 
         Args:
