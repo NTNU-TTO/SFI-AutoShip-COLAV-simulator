@@ -285,7 +285,7 @@ In case you want to develop a motion planning algorithm that provides low-level 
 The ship `plan` step will then entail that you use your wrapped `colav` system, that provide `references` that are low-level inputs. When these are passed to the `controller` object during the `forward` call, they will pass straight through and go into the ship model object.
 
 #### Godlike Target Tracking (Ground Truth Tracking)
-If you want to test your planning algorithm with perfect knowlegde on nearby vessels, you can specify the `GodTracker` to be used under `tracker` in the scenario configuration file. As this object has no parameters, the configuration entry is an empty string `god_tracker: ''` (see `schemas/scenario.yaml` for clues).
+If you want to test your planning algorithm with perfect knowledge on nearby vessels, you can specify the `GodTracker` to be used under `tracker` in the scenario configuration file. As this object has no parameters, the configuration entry is an empty string `god_tracker: ''` (see `schemas/scenario.yaml` for clues).
 
 #### Simple Kalman-filter based Target Tracking
 The standard support for target tracking in the simulator is to use a Kalman Filter for estimating the states of nearby vessels. Most of the scenario files have examples on how to configure this tracker. Tune the measurement covariance (R) through the sensor configuration, and adjust the scenario configuration based on whether or not you want to consider AIS-measurements, Radar-measurements or both.
@@ -295,6 +295,8 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 
 
 ## Future Enhancements (Roadmap)
+- Create github actions for CI/CD pipeline.
+- Mandate unittesting of all modules and their core functionality.
 - Improve random generation of vessel COLREGS scenarios. E.g. use AIS data to sample "realistic" vessel trajectories based on a fitted distribution for historical vessel positions and velocities.
 - Improve live-visualization in the simulator w.r.t. code readability and run-time. Switch out matplotlib for a faster backend.
 - Add functionality for saving simulation results to file.
