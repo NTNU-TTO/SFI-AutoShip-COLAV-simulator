@@ -299,7 +299,9 @@ class Simulator:
 
             sim_data.append(sim_data_dict)
 
-            self.visualizer.update_live_plot(self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0])
+            self.visualizer.update_live_plot(
+                self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0], self.disturbance.get()
+            )
 
             terminated = self.is_terminated(
                 verbose=True, terminate_on_collision_or_grounding=terminate_on_collision_or_grounding

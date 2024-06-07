@@ -9,7 +9,7 @@
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
@@ -286,7 +286,7 @@ class Visualizer:
         data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         return data
 
-    def init_live_plot(self, enc: ENC, ship_list: list, fignum: Optional[int] = None) -> None:
+    def init_live_plot(self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
 
@@ -519,13 +519,13 @@ class Visualizer:
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0],
-                        xlim[1] + corner_offset[1] - 120,
+                        ylim[1] + corner_offset[0] - 50,
+                        xlim[1] + corner_offset[1] - 85,
                         "Currents: 0.0 m/s",
-                        fontsize=15,
+                        fontsize=10,
                         color="white",
                         verticalalignment="top",
-                        horizontalalignment="right",
+                        horizontalalignment="left",
                         zorder=10,
                         label="",
                     ),
@@ -533,13 +533,13 @@ class Visualizer:
                 "wind": {
                     "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0],
-                        xlim[1] + corner_offset[1] - 140,
+                        ylim[1] + corner_offset[0] - 50,
+                        xlim[1] + corner_offset[1] - 105,
                         "Wind: 0.0 m/s",
-                        fontsize=15,
+                        fontsize=10,
                         color="yellow",
                         verticalalignment="top",
-                        horizontalalignment="right",
+                        horizontalalignment="left",
                         zorder=10,
                         label="",
                     ),
@@ -567,7 +567,7 @@ class Visualizer:
         Args:
             ax_map (plt.Axes): The axes object of the live plot.
         """
-        if not self._config.show_liveplot_disturbances or w is None:
+        if not self._config.show_liveplot_disturbances:
             return
 
         assert "disturbance" in self.misc_plt_handles, "Disturbance handles not initialized"
@@ -580,7 +580,7 @@ class Visualizer:
         circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
         dhandles["circle"].remove()
         dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
-        if w.currents is not None:
+        if w is not None and w.currents is not None:
             speed = w.currents["speed"]
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
@@ -607,7 +607,20 @@ class Visualizer:
                 linewidth=3.0,
                 zorder=10,
             )
-        if w.wind is not None:
+        else:
+            dhandles["currents"]["text"].remove()
+            dhandles["currents"]["text"] = ax_map.text(
+                ylim[1] + corner_offset[0] - 50,
+                xlim[1] + corner_offset[1] - 85,
+                "Currents: 0.0 m/s",
+                fontsize=10,
+                color="white",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
+            )
+        if w is not None and w.wind is not None:
             speed = w.wind["speed"]
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()
@@ -633,6 +646,19 @@ class Visualizer:
                 linewidth=3.0,
                 color="yellow",
                 zorder=10,
+            )
+        else:
+            dhandles["wind"]["text"].remove()
+            dhandles["wind"]["text"] = ax_map.text(
+                ylim[1] + corner_offset[0] - 50,
+                xlim[1] + corner_offset[1] - 105,
+                "Wind: 0.0 m/s",
+                fontsize=10,
+                color="yellow",
+                verticalalignment="top",
+                horizontalalignment="left",
+                zorder=10,
+                label="",
             )
 
     def update_ownship_live_tracking_data(
@@ -799,7 +825,7 @@ class Visualizer:
         self,
         t: float,
         enc: ENC,
-        ship_list: list,
+        ship_list: List[ship.Ship],
         sensor_measurements: list,
         w: Optional[stoch.DisturbanceData] = None,
         **kwargs,
@@ -909,10 +935,9 @@ class Visualizer:
         Args:
             filename (Path): Path to the file where the animation is saved.
         """
-        if not self._config.save_liveplot_animation or not self._config.show_liveplot:
+        if not (self._config.save_liveplot_animation and self._config.show_liveplot):
             return
 
-        # Mess with this to change frame size
         fig = plt.figure(figsize=(self.frames[0].shape[1] / 72.0, self.frames[0].shape[0] / 72.0), dpi=72)
 
         patch = plt.imshow(self.frames[0], aspect="auto")
@@ -938,7 +963,7 @@ class Visualizer:
     def visualize_results(
         self,
         enc: ENC,
-        ship_list: list,
+        ship_list: List[ship.Ship],
         sim_data: DataFrame,
         sim_times: np.ndarray,
         k_snapshots: Optional[list] = None,
