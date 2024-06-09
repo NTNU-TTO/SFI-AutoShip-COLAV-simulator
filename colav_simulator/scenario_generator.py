@@ -659,15 +659,17 @@ class ScenarioGenerator:
                 self.visualize_episode(episode["ship_list"], episode["disturbance"], self.enc, episode["config"])
 
             self._episode_counter += 1
-            if self._config.verbose:
-                print(f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created.")
-
             ep_str = str(self._episode_counter + self._ep0).zfill(3)
             episode["config"].name = f"{config.name}_ep{ep_str}"
             episode["config"].n_random_ships = len(episode["ship_list"]) - 1
             if save_scenario:
                 episode["config"].filename = sc.save_scenario_episode_definition(
                     episode["config"], save_scenario_folder
+                )
+
+            if self._config.verbose:
+                print(
+                    f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created. Num target ships: {n_random_ships}."
                 )
 
             scenario_episode_list.append(episode)

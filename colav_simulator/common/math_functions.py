@@ -6,10 +6,52 @@
 
     Author: Trym Tengesdal
 """
+
 import math
 from typing import Tuple
 
 import numpy as np
+
+
+def find_dependent_rows(A: np.ndarray) -> list:
+    """
+    Find the indices of linearly dependent rows in a rank-deficient matrix A.
+
+    Args:
+        A (numpy.ndarray): The input matrix
+
+    Returns:
+        List[int]: A list of indices of linearly dependent rows in the original matrix
+    """
+    rows, cols = A.shape
+    row_order = np.arange(rows)  # Track the original row indices
+
+    # Perform Gaussian elimination to row echelon form
+    pivot_row = 0
+    for col in range(cols):
+        if pivot_row >= rows:
+            break
+        # Find the pivot row and swap
+        max_row = np.argmax(np.abs(A[pivot_row:, col])) + pivot_row
+        A[[pivot_row, max_row]] = A[[max_row, pivot_row]]
+        row_order[[pivot_row, max_row]] = row_order[[max_row, pivot_row]]  # Swap the row order as well
+        pivot = A[pivot_row, col]
+        if np.isclose(pivot, 0):
+            continue
+        # Normalize the pivot row
+        A[pivot_row] = A[pivot_row] / pivot
+        # Eliminate below
+        for row in range(pivot_row + 1, rows):
+            A[row] = A[row] - A[row, col] * A[pivot_row]
+        pivot_row += 1
+
+    # Identify dependent rows
+    dependent_rows = []
+    for row in range(rows):
+        if np.all(np.isclose(A[row], 0)):
+            dependent_rows.append(row_order[row])
+
+    return sorted(dependent_rows)
 
 
 def cpa(p_A: np.ndarray, v_A: np.ndarray, p_B: np.ndarray, v_B: np.ndarray) -> Tuple[float, float]:
