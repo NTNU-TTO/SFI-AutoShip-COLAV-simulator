@@ -1,3 +1,7 @@
+"""
+    Test module for the Ship class. Use it to test the ship's behavior in a scenario, and/or tune your specific guidance algorithm + controller.
+"""
+
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.plotters as plotters
@@ -421,5 +425,5 @@ if __name__ == "__main__":
         axs["N"].grid()
         axs["N"].legend()
 
-    plt.show()
+    plt.show(block=False)
     print("Done")

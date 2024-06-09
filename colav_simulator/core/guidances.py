@@ -34,9 +34,9 @@ class LOSGuidanceParams:
 
     pass_angle_threshold: float = 90.0
     R_a: float = 25.0
-    K_p: float = 0.015
+    K_p: float = 0.01
     K_i: float = 0.0
-    max_cross_track_error_int: float = 200.0
+    max_cross_track_error_int: float = 2000.0
     cross_track_error_int_threshold: float = 50.0
 
     @classmethod

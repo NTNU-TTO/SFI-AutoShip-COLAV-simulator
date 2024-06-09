@@ -11,7 +11,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.math_functions as mf
@@ -40,9 +40,20 @@ class ISensor(ABC):
         """Sets the seed for the sensor's random number generator."""
 
     @abstractmethod
-    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
-        """Generates sensor measurements from the input tuple list of true dynamic obstacle indices and states, (do_idx, do_state) x n_do,
-        and own-ship state."""
+    def generate_measurements(
+        self, t: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> List[Tuple[int, np.ndarray]]:
+        """Generates sensor measurements from the input tuple list of true dynamic obstacle info (do_idx, do_state, do_length, do_width) x n_do,
+        and own-ship state.
+
+        Args:
+            t (float): Current time.
+            true_do_states (list): List of tuples containing the dynamic obstacle index, state, length, and width.
+            ownship_state (np.ndarray): Own-ship state vector.
+
+        Returns:
+            List[Tuple[int, np.ndarray]]: List of tuples containing the dynamic obstacle index and the measurement.
+        """
 
 
 @dataclass
@@ -194,22 +205,24 @@ class Radar(ISensor):
     def h(self, xs: np.ndarray) -> np.ndarray:
         return self._H @ xs
 
-    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> Optional[list]:
+    def generate_measurements(
+        self, t: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> List[Tuple[int, np.ndarray]]:
         measurements = []
         if not self._initialized or t < 0.0001:
             self._prev_meas_time = t
             self._initialized = True
 
         if (t - self._prev_meas_time) < (1.0 / self._params.measurement_rate):
-            return [np.nan * np.ones(2) for _ in true_do_states]
+            return [(do_tup[0], np.nan * np.ones(2)) for do_tup in true_do_states]
 
-        for i, (_, do_state, do_length, do_width) in enumerate(true_do_states):
+        for i, (do_idx, do_state, _, _) in enumerate(true_do_states):
             dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
             if dist_ownship_to_do <= self._params.max_range:
                 z = self.h(do_state) + self._rng.multivariate_normal(np.zeros(2), self._params.R_true)
             else:
                 z = np.nan * np.ones(2)
-            measurements.append(z)
+            measurements.append((do_idx, z))
         self._prev_meas_time = t
         return measurements
 
@@ -268,7 +281,9 @@ class AIS(ISensor):
         z = self._H @ xs
         return z
 
-    def generate_measurements(self, t: float, true_do_states: list, ownship_state: np.ndarray) -> list:
+    def generate_measurements(
+        self, t: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> List[Tuple[int, np.ndarray]]:
         measurements = []
         if not self._initialized or t < 0.0001:
             self._prev_meas_time = [t] * len(true_do_states)
@@ -278,17 +293,17 @@ class AIS(ISensor):
             diff = len(true_do_states) - len(self._prev_meas_time)
             self._prev_meas_time.extend([t] * diff)
 
-        for i, (_, xs, length, width) in enumerate(true_do_states):
-            dist_ownship_to_do = np.sqrt((xs[0] - ownship_state[0]) ** 2 + (xs[1] - ownship_state[1]) ** 2)
+        for i, (do_idx, do_state, _, _) in enumerate(true_do_states):
+            dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
 
             if (t - self._prev_meas_time[i]) >= (
-                1.0 / self.measurement_rate(xs)
+                1.0 / self.measurement_rate(do_state)
             ) and dist_ownship_to_do <= self._params.max_range:
-                z = self.h(xs) + self._rng.multivariate_normal(np.zeros(4), self._params.R_true)
+                z = self.h(do_state) + self._rng.multivariate_normal(np.zeros(4), self._params.R_true)
                 self._prev_meas_time[i] = t
             else:
                 z = np.nan * np.ones(4)
-            measurements.append(z)
+            measurements.append((do_idx, z))
 
         return measurements
 

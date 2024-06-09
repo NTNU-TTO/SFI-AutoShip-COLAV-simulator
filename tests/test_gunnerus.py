@@ -279,5 +279,5 @@ if __name__ == "__main__":
         axs["N"].grid()
         axs["N"].legend()
 
-    plt.show()
+    plt.show(block=False)
     print("Done")

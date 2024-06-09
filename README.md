@@ -8,14 +8,13 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
 <p align="center">
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/mpc_teaser.gif?raw=true" width="1000px"><br/>
+    <em>Example run of an MPC-based COLAV planner in the simulator.</em>
+</p>
+|
+<p align="center">
     <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/teaser.gif?raw=true" width="1000px"><br/>
     <em>An episode sample from the COLAVEnvironment.</em>
-</p>
-
-
-<p align="center">
-    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/scenarios/example_img/aalesund_random.pdf" width="500px"><br/>
-    <em>Simulation screenshot.</em>
 </p>
 
 ## Citation

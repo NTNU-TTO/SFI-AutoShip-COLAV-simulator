@@ -750,16 +750,14 @@ class Visualizer:
                 if not sensor_data:
                     continue
 
-                if np.isnan(sensor_data).any():
-                    continue
                 xdata = []
                 ydata = []
-                for measurements in sensor_data:
-                    for meas in measurements:
-                        xdata.append(meas[1])
-                        ydata.append(meas[0])
+                for do_idx, do_meas in sensor_data:
+                    if not np.isnan(do_meas).any():
+                        xdata.append(do_meas[1])
+                        ydata.append(do_meas[0])
 
-                if not xdata or not ydata:
+                if not xdata:
                     continue
 
                 if sensor.type == "radar":

@@ -1,12 +1,18 @@
+"""
+    Test module for the Simulator class.
+
+    Shows how to use the simulator with a colav system.
+"""
+
 import colav_simulator.core.colav.colav_interface as ci
-from colav_simulator.scenario_generator import ScenarioGenerator
-from colav_simulator.simulator import Simulator
+import colav_simulator.scenario_generator as sg
+import colav_simulator.simulator as sim
 
 if __name__ == "__main__":
     sbmpc_obj = ci.SBMPCWrapper()
-    scenario_generator = ScenarioGenerator()
+    scenario_generator = sg.ScenarioGenerator()
     scenario_data_list = scenario_generator.generate_configured_scenarios()
-    simulator = Simulator()
+    simulator = sim.Simulator()
     simulator.toggle_liveplot_visibility(True)
     output = simulator.run(scenario_data_list, colav_systems=[(0, sbmpc_obj)])
     print("done")

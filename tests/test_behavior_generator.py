@@ -6,9 +6,7 @@ if __name__ == "__main__":
     sg_config = Config()
     sg_config.behavior_generator.ownship_method = BehaviorGenerationMethod.ConstantSpeedAndCourse
     sg_config.behavior_generator.target_ship_method = BehaviorGenerationMethod.RRTStar
-    sg_config.behavior_generator.target_ship_rrt_behavior_sampling_method = (
-        RRTBehaviorSamplingMethod.OwnshipWaypointCorridor
-    )
+    sg_config.behavior_generator.target_ship_rrt_behavior_sampling_method = RRTBehaviorSamplingMethod.Optimal
 
     scenario_generator = ScenarioGenerator(config=sg_config)
     scenario_generator.seed(6)  # seed = 6 crossing, seed = 15 head-on

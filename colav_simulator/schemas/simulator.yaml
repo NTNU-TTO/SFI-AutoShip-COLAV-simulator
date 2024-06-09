@@ -4,6 +4,9 @@ save_scenario_results:
 verbose:
   required: True
   type: boolean
+tracking_from_ownship_only:
+  required: True
+  type: boolean
 visualizer:
   required: True
   type: dict

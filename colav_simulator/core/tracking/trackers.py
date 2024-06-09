@@ -21,18 +21,30 @@ import scipy.linalg as la
 
 class ITracker(ABC):
     @abstractmethod
-    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
+    def track(
+        self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
         """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
-        generated from the input true dynamic obstacle states. Returns tracks and sensor measurements (if any)"""
+        generated from the input true dynamic obstacle states.
+
+        Args:
+            dt (float): Time since last update
+            t (float): Current time (assumed >= 0)
+            true_do_states (List[Tuple[int, np.ndarray, float, float]]): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
+            ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
+
+        Returns:
+            Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
+        """
 
     @abstractmethod
-    def get_track_information(self) -> Tuple[list, list]:
+    def get_track_information(self) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]:
         """Returns the dynamic obstacle track information (ID, state, cov, length, width).
         Also, it returns the associated Normalized Innovation error Squared (NIS) values for
         the most recent update step for each track, and the track labels.
 
         Returns:
-            Tuple[list, list]: List of tracks and list of NISes.
+            Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]: List of tracks and list of NISes.
         """
 
     @abstractmethod
@@ -134,19 +146,9 @@ class GodTracker(ITracker):
         self._width_upd = []
         self._recent_sensor_measurements = []
 
-    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
-        """Tracks/updates estimates on dynamic obstacles perfectly within the sensor range.
-
-        Args:
-            dt (float): Time since last update
-            t (float): Current time (assumed >= 0)
-            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
-            ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
-
-        Returns:
-            Tuple[list, list]: List of ground truth dynamic obstacle tracks (ID, state, cov, length, width). Also, the sensor measurements list (not used).
-        """
-
+    def track(
+        self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
         # If the function is run at the same time as the previous, return the same tracks
         if t <= self._t_prev:
             tracks, _ = self.get_track_information()
@@ -227,7 +229,6 @@ class KF(ITracker):
         self._NIS: list = []
         self._t_prev: float = -1.0
         self._recent_sensor_measurements: list = []
-        self._measurement_index = []
 
     def reset(self) -> None:
         self._track_initialized = []
@@ -242,23 +243,10 @@ class KF(ITracker):
         self._NIS = []
         self._t_prev = -1.0
         self._recent_sensor_measurements = []
-        self._measurement_index = []
 
-    def track(self, t: float, dt: float, true_do_states: list, ownship_state: np.ndarray) -> Tuple[list, list]:
-        """Tracks/updates estimates on dynamic obstacles, based on sensor measurements
-        generated from the input true dynamic obstacle states.
-
-        NOTE: The KF assumes one generated measurement per dynamic obstacle per sensor.
-
-        Args:
-            dt (float): Time since last update
-            t (float): Current time (assumed >= 0)
-            true_do_states (list): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
-            ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
-
-        Returns:
-            Tuple[list, list]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
-        """
+    def track(
+        self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
+    ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
         # If the function is run at the same time as the previous, return the same tracks
         if t <= self._t_prev:
             tracks, _ = self.get_track_information()
@@ -280,7 +268,6 @@ class KF(ITracker):
                 self._length_upd.append(do_length)
                 self._width_upd.append(do_width)
                 self._NIS.append(np.nan)
-                self._measurement_index.append(i)  # Assume measurements are ordered as the true_do_states
             elif do_idx in self._labels:
                 self._track_initialized[self._labels.index(do_idx)] = True
 
@@ -305,13 +292,17 @@ class KF(ITracker):
 
                 if sensor_measurements:
                     for sensor_id in range(len(self.sensors)):
-                        z = sensor_measurements[sensor_id][self._measurement_index[i]]
-                        self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
-                            self._xs_upd[i], self._P_upd[i], z, sensor_id
-                        )
+                        sensed_dos = [do_meas[0] for do_meas in sensor_measurements[sensor_id]]
 
-                        if not np.isnan(NIS_i):
-                            self._NIS[i] = NIS_i
+                        if self._labels[i] in sensed_dos:
+                            z = sensor_measurements[sensor_id][sensed_dos.index(self._labels[i])][1]
+
+                            self._xs_upd[i], self._P_upd[i], NIS_i = self.update(
+                                self._xs_upd[i], self._P_upd[i], z, sensor_id
+                            )
+
+                            if not np.isnan(NIS_i):
+                                self._NIS[i] = NIS_i
 
             tracks.append(
                 (

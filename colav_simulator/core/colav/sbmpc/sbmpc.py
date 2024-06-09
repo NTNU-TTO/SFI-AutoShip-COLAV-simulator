@@ -15,25 +15,27 @@ class SBMPCParams:
     P_: float = 1.0  # weights the importance of time until the event of collision occurs
     Q_: float = 4.0  # exponent to satisfy colregs rule 16
     D_INIT_: float = 1000.0  # should be >= D_CLOSE   # distance to an obstacle to activate sbmpc [m]
-    D_CLOSE_: float = 200.0  # distance for an nearby obstacle [m]
+    D_CLOSE_: float = 1000.0  # distance for an nearby obstacle [m]
     D_SAFE_: float = 40.0  # distance of safety zone [m]
     K_COLL_: float = 0.5  # cost scaling factor
     PHI_AH_: float = np.deg2rad(68.5)  # colregs angle - ahead [deg]
     PHI_OT_: float = np.deg2rad(68.5)  # colregs angle - overtaken [deg]
     PHI_HO_: float = np.deg2rad(22.5)  # colregs angle -  head on [deg]
     PHI_CR_: float = np.deg2rad(68.5)  # colregs angle -  crossing [deg]
-    KAPPA_: float = 3.0  # cost function parameter
+    KAPPA_: float = 10.0  # cost function parameter
     K_P_: float = 2.5  # cost function parameter
-    K_CHI_: float = 1.3  # cost function parameter
+    K_CHI_: float = 1.5  # cost function parameter
     K_DP_: float = 2.0  # cost function parameter
-    K_DCHI_SB_: float = 0.9  # cost function parameter
-    K_DCHI_P_: float = 1.2  # cost function parameter
+    K_DCHI_SB_: float = 1.0  # cost function parameter
+    K_DCHI_P_: float = 1.4  # cost function parameter
 
-    P_ca_last_: float = 1  # last control change
-    Chi_ca_last_: float = 0  # last course change
+    P_ca_last_: float = 1.0  # last control change
+    Chi_ca_last_: float = 0.0  # last course change
 
     Chi_ca_: np.array = field(
-        default_factory=lambda: np.deg2rad(np.array([-90.0, -75.0, -60.0, -45.0, -30.0, -15.0, 0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0]))
+        default_factory=lambda: np.deg2rad(
+            np.array([-90.0, -75.0, -60.0, -45.0, -30.0, -15.0, 0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0])
+        )
     )  # control behaviors - course offset [deg]
     P_ca_: np.array = field(default_factory=lambda: np.array([0.0, 0.5, 1.0]))  # control behaviors - speed factor
 
@@ -92,8 +94,8 @@ class SBMPCParams:
 class SBMPC:
     def __init__(self, config: Optional[SBMPCParams] = None) -> None:
         # NB os_ship: copy of own ship initialized class
-        self.T_ = 300.0  # 400                         # prediction horizon [s]
-        self.DT_ = 5.0  # 0.1                          # time step [s]
+        self.T_ = 150.0  # 400                         # prediction horizon [s]
+        self.DT_ = 2.5  # 0.1                          # time step [s]
         self.n_samp = int(self.T_ / self.DT_)  # number of samplings
 
         self.cost_ = np.inf
@@ -222,9 +224,9 @@ class SBMPC:
                 else:
                     d_safe_i += d_safe + +obs_w / 2
 
-                if (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and np.linalg.norm(v_s) > np.linalg.norm(
+                if (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(
                     v_o
-                ):
+                ) and np.linalg.norm(v_s) > np.linalg.norm(v_o):
                     d_safe_i = d_safe + os_l / 2 + obs_l / 2
 
                 if dist < d_safe_i:
@@ -233,9 +235,9 @@ class SBMPC:
                     C = k_koll * np.linalg.norm(v_s - v_o) ** 2
 
                 # Overtaken by obstacle
-                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and np.linalg.norm(v_s) < np.linalg.norm(
-                    v_o
-                )
+                OT = (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_OT_)) * np.linalg.norm(
+                    v_s
+                ) * np.linalg.norm(v_o) and np.linalg.norm(v_s) < np.linalg.norm(v_o)
 
                 # Obstacle on starboard side
                 SB = phi >= 0
@@ -243,12 +245,15 @@ class SBMPC:
                 # Obstacle Head-on
                 HO = (
                     np.linalg.norm(v_o) > 0.05
-                    and (np.dot(v_s, v_o)) < -np.cos(np.deg2rad(self._params.PHI_HO_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o)
+                    and (np.dot(v_s, v_o))
+                    < -np.cos(np.deg2rad(self._params.PHI_HO_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o)
                     and (np.dot(v_s, v_o)) > np.cos(np.deg2rad(self._params.PHI_AH_)) * np.linalg.norm(v_s)
                 )
 
                 # Crossing situation
-                CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self._params.PHI_CR_)) * np.linalg.norm(v_s) * np.linalg.norm(v_o) and (SB and psi_rel < 0)
+                CR = (np.dot(v_s, v_o)) < np.cos(np.deg2rad(self._params.PHI_CR_)) * np.linalg.norm(
+                    v_s
+                ) * np.linalg.norm(v_o) and (SB and psi_rel < 0)
 
                 mu = (SB and HO) or (CR and not OT)
 
@@ -257,7 +262,12 @@ class SBMPC:
             if H0 > H1:
                 H1 = H0
 
-        H2 = self._params.K_P_ * (1 - P_ca) + self._params.K_CHI_ * Chi_ca**2 + self.delta_P(P_ca) + self.delta_Chi(Chi_ca)
+        H2 = (
+            self._params.K_P_ * (1 - P_ca)
+            + self._params.K_CHI_ * Chi_ca**2
+            + self.delta_P(P_ca)
+            + self.delta_Chi(Chi_ca)
+        )
         cost = H1 + H2
 
         return cost
@@ -332,12 +342,6 @@ class Obstacle:
         self.v_[0] = self.r12_ * V_x + self.r11_ * V_y
 
         self.calculate_trajectory()
-
-    """
-    def calculate_pos_offsets(self):
-        self.os_x = self.A_ - self.B_
-        self.os_y = self.D_ - self.C_
-    """
 
     def calculate_trajectory(self):
         for i in range(1, self.n_samp_):

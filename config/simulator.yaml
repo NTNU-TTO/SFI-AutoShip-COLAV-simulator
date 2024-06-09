@@ -1,5 +1,6 @@
 save_scenario_results: False
 verbose: True
+tracking_from_ownship_only: True
 visualizer:
   show_liveplot: True
   show_liveplot_colav_results: True

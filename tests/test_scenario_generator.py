@@ -11,7 +11,7 @@ if __name__ == "__main__":
         config_file=dp.scenarios / (scenario_name + ".yaml"),
         new_load_of_map_data=True,
         save_scenario=True,
-        save_scenario_folder=dp.scenarios / "test" / scenario_name,
+        save_scenario_folder=dp.scenarios / "saved" / scenario_name,
         show_plots=True,
         episode_idx_save_offset=0,
         n_episodes=50,
@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # We can then load the scenario data from the saved files with
     scenario_data = scenario_generator.load_scenario_from_folders(
-        folder=dp.scenarios / "test" / scenario_name,
+        folder=dp.scenarios / "saved" / scenario_name,
         scenario_name=scenario_name,
         reload_map=False,
         max_number_of_episodes=1000,

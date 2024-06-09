@@ -34,6 +34,9 @@ class Config:
 
     save_scenario_results: bool
     verbose: bool
+    tracking_from_ownship_only: (
+        bool  # Whether to track obstacles from ownship only (True) or all ships track each other (False)
+    )
     visualizer: viz.Config
 
     @classmethod
@@ -42,13 +45,14 @@ class Config:
             save_scenario_results=config_dict["save_scenario_results"],
             verbose=config_dict["verbose"],
             visualizer=viz.Config.from_dict(config_dict["visualizer"]),
+            tracking_from_ownship_only=config_dict["tracking_from_ownship_only"],
         )
         return config
 
     @classmethod
     def from_file(cls, config_file: Path):
         assert config_file.exists(), f"Configuration file {config_file} does not exist."
-        with open(config_file, "r") as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
         return cls.from_dict(config_dict)
 
@@ -300,7 +304,11 @@ class Simulator:
             sim_data.append(sim_data_dict)
 
             self.visualizer.update_live_plot(
-                self.t, self.enc, self.ship_list, self.recent_sensor_measurements[0], self.disturbance.get()
+                self.t,
+                self.enc,
+                self.ship_list,
+                self.recent_sensor_measurements[0],
+                self.disturbance.get() if self.disturbance is not None else None,
             )
 
             terminated = self.is_terminated(
@@ -337,29 +345,29 @@ class Simulator:
 
         true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
         for i, ship_obj in enumerate(self.ship_list):
-            tracks, sensor_measurements_i = [], []
-            if i == 0:
+            if self.t < ship_obj.t_start:
+                continue
+
+            tracks, new_measurements = [], []
+            if not (i > 0 and self._config.tracking_from_ownship_only):
                 relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
-                tracks, sensor_measurements_i = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
+                tracks, new_measurements = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
 
             self.recent_sensor_measurements[i] = extract_valid_sensor_measurements(
-                self.t, self.recent_sensor_measurements[i], sensor_measurements_i
+                self.t, self.recent_sensor_measurements[i], new_measurements
             )
 
-            # Plans a decision for the ship depending on its configuration
-            if ship_obj.t_start <= self.t:
-                if not (i == 0 and remote_actor):  # Skip own-ship planning step if controlled by remote actor
-                    ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
+            if not (i == 0 and remote_actor):  # Skip own-ship planning step if controlled by remote actor
+                ship_obj.plan(t=self.t, dt=self.dt, do_list=tracks, enc=self.enc, w=disturbance_data)
 
-                if i > 0 and self.determine_ship_grounding(i):  # Make grounded obstacle ships stop
-                    ship_obj.set_references(np.zeros((9, 1)))
+            if i > 0 and self.determine_ship_grounding(i):  # Make grounded obstacle ships stop
+                ship_obj.set_references(np.zeros((9, 1)))
 
             sim_data_dict[f"Ship{i}"] = ship_obj.get_sim_data(self.t, self.timestamp_start)
             sim_data_dict[f"Ship{i}"]["sensor_measurements"] = self.recent_sensor_measurements[i]
             sim_data_dict[f"Ship{i}"]["colav"] = ship_obj.get_colav_data()
 
-            if ship_obj.t_start <= self.t:
-                ship_obj.forward(self.dt, disturbance_data)
+            ship_obj.forward(self.dt, disturbance_data)
 
         self.t += self.dt
         return sim_data_dict
@@ -398,7 +406,7 @@ class Simulator:
         distances = self.distance_to_nearby_vessels(ship_idx)
         other_ship_list = [other_ship_obj for i, other_ship_obj in enumerate(self.ship_list) if i != ship_idx]
         for i, other_ship_obj in enumerate(other_ship_list):
-            if distances[i] <= self.ship_list[ship_idx].length / 2.0:  # + other_ship_obj.length / 2.0:
+            if distances[i] <= self.ship_list[ship_idx].length / 2.0:
                 return True
         return False
 
@@ -447,23 +455,28 @@ class Simulator:
         return d2goal <= self.ship_list[ship_idx].length * scale_factor
 
 
-def extract_valid_sensor_measurements(t: float, recent_sensor_measurements: list, sensor_measurements_i: list) -> list:
+def extract_valid_sensor_measurements(
+    t: float, recent_sensor_measurements: list, new_sensor_measurements: list
+) -> list:
     """Extracts non-NaN sensor measurements from the recent sensor measurements list and appends them to the most recent sensor measurements list.
 
     Args:
         t (float): Current simulation time.
         recent_sensor_measurements (list): List of most recent valid (non-nan) sensor measurements for the current ship
-        sensor_measurements_i (list): List of new sensor measurements for the current ship.
+        new_sensor_measurements (list): List of new sensor measurements for the current ship.
 
     Returns:
         list: List of updated most recent valid (non-nan) sensor measurements for the current ship
     """
-    if t == 0.0:
-        recent_sensor_measurements = sensor_measurements_i
-    for _, meas in enumerate(sensor_measurements_i):
-        if not meas:
+    if t == 0.0 or recent_sensor_measurements is None:
+        recent_sensor_measurements = new_sensor_measurements
+    for j, sensor_j_measurements in enumerate(new_sensor_measurements):
+        if not sensor_j_measurements:
             continue
-        if np.isnan(meas).any():
-            continue
-        recent_sensor_measurements.append(meas)
+        valid_meas = []
+        for do_idx, do_meas in sensor_j_measurements:
+            if not np.isnan(do_meas).any():
+                valid_meas.append((do_idx, do_meas))
+        if valid_meas:
+            recent_sensor_measurements[j] = valid_meas
     return recent_sensor_measurements

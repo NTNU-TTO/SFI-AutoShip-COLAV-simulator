@@ -64,7 +64,6 @@ if __name__ == "__main__":
         "reload_map": True,
         "render_mode": "rgb_array",
         "render_update_rate": 1.0,
-        "test_mode": False,
         "seed": 1,
     }
     env = gym.make(id=env_id, **env_config)
@@ -77,7 +76,7 @@ if __name__ == "__main__":
     env.reset(seed=1)
     frames = []
     for i in range(100):
-        obs, reward, terminated, truncated, info = env.step(np.array([0.0, -0.01]))
+        obs, reward, terminated, truncated, info = env.step(np.array([0.0, 0.0]))
 
         frames.append(env.render())
 
@@ -86,7 +85,7 @@ if __name__ == "__main__":
 
     env.close()
 
-    save_gif = True
+    save_gif = False
     if save_gif:
         save_frames_as_gif(frames, dp.animation_output / "demo2.gif")
 
