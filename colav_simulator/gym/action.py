@@ -304,6 +304,7 @@ class RelativeCourseSpeedReferenceSequenceAction(ActionType):
                 self.course_refs[i] = mf.wrap_angle_to_pmpi(unnorm_action[i * 2] + course)
                 self.speed_refs[i] = unnorm_action[i * 2 + 1] + speed
             self.t_first_apply = self.env.time
+            self.speed_refs = np.clip(self.speed_refs, self.env.ownship.min_speed + 0.5, self.env.ownship.max_speed)
 
         t_now = self.env.time
         if t_now - self.t_first_apply > self.reference_duration:

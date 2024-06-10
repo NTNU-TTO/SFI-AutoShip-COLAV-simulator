@@ -831,8 +831,10 @@ class PerceptionImageObservation(ObservationType):
         super().__init__(env)
         self.name = "PerceptionImageObservation"
         self.image_dim = image_dim
-        self.observation_counter = 0
-        self.previous_image_stack = np.zeros(image_dim, dtype=np.uint8)  # All black
+        self.observation_counter: int = 0
+        self.previous_image_stack: np.ndarray = np.zeros(image_dim, dtype=np.uint8)  # All black
+        self.t_prev: float = 0.0
+        self.render_rate: float = 0.5  # Hz
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -846,10 +848,24 @@ class PerceptionImageObservation(ObservationType):
         # No unnormalization is provided for this observation type
         return obs
 
+    def toggle_unneccessary_liveplot_features(self, show: bool) -> None:
+        self.env.viewer2d.toggle_uniform_seabed_color(show)
+        self.env.viewer2d.toggle_liveplot_sensor_measurement_visibility(show)
+        self.env.viewer2d.toggle_liveplot_trajectory_visibility(show)
+        self.env.viewer2d.toggle_liveplot_waypoint_visibility(show)
+        self.env.viewer2d.toggle_liveplot_disturbance_visibility(show)
+        self.env.viewer2d.toggle_liveplot_dynamic_obstacle_visibility(show)
+        self.env.viewer2d.toggle_misc_plot_visibility(show)
+
     def observe(self) -> Observation:
         assert self.env.ownship is not None, "Ownship is not defined"
         # t_now = time.time()
-        img = self.env.liveplot_image
+        if self.env.time < 0.001:
+            self.t_prev = self.env.time
+
+        self.toggle_unneccessary_liveplot_features(show=False)
+        img = self.env.liveplot_image.copy()
+        self.toggle_unneccessary_liveplot_features(show=True)
         pruned_img = img
         # pruned_img = imghf.remove_whitespace(img)
         # os_liveplot_zoom_width = self.env.liveplot_zoom_width
@@ -934,7 +950,7 @@ class PerceptionImageObservation(ObservationType):
         # save_image = False
         # if save_image:
         #     cv2.imwrite("image.png", downsampled_img)
-
+        self.t_prev = self.env.time
         return self.previous_image_stack
 
 
@@ -983,7 +999,7 @@ class RelativeTrackingObservation(ObservationType):
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
         self.max_num_do = 10
-        self.do_info_size = 6  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
+        self.do_info_size = 7  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
         self.name = "RelativeTrackingObservation"
         self.define_observation_ranges()
 
@@ -994,7 +1010,7 @@ class RelativeTrackingObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         assert self.env.ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 1200.0),
+            "distance": (0.0, 1300.0),
             "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
             "variance": (0.0, 5.0),
@@ -1007,11 +1023,12 @@ class RelativeTrackingObservation(ObservationType):
             norm_obs[:, idx] = np.array(
                 [
                     mf.linear_map(obs[0, idx], self.observation_range["distance"], (-1.0, 1.0)),
-                    mf.linear_map(obs[1, idx], self.observation_range["speed"], (-1.0, 1.0)),
+                    mf.linear_map(obs[1, idx], self.observation_range["angles"], (-1.0, 1.0)),
                     mf.linear_map(obs[2, idx], self.observation_range["speed"], (-1.0, 1.0)),
-                    mf.linear_map(obs[3, idx], self.observation_range["variance"], (-1.0, 1.0)),
+                    mf.linear_map(obs[3, idx], self.observation_range["speed"], (-1.0, 1.0)),
                     mf.linear_map(obs[4, idx], self.observation_range["variance"], (-1.0, 1.0)),
-                    mf.linear_map(obs[5, idx], self.observation_range["cross_variance"], (-1.0, 1.0)),
+                    mf.linear_map(obs[5, idx], self.observation_range["variance"], (-1.0, 1.0)),
+                    mf.linear_map(obs[6, idx], self.observation_range["cross_variance"], (-1.0, 1.0)),
                 ]
             )
         return norm_obs
@@ -1022,11 +1039,12 @@ class RelativeTrackingObservation(ObservationType):
             unnorm_obs[:, idx] = np.array(
                 [
                     mf.linear_map(obs[0, idx], (-1.0, 1.0), self.observation_range["distance"]),
-                    mf.linear_map(obs[1, idx], (-1.0, 1.0), self.observation_range["speed"]),
+                    mf.linear_map(obs[1, idx], (-1.0, 1.0), self.observation_range["angles"]),
                     mf.linear_map(obs[2, idx], (-1.0, 1.0), self.observation_range["speed"]),
-                    mf.linear_map(obs[3, idx], (-1.0, 1.0), self.observation_range["variance"]),
+                    mf.linear_map(obs[3, idx], (-1.0, 1.0), self.observation_range["speed"]),
                     mf.linear_map(obs[4, idx], (-1.0, 1.0), self.observation_range["variance"]),
-                    mf.linear_map(obs[5, idx], (-1.0, 1.0), self.observation_range["cross_variance"]),
+                    mf.linear_map(obs[5, idx], (-1.0, 1.0), self.observation_range["variance"]),
+                    mf.linear_map(obs[6, idx], (-1.0, 1.0), self.observation_range["cross_variance"]),
                 ]
             )
         return unnorm_obs
@@ -1039,7 +1057,7 @@ class RelativeTrackingObservation(ObservationType):
             self.env.ownship.track_obstacles(self.env.time, self.env.time_step, relevant_do_states)
 
         os_state = self.env.ownship.state
-        chi = os_state[2] + np.arctan2(os_state[4], os_state[3])
+        chi = self.env.ownship.course
         tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
@@ -1049,9 +1067,12 @@ class RelativeTrackingObservation(ObservationType):
             rel_speed = R_psi.T @ do_state[2:4] - os_state[3:5]
             rel_speed_cov = R_psi.T @ speed_cov @ R_psi
             rel_distance = np.linalg.norm(do_state[0:2] - os_state[0:2])
+            los_angle = np.arctan2(do_state[1] - os_state[1], do_state[0] - os_state[0])
+            rel_bearing = mf.wrap_angle_diff_to_pmpi(los_angle, chi)
             obs[:, idx] = np.array(
                 [
                     rel_distance,
+                    rel_bearing,
                     rel_speed[0],
                     rel_speed[1],
                     rel_speed_cov[0, 0],

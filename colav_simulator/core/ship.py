@@ -840,7 +840,10 @@ class Ship(IShip):
         if self._state.size == 4:
             return self._state[3]
         else:  # self._state.size == 6
-            return mf.wrap_angle_to_pmpi(self._state[2] + np.arctan2(self._state[4], self._state[3]))
+            if self._state[3] < 0.01:
+                return self._state[2]
+            crab = np.arctan2(self._state[4], self._state[3])
+            return mf.wrap_angle_to_pmpi(self._state[2] + crab)
 
     @property
     def waypoints(self) -> np.ndarray:

@@ -116,7 +116,7 @@ class COLAVEnvironment(gym.Env):
         self.ownship: Optional[cs_ship.Ship] = None
         self.render_mode = render_mode
         self.render_update_rate = render_update_rate
-        self._viewer2d = self.simulator.visualizer
+        self.viewer2d = self.simulator.visualizer
         self._live_plot_closed: bool = True
         self.test_mode = test_mode
         self.verbose: bool = verbose
@@ -168,8 +168,8 @@ class COLAVEnvironment(gym.Env):
     def close(self):
         """Closes the environment. To be called after usage."""
         self.done = True
-        if self._viewer2d is not None:
-            self._viewer2d.close_live_plot()
+        if self.viewer2d is not None:
+            self.viewer2d.close_live_plot()
             self._live_plot_closed = True
 
     def _define_spaces(self) -> None:
@@ -392,11 +392,11 @@ class COLAVEnvironment(gym.Env):
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "human" or self.render_mode == "rgb_array":
-            self._viewer2d.toggle_liveplot_visibility(show=True)
+            self.viewer2d.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
-                self._viewer2d.set_update_rate(self.render_update_rate)
-            self._viewer2d.init_live_plot(self.enc, self.simulator.ship_list, fignum=self.env_id)
-            self._viewer2d.update_live_plot(
+                self.viewer2d.set_update_rate(self.render_update_rate)
+            self.viewer2d.init_live_plot(self.enc, self.simulator.ship_list, fignum=self.env_id)
+            self.viewer2d.update_live_plot(
                 self.simulator.t,
                 self.enc,
                 self.simulator.ship_list,
@@ -413,7 +413,7 @@ class COLAVEnvironment(gym.Env):
             self._init_render()
 
         if self.render_mode == "rgb_array":
-            self._viewer2d.update_live_plot(
+            self.viewer2d.update_live_plot(
                 self.simulator.t,
                 self.enc,
                 self.simulator.ship_list,
@@ -421,20 +421,20 @@ class COLAVEnvironment(gym.Env):
                 self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
                 remote_actor=True,
             )
-            self.current_frame = self._viewer2d.get_live_plot_image()
+            self.current_frame = self.viewer2d.get_live_plot_image()
             img = self.current_frame
         return img
 
     @property
     def liveplot_image(self) -> np.ndarray:
         """The current live plot image."""
-        if self._viewer2d is not None and self.render_mode == "rgb_array":
-            return self._viewer2d.get_live_plot_image()
+        if self.viewer2d is not None and self.render_mode == "rgb_array":
+            return self.viewer2d.get_live_plot_image()
 
     @property
     def liveplot_zoom_width(self) -> float:
         """The width of the live plot."""
-        return self._viewer2d.zoom_window_width
+        return self.viewer2d.zoom_window_width
 
     @property
     def enc(self) -> senc.ENC:

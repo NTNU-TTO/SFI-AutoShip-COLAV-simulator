@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seacharts.display.colors as colors
 import seacharts.enc as senc
+from matplotlib.collections import PolyCollection
 from shapely.geometry import MultiPolygon, Polygon
 
 
@@ -103,7 +104,7 @@ def plot_disturbance(
 
 def plot_shapely_multipolygon(
     ax: plt.Axes, mp: MultiPolygon, color: str, fill: bool = True, alpha: float = 1.0, zorder: int = 1
-) -> plt.Axes:
+) -> Tuple[plt.Axes, list]:
     """Plots a shapely MultiPolygon object on a matplotlib axes.
 
     Args:
@@ -113,16 +114,17 @@ def plot_shapely_multipolygon(
         fill (bool, optional): Option for filling the MultiPolygon. Defaults to False.
         alpha (float, optional): Transparency of the MultiPolygon. Defaults to 1.0.
         zorder (int, optional): Z-order of the MultiPolygon. Defaults to 1.
+
+    Returns:
+        Tuple[plt.Axes, list]: Tuple containing the matplotlib axes handle and a list of handles to the plotted MultiPolygon.
     """
     if isinstance(mp, Polygon):
         mp = MultiPolygon([mp])
 
-    for poly in mp.geoms:
-        if fill:
-            ax.fill(*poly.exterior.xy, color=color, alpha=alpha, zorder=zorder)
-        else:
-            ax.plot(*poly.exterior.xy, color=color, zorder=zorder)
-    return ax
+    poly_verts = [np.array(poly.exterior.coords) for poly in mp.geoms]
+    collection = PolyCollection(poly_verts, edgecolor=color, facecolor=color, alpha=alpha, zorder=zorder)
+    handle = ax.add_collection(collection)
+    return ax, handle
 
 
 def plot_background(
@@ -134,7 +136,7 @@ def plot_background(
     uniform_seabed_color: bool = False,
     land_color: Optional[str] = None,
     shore_color: Optional[str] = None,
-) -> None:
+) -> Tuple[plt.Axes, dict]:
     """Creates a static background based on the input seacharts
 
     Args:
@@ -148,24 +150,28 @@ def plot_background(
         shore_color (Optional[str], optional): Color of the shore to override the default. Defaults to None.
 
     Returns:
-        Tuple[]: Tuple of limits in x and y for the background extent
+        Tuple[plt.Axes, dict]: Tuple containing the matplotlib axes handle and a dictionary of handles to the plotted background.
     """
+    handles = {}
     # For every layer put in list and assign a color
     if enc.land:
         color = "#142c38" if dark_mode else colors.color_picker(enc.land.color)
         if land_color is not None:
             color = land_color
-        plot_shapely_multipolygon(ax, enc.land.geometry, color=color, zorder=enc.land.z_order)
+        ax, mp_land_handle = plot_shapely_multipolygon(ax, enc.land.geometry, color=color, zorder=enc.land.z_order)
+        handles["land"] = mp_land_handle
 
     if show_shore and enc.shore:
         color = "#142c38" if dark_mode else colors.color_picker(enc.shore.color)
         if shore_color is not None:
             color = shore_color
-        plot_shapely_multipolygon(ax, enc.shore.geometry, color=color, zorder=enc.shore.z_order)
+        ax, mp_shore_handle = plot_shapely_multipolygon(ax, enc.shore.geometry, color=color, zorder=enc.shore.z_order)
+        handles["shore"] = mp_shore_handle
 
     if show_seabed and enc.seabed:
         bins = len(enc.seabed.keys())
         count = 0
+        seabed_handles = []
         for _, layer in enc.seabed.items():
             if uniform_seabed_color:
                 rank = enc.seabed[0].z_order
@@ -173,12 +179,15 @@ def plot_background(
             else:
                 rank = layer.z_order + count
                 color = colors.color_picker(count, bins)
-            plot_shapely_multipolygon(ax, layer.geometry, color=color, zorder=rank)
+            ax, mp_seabed_handle = plot_shapely_multipolygon(ax, layer.geometry, color=color, zorder=rank)
             count += 1
+            seabed_handles.append((mp_seabed_handle, color))
+        handles["seabed"] = seabed_handles
 
     x_min, y_min, x_max, y_max = enc.bbox
     ax.set_xlim((x_min, x_max))  # Easting
     ax.set_ylim((y_min, y_max))  # Northing
+    return ax, handles
 
 
 def plot_waypoints(
