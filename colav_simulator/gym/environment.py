@@ -111,6 +111,7 @@ class COLAVEnvironment(gym.Env):
         self.steps: int = 0
         self.last_info: dict = {}
         self.last_reward: float = 0.0
+        self.terminal_info: dict = {}
         self.episodes: int = 0
         self.n_episodes: int = 0
         self.ownship: Optional[cs_ship.Ship] = None
@@ -279,6 +280,7 @@ class COLAVEnvironment(gym.Env):
         unnormalized_obs = self.observation_type.unnormalize(obs)
         unnormalized_action = self.action_type.unnormalize(action) if action is not None else None
         self.last_info = {
+            "episode_name": self.simulator.sconfig.name,
             "duration": self.simulator.t,
             "timesteps": self.steps,
             "episode_nr": self.episodes,
@@ -287,10 +289,12 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
-            "action": action,
+            "truncated": self._is_truncated(),
             "unnormalized_action": unnormalized_action,
             "unnormalized_obs": unnormalized_obs,
             "reward": self.last_reward,
+            "reward_components": self.rewarder.get_last_rewards_as_dict(),
+            "render_frame": self.current_frame if self.render_mode == "rgb_array" else None,
         }
         return self.last_info
 
@@ -385,6 +389,9 @@ class COLAVEnvironment(gym.Env):
         self.last_reward = reward
 
         info = self._info(obs, action)
+        if terminated or truncated:
+            self.terminal_info = info
+
         self.steps += 1
 
         return obs, reward, terminated, truncated, info

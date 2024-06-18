@@ -105,6 +105,10 @@ class IReward(ABC):
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Get the reward for the current state-action pair. Additional arguments can be passed if necessary."""
 
+    @abstractmethod
+    def get_last_rewards_as_dict(self) -> dict:
+        """Get the last rewards as a dictionary with the individual reward components and their values."""
+
 
 @dataclass
 class Config:
@@ -144,31 +148,36 @@ class Config:
 class ExistenceRewarder(IReward):
     """Reward the agent negatively for existing."""
 
-    def __init__(self, params: Optional[ExistenceRewardParams] = None) -> None:
+    def __init__(self, env: "COLAVEnvironment", params: Optional[ExistenceRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
             params (ExistenceRewardParams): The reward parameters.
         """
+        super().__init__(env)
+        self.last_reward = 0.0
         self.params = params if params else ExistenceRewardParams()
 
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
-        return -self.params.r_exists
+        self.last_reward = -self.params.r_exists
+        return self.last_reward
+
+    def get_last_rewards_as_dict(self) -> dict:
+        return {"r_exists": self.last_reward}
 
 
 class DistanceToGoalRewarder(IReward):
     """Reward the agent for getting closer to the goal."""
 
-    def __init__(
-        self, env: "COLAVEnvironment", goal: np.ndarray, params: Optional[DistanceToGoalRewardParams] = None
-    ) -> None:
+    def __init__(self, env: "COLAVEnvironment", params: Optional[DistanceToGoalRewardParams] = None) -> None:
         """Initializes the reward function.
 
         Args:
-            goal (np.ndarray): The goal position [x_g, y_g]^T
             params (DistanceToGoalRewardParams): The reward parameters.
         """
         super().__init__(env)
+        self.last_reward = 0.0
+        self.goal = np.array([0.0, 0.0])
         self.params = params if params else DistanceToGoalRewardParams()
 
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
@@ -178,7 +187,11 @@ class DistanceToGoalRewarder(IReward):
             self.goal = self.env.ownship.waypoints[:, -1]
         else:
             raise ValueError("No goal state or waypoints found")
-        return -self.params.r_d2g * float(np.linalg.norm(self.env.ownship.csog_state[:2] - self.goal))
+        self.last_reward = -self.params.r_d2g * float(np.linalg.norm(self.env.ownship.csog_state[:2] - self.goal))
+        return self.last_reward
+
+    def get_last_rewards_as_dict(self) -> dict:
+        return {"r_d2g": self.last_reward}
 
 
 class CollisionRewarder(IReward):
@@ -192,15 +205,20 @@ class CollisionRewarder(IReward):
             params (CollisionRewardParams): The reward parameters.
         """
         super().__init__(env)
+        self.last_reward = 0.0
         self.params = params if params else CollisionRewardParams()
 
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get collision or not."""
         collision = self.env.simulator.determine_ship_collision()
         if collision:
-            return -self.params.r_collision
+            self.last_reward = -self.params.r_collision
         else:
-            return 0.0
+            self.last_reward = 0.0
+        return self.last_reward
+
+    def get_last_rewards_as_dict(self) -> dict:
+        return {"r_collision": self.last_reward}
 
 
 class GroundingRewarder(IReward):
@@ -213,16 +231,21 @@ class GroundingRewarder(IReward):
             env (COLAVEnvironment): The environment
             params (GroundingRewardParams): The reward parameters.
         """
-        self.params = params if params else GroundingRewardParams()
         super().__init__(env)
+        self.last_reward = 0.0
+        self.params = params if params else GroundingRewardParams()
 
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         """Reward for the current state-action pair. Calls function from simulator class to get grounding or not."""
         grounding = self.env.simulator.determine_ship_grounding()
         if grounding:
-            return -self.params.r_grounding
+            self.last_reward = -self.params.r_grounding
         else:
-            return 0.0
+            self.last_reward = 0.0
+        return self.last_reward
+
+    def get_last_rewards_as_dict(self) -> dict:
+        return {"r_grounding": self.last_reward}
 
 
 class Rewarder(IReward):
@@ -252,3 +275,9 @@ class Rewarder(IReward):
         for rewarder in self.rewarders:
             reward += rewarder(state, action, **kwargs)
         return reward
+
+    def get_last_rewards_as_dict(self) -> dict:
+        rewards = {}
+        for rewarder in self.rewarders:
+            rewards.update(rewarder.get_last_rewards_as_dict())
+        return rewards

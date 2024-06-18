@@ -249,7 +249,7 @@ class Visualizer:
         ax_map.set_aspect("equal")
         self.toggle_liveplot_axis_labels(self._config.show_liveplot_map_axes)
         plt.show(block=False)
-        self.fig.tight_layout(pad=0.0)
+        # self.fig.tight_layout(pad=0.0)
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
 
     def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
@@ -469,17 +469,6 @@ class Visualizer:
                     zorder=zorder_patch - 2,
                 )[0]
 
-                # ship_i_handles["colav_relevant_static_obstacles"] = ax_map.add_feature(
-                #     ShapelyFeature(
-                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", zorder=zorder_patch - 1
-                #     )
-                # )
-                # ship_i_handles["colav_relevant_dynamic_obstacles"] = ax_map.add_feature(
-                #     ShapelyFeature(
-                #         [], edgecolor="k", facecolor="r", linewidth=lw, label="", zorder=zorder_patch - 1
-                #     )
-                # )
-
             if (
                 (ship_obj.id == 0 and self._config.show_liveplot_ownship_waypoints)
                 or (ship_obj.id > 0 and self._config.show_liveplot_target_waypoints)
@@ -526,7 +515,7 @@ class Visualizer:
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
+                        ylim[1] + corner_offset[0] - 125,
                         xlim[1] + corner_offset[1] - 95,
                         "Currents: 0.0 m/s",
                         fontsize=10,
@@ -540,7 +529,7 @@ class Visualizer:
                 "wind": {
                     "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
+                        ylim[1] + corner_offset[0] - 125,
                         xlim[1] + corner_offset[1] - 125,
                         "Wind: 0.0 m/s",
                         fontsize=10,
@@ -583,7 +572,7 @@ class Visualizer:
         xlim = ax_map.get_ylim()  # northing
         arrow_scale = 60
         circ_x, circ_y = mhm.create_circle(75, 100)
-        corner_offset = (-100, -100)
+        corner_offset = (-110, -110)
         circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
         dhandles["circle"].remove()
         dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
@@ -592,7 +581,7 @@ class Visualizer:
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 125,
                 xlim[1] + corner_offset[1] - 95,
                 f"Currents: {speed:.2f} m/s",
                 fontsize=10,
@@ -617,7 +606,7 @@ class Visualizer:
         else:
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 125,
                 xlim[1] + corner_offset[1] - 95,
                 "Currents: 0.0 m/s",
                 fontsize=10,
@@ -632,7 +621,7 @@ class Visualizer:
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 125,
                 xlim[1] + corner_offset[1] - 125,
                 f"Wind: {speed:.2f} m/s",
                 fontsize=10,
@@ -657,7 +646,7 @@ class Visualizer:
         else:
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 125,
                 xlim[1] + corner_offset[1] - 125,
                 "Wind: 0.0 m/s",
                 fontsize=10,
@@ -930,6 +919,18 @@ class Visualizer:
         for idx, _ in enumerate(self.ship_plt_handles):
             if self.ship_plt_handles[idx]["trajectory"] is not None:
                 self.ship_plt_handles[idx]["trajectory"].set_visible(show)
+
+            if (
+                "colav_nominal_trajectory" in self.ship_plt_handles[idx]
+                and self.ship_plt_handles[idx]["colav_nominal_trajectory"] is not None
+            ):
+                self.ship_plt_handles[idx]["colav_nominal_trajectory"].set_visible(show)
+
+            if (
+                "colav_predicted_trajectory" in self.ship_plt_handles[idx]
+                and self.ship_plt_handles[idx]["colav_predicted_trajectory"] is not None
+            ):
+                self.ship_plt_handles[idx]["colav_predicted_trajectory"].set_visible(show)
 
     def toggle_uniform_seabed_color(self, show: bool) -> None:
         if not self._config.show_liveplot:

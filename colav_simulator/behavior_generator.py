@@ -410,9 +410,6 @@ class BehaviorGenerator:
             rng (np.random.Generator): Random number generator.
             ship_list (list): List of ships to be considered in simulation.
             ship_replan_flags (list): List of flags indicating whether a ship should have a new behavior generated.
-            enc (senc.ENC): Electronic navigational chart.
-            safe_sea_cdt (list): Safe sea triangulation.
-            safe_sea_cdt_weights (list): Weights for the safe sea triangulation.
             simulation_timespan (float): Simulation timespan.
             show_plots (bool, optional): Whether to show plots. Defaults to False.
         """

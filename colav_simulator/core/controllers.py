@@ -78,7 +78,7 @@ class SHPIDParams:
 
 @dataclass
 class FLSCParams:
-    "Parameters for the feedback linearizing surge-heading controller."
+    "Parameters for the feedback linearizing surge-course controller."
     K_p_u: float = 2.0
     K_i_u: float = 0.1
     K_p_chi: float = 2.5

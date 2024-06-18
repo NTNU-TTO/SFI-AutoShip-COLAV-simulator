@@ -1,99 +1,217 @@
 """
-    reporter.py
+    logger.py
 
     Summary:
-        Contains class for reporting data from the RL training process.
+        Contains class for logging data from the COLAV environment.
 
     Author: Trym Tengesdal
 """
 
+import pickle
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional
 
-import colav_simulator.gym.environment as csgym_env
 import numpy as np
-import tables
 
 
-class Log(tables.IsDescription):
-    episode = tables.Int32Col()
-    timesteps = tables.Int32Col()
-    duration = tables.Float32Col()
-    goal_reached = tables.Int32Col()
-    distance_to_grounding = tables.Float32Col()
-    distance_to_collision = tables.Float32Col()
-    collision = tables.Int32Col()
-    grounding = tables.Int32Col()
-    reward = tables.Float32Col()
-    cumulative_reward = tables.Float32Col()
-    max_reward = tables.Float32Col()
-    min_reward = tables.Float32Col()
-    mean_reward = tables.Float32Col()
+class EpisodeData(NamedTuple):
+    """Data for a single episode in the COLAV environment."""
+
+    name: str
+    episode: int
+    timesteps: int
+    duration: float
+    distances_to_grounding: np.ndarray
+    distances_to_collision: np.ndarray
+    goal_reached: bool
+    collision: bool
+    grounding: bool
+    truncated: bool
+    rewards: List[float]
+    cumulative_reward: float
+    mean_reward: float
+    std_reward: float
+    reward_components: List[Dict[str, float]]
+    frames: Optional[List[np.ndarray]]
+    unnormalized_actions: List[np.ndarray]
+    unnormalized_obs: List[np.ndarray]
+    actor_infos: List[Dict[str, Any]]
 
 
 class Logger:
-    def __init__(self, experiment_name: str, log_dir: Optional[Path] = None) -> None:
-        if log_dir is not None:
-            if not log_dir.exists():
-                log_dir.mkdir(parents=True)
-            self.file = tables.open_file(log_dir / (experiment_name + ".h5"), mode="w", title=experiment_name)
-            env_group = self.file.create_group("/", "env", "Environment data")
-            self.table = self.file.create_table(env_group, "data", Log, "Log of environment data")
-        self.rewards: List[float] = []
-        self.max_reward: float = -np.inf
-        self.min_reward: float = np.inf
-        self.mean_reward: float = 0.0
-        self.std_reward: float = 0.0
-        self.episodes: int = 0
-        self.timesteps: int = 0
+    """Logs data from the COLAV environment. Supports saving and loading to/from pickle files."""
 
-    def save_and_close_hdf5(self) -> None:
-        self.file.close()
+    def __init__(self, experiment_name: str, log_dir: Path, n_envs: int = 1) -> None:
+        if not log_dir.exists():
+            log_dir.mkdir(parents=True)
 
-    def load_hdf5(self, file_path: Path) -> Tuple[np.ndarray, np.ndarray]:
-        self.file = tables.open_file(file_path, mode="r")
-        self.table = self.file.root.env.data
-        logdata = self.table.read()
-        self.file.close()
-        return logdata
+        self.env_data: List[List[EpisodeData]] = [None for _ in range(n_envs)]
+        self.experiment_name: str = experiment_name
+        self.log_dir: Path = log_dir
 
-    def __call__(self, env: csgym_env.COLAVEnvironment) -> None:
-        """Logs data from the environment in the current step to a HDF5 file.
+        self.episode_name: List[str] = ["" for _ in range(n_envs)]
+        self.duration: List[float] = [0.0 for _ in range(n_envs)]
+        self.rewards: List[float] = [[] for _ in range(n_envs)]
+        self.timesteps: List[int] = [0 for _ in range(n_envs)]
+        self.episode_nr: List[int] = [0 for _ in range(n_envs)]
+        self.mean_reward: List[float] = [0.0 for _ in range(n_envs)]
+        self.std_reward: List[float] = [0.0 for _ in range(n_envs)]
+        self.cumulative_reward: List[float] = [0.0 for _ in range(n_envs)]
+        self.reward_components: List[List[Dict[str, float]]] = [[] for _ in range(n_envs)]
+        self.collision: List[bool] = [False for _ in range(n_envs)]
+        self.grounding: List[bool] = [False for _ in range(n_envs)]
+        self.goal_reached: List[bool] = [False for _ in range(n_envs)]
+        self.truncated: List[bool] = [False for _ in range(n_envs)]
+        self.frames: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
+        self.distances_to_grounding: List[List[float]] = [[] for _ in range(n_envs)]
+        self.distances_to_collision: List[List[float]] = [[] for _ in range(n_envs)]
+        self.unnormalized_actions: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
+        self.unnormalized_obs: List[List[np.ndarray | Dict[str, np.ndarray]]] = [[] for _ in range(n_envs)]
+        self.actor_infos: List[List[Dict[str, Any]]] = [[] for _ in range(n_envs)]
+
+    def save_as_pickle(self, name: Optional[str] = None) -> None:
+        """Saves the environment data to a pickle file.
 
         Args:
-            env (COLAVEnvironment): The environment to log data from.
+            name (Optional[str]): The name of the pickle file, without the .pkl extension.
         """
-        info = env.get_wrapper_attr("last_info")
-        reward = info["reward"]
-        self.rewards.append(reward)
-        self.timesteps += info["timesteps"]
-        self.max_reward = max(self.rewards)
-        self.min_reward = min(self.rewards)
-        self.mean_reward = float(np.mean(self.rewards))
-        self.std_reward = float(np.std(self.rewards))
+        if name is None:
+            name = "env_data"
 
-        log_k = self.table.row
-        log_k["episode"] = info["episode"]
-        log_k["timesteps"] = info["timesteps"]
-        log_k["duration"] = info["duration"]
-        log_k["goal_reached"] = info["goal_reached"]
+        with open(self.log_dir / (name + ".pkl"), "wb") as f:
+            pickle.dump(self.env_data, f)
 
-        log_k["distance_to_grounding"] = info["distance_to_grounding"]
-        log_k["distance_to_collision"] = info["distance_to_collision"]
-        log_k["collision"] = info["collision"]
-        log_k["grounding"] = info["grounding"]
-        log_k["reward"] = reward
-        log_k["max_reward"] = self.max_reward
-        log_k["min_reward"] = self.min_reward
-        log_k["mean_reward"] = self.mean_reward
-        log_k["std_reward"] = self.std_reward
-        log_k["cumulative_reward"] = sum(self.rewards)
-        log_k.append()
-        self.table.flush()
+    def load_from_pickle(self, name: Optional[str]) -> None:
+        """Loads the environment data from a pickle file.
+        Args:
+            name (Optional[str]): Name of the pickle file, without the .pkl extension.
+        """
+        if name is None:
+            name = "env_data"
+        with open(self.log_dir / (name + ".pkl"), "rb") as f:
+            self.env_data = pickle.load(f)
+
+    def __call__(self, cs_env_infos: List[Dict[str, Any]]) -> None:
+        """Logs data from the input env info dictionary
+
+        Args:
+            cs_env_infos (List[Dict[str, Any]]): List of environment info dictionaries for the COLAV environment(s).
+        """
+        for env_idx, info in enumerate(cs_env_infos):
+            self._log_env_info(info, env_idx)
+
+    def _log_env_info(self, info: Dict[str, Any], env_idx: int) -> None:
+        """Logs the environment info to the logger.
+
+        Args:
+            info (Dict[str, Any]): The environment info dictionary.
+            env_idx (int): The index of the environment.
+        """
+        self.episode_name[env_idx] = info["episode_name"]
+        self.duration[env_idx] = info["duration"]
+        self.timesteps[env_idx] = info["timesteps"]
+
+        self.rewards[env_idx].append(info["reward"])
+        self.mean_reward[env_idx] = float(np.mean(self.rewards[env_idx]))
+        self.std_reward[env_idx] = float(np.std(self.rewards[env_idx]))
+        self.cumulative_reward[env_idx] += info["reward"]
+
+        self.collision[env_idx] = info["collision"]
+        self.grounding[env_idx] = info["grounding"]
+        self.goal_reached[env_idx] = info["goal_reached"]
+        self.truncated[env_idx] = info["truncated"]
+
+        self.distances_to_collision[env_idx].append(info["distance_to_collision"])
+        self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
+        self.unnormalized_actions[env_idx].append(info["unnormalized_action"])
+        self.unnormalized_obs[env_idx].append(info["unnormalized_obs"])
+        self.reward_components[env_idx].append(info["reward_components"])
+        if info["render_frame"] is not None:
+            self.frames[env_idx].append(info["render_frame"])
+
+        # Special case for an MPC actor
+        if "actor_info" in info and "old_mpc_params" in info["actor_info"]:
+            actor_info = info["actor_info"]
+            stored_actor_info = {}
+            stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
+            stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
+            stored_actor_info["mpc_runtime"] = actor_info["runtime"]
+            stored_actor_info["mpc_cost"] = actor_info["cost_val"]
+            stored_actor_info["optimal"] = actor_info["optimal"]
+            stored_actor_info["predicted_trajectory"] = actor_info["trajectory"]
+            stored_actor_info["n_iterations"] = actor_info["n_iter"]
+            stored_actor_info["so_constr_inf_norm"] = float(actor_info["so_constr_vals"].max())
+            stored_actor_info["do_constr_inf_norm"] = float(actor_info["do_constr_vals"].max())
+            self.actor_infos[env_idx].append(stored_actor_info)
+
+        done = (
+            self.collision[env_idx] or self.grounding[env_idx] or self.goal_reached[env_idx] or self.truncated[env_idx]
+        )
+
+        if done:
+            self.add_episode_data(env_idx)
+            self._reset_data_structures(env_idx)
+
+    def add_episode_data(self, env_idx) -> None:
+        """Adds the data from the current episode to the environment data list.
+
+        Args:
+            env_idx (int): The index of the environment.
+        """
+        episode_data = EpisodeData(
+            name=self.episode_name[env_idx],
+            episode=self.episode_nr[env_idx],
+            timesteps=self.timesteps[env_idx],
+            duration=self.duration[env_idx],
+            rewards=self.rewards[env_idx],
+            cumulative_reward=self.cumulative_reward[env_idx],
+            mean_reward=self.mean_reward[env_idx],
+            std_reward=self.std_reward[env_idx],
+            reward_components=self.reward_components[env_idx],
+            goal_reached=self.goal_reached[env_idx],
+            collision=self.collision[env_idx],
+            grounding=self.grounding[env_idx],
+            truncated=self.truncated[env_idx],
+            distances_to_grounding=np.array(self.distances_to_grounding[env_idx]),
+            distances_to_collision=np.array(self.distances_to_collision[env_idx]),
+            unnormalized_actions=self.unnormalized_actions[env_idx],
+            unnormalized_obs=self.unnormalized_obs[env_idx],
+            frames=self.frames[env_idx],
+            actor_infos=self.actor_infos[env_idx],
+        )
+        if self.env_data[env_idx] is None:
+            self.env_data[env_idx] = [episode_data]
+        else:
+            already_in_list = any([self.episode_nr[env_idx] == env_data.episode for env_data in self.env_data[env_idx]])
+            if not already_in_list:
+                self.env_data[env_idx].append(episode_data)
+
+    def _reset_data_structures(self, env_idx: int) -> None:
+        """Resets the data structures in preparation of new episode.
+
+        Args:
+            env_idx (int): The index of the environment.
+        """
+        self.episode_nr[env_idx] += 1
+        self.timesteps[env_idx] = 0
+        self.duration[env_idx] = 0.0
+        self.rewards[env_idx] = []
+        self.cumulative_reward[env_idx] = 0.0
+        self.mean_reward[env_idx] = 0.0
+        self.std_reward[env_idx] = 0.0
+        self.reward_components[env_idx] = []
+        self.goal_reached[env_idx] = False
+        self.collision[env_idx] = False
+        self.grounding[env_idx] = False
+        self.truncated[env_idx] = False
+        self.distances_to_grounding[env_idx] = []
+        self.distances_to_collision[env_idx] = []
+        self.unnormalized_actions[env_idx] = []
+        self.unnormalized_obs[env_idx] = []
+        self.frames[env_idx] = []
 
 
 if __name__ == "__main__":
-    logger = Logger("test")
-    logger.load_hdf5(Path("/Users/trtengesdal/Desktop/machine_learning/rlmpc/test_sac_rlmpc/test_sac_rlmpc.h5"))
+    import pathlib
 
-    print("Logger loaded successfully.")
+    ptofile = pathlib.Path("test.pkl")
