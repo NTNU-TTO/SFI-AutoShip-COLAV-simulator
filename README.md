@@ -55,7 +55,7 @@ To use `seacharts` in the simulator, you should download `.gdb` files from <http
 
 If you get troubles installing `gdal`, this might be due to:
 - The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
-- It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>).
+- It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>). An issue on the topic is found on <https://github.com/trymte/seacharts/issues/4>
 
 If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
 
