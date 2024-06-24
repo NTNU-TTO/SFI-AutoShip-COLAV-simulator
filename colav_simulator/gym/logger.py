@@ -232,9 +232,3 @@ class Logger:
         self.unnormalized_actions[env_idx] = []
         self.unnormalized_obs[env_idx] = []
         self.frames[env_idx] = []
-
-
-if __name__ == "__main__":
-    import pathlib
-
-    ptofile = pathlib.Path("test.pkl")

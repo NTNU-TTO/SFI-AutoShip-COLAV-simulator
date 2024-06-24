@@ -543,6 +543,7 @@ class Ship(IShip):
             csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
             t_start (float, optional): Time when the ship appears in the simulation. Defaults to 0.0.
         """
+        assert csog_state.size == 4, "Initial state must be a 4D vector!"
         self._state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
         self.t_start = t_start if t_start is not None else 0.0
 
@@ -552,6 +553,7 @@ class Ship(IShip):
         Args:
             csog_state (np.ndarray): Initial COG-SOG state = [x, y, U, chi] of the ship.
         """
+        assert csog_state.size == 4, "Goal state must be a 4D vector!"
         self._goal_state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
@@ -561,7 +563,7 @@ class Ship(IShip):
             waypoints (np.ndarray): New set of waypoints.
             speed_plan (np.ndarray): New corresponding set of speed references.
         """
-        assert speed_plan.size == waypoints.shape[1]
+        assert speed_plan.size == waypoints.shape[1], "Waypoints and speed plan must have the same number of columns!"
         n_px, n_wps = waypoints.shape
         if n_px != 2:
             raise ValueError("Waypoints do not contain planar coordinates along each column!")

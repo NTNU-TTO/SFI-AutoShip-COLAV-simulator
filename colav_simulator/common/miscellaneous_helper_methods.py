@@ -831,8 +831,10 @@ def get_relevant_do_states(input_list: list, idx: int, add_empty_cov: bool = Fal
     output_list = []
     for do_idx, do_state, do_length, do_width in input_list:
         if do_idx != idx:
-            output_list.append((do_idx, do_state, np.zeros((4, 4)), do_length, do_width))
-
+            if add_empty_cov:
+                output_list.append((do_idx, do_state, np.zeros((4, 4)), do_length, do_width))
+            else:
+                output_list.append((do_idx, do_state, do_length, do_width))
     return output_list
 
 
