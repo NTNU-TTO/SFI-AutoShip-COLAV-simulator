@@ -1134,7 +1134,7 @@ class ScenarioGenerator:
                 config.t_end - config.t_start,
             )
 
-        ot_speed_margin = 2.0
+        ot_speed_margin = 1.0
         if scenario_type == sc.ScenarioType.OT_en and U_max - ot_speed_margin <= os_csog_state_basis[2]:
             print(
                 f"WARNING: ScenarioType = OT_en: Own-ship speed should be below the maximum target ship speed minus margin of {ot_speed_margin}. Selecting a different scenario type..."

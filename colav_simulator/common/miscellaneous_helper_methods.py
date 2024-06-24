@@ -816,13 +816,14 @@ def get_list_except_element_idx(input_list: list, idx: int) -> list:
     return output_list
 
 
-def get_relevant_do_states(input_list: list, idx: int) -> list:
+def get_relevant_do_states(input_list: list, idx: int, add_empty_cov: bool = False) -> list:
     """Returns a tuple list of relevant dynamic obstacle indices, states to use in tracking/sensor generation
     , with all elements of input_list except the element <idx>, if this index is in the tuple list.
 
     Args:
         input_list (list): List of (do_idx, do_state, do_length, do_width) to get elements from
         idx (int): Index of element to exclude
+        add_empty_cov (bool, optional): Whether to add an empty covariance matrix to the output list. Defaults to False.
 
     Returns:
         list: List with all (do_idx, do_state) tuples of input_list except the element idx, if idx is in the tuple list
@@ -830,7 +831,7 @@ def get_relevant_do_states(input_list: list, idx: int) -> list:
     output_list = []
     for do_idx, do_state, do_length, do_width in input_list:
         if do_idx != idx:
-            output_list.append((do_idx, do_state, do_length, do_width))
+            output_list.append((do_idx, do_state, np.zeros((4, 4)), do_length, do_width))
 
     return output_list
 

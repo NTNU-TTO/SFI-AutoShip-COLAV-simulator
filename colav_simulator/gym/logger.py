@@ -11,7 +11,9 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
+import cv2
 import numpy as np
+import scipy.ndimage as scimg
 
 
 class EpisodeData(NamedTuple):
@@ -123,11 +125,32 @@ class Logger:
 
         self.distances_to_collision[env_idx].append(info["distance_to_collision"])
         self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
-        self.unnormalized_actions[env_idx].append(info["unnormalized_action"])
-        self.unnormalized_obs[env_idx].append(info["unnormalized_obs"])
+        # self.unnormalized_actions[env_idx].append(info["unnormalized_action"])
+        # self.unnormalized_obs[env_idx].append(info["unnormalized_obs"])
         self.reward_components[env_idx].append(info["reward_components"])
-        if info["render_frame"] is not None:
-            self.frames[env_idx].append(info["render_frame"])
+        if info["render_frame"] is not None and info["render_frame"].size > 10:
+            frame = info["render_frame"]
+            os_course = info["os_course"]
+            rotated_img = scimg.rotate(frame, np.rad2deg(os_course), reshape=False)
+            npx, npy = rotated_img.shape[:2]
+            center_pixel_x = int(rotated_img.shape[0] // 2)
+            center_pixel_y = int(rotated_img.shape[1] // 2)
+            cutoff_index_below_vessel = int(0.1 * npx)  # corresponds to 100 m for a 1200 m zoom width
+            cutoff_index_below_vessel = (
+                cutoff_index_below_vessel if cutoff_index_below_vessel <= center_pixel_y else center_pixel_y
+            )
+            cutoff_index_above_vessel = int(0.4 * npx)
+            cutoff_index_above_vessel = (
+                cutoff_index_above_vessel if cutoff_index_above_vessel <= center_pixel_x else center_pixel_x
+            )
+            cutoff_laterally = int(0.25 * npy)
+
+            cropped_img = rotated_img[
+                center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
+                center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
+            ]
+            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA)
+            self.frames[env_idx].append(reduced_frame)
 
         # Special case for an MPC actor
         if "actor_info" in info and "old_mpc_params" in info["actor_info"]:
@@ -138,7 +161,7 @@ class Logger:
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
             stored_actor_info["mpc_cost"] = actor_info["cost_val"]
             stored_actor_info["optimal"] = actor_info["optimal"]
-            stored_actor_info["predicted_trajectory"] = actor_info["trajectory"]
+            # stored_actor_info["predicted_trajectory"] = actor_info["trajectory"]
             stored_actor_info["n_iterations"] = actor_info["n_iter"]
             stored_actor_info["so_constr_inf_norm"] = float(actor_info["so_constr_vals"].max())
             stored_actor_info["do_constr_inf_norm"] = float(actor_info["do_constr_vals"].max())

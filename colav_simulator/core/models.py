@@ -20,13 +20,7 @@ import numpy as np
 
 @dataclass
 class KinematicCSOGParams:
-    """Parameter class for the Course and SPeed over Ground model.
-
-    Parameters:
-        T_chi (float): First order time constant for the course dynamics.
-        T_U (float): First order time constant for the speed dynamics.
-
-    """
+    """Parameter class for the Course and SPeed over Ground model."""
 
     name: str = "KinematicCSOG"
     draft: float = 0.5
@@ -488,6 +482,10 @@ class Telemetron(IModel):
         if xs.size != self._n_x:
             raise ValueError("Dimension of state should be 6!")
 
+        u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
+        u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
+        u[2] = mf.sat(u[2], self._params.Fy_limits[0] * self._params.l_r, self._params.Fy_limits[1] * self._params.l_r)
+
         eta = xs[0:3]
         eta[2] = mf.wrap_angle_to_pmpi(eta[2])
         nu = xs[3:6]
@@ -510,36 +508,6 @@ class Telemetron(IModel):
             gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
             tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
         if w is not None and "speed" in w.currents:
-            V_c = w.currents["speed"]
-            beta_c = w.currents["direction"]
-
-        # Current in BODY frame
-        nu_c = mf.Rmtrx(eta[2]).T @ np.array([V_c * np.cos(beta_c), V_c * np.sin(beta_c), 0.0])
-        nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
-        nu_r = nu - nu_c
-        nu_c_dot = np.array([nu[2] * nu_c[1], -nu[2] * nu_c[0], 0.0])
-
-        u[0] = mf.sat(u[0], self._params.Fx_limits[0], self._params.Fx_limits[1])
-        u[1] = mf.sat(u[1], self._params.Fy_limits[0], self._params.Fy_limits[1])
-        u[2] = mf.sat(u[2], self._params.Fy_limits[0] * self._params.l_r, self._params.Fy_limits[1] * self._params.l_r)
-
-        V_c = 0.0
-        beta_c = 0.0
-        V_w = 0.0
-        beta_w = 0.0
-        tau_wind = np.zeros(3)
-        if w is not None and "speed" in w.wind and "direction" in w.wind:
-            V_w = w.wind["speed"]
-            beta_w = w.wind["direction"]
-            nu_w = mf.Rmtrx(eta[2]).T @ np.array([V_w * np.cos(beta_w), V_w * np.sin(beta_w), 0.0])
-            u_rw = nu[0] - nu_w[0]
-            v_rw = nu[1] - nu_w[1]
-            V_rw = np.sqrt(u_rw**2 + v_rw**2)
-            gamma_rw = -np.arctan2(v_rw, u_rw)
-            gamma_w = eta[2] - beta_w - np.pi
-            gamma_w = mf.wrap_angle_to_pmpi(gamma_w)
-            tau_wind = self.compute_wind_forces(V_rw, gamma_rw)
-        if w is not None and "speed" in w.currents and "direction" in w.currents:
             V_c = w.currents["speed"]
             beta_c = w.currents["direction"]
 

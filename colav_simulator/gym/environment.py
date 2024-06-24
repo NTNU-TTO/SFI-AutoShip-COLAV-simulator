@@ -290,8 +290,11 @@ class COLAVEnvironment(gym.Env):
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
             "truncated": self._is_truncated(),
-            "unnormalized_action": unnormalized_action,
-            "unnormalized_obs": unnormalized_obs,
+            # "unnormalized_action": unnormalized_action,
+            # "unnormalized_obs": unnormalized_obs,
+            "os_heading": self.ownship.heading,
+            "os_speed": self.ownship.speed,
+            "os_course": self.ownship.course,
             "reward": self.last_reward,
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
             "render_frame": self.current_frame if self.render_mode == "rgb_array" else None,
@@ -340,6 +343,7 @@ class COLAVEnvironment(gym.Env):
 
         episode_data = scenario_episode_list.pop(0)
 
+        episode_data["disturbance"].disable_wind()
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"],
             sconfig=episode_data["config"],

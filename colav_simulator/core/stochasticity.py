@@ -303,6 +303,18 @@ class Disturbance:
         if self._currents is not None:
             self._currents.reset(seed)
 
+    def disable_wind(self):
+        self._wind = None
+
+    def disable_currents(self):
+        self._currents = None
+
+    def enable_wind(self, config: GaussMarkovDisturbanceParams):
+        self._wind = GaussMarkovDisturbance(config)
+
+    def enable_currents(self, config: GaussMarkovDisturbanceParams):
+        self._currents = GaussMarkovDisturbance(config)
+
     def update(self, t: float, dt: float) -> None:
         """Updates the disturbance processes from time t to t + dt
 

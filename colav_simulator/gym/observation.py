@@ -820,7 +820,7 @@ class TimeObservation(ObservationType):
 
 
 class PerceptionImageObservation(ObservationType):
-    """Observation consisting of a perception image. INCOMPLETE"""
+    """Observation consisting of a perception image."""
 
     def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 256, 256), **kwargs) -> None:
         """
@@ -871,7 +871,6 @@ class PerceptionImageObservation(ObservationType):
         # os_liveplot_zoom_width = self.env.liveplot_zoom_width
 
         os_heading = self.env.ownship.heading
-        #
         # Rotate the image to align with the ownship heading
         rotated_img = scimg.rotate(pruned_img, np.rad2deg(os_heading), reshape=False)
         npx, npy = rotated_img.shape[:2]
@@ -881,12 +880,12 @@ class PerceptionImageObservation(ObservationType):
         # Image coordinate system is (0,0) in the upper left corner, height is the first index, width is the second index
         center_pixel_x = int(rotated_img.shape[0] // 2)
         center_pixel_y = int(rotated_img.shape[1] // 2)
-        cutoff_index_below_vessel = int(0.05 * npx)  # corresponds to 100 m for a 2000 m zoom width
+        cutoff_index_below_vessel = int(0.05 * npx)  # corresponds to 100 m for a 1200 m zoom width
         cutoff_index_below_vessel = (
             cutoff_index_below_vessel if cutoff_index_below_vessel <= center_pixel_y else center_pixel_y
         )
 
-        cutoff_index_above_vessel = int(0.3 * npx)  # corresponds to 600 m for a 1000 m zoom width
+        cutoff_index_above_vessel = int(0.4 * npx)  # corresponds to 400 m for a 1200 m zoom width
         cutoff_index_above_vessel = (
             cutoff_index_above_vessel if cutoff_index_above_vessel <= center_pixel_x else center_pixel_x
         )
