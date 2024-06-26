@@ -163,8 +163,11 @@ class COLAVEnvironment(gym.Env):
             action_sample_time if action_sample_time is not None else self.scenario_config.rl.action_sample_time
         )
 
-        self.rewarder = rewarder_class(env=self, **rewarder_kwargs)
         self._define_spaces()
+
+        self.rewarder_class = rewarder_class
+        self.rewarder_kwargs = rewarder_kwargs
+        self.rewarder = self.rewarder_class(env=self, **self.rewarder_kwargs)
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -355,6 +358,7 @@ class COLAVEnvironment(gym.Env):
 
         self._define_spaces()
         self._init_render()
+        self.rewarder = self.rewarder_class(env=self, **self.rewarder_kwargs)
 
         obs = self.observation_type.observe()
         info = self._info(obs, action=None)
