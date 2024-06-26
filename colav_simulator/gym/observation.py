@@ -789,8 +789,6 @@ class NavigationPathObservation(ObservationType):
         reference_speed = self.env.ownship.speed_plan[0]
         speed_error = reference_speed - ownship_speed
 
-        print(ownship_speed, reference_speed, speed_error)
-
         obs = np.concatenate((self.env.ownship.state[3:], np.array([cte, course_error, course_error_LA, speed_error])))
 
         assert obs.shape == (self.size,), "Path observation is not correct shape!"
