@@ -481,6 +481,11 @@ class COLAVEnvironment(gym.Env):
     def relevant_grounding_hazards(self) -> list:
         """The nearby ownship grounding hazards in the environment."""
         return self.simulator.relevant_grounding_hazards
+    
+    @property
+    def relevant_grounding_hazards_as_union(self) -> list:
+        """The nearby ownship grounding hazards in the environment as a multipolygon"""
+        return self.simulator.relevant_grounding_hazards_as_union
 
     @property
     def disturbance(self) -> stoch.Disturbance | None:

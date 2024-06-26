@@ -16,7 +16,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Tuple, Union, List
 
 import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
@@ -65,7 +65,9 @@ class ObservationType(ABC):
 
 
 class LidarLikeObservation(ObservationType):
-    """A lidar-like observation space for the own-ship, i.e. a 360 degree scan of the environment as is used in Meyer et. al. 2020."""
+    """A lidar-like observation space for the own-ship, i.e. a 360 degree scan 
+    of the environment as is used in Meyer et. al. 2020.
+    """
 
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
@@ -76,10 +78,18 @@ class LidarLikeObservation(ObservationType):
         # Sensor parameters. TODO: Implement config to set/change these variables
         self.n_sensors = 180
         self.n_sectors = 9
-        self.sensing_range = 1500
+        self.sensing_range = 1000
+        self.OS_size_coefficient = 6.0 # Scales up OS size in feasibility pooling
+        self.TS_size_coefficient = 1.0 # Scales up TS polygons
 
         self._partition_sensors()
         self._create_spatial_index()
+        
+        self.sensor_suite = None
+        self.current_dist_measurements = np.array([])
+        self.current_sensor_angles = np.array([])
+        self.max_distance_measurement = np.array([self.sensing_range for i in range(self.n_sensors)])
+        self.min_velocity_measurement = np.array([(0.0, 0.0) for i in range(self.n_sensors)])
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -130,19 +140,17 @@ class LidarLikeObservation(ObservationType):
         Returns:
             Observation: Normalized observation.
         """
-        normalized_obs = np.array(
-            np.concatenate(
+        normalized_obs = np.array(np.concatenate(
+            [
                 [
-                    [
-                        mf.linear_map(obs[i], self.observation_range["closeness"], (-1.0, 1.0))
-                        for i in range(self.n_sectors)
-                    ],
-                    [
-                        mf.linear_map(obs[j], self.observation_range["do_speed"], (-1.0, 1.0))
-                        for j in range(self.n_sectors, self.n_sectors * 3)
-                    ],
+                    mf.linear_map(obs[i], self.observation_range["closeness"], (-1.0, 1.0))
+                    for i in range(self.n_sectors)
+                ],
+                [
+                    mf.linear_map(obs[j], self.observation_range["do_speed"], (-1.0, 1.0))
+                    for j in range(self.n_sectors, self.n_sectors*3)
                 ]
-            ),
+            ]),
             dtype=np.float32,
         )
 
@@ -152,46 +160,52 @@ class LidarLikeObservation(ObservationType):
         """Get an observation of the environment state."""
         assert self.env.ownship is not None, "Ownship is not defined"
 
-        ownship_pos = sgeo.Point(
-            (self.env.ownship.state[1], self.env.ownship.state[0])
-        )  # Ownship position as (easting, northing) coordinates
+        # Ownship position as (easting, northing) coordinates
+        ownship_pos = ( self.env.ownship.csog_state[1],  self.env.ownship.csog_state[0])
+        ownship_pos_point = sgeo.Point(
+            ( self.env.ownship.state[1],  self.env.ownship.state[0])
+        )
 
-        sensor_range = self.sensing_range
-        sensor_angles = self._sensor_angles + self.env.ownship.heading  # Rotation of sensor suite
-
-        grounding_hazards = self.grounding_hazards
-        dynamic_obstacles = self.env.dynamic_obstacles
-
-        # Convert ship objects to polygons
+        # Create TS polygons
         dynamic_obstacle_polygons = []
-        for dynamic_obstacle in dynamic_obstacles:
-            do_state = dynamic_obstacle.csog_state
+        tracks, _ = self.env.ownship.get_do_track_information()
+        for track in tracks:
+            do_estimate = track[1]
+            do_length = track[3]
+            do_width = track[4]
+            do_state = mhm.convert_vxvy_state_to_sog_cog_state(do_estimate)
+
             dynamic_obstacle_polygons.append(
                 mapf.create_ship_polygon(
                     x=do_state[0],
                     y=do_state[1],
-                    heading=dynamic_obstacle.heading,
-                    length=dynamic_obstacle.length,
-                    width=dynamic_obstacle.width,
+                    heading=do_state[3],
+                    length=do_length,
+                    width=do_width,
+                    length_scaling=self.TS_size_coefficient,
+                    width_scaling= self.TS_size_coefficient
                 )
             )
 
-        # Determine distance and velocities to obstacles in each sector
-        obstacle_distances = list()
-        obstacle_velocities = list()
-        for isensor in range(self.n_sensors):
-            closest_obstacle_dist, closest_obstacle_vel = self._cast_sensor_ray(
-                ownship_pos=ownship_pos,
-                sensor_angle=sensor_angles[isensor],
-                sensor_range=sensor_range,
-                grounding_hazards=grounding_hazards,
-                dynamic_obstacles=dynamic_obstacle_polygons,
-            )
-            obstacle_distances.append(closest_obstacle_dist)
-            obstacle_velocities.append(closest_obstacle_vel)
+        self.do_polygons = dynamic_obstacle_polygons
 
-        obstacle_distances = np.array(obstacle_distances)
-        obstacle_velocities = np.array(obstacle_velocities)
+        # Creation and transformation of sensor suite polygon
+        if self.sensor_suite is None:
+            self.sensor_suite = self._create_sensor_suite(ownship_pos)
+
+        self.sensor_suite = self._translate_sensor_suite(ownship_pos=ownship_pos,
+                                                         sensor_suite=self.sensor_suite)
+        
+        # The sensor suite is rotated from 0 heading angle each iteration
+        sensor_suite = self._rotate_sensor_suite(
+            ownship_heading= self.env.ownship.heading,
+            sensor_suite=self.sensor_suite
+        )
+        # Simulate the sensor suite
+        obstacle_distances, obstacle_velocities = self._sense(
+            ownship_pos=ownship_pos_point,
+            sensor_suite=sensor_suite,
+            dynamic_obstacle_polygons=dynamic_obstacle_polygons)
 
         # Split distance and velocity measurements into sectors
         obstacle_distances_by_sector = np.split(obstacle_distances, self._sector_start_indices[1:])
@@ -207,9 +221,13 @@ class LidarLikeObservation(ObservationType):
             # Velocities of closest obstacle in sector
             closest_obstacle_index = np.argmin(obstacle_distances_by_sector[i])
             sector_velocities.append(obstacle_velocities_by_sector[i][closest_obstacle_index])
-
+        
         obs = np.concatenate([np.array(sector_closeness), np.array(sector_velocities).flatten()])
 
+        # Update latest measurements
+        self.current_dist_measurements = obstacle_distances
+        self.current_obstacle_velocities = obstacle_velocities
+        
         return self.normalize(obs)
 
     def _feasibility_pooling(self, x: list) -> float:
@@ -224,7 +242,7 @@ class LidarLikeObservation(ObservationType):
             float: Longest feasible distance within the current sector
 
         """
-        ship_width = self.env.ownship.get_ship_info()["width"]
+        ship_width =  self.OS_size_coefficient * self.env.ownship.width
         theta = self._delta_sensor_angle
 
         # Get sorted list of x with corresponding indices
@@ -278,8 +296,7 @@ class LidarLikeObservation(ObservationType):
         Returns:
             int: Index of the corresponding sector
         """
-        sigma = self._sigma(float(isensor))
-        return int(np.floor(sigma(isensor) - sigma(0)))
+        return int(np.floor(self._sigma(isensor) - self._sigma(0)))
 
     def _sigma(self, x: float) -> float:
         """Sigmoid function used for mapping sensor indices to sectors."""
@@ -303,75 +320,147 @@ class LidarLikeObservation(ObservationType):
         closeness = np.clip(a=(1 - np.log(distance + 1) / np.log(self.sensing_range + 1)), a_min=0, a_max=1)
         return closeness
 
-    def _cast_sensor_ray(
-        self,
-        ownship_pos: sgeo.Point,
-        sensor_angle: float,
-        sensor_range: float,
-        grounding_hazards: list,
-        dynamic_obstacles: list,
-    ):
-        """Cast sensor ray and return coordinates of closest obstacle
+    def _create_spatial_index(self):
+        """Creates an R-tree spatial index of the relevant grounding hazards."""
+        grounding_hazards = np.array([])
+        geoms = []
+        for poly in self.env.relevant_grounding_hazards_as_union:
+            if isinstance(poly, shapely.Polygon):
+                continue
+            geoms = np.array([geom for geom in poly.geoms])
+            grounding_hazards = np.concatenate([grounding_hazards, geoms])
+        
+        self.grounding_hazards = grounding_hazards
+        self.grounding_spatial_index = shapely.STRtree(geoms)
+
+    def _create_sensor_suite(self, ownship_pos: np.ndarray):
+        """Creates a sensor suite polygon consisting of n_sensors linestrings
+        covering 360 degrees of the ownship surroundings
 
         Args:
-            - ownship_pos (Point): Ownship coordinates (east, north)
-            - sensor_angle (float): Angle of sensor relative to ownships body frame [rad]
-            - sensor_range (float): Range of sensor [m]
-            - grounding_hazards (list): List of grounding hazards as a list of geometry objects
-            - dynamic_obstacles (list): List of dynamic obstacles as polygons
+            ownship_pos(array): Ownship position as (easting, northing) coordinates
+        
+        Returns:
+            Multilinestring[Linestring]: The multilinestring representing the sensor suite
+        """
+        linestrings = []
+        for sensor_angle in self._sensor_angles:
+            endpoint = (
+                ownship_pos[0] + np.sin(sensor_angle) * self.sensing_range, # Easting coordinate
+                ownship_pos[1] + np.cos(sensor_angle) * self.sensing_range, # Northing coordinate
+            )
+
+            linestrings.append(shapely.LineString((ownship_pos, endpoint)))
+        
+        return shapely.MultiLineString(linestrings)
+    
+    def _translate_sensor_suite(
+            self, 
+            ownship_pos: np.ndarray, 
+            sensor_suite: shapely.MultiLineString
+    ) -> shapely.MultiLineString:
+        """Moves the sensor suite polygon to the current ownship position
+        
+        Args:
+            ownship_pos (array): ownship position as (easting, northing) coordinates
+            sensor_suite (MultiLineString): current sensor suite polygon
+        
+        Returns:
+            MultiLineString: Translated sensor suite
+        """
+        dist = np.array(ownship_pos) - np.array(sensor_suite.geoms[0].coords[0])
+        return shapely.affinity.translate(sensor_suite, dist[0], dist[1])
+    
+    def _rotate_sensor_suite(
+            self, 
+            ownship_heading: float, 
+            sensor_suite: shapely.MultiLineString
+    ) -> shapely.MultiLineString:
+        """Rotates the sensor suite polygon to match the ownship heading
+
+        Args:
+            ownship_heading (float): Heading angle in radians
+            sensor_suite (MultiLineString): current sensor suite polygon
 
         Returns:
-            Tuple[float | float]: Distance and velocity of the closest detected obstacle as a tuple.
+            MultiLineString: Rotated sensor suite
+        
         """
-        sensor_endpoint = (
-            ownship_pos.x + np.sin(sensor_angle) * sensor_range,
-            ownship_pos.y + np.cos(sensor_angle) * sensor_range,
+        return shapely.affinity.rotate(geom=sensor_suite, angle=-ownship_heading, use_radians=True)
+    
+    def _sense(
+            self, 
+            ownship_pos: shapely.Point, 
+            sensor_suite: shapely.MultiLineString,
+            dynamic_obstacle_polygons: List[shapely.Polygon]
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Simulates the sensor suite. For each sensor in the sensor suite the
+        distance to the closest obstacle is found. If the obstacle is dynamic,
+        the velocity is also decomposed in a vessel-relative frame and returned
+        
+        Args:
+            ownship_pos (Point): Ownship position (easting, northing) as a Point polygon
+            sensor_suite (MultiLineString): Polygon representing the sensor suite
+            dynamic_obstacle_polygons (list): List of polygons representing the target ships
+
+        Returns:
+            Tuple (ndarray, ndarray): Tuple of the measured distances (size = n_sensors) 
+            and decomposed velocities (size = 2*n_sensors) for the entire sensor suite
+            """
+        # Create empty arrays for both measurements
+        distances = self.max_distance_measurement.copy()
+        velocities = self.min_velocity_measurement.copy()
+
+        # Decompose sensor suite multilinestring into list of linestrings
+        sensor_rays = np.array(sensor_suite.geoms)
+        # Query for intersections with grounding hazards
+        static_indices = self.grounding_spatial_index.query(
+            geometry=sensor_rays,
+            predicate='intersects',
+            distance=0
         )
+        # Get query result on the form [(sensor index, hazard index), ...]
+        static_indices = static_indices.T.tolist()
 
-        sensor_ray = sgeo.LineString([ownship_pos, sensor_endpoint])
-        closest_obstacle_dist = sensor_range
-        closest_obstacle_vel = (0, 0)
-
-        # Grounding hazards
-        closest_hazard_idx = self.grounding_spatial_index.query_nearest(
-            geometry=sensor_ray, max_distance=self.sensing_range, exclusive=True, all_matches=True
-        )
-        # Find closest obstacle among query results
-        if np.any(closest_hazard_idx):
-            for idx in closest_hazard_idx:
-                if shapely.intersects(sensor_ray, grounding_hazards[idx]):
-                    intersection = shapely.intersection(sensor_ray, grounding_hazards[idx])
-                    intersection = mapf.standardize_polygon_intersections(
-                        shapely.intersection(sensor_ray, grounding_hazards[idx])
-                    )
-                    if ownship_pos.distance(intersection) < closest_obstacle_dist:
-                        closest_obstacle_dist = ownship_pos.distance(intersection)
-
+        for sensor_idx, static_idx in static_indices:
+            intersection = mapf.standardize_polygon_intersections(
+                shapely.intersection(sensor_rays[sensor_idx], self.grounding_hazards[static_idx])
+                )
+            dist = ownship_pos.distance(intersection)
+            
+            if dist < distances[sensor_idx]:
+                distances[sensor_idx] = dist
+        
         # Dynamic obstacles
-        for idx, dynamic_obstacle in enumerate(dynamic_obstacles):
-            if shapely.intersects(sensor_ray, dynamic_obstacle):
-                intersection = sensor_ray.intersection(dynamic_obstacle)
-                intersection = mapf.standardize_polygon_intersections(intersection)
-                if ownship_pos.distance(intersection) < closest_obstacle_dist:
-                    closest_obstacle_dist = ownship_pos.distance(intersection)
+        dynamic_strtree = shapely.STRtree(dynamic_obstacle_polygons)
 
-                    # Decompose velocity in sensor sector coordinates
-                    csog_state = self.env.dynamic_obstacles[idx].csog_state
-                    vxvy_state = mhm.convert_state_to_vxvy_state(csog_state)
-                    closest_obstacle_vel = np.array([vxvy_state[2], vxvy_state[3]]).T
-                    closest_obstacle_vel = mf.Rmtrx2D(-sensor_angle - np.pi / 2).dot(closest_obstacle_vel)
+        # Query for intersections between sensor linestrings and dynamic obstacles
+        dynamic_indices = dynamic_strtree.query(
+            geometry=sensor_rays,
+            predicate='intersects',
+            distance=0
+        )
+        # Get query result on the form [(sensor index, target ship index), ...]
+        dynamic_indices = dynamic_indices.T.tolist()
 
-        return closest_obstacle_dist, closest_obstacle_vel
+        for sensor_idx, dynamic_idx in dynamic_indices:
+            intersection = mapf.standardize_polygon_intersections(
+                shapely.intersection(sensor_rays[sensor_idx], dynamic_obstacle_polygons[dynamic_idx])
+                )
+            dist = ownship_pos.distance(intersection)
 
-    def _create_spatial_index(self):
-        """Creates a R-tree spatial index of the relevant grounding hazards."""
-        grounding_hazards = np.array([])
-        for poly in self.env.relevant_grounding_hazards:
-            geoms = np.array([geom for geom in poly.geoms])
-            np.concatenate([grounding_hazards, geoms])
+            if dist < distances[sensor_idx]:
+                distances[sensor_idx] = dist
+                # Decompose velocity in sensor sector coordinates
+                csog_state = self.env.dynamic_obstacles[dynamic_idx].csog_state
+                vxvy_state = mhm.convert_state_to_vxvy_state(csog_state)
+                velocity_ned = np.array([vxvy_state[2], vxvy_state[3]]).T
+                # Rotate velocity vector to sensor coordinates
+                R_ned_to_sensor = mf.Rmtrx2D( self.env.ownship.heading + self._sensor_angles[sensor_idx] + np.pi / 2)
+                velocity_sensor = R_ned_to_sensor.T @ velocity_ned
+                velocities[sensor_idx] = velocity_sensor
 
-        self.grounding_hazards = geoms
-        self.grounding_spatial_index = shapely.STRtree(geoms)
+        return distances, velocities
 
 
 class PathRelativeNavigationObservation(ObservationType):
