@@ -668,6 +668,170 @@ class Navigation3DOFStateObservation(ObservationType):
         return self.normalize(obs)
 
 
+class NavigationPathObservation(ObservationType):
+    """Observation of the ship's state in relation to a preplanned trajectory, 
+    as implemented in Meyer et al.(2020).
+    NOTE: Extended to include the observation of speed error.
+    """
+    def __init__(self, env: "COLAVEnvironment") -> None:
+        super().__init__(env)
+        self.name = "NavigationPathObservation"
+        self.size = 7
+        self.define_observation_ranges()
+        
+        self.wp_linestring = None
+
+        self.lookahead_dist = 100
+        self.max_cross_track_error = 50
+
+    def space(self) -> gym.spaces.Space:
+        """Get the observation space."""
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.size,), dtype=np.float32)
+
+    def define_observation_ranges(self) -> None:
+        """Define the ranges for the observation space."""
+        self.observation_range = {
+            "speed": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
+            "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
+            "angles": (-np.pi, np.pi),
+            "cte": (-500, 500)
+        }
+
+    def normalize(self, obs: Observation) -> Observation:
+        """Normalize the input observation entries to be within the range [-1, 1], based on the ranges for each observation dimension.
+
+        Args:
+            obs (Observation): The observation to normalize.
+
+        Returns:
+            Observation: Normalized observation.
+        """
+        normalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[1], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[2], self.observation_range["turn_rate"], (-1.0, 1.0)),
+                mf.linear_map(obs[3], self.observation_range["cte"], (-1.0, 1.0)),
+                mf.linear_map(obs[4], self.observation_range["angles"], (-1.0, 1.0)),
+                mf.linear_map(obs[5], self.observation_range["angles"], (-1.0, 1.0)),
+                mf.linear_map(obs[6], self.observation_range["speed"], (-1.0, 1.0))
+            ],
+            dtype=np.float32,
+        )
+        return normalized_obs
+    
+    def unnormalize(self, obs: Observation) -> Observation:
+        """Unnormalize the input normalized observation to be within the original range
+
+        Args:
+            obs (Observation): The observation to unnormalize.
+
+        Returns:
+            Observation: Unnormalized observation.
+        """
+        # No unnormalization is provided for this observation type
+        unnormalized_obs = np.array(
+            [
+                mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["turn_rate"]),
+                mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["cte"]),
+                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["angles"]),
+                mf.linear_map(obs[5], (-1.0, 1.0), self.observation_range["angles"]),
+                mf.linear_map(obs[6], (-1.0, 1.0), self.observation_range["speed"])
+            ],
+            dtype=np.float32,
+        )
+        return unnormalized_obs
+
+    def observe(self) -> Observation:
+        """Get an observation on the form:
+        obs = [ surge velocity, sway velocity, yaw rate, cross-track error, 
+                course error, look-ahead course error, speed error]
+        
+        Returns:
+            np.ndarray: Normalized observation vector
+        """
+        if self.env.time < 0.0001:
+            self.set_waypoints(self.env.ownship.waypoints)
+
+        assert self.wp_linestring is not None, "Path is not defined"
+        ownship_pos = self.env.ownship.csog_state[:2]
+        ownship_course = self.env.ownship.csog_state[3]
+        
+        # Arc length from the start of the path to the ownship position
+        ownship_ref = self.wp_linestring.line_locate_point(shapely.Point(ownship_pos))
+        # Ownship reference point projected onto the path
+        ownship_ref_point = self.wp_linestring.line_interpolate_point(ownship_ref)
+        ownship_ref_point = np.array(ownship_ref_point.coords[0])
+
+        path_angle = self.get_path_angle(ownship_ref)
+
+        lookahead_point = self.wp_linestring.line_interpolate_point(ownship_ref + self.lookahead_dist)
+        lookahead_point = np.array(lookahead_point.coords[0])
+
+        # Catch the cases where lookahead distance is beyond the last waypoint
+        if ownship_ref + self.lookahead_dist >= self.wp_linestring.length:
+            LA_path_angle = self.get_path_angle(self.wp_linestring.length - 1)
+        else:
+            LA_path_angle = self.get_path_angle(ownship_ref + self.lookahead_dist)
+        
+        # Course angle errors at the ownship reference and lookahead point
+        course_error = mf.wrap_angle_diff_to_pmpi(np.arctan2(lookahead_point[1] - ownship_pos[1], lookahead_point[0] - ownship_pos[0]), ownship_course)
+        course_error_LA = mf.wrap_angle_diff_to_pmpi(LA_path_angle, ownship_course)
+
+        # Cross track error
+        cte = -np.sin(path_angle)*(ownship_ref_point[0] - ownship_pos[0]) + np.cos(path_angle)*(ownship_ref_point[1] - ownship_pos[1])
+        
+        # Speed error
+        ownship_speed = self.env.ownship.csog_state[2]
+        # TODO: add functionality to handle waypoint switching in speed plan
+        reference_speed = self.env.ownship.speed_plan[0]
+        speed_error = reference_speed - ownship_speed
+
+        print(ownship_speed, reference_speed, speed_error)
+
+        obs = np.concatenate((self.env.ownship.state[3:], np.array([cte, course_error, course_error_LA, speed_error])))
+
+        assert obs.shape == (self.size,), "Path observation is not correct shape!"
+        return self.normalize(obs)
+    
+    def get_path_angle(self, ref_dist: float):
+        """Calculates the angle of the path tangential line at a given reference 
+        distance from the path starting point
+        
+        Args:
+            ref_dist(float): Distance along path from starting point to the reference point
+        
+        Returns:
+            float: Angle from north vector to path tangent line
+        """
+        dp = 0.1
+        # Reference point
+        p = self.wp_linestring.line_interpolate_point(ref_dist)
+        
+        # Reference point + a small distance dp
+        pdp = self.wp_linestring.line_interpolate_point(ref_dist + dp)
+        
+        tangent = np.array(pdp.coords[0]) - np.array(p.coords[0])
+        return np.arctan2(tangent[1], tangent[0])
+    
+    def set_waypoints(self, waypoints: np.ndarray):
+        """Sets the current waypoints. Creates a path linestring of linear segments.
+        
+        Args:
+            waypoints(np.ndarray): waypoints in NED coordinates
+        """
+        n_wps = waypoints.shape[1]        
+        self.wp_linestring = shapely.LineString(np.array([waypoints[:,i] for i in range(n_wps)]))
+
+    @property
+    def path_progress(self) -> float:
+        """The ownship progress along the path normalized to [0, 1]."""
+        ownship_pos = self.env.ownship.csog_state[:2]
+        return self.wp_linestring.line_locate_point(shapely.Point(ownship_pos), normalized=True)
+
+
 class DisturbanceObservation(ObservationType):
     """Observes the current disturbance state, i.e. [V_c, beta_c, V_w, beta_w]."""
 
@@ -1194,6 +1358,8 @@ def observation_factory(
         return PathRelativeNavigationObservation(env, **kwargs)
     elif "navigation_3dof_state_observation" in observation_type:
         return Navigation3DOFStateObservation(env, **kwargs)
+    elif "navigation_path_observation" in observation_type:
+        return NavigationPathObservation(env, **kwargs)
     elif "perception_image_observation" in observation_type:
         return PerceptionImageObservation(env, **kwargs)
     elif "relative_tracking_observation" in observation_type:
