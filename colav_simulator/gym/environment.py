@@ -414,7 +414,7 @@ class COLAVEnvironment(gym.Env):
     def render(self):
         """Renders the environment in 2D."""
         img = None
-        t_now = time.time()
+        # t_now = time.time()
         if self._live_plot_closed:
             self._init_render()
 
@@ -429,7 +429,7 @@ class COLAVEnvironment(gym.Env):
             )
             self.current_frame = self.viewer2d.get_live_plot_image()
             img = self.current_frame
-        print(f"Render time: {time.time() - t_now}")
+        # print(f"Render time: {time.time() - t_now}")
         return img
 
     @property
