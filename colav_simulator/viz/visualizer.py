@@ -522,13 +522,13 @@ class Visualizer:
             )
 
         if self._config.show_liveplot_disturbances:
-            corner_offset = (-120, -110)
+            corner_offset = (-125, -110)
             self.misc_plt_handles["disturbance"] = {}
             dhandles = {
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 95,
+                        ylim[1] + corner_offset[0] - 105,
                         xlim[1] + corner_offset[1] - 85,
                         "Currents: 0.0 m/s",
                         fontsize=15,
@@ -542,7 +542,7 @@ class Visualizer:
                 "wind": {
                     "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 95,
+                        ylim[1] + corner_offset[0] - 105,
                         xlim[1] + corner_offset[1] - 115,
                         "Wind: 0.0 m/s",
                         fontsize=15,
@@ -585,7 +585,7 @@ class Visualizer:
         xlim = ax_map.get_ylim()  # northing
         arrow_scale = 60
         circ_x, circ_y = mhm.create_circle(78, 100)
-        corner_offset = (-120, -110)
+        corner_offset = (-125, -110)
         circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
         dhandles["circle"].remove()
         dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
@@ -594,7 +594,7 @@ class Visualizer:
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 95,
+                ylim[1] + corner_offset[0] - 105,
                 xlim[1] + corner_offset[1] - 85,
                 f"Currents: {speed:.2f} m/s",
                 fontsize=15,
@@ -619,7 +619,7 @@ class Visualizer:
         else:
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 95,
+                ylim[1] + corner_offset[0] - 105,
                 xlim[1] + corner_offset[1] - 90,
                 "Currents: 0.0 m/s",
                 fontsize=15,
@@ -634,7 +634,7 @@ class Visualizer:
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 95,
+                ylim[1] + corner_offset[0] - 105,
                 xlim[1] + corner_offset[1] - 115,
                 f"Wind: {speed:.2f} m/s",
                 fontsize=15,
@@ -659,7 +659,7 @@ class Visualizer:
         else:
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 95,
+                ylim[1] + corner_offset[0] - 105,
                 xlim[1] + corner_offset[1] - 115,
                 "Wind: 0.0 m/s",
                 fontsize=15,

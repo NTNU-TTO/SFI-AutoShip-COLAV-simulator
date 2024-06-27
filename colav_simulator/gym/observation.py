@@ -514,6 +514,8 @@ class PathRelativeNavigationObservation(ObservationType):
         speed = np.linalg.norm(state[3:5])
         s_diff = self._final_arc_length - s
         speed_diff = self._speed_spline(s) - speed
+        print(f"{self.env.env_id} | final_path_var_diff: {s_diff} | distance_to_path: {d2path} | speed dev: {speed_diff}")
+
         obs = np.array([d2path, s_diff, speed_diff, state[3], state[4], state[5]])
         normalized_obs = self.normalize(obs)
         normalized_obs = np.clip(normalized_obs, -1.0, 1.0)

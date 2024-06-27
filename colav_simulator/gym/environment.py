@@ -429,7 +429,7 @@ class COLAVEnvironment(gym.Env):
             )
             self.current_frame = self.viewer2d.get_live_plot_image()
             img = self.current_frame
-        # print(f"Render time: {time.time() - t_now}")
+        # print(f"Render time env {self.env_id}: {time.time() - t_now}")
         return img
 
     @property
