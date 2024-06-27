@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import seacharts.display.colors as colors
 
 matplotlib.use("Agg")
+import matplotlib.style as mplstyle
 import matplotlib.ticker as mticker
 import numpy as np
 from matplotlib import animation
@@ -31,9 +32,6 @@ from pandas import DataFrame
 from scipy.stats import chi2, norm
 from seacharts.enc import ENC
 from shapely.geometry import Polygon
-
-plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
-plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
 
 
 @dataclass
@@ -293,6 +291,19 @@ class Visualizer:
         data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         return data
 
+    def clear(self) -> None:
+        """Clears all plot handles."""
+
+        if self.fig:
+            for ax in self.axes:
+                ax.cla()
+            self.fig.clf()
+            self.background = None
+
+        self.ship_plt_handles = []
+        self.misc_plt_handles = {}
+        self.frames = []
+
     def init_live_plot(self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
@@ -305,12 +316,14 @@ class Visualizer:
         if not self._config.show_liveplot:
             return
 
-        # if self.fig is not None:
-        #     self.fig.clf(fignum)
-        #     self.background = None
+        self.clear()
 
         self._t_prev_update = 0.0
-        plt.rcParams.update(matplotlib.rcParamsDefault)
+        # plt.rcParams.update(matplotlib.rcParamsDefault)
+        plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
+        plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
+        mplstyle.use("fast")
+
         matplotlib.rcParams["pdf.fonttype"] = 42
         matplotlib.rcParams["ps.fonttype"] = 42
 
@@ -500,7 +513,7 @@ class Visualizer:
                 ylim[0] + 30,
                 xlim[0] + 150,
                 "t = 0.0 s",
-                fontsize=15,
+                fontsize=20,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -515,10 +528,10 @@ class Visualizer:
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
+                        ylim[1] + corner_offset[0] - 95,
                         xlim[1] + corner_offset[1] - 95,
                         "Currents: 0.0 m/s",
-                        fontsize=10,
+                        fontsize=14,
                         color="white",
                         verticalalignment="top",
                         horizontalalignment="left",
@@ -529,10 +542,10 @@ class Visualizer:
                 "wind": {
                     "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
+                        ylim[1] + corner_offset[0] - 95,
                         xlim[1] + corner_offset[1] - 115,
                         "Wind: 0.0 m/s",
-                        fontsize=10,
+                        fontsize=14,
                         color="yellow",
                         verticalalignment="top",
                         horizontalalignment="left",
@@ -581,10 +594,10 @@ class Visualizer:
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 95,
                 xlim[1] + corner_offset[1] - 95,
                 f"Currents: {speed:.2f} m/s",
-                fontsize=10,
+                fontsize=14,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -606,10 +619,10 @@ class Visualizer:
         else:
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 95,
                 xlim[1] + corner_offset[1] - 95,
                 "Currents: 0.0 m/s",
-                fontsize=10,
+                fontsize=14,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -621,10 +634,10 @@ class Visualizer:
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 95,
                 xlim[1] + corner_offset[1] - 115,
                 f"Wind: {speed:.2f} m/s",
-                fontsize=10,
+                fontsize=14,
                 color="yellow",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -646,10 +659,10 @@ class Visualizer:
         else:
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
+                ylim[1] + corner_offset[0] - 95,
                 xlim[1] + corner_offset[1] - 115,
                 "Wind: 0.0 m/s",
-                fontsize=10,
+                fontsize=14,
                 color="yellow",
                 verticalalignment="top",
                 horizontalalignment="left",

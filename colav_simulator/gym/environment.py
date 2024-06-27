@@ -9,6 +9,7 @@
 """
 
 import pathlib
+import time
 from typing import List, Optional, Tuple
 
 import colav_simulator.core.ship as cs_ship
@@ -51,7 +52,6 @@ class COLAVEnvironment(gym.Env):
         observation_type: Optional[dict | str] = None,
         render_mode: Optional[str] = "rgb_array",
         render_update_rate: Optional[float] = None,
-        test_mode: Optional[bool] = False,
         verbose: Optional[bool] = True,
         show_loaded_scenario_data: Optional[bool] = False,
         shuffle_loaded_scenario_data: Optional[bool] = False,
@@ -77,7 +77,6 @@ class COLAVEnvironment(gym.Env):
             observation_type (Optional[dict | str]): Observation type.
             render_mode (Optional[str]): Render mode.
             render_update_rate (Optional[float]): Render update rate.
-            test_mode (Optional[bool]): If test mode is true, the environment will not be automatically reset due to too low cumulative reward or too large distance from the path.
             verbose (Optional[bool]): Wheter to print debugging info or not.
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not.
             shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not.
@@ -119,7 +118,6 @@ class COLAVEnvironment(gym.Env):
         self.render_update_rate = render_update_rate
         self.viewer2d = self.simulator.visualizer
         self._live_plot_closed: bool = True
-        self.test_mode = test_mode
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
 
@@ -277,8 +275,6 @@ class COLAVEnvironment(gym.Env):
         Returns:
             dict: Dictionary of additional information
         """
-        unnormalized_obs = self.observation_type.unnormalize(obs)
-        unnormalized_action = self.action_type.unnormalize(action) if action is not None else None
         self.last_info = {
             "episode_name": self.simulator.sconfig.name,
             "duration": self.simulator.t,
@@ -290,14 +286,12 @@ class COLAVEnvironment(gym.Env):
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
             "truncated": self._is_truncated(),
-            # "unnormalized_action": unnormalized_action,
-            # "unnormalized_obs": unnormalized_obs,
             "os_heading": self.ownship.heading,
             "os_speed": self.ownship.speed,
             "os_course": self.ownship.course,
             "reward": self.last_reward,
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
-            "render_frame": self.current_frame if self.render_mode == "rgb_array" else None,
+            "render_frame": self.current_frame,
         }
         return self.last_info
 
@@ -402,7 +396,7 @@ class COLAVEnvironment(gym.Env):
 
     def _init_render(self) -> None:
         """Initializes the renderer."""
-        if self.render_mode == "human" or self.render_mode == "rgb_array":
+        if self.render_mode == "rgb_array":
             self.viewer2d.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
                 self.viewer2d.set_update_rate(self.render_update_rate)
@@ -420,6 +414,7 @@ class COLAVEnvironment(gym.Env):
     def render(self):
         """Renders the environment in 2D."""
         img = None
+        t_now = time.time()
         if self._live_plot_closed:
             self._init_render()
 
@@ -434,6 +429,7 @@ class COLAVEnvironment(gym.Env):
             )
             self.current_frame = self.viewer2d.get_live_plot_image()
             img = self.current_frame
+        print(f"Render time: {time.time() - t_now}")
         return img
 
     @property

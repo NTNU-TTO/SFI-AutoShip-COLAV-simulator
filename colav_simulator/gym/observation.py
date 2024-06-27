@@ -391,7 +391,7 @@ class PathRelativeNavigationObservation(ObservationType):
             self.env.ownship.waypoints is not None and self.env.ownship.speed_plan is not None
         ), "Ownship waypoints and speed plan are not defined"
         self.name = "PathRelativeNavigationObservation"
-        self.size = 5
+        self.size = 6
         self.define_observation_ranges()
         self._ktp = guidances.KinematicTrajectoryPlanner()
         self._debug: bool = False
@@ -448,7 +448,7 @@ class PathRelativeNavigationObservation(ObservationType):
 
     def define_observation_ranges(self) -> None:
         self.observation_range = {
-            "distance": (0.0, 2000.0),
+            "distance": (0.0, 1500.0),
             "speed": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
             "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
         }
@@ -457,10 +457,11 @@ class PathRelativeNavigationObservation(ObservationType):
         normalized_obs = np.array(
             [
                 mf.linear_map(obs[0], self.observation_range["distance"], (-1.0, 1.0)),
-                mf.linear_map(obs[1], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[1], self.observation_range["distance"], (-1.0, 1.0)),
                 mf.linear_map(obs[2], self.observation_range["speed"], (-1.0, 1.0)),
                 mf.linear_map(obs[3], self.observation_range["speed"], (-1.0, 1.0)),
-                mf.linear_map(obs[4], self.observation_range["turn_rate"], (-1.0, 1.0)),
+                mf.linear_map(obs[4], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[5], self.observation_range["turn_rate"], (-1.0, 1.0)),
             ],
             dtype=np.float32,
         )
@@ -470,10 +471,11 @@ class PathRelativeNavigationObservation(ObservationType):
         unnormalized_obs = np.array(
             [
                 mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["distance"]),
-                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["distance"]),
                 mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["speed"]),
                 mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["speed"]),
-                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["turn_rate"]),
+                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[5], (-1.0, 1.0), self.observation_range["turn_rate"]),
             ],
             dtype=np.float32,
         )
@@ -510,9 +512,12 @@ class PathRelativeNavigationObservation(ObservationType):
         s = self.get_closest_arclength(state[:2])
         d2path = self.distance_to_path(state[:2])
         speed = np.linalg.norm(state[3:5])
+        s_diff = self._final_arc_length - s
         speed_diff = self._speed_spline(s) - speed
-        obs = np.array([d2path, speed_diff, state[3], state[4], state[5]])
-        return self.normalize(obs)
+        obs = np.array([d2path, s_diff, speed_diff, state[3], state[4], state[5]])
+        normalized_obs = self.normalize(obs)
+        normalized_obs = np.clip(normalized_obs, -1.0, 1.0)
+        return normalized_obs
 
 
 class Navigation3DOFStateObservation(ObservationType):
@@ -835,6 +840,7 @@ class PerceptionImageObservation(ObservationType):
         self.previous_image_stack: np.ndarray = np.zeros(image_dim, dtype=np.uint8)  # All black
         self.t_prev: float = 0.0
         self.render_rate: float = 0.5  # Hz
+        self.env.viewer2d.set_update_rate(self.render_rate)
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -863,6 +869,7 @@ class PerceptionImageObservation(ObservationType):
         if self.env.time < 0.001:
             self.t_prev = self.env.time
 
+        self.env.render()  # must be called to update the liveplot image
         self.toggle_unneccessary_liveplot_features(show=False)
         img = self.env.liveplot_image.copy()
         self.toggle_unneccessary_liveplot_features(show=True)
