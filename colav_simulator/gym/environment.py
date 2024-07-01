@@ -9,7 +9,7 @@
 """
 
 import pathlib
-import time
+import time as timelib
 from typing import List, Optional, Tuple
 
 import colav_simulator.core.ship as cs_ship
@@ -291,7 +291,7 @@ class COLAVEnvironment(gym.Env):
             "os_course": self.ownship.course,
             "reward": self.last_reward,
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
-            "render_frame": self.current_frame,
+            "render_frame": self.current_frame.copy(),
         }
         return self.last_info
 

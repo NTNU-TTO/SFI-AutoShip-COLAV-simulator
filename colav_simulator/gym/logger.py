@@ -173,7 +173,7 @@ class Logger:
 
         if done:
             self.add_episode_data(env_idx)
-            self._reset_data_structures(env_idx)
+            self.reset_data_structures(env_idx)
 
     def add_episode_data(self, env_idx) -> None:
         """Adds the data from the current episode to the environment data list.
@@ -195,8 +195,8 @@ class Logger:
             collision=self.collision[env_idx],
             grounding=self.grounding[env_idx],
             truncated=self.truncated[env_idx],
-            distances_to_grounding=np.array(self.distances_to_grounding[env_idx]),
-            distances_to_collision=np.array(self.distances_to_collision[env_idx]),
+            distances_to_grounding=np.array(self.distances_to_grounding[env_idx], dtype=np.float32),
+            distances_to_collision=np.array(self.distances_to_collision[env_idx], dtype=np.float32),
             unnormalized_actions=self.unnormalized_actions[env_idx],
             unnormalized_obs=self.unnormalized_obs[env_idx],
             frames=self.frames[env_idx],
@@ -209,7 +209,7 @@ class Logger:
             if not already_in_list:
                 self.env_data[env_idx].append(episode_data)
 
-    def _reset_data_structures(self, env_idx: int) -> None:
+    def reset_data_structures(self, env_idx: int) -> None:
         """Resets the data structures in preparation of new episode.
 
         Args:

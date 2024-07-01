@@ -281,6 +281,7 @@ class Visualizer:
         """Closes the live plot."""
         if self._config.show_liveplot:
             plt.close(fig=self.fig)
+            self.frames = []
 
     def get_live_plot_image(self) -> np.ndarray:
         """Returns the live plot image as a numpy array."""

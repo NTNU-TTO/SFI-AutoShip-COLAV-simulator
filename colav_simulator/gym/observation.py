@@ -391,7 +391,7 @@ class PathRelativeNavigationObservation(ObservationType):
             self.env.ownship.waypoints is not None and self.env.ownship.speed_plan is not None
         ), "Ownship waypoints and speed plan are not defined"
         self.name = "PathRelativeNavigationObservation"
-        self.size = 6
+        self.size = 5
         self.define_observation_ranges()
         self._ktp = guidances.KinematicTrajectoryPlanner()
         self._debug: bool = False
@@ -400,6 +400,8 @@ class PathRelativeNavigationObservation(ObservationType):
         self._final_arc_length = None
         self._path_coords = None
         self._path_linestring = None
+        self._x_spline = None
+        self._y_spline = None
 
     def plot_path(self) -> None:
         """Plot the nominal path."""
@@ -437,10 +439,10 @@ class PathRelativeNavigationObservation(ObservationType):
             speed_plan=speed_plan,
             arc_length_parameterization=True,
         )
-        x_spline, y_spline, _, self._speed_spline, self._final_arc_length = os_nominal_path
+        self._x_spline, self._y_spline, _, self._speed_spline, self._final_arc_length = os_nominal_path
         self.plot_path()
         path_vals = np.linspace(0, self._final_arc_length, 1000)
-        self._path_coords = x_spline(path_vals), y_spline(path_vals)
+        self._path_coords = self._x_spline(path_vals), self._y_spline(path_vals)
         self._path_linestring = sgeo.LineString(np.array([self._path_coords[0], self._path_coords[1]]).T)
 
     def space(self) -> gym.spaces.Space:
@@ -449,6 +451,7 @@ class PathRelativeNavigationObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         self.observation_range = {
             "distance": (0.0, 1500.0),
+            "angles": (-np.pi, np.pi),
             "speed": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
             "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
         }
@@ -458,10 +461,9 @@ class PathRelativeNavigationObservation(ObservationType):
             [
                 mf.linear_map(obs[0], self.observation_range["distance"], (-1.0, 1.0)),
                 mf.linear_map(obs[1], self.observation_range["distance"], (-1.0, 1.0)),
-                mf.linear_map(obs[2], self.observation_range["speed"], (-1.0, 1.0)),
+                mf.linear_map(obs[2], self.observation_range["angles"], (-1.0, 1.0)),
                 mf.linear_map(obs[3], self.observation_range["speed"], (-1.0, 1.0)),
-                mf.linear_map(obs[4], self.observation_range["speed"], (-1.0, 1.0)),
-                mf.linear_map(obs[5], self.observation_range["turn_rate"], (-1.0, 1.0)),
+                mf.linear_map(obs[4], self.observation_range["turn_rate"], (-1.0, 1.0)),
             ],
             dtype=np.float32,
         )
@@ -472,10 +474,9 @@ class PathRelativeNavigationObservation(ObservationType):
             [
                 mf.linear_map(obs[0], (-1.0, 1.0), self.observation_range["distance"]),
                 mf.linear_map(obs[1], (-1.0, 1.0), self.observation_range["distance"]),
-                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["speed"]),
+                mf.linear_map(obs[2], (-1.0, 1.0), self.observation_range["angles"]),
                 mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["speed"]),
-                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["speed"]),
-                mf.linear_map(obs[5], (-1.0, 1.0), self.observation_range["turn_rate"]),
+                mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["turn_rate"]),
             ],
             dtype=np.float32,
         )
@@ -509,14 +510,20 @@ class PathRelativeNavigationObservation(ObservationType):
         if self.env.time < 0.0001:
             self.create_path()
         state = self.env.ownship.state - np.array([self._map_origin[0], self._map_origin[1], 0, 0, 0, 0])
+        course = state[2] + np.arctan2(state[4], state[3])
         s = self.get_closest_arclength(state[:2])
         d2path = self.distance_to_path(state[:2])
+        d2goal = np.linalg.norm(self.env.ownship.waypoints[:, -1] - self.env.ownship.state[:2])
         speed = np.linalg.norm(state[3:5])
-        s_diff = self._final_arc_length - s
         speed_diff = self._speed_spline(s) - speed
-        print(f"{self.env.env_id} | final_path_var_diff: {s_diff} | distance_to_path: {d2path} | speed dev: {speed_diff}")
+        lookahead_distance = 100.0
+        s_lookahead = s + lookahead_distance
+        p_lookahead = np.array([self._x_spline(s_lookahead), self._y_spline(s_lookahead)])
+        course_error = np.arctan2(p_lookahead[1] - state[1], p_lookahead[0] - state[0]) - course
+        course_error = mf.wrap_angle_to_pmpi(course_error)
+        print(f"{self.env.env_id} | d2goal: {d2goal:.2f} | d2path: {d2path:.2f} | speed dev: {speed_diff:.2f} | course err: {course_error:.2f}")
 
-        obs = np.array([d2path, s_diff, speed_diff, state[3], state[4], state[5]])
+        obs = np.array([d2path, d2goal, course_error, speed_diff, state[5]])
         normalized_obs = self.normalize(obs)
         normalized_obs = np.clip(normalized_obs, -1.0, 1.0)
         return normalized_obs
