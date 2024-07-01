@@ -13,6 +13,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 import cv2
 import numpy as np
+import psutil
 import scipy.ndimage as scimg
 
 
@@ -29,7 +30,7 @@ class EpisodeData(NamedTuple):
     collision: bool
     grounding: bool
     truncated: bool
-    rewards: List[float]
+    rewards: np.ndarray
     cumulative_reward: float
     mean_reward: float
     std_reward: float
@@ -41,24 +42,40 @@ class EpisodeData(NamedTuple):
 
 
 class Logger:
-    """Logs data from the COLAV environment. Supports saving and loading to/from pickle files."""
+    """Logs data from the COLAV environment. Supports saving and loading to/from pickle files.
 
-    def __init__(self, experiment_name: str, log_dir: Path, n_envs: int = 1) -> None:
+    Args:
+        experiment_name (str): The name of the experiment.
+        log_dir (Path): The directory where the log files are saved.
+        save_freq (int, optional): The frequency (in episodes) of saving the data to a pickle file. Defaults to 10.
+        n_envs (int, optional): The number of environments. Defaults to 1.
+        max_num_logged_episodes (int, optional): The maximum number of episodes to log before saving and resetting. Defaults to 500.
+
+    """
+
+    def __init__(
+        self,
+        experiment_name: str,
+        log_dir: Path,
+        save_freq: int = 10,
+        n_envs: int = 1,
+        max_num_logged_episodes: int = 500,
+    ) -> None:
         if not log_dir.exists():
             log_dir.mkdir(parents=True)
 
-        self.env_data: List[List[EpisodeData]] = [None for _ in range(n_envs)]
+        self.max_num_logged_episodes: int = max_num_logged_episodes
+        self.env_data: List[EpisodeData] = []
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
+        self.save_freq: int = save_freq
 
         self.episode_name: List[str] = ["" for _ in range(n_envs)]
         self.duration: List[float] = [0.0 for _ in range(n_envs)]
         self.rewards: List[float] = [[] for _ in range(n_envs)]
         self.timesteps: List[int] = [0 for _ in range(n_envs)]
-        self.episode_nr: List[int] = [0 for _ in range(n_envs)]
-        self.mean_reward: List[float] = [0.0 for _ in range(n_envs)]
-        self.std_reward: List[float] = [0.0 for _ in range(n_envs)]
-        self.cumulative_reward: List[float] = [0.0 for _ in range(n_envs)]
+        self.episode_nr: int = 0
+
         self.reward_components: List[List[Dict[str, float]]] = [[] for _ in range(n_envs)]
         self.collision: List[bool] = [False for _ in range(n_envs)]
         self.grounding: List[bool] = [False for _ in range(n_envs)]
@@ -80,7 +97,7 @@ class Logger:
         if name is None:
             name = "env_data"
 
-        with open(self.log_dir / (name + ".pkl"), "wb") as f:
+        with open(self.log_dir / (name + ".pkl"), "wba") as f:
             pickle.dump(self.env_data, f)
 
     def load_from_pickle(self, name: Optional[str]) -> None:
@@ -91,7 +108,13 @@ class Logger:
         if name is None:
             name = "env_data"
         with open(self.log_dir / (name + ".pkl"), "rb") as f:
-            self.env_data = pickle.load(f)
+            while 1:
+                try:
+                    env_data = pickle.load(f)
+                    self.env_data.extend(env_data)
+                except EOFError:
+                    break
+        print(f"Loaded {len(self.env_data)} episodes from {name}.pkl")
 
     def __call__(self, cs_env_infos: List[Dict[str, Any]]) -> None:
         """Logs data from the input env info dictionary
@@ -114,10 +137,6 @@ class Logger:
         self.timesteps[env_idx] = info["timesteps"]
 
         self.rewards[env_idx].append(info["reward"])
-        self.mean_reward[env_idx] = float(np.mean(self.rewards[env_idx]))
-        self.std_reward[env_idx] = float(np.std(self.rewards[env_idx]))
-        self.cumulative_reward[env_idx] += info["reward"]
-
         self.collision[env_idx] = info["collision"]
         self.grounding[env_idx] = info["grounding"]
         self.goal_reached[env_idx] = info["goal_reached"]
@@ -149,15 +168,13 @@ class Logger:
                 center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
                 center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
             ]
-            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA)
+            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA).astype(np.uint8)
             self.frames[env_idx].append(reduced_frame)
 
-        # Special case for an MPC actor
+        # Special case for an NMPC actor
         if "actor_info" in info and "old_mpc_params" in info["actor_info"]:
             actor_info = info["actor_info"]
             stored_actor_info = {}
-            stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
-            stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
             stored_actor_info["mpc_cost"] = actor_info["cost_val"]
             stored_actor_info["optimal"] = actor_info["optimal"]
@@ -165,6 +182,12 @@ class Logger:
             stored_actor_info["n_iterations"] = actor_info["n_iter"]
             stored_actor_info["so_constr_inf_norm"] = float(actor_info["so_constr_vals"].max())
             stored_actor_info["do_constr_inf_norm"] = float(actor_info["do_constr_vals"].max())
+            stored_actor_info["dnn_input_features"] = actor_info["dnn_input_features"]
+            stored_actor_info["norm_old_mpc_params"] = actor_info["norm_old_mpc_params"]
+            stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
+            stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
+            stored_actor_info["norm_mpc_action"] = actor_info["norm_mpc_action"]
+            stored_actor_info["norm_prev_action"] = actor_info["norm_prev_action"]
             self.actor_infos[env_idx].append(stored_actor_info)
 
         done = (
@@ -174,6 +197,12 @@ class Logger:
         if done:
             self.add_episode_data(env_idx)
             self.reset_data_structures(env_idx)
+            self.print_memory_usage(env_idx)
+
+    def print_memory_usage(self, env_idx: int) -> None:
+        """Prints the current memory usage."""
+        process = psutil.Process()
+        print(f"Env{env_idx} memory usage: {process.memory_info().rss / 1024**2:.2f} MB")
 
     def add_episode_data(self, env_idx) -> None:
         """Adds the data from the current episode to the environment data list.
@@ -183,13 +212,13 @@ class Logger:
         """
         episode_data = EpisodeData(
             name=self.episode_name[env_idx],
-            episode=self.episode_nr[env_idx],
+            episode=self.episode_nr,
             timesteps=self.timesteps[env_idx],
             duration=self.duration[env_idx],
-            rewards=self.rewards[env_idx],
-            cumulative_reward=self.cumulative_reward[env_idx],
-            mean_reward=self.mean_reward[env_idx],
-            std_reward=self.std_reward[env_idx],
+            rewards=np.array(self.rewards[env_idx], dtype=np.float32),
+            cumulative_reward=np.sum(self.rewards[env_idx], dtype=np.float32),
+            mean_reward=np.mean(self.rewards[env_idx], dtype=np.float32),
+            std_reward=np.std(self.rewards[env_idx], dtype=np.float32),
             reward_components=self.reward_components[env_idx],
             goal_reached=self.goal_reached[env_idx],
             collision=self.collision[env_idx],
@@ -202,12 +231,16 @@ class Logger:
             frames=self.frames[env_idx],
             actor_infos=self.actor_infos[env_idx],
         )
-        if self.env_data[env_idx] is None:
-            self.env_data[env_idx] = [episode_data]
-        else:
-            already_in_list = any([self.episode_nr[env_idx] == env_data.episode for env_data in self.env_data[env_idx]])
-            if not already_in_list:
-                self.env_data[env_idx].append(episode_data)
+        self.env_data.append(episode_data)
+
+        num_episodes = len(self.env_data)
+        self.episode_nr += 1
+        if num_episodes > self.max_num_logged_episodes:
+            self.save_as_pickle()
+
+            # Clear the data after saving to free up memory
+            self.env_data = []
+            self.episode_nr = 0
 
     def reset_data_structures(self, env_idx: int) -> None:
         """Resets the data structures in preparation of new episode.
@@ -219,9 +252,6 @@ class Logger:
         self.timesteps[env_idx] = 0
         self.duration[env_idx] = 0.0
         self.rewards[env_idx] = []
-        self.cumulative_reward[env_idx] = 0.0
-        self.mean_reward[env_idx] = 0.0
-        self.std_reward[env_idx] = 0.0
         self.reward_components[env_idx] = []
         self.goal_reached[env_idx] = False
         self.collision[env_idx] = False
