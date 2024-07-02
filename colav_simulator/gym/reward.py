@@ -8,13 +8,13 @@
 """
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 import colav_simulator.gym.action as csgym_action
 import colav_simulator.gym.observation as csgym_obs
 import numpy as np
-from copy import deepcopy
 
 if TYPE_CHECKING:
     from colav_simulator.gym.environment import COLAVEnvironment
@@ -99,11 +99,12 @@ class DistanceToGoalRewardParams:
 @dataclass
 class TrajectoryTrackingRewardParams:
     """Parameters for the trajectory tracking rewarder."""
-    gamma_r: float = 1.0 # Reward constant
-    gamma_e: float = 0.5 # Cross-track error coefficient
-    gamma_u: float = 0.8 # Speed error coefficient
-    gamma_chi: float = 1.5 # Course angle error coefficient
-    
+
+    gamma_r: float = 1.0  # Reward constant
+    gamma_e: float = 0.5  # Cross-track error coefficient
+    gamma_u: float = 0.8  # Speed error coefficient
+    gamma_chi: float = 1.5  # Course angle error coefficient
+
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = TrajectoryTrackingRewardParams()
@@ -117,23 +118,26 @@ class TrajectoryTrackingRewardParams:
 @dataclass
 class StaticColavRewardParams:
     """Parameters for the static COLAV rewarder."""
+
     alpha_x = 75
     gamma_x = 0.1
     gamma_theta = 10
-    
+
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = StaticColavRewardParams()
-        
+
         config.alpha_x = config_dict["alpha_x"]
         config.gamma_x = config_dict["gamma_x"]
         config.gamma_theta = config_dict["gamma_theta"]
-        
+
         return config
+
 
 @dataclass
 class DynamicColavRewardParams:
     """Parameters for the dynamic COLAV rewarder."""
+
     # Raw COLAV penalty scaling
     alpha_x: float = 75.0
     # Sensor angle coefficient
@@ -151,17 +155,13 @@ class DynamicColavRewardParams:
 
     # Trade-off coefficient parameters.
     # The lists are given as [-, +] for negative and positive TS velocities.
-    gamma_lambda: list = field(
-        default_factory=lambda: [3e-5, 3e-3]
-    )
-    alpha_lambda: list = field(
-        default_factory=lambda: [2, 4]
-    )
-    
+    gamma_lambda: list = field(default_factory=lambda: [3e-5, 3e-3])
+    alpha_lambda: list = field(default_factory=lambda: [2, 4])
+
     @classmethod
     def from_dict(cls, config_dict: dict):
         config = DynamicColavRewardParams()
-        
+
         config.alpha_x = config_dict["alpha_x"]
         config.gamma_theta = config_dict["gamma_theta"]
         config.gamma_v_stb = config_dict["gamma_v_stb"]
@@ -172,13 +172,14 @@ class DynamicColavRewardParams:
         config.gamma_x_stern = config_dict["gamma_x_stern"]
         config.gamma_lambda = config_dict["gamma_lambda"]
         config.alpha_lambda = config_dict["alpha_lambda"]
-        
+
         return config
 
 
 @dataclass
 class AutopilotReferenceRewardParams:
     """Parameters for the autopilot reference rewarder."""
+
     course_coefficient: float = 1.0
     speed_coefficient: float = 1.0
 
@@ -366,6 +367,7 @@ class TrajectoryTrackingRewarder(IReward):
     NOTE: Both the DynamicColavRewarder and NavigationPathObservation are required
     for this rewarder to function.
     """
+
     def __init__(self, env: "COLAVEnvironment", params: Optional[TrajectoryTrackingRewardParams] = None) -> None:
         super().__init__(env)
 
@@ -380,20 +382,22 @@ class TrajectoryTrackingRewarder(IReward):
 
         self.params = params
         self.last_reward = 0.0
-        
+
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         assert self.path_observation is not None, "NavigationPathObservation is not part of the observation!"
-        
+
         # If no Dynamic COLAV rewarder, the tradeoff coefficient defaults to 1.0
         tradeoff_coefficient = 1.0
         # Find the DynamicColavRewarder object
         for rewarder in self.env.rewarder.rewarders:
             if isinstance(rewarder, DynamicColavRewarder):
-                assert rewarder.last_reward_calculation_time == self.env.simulator.t, "Dynamic rewarder needs to be called before path rewarder!"
+                assert (
+                    rewarder.last_reward_calculation_time == self.env.simulator.t
+                ), "Dynamic rewarder needs to be called before path rewarder!"
                 # Get tradeoff coefficient lambda from dynamic rewarder
                 tradeoff_coefficient = rewarder.tradeoff_coefficient
                 break
-        
+
         # Unnormalize navigation observation
         navigation_observation = self.path_observation.unnormalize(state["NavigationPathObservation"])
 
@@ -406,11 +410,11 @@ class TrajectoryTrackingRewarder(IReward):
         course_angle_term = self.params.gamma_chi * np.cos(course_angle_error) + self.params.gamma_r
         cte_term = np.exp(-self.params.gamma_e * abs(cross_track_error)) + self.params.gamma_r
         path_reward = course_angle_term * cte_term - self.params.gamma_r**2
-        speed_reward = -self.params.gamma_u * ( speed_error ** 2 )
-        
+        speed_reward = -self.params.gamma_u * (speed_error**2)
+
         self.last_reward = tradeoff_coefficient * (path_reward + speed_reward)
         return self.last_reward
-    
+
     def get_last_rewards_as_dict(self) -> dict:
         return {"r_trajectory_tracking": self.last_reward}
 
@@ -418,6 +422,7 @@ class TrajectoryTrackingRewarder(IReward):
 class StaticColavRewarder(IReward):
     """Static obstacle COLAV rewarder as implemented in Meyer et.al.(2020)
     NOTE: The LidarLikeObservation is required as part of the environment observation"""
+
     def __init__(self, env: "COLAVEnvironment", params: Optional[StaticColavRewardParams] = None) -> None:
         super().__init__(env)
         # Extract the LidarLikeObservation object
@@ -430,15 +435,15 @@ class StaticColavRewarder(IReward):
         elif isinstance(env.observation_type, csgym_obs.LidarLikeObservation):
             self.sensor_suite = env.observation_type
             self.sensor_angles = deepcopy(env.observation_type._sensor_angles)
-        
+
         self.params = params
-        
+
         # Functions for reward calculation
-        self.closeness_penalty = lambda x: self.params.alpha_x*np.exp(-self.params.gamma_x*x)
-        self.weighting = lambda theta: 1/(1 + self.params.gamma_theta*abs(theta))
+        self.closeness_penalty = lambda x: self.params.alpha_x * np.exp(-self.params.gamma_x * x)
+        self.weighting = lambda theta: 1 / (1 + self.params.gamma_theta * abs(theta))
 
         self.last_reward = 0.0
-    
+
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         assert self.sensor_suite is not None, "LidarLikeObservation is not part of the observation!"
         # Extract current measured distances and sensor angles from LidarLikeObservation object
@@ -450,21 +455,22 @@ class StaticColavRewarder(IReward):
         for distance, angle in zip(dist_measurements, self.sensor_angles):
             num += self.weighting(angle) * self.closeness_penalty(distance)
             den += self.weighting(angle)
-        
-        self.last_reward = -num/den
+
+        self.last_reward = -num / den
         return self.last_reward
-    
+
     def get_last_rewards_as_dict(self) -> dict:
         return {"r_static_colav": self.last_reward}
 
 
 class DynamicColavRewarder(IReward):
-    """ 
+    """
     Rewards the agent for avoiding dynamic obstacles based on Meyer et al. (2020).
     Partial COLREGs compliance is also implemented.
     NOTE: The raw penalty calculation is altered, and does not take into account
-    negative TS velocities. The gamma_v parameters are consequently simplified.  
+    negative TS velocities. The gamma_v parameters are consequently simplified.
     """
+
     def __init__(self, env: "COLAVEnvironment", params: Optional[DynamicColavRewardParams] = None) -> None:
         super().__init__(env)
         if isinstance(env.observation_type, csgym_obs.DictObservation):
@@ -482,7 +488,7 @@ class DynamicColavRewarder(IReward):
         self.last_reward_calculation_time = self.env.simulator.t
 
         self.last_reward = 0.0
-    
+
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         assert self.sensor_suite is not None, "LidarLikeObservation is not part of the observation!"
         # Extract current measured distances and velocities from LidarLikeObservation object
@@ -500,26 +506,26 @@ class DynamicColavRewarder(IReward):
                 zeta_v, zeta_x = self._determine_scaling(theta=sensor_angle)
                 weight = 1 / (1 + np.exp(self.params.gamma_theta * abs(sensor_angle)))
 
-                raw_penalty = self.params.alpha_x * np.exp( zeta_v * np.max((0, v_y)) - zeta_x * x )
+                raw_penalty = self.params.alpha_x * np.exp(zeta_v * np.max((0, v_y)) - zeta_x * x)
 
-                lambda_i = self._determine_tradeoff_coefficient(v_y = v_y, x_i = x)
+                lambda_i = self._determine_tradeoff_coefficient(v_y=v_y, x_i=x)
                 lambdas.append(lambda_i)
 
-                num += weight * (1-lambda_i) * raw_penalty
+                num += weight * (1 - lambda_i) * raw_penalty
                 den += weight
-            
+
         if den == 0.0:
             # No dynamic obstacles detected
             self.tradeoff_coefficient = 1.0
             self.last_reward = 0.0
         else:
             self.tradeoff_coefficient = np.min(lambdas)
-            self.last_reward = -num/den
-        
+            self.last_reward = -num / den
+
         return self.last_reward
-    
+
     def _determine_scaling(self, theta: float) -> tuple[float, float]:
-        """Determines the velocity and distance scaling parameters for the 
+        """Determines the velocity and distance scaling parameters for the
         reward calculation, based on the sensor angle theta.
         Args:
             theta (float): angle of the obstacle relative to the ownship in radians,
@@ -539,7 +545,7 @@ class DynamicColavRewarder(IReward):
     def _determine_tradeoff_coefficient(self, v_y: float, x_i: float) -> float:
         """Calculates the tradeoff coefficient lambda based on the
         distance and velocity of the TS.
-        
+
         Args:
             v_y (float): The body-relative velocity of the TS
             x_i (float): The distance to the TS
@@ -557,8 +563,8 @@ class DynamicColavRewarder(IReward):
 
         den = 1 + np.exp(-gamma_lambda * x_i + alpha_lambda)
 
-        return 1/den
-    
+        return 1 / den
+
     def get_last_rewards_as_dict(self) -> dict:
         return {"r_dynamic_colav": self.last_reward}
 
@@ -579,7 +585,7 @@ class AutopilotReferenceRewarder(IReward):
         self.prev_speed_delta = 0.0
 
         self.last_reward = 0.0
-    
+
     def __call__(self, state: csgym_obs.Observation, action: Optional[csgym_action.Action] = None, **kwargs) -> float:
         assert action is not None, "Action was not defined!"
 
@@ -600,7 +606,7 @@ class AutopilotReferenceRewarder(IReward):
 
         self.last_reward = speed_dot_reward + course_dot_reward
         return self.last_reward
-    
+
     def get_last_rewards_as_dict(self) -> dict:
         return {"r_autopilot_reference": self.last_reward}
 

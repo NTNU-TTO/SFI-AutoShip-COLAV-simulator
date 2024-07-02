@@ -161,11 +161,11 @@ class COLAVEnvironment(gym.Env):
             action_sample_time if action_sample_time is not None else self.scenario_config.rl.action_sample_time
         )
 
-        self._define_spaces()
-
         self.rewarder_class = rewarder_class
         self.rewarder_kwargs = rewarder_kwargs
         self.rewarder = self.rewarder_class(env=self, **self.rewarder_kwargs)
+
+        self._define_spaces()
 
     def close(self):
         """Closes the environment. To be called after usage."""
@@ -352,7 +352,6 @@ class COLAVEnvironment(gym.Env):
 
         self._define_spaces()
         self._init_render()
-        self.rewarder = self.rewarder_class(env=self, **self.rewarder_kwargs)
 
         obs = self.observation_type.observe()
         info = self._info(obs, action=None)
@@ -481,10 +480,10 @@ class COLAVEnvironment(gym.Env):
     def relevant_grounding_hazards(self) -> list:
         """The nearby ownship grounding hazards in the environment."""
         return self.simulator.relevant_grounding_hazards
-    
+
     @property
     def relevant_grounding_hazards_as_union(self) -> list:
-        """The nearby ownship grounding hazards in the environment as a multipolygon"""
+        """The nearby ownship grounding hazards in the environment as a single multipolygon"""
         return self.simulator.relevant_grounding_hazards_as_union
 
     @property

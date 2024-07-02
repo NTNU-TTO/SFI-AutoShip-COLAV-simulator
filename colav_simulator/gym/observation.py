@@ -16,7 +16,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, Tuple, Union, List
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 import colav_simulator.common.image_helper_methods as imghf
 import colav_simulator.common.map_functions as mapf
@@ -65,7 +65,7 @@ class ObservationType(ABC):
 
 
 class LidarLikeObservation(ObservationType):
-    """A lidar-like observation space for the own-ship, i.e. a 360 degree scan 
+    """A lidar-like observation space for the own-ship, i.e. a 360 degree scan
     of the environment as is used in Meyer et. al. 2020.
     """
 
@@ -75,18 +75,20 @@ class LidarLikeObservation(ObservationType):
         self.define_observation_ranges()
         self.name = "LidarLikeObservation"
 
-        # Sensor parameters. TODO: Implement config to set/change these variables
+        # Sensor parameters
         self.n_sensors = 180
         self.n_sectors = 9
         self.sensing_range = 1000
-        self.OS_size_coefficient = 6.0 # Scales up OS size in feasibility pooling
-        self.TS_size_coefficient = 1.0 # Scales up TS polygons
+        self.OS_size_coefficient = 6.0  # Scales up OS size in feasibility pooling
+        self.TS_size_coefficient = 1.0  # Scales up TS polygons
+        self.do_polygons = []
 
         self._partition_sensors()
         self._create_spatial_index()
-        
+
         self.sensor_suite = None
         self.current_dist_measurements = np.array([])
+        self.current_obstacle_velocities = np.array([])
         self.current_sensor_angles = np.array([])
         self.max_distance_measurement = np.array([self.sensing_range for i in range(self.n_sensors)])
         self.min_velocity_measurement = np.array([(0.0, 0.0) for i in range(self.n_sensors)])
@@ -140,17 +142,19 @@ class LidarLikeObservation(ObservationType):
         Returns:
             Observation: Normalized observation.
         """
-        normalized_obs = np.array(np.concatenate(
-            [
+        normalized_obs = np.array(
+            np.concatenate(
                 [
-                    mf.linear_map(obs[i], self.observation_range["closeness"], (-1.0, 1.0))
-                    for i in range(self.n_sectors)
-                ],
-                [
-                    mf.linear_map(obs[j], self.observation_range["do_speed"], (-1.0, 1.0))
-                    for j in range(self.n_sectors, self.n_sectors*3)
+                    [
+                        mf.linear_map(obs[i], self.observation_range["closeness"], (-1.0, 1.0))
+                        for i in range(self.n_sectors)
+                    ],
+                    [
+                        mf.linear_map(obs[j], self.observation_range["do_speed"], (-1.0, 1.0))
+                        for j in range(self.n_sectors, self.n_sectors * 3)
+                    ],
                 ]
-            ]),
+            ),
             dtype=np.float32,
         )
 
@@ -161,10 +165,8 @@ class LidarLikeObservation(ObservationType):
         assert self.env.ownship is not None, "Ownship is not defined"
 
         # Ownship position as (easting, northing) coordinates
-        ownship_pos = ( self.env.ownship.csog_state[1],  self.env.ownship.csog_state[0])
-        ownship_pos_point = sgeo.Point(
-            ( self.env.ownship.state[1],  self.env.ownship.state[0])
-        )
+        ownship_pos = (self.env.ownship.csog_state[1], self.env.ownship.csog_state[0])
+        ownship_pos_point = sgeo.Point((self.env.ownship.state[1], self.env.ownship.state[0]))
 
         # Create TS polygons
         dynamic_obstacle_polygons = []
@@ -183,7 +185,7 @@ class LidarLikeObservation(ObservationType):
                     length=do_length,
                     width=do_width,
                     length_scaling=self.TS_size_coefficient,
-                    width_scaling= self.TS_size_coefficient
+                    width_scaling=self.TS_size_coefficient,
                 )
             )
 
@@ -193,19 +195,18 @@ class LidarLikeObservation(ObservationType):
         if self.sensor_suite is None:
             self.sensor_suite = self._create_sensor_suite(ownship_pos)
 
-        self.sensor_suite = self._translate_sensor_suite(ownship_pos=ownship_pos,
-                                                         sensor_suite=self.sensor_suite)
-        
+        self.sensor_suite = self._translate_sensor_suite(ownship_pos=ownship_pos, sensor_suite=self.sensor_suite)
+
         # The sensor suite is rotated from 0 heading angle each iteration
         sensor_suite = self._rotate_sensor_suite(
-            ownship_heading= self.env.ownship.heading,
-            sensor_suite=self.sensor_suite
+            ownship_heading=self.env.ownship.heading, sensor_suite=self.sensor_suite
         )
         # Simulate the sensor suite
         obstacle_distances, obstacle_velocities = self._sense(
             ownship_pos=ownship_pos_point,
             sensor_suite=sensor_suite,
-            dynamic_obstacle_polygons=dynamic_obstacle_polygons)
+            dynamic_obstacle_polygons=dynamic_obstacle_polygons,
+        )
 
         # Split distance and velocity measurements into sectors
         obstacle_distances_by_sector = np.split(obstacle_distances, self._sector_start_indices[1:])
@@ -221,13 +222,13 @@ class LidarLikeObservation(ObservationType):
             # Velocities of closest obstacle in sector
             closest_obstacle_index = np.argmin(obstacle_distances_by_sector[i])
             sector_velocities.append(obstacle_velocities_by_sector[i][closest_obstacle_index])
-        
+
         obs = np.concatenate([np.array(sector_closeness), np.array(sector_velocities).flatten()])
 
         # Update latest measurements
         self.current_dist_measurements = obstacle_distances
         self.current_obstacle_velocities = obstacle_velocities
-        
+
         return self.normalize(obs)
 
     def _feasibility_pooling(self, x: list) -> float:
@@ -242,7 +243,7 @@ class LidarLikeObservation(ObservationType):
             float: Longest feasible distance within the current sector
 
         """
-        ship_width =  self.OS_size_coefficient * self.env.ownship.width
+        ship_width = self.OS_size_coefficient * self.env.ownship.width
         theta = self._delta_sensor_angle
 
         # Get sorted list of x with corresponding indices
@@ -329,7 +330,7 @@ class LidarLikeObservation(ObservationType):
                 continue
             geoms = np.array([geom for geom in poly.geoms])
             grounding_hazards = np.concatenate([grounding_hazards, geoms])
-        
+
         self.grounding_hazards = grounding_hazards
         self.grounding_spatial_index = shapely.STRtree(geoms)
 
@@ -339,42 +340,38 @@ class LidarLikeObservation(ObservationType):
 
         Args:
             ownship_pos(array): Ownship position as (easting, northing) coordinates
-        
+
         Returns:
             Multilinestring[Linestring]: The multilinestring representing the sensor suite
         """
         linestrings = []
         for sensor_angle in self._sensor_angles:
             endpoint = (
-                ownship_pos[0] + np.sin(sensor_angle) * self.sensing_range, # Easting coordinate
-                ownship_pos[1] + np.cos(sensor_angle) * self.sensing_range, # Northing coordinate
+                ownship_pos[0] + np.sin(sensor_angle) * self.sensing_range,  # Easting coordinate
+                ownship_pos[1] + np.cos(sensor_angle) * self.sensing_range,  # Northing coordinate
             )
 
             linestrings.append(shapely.LineString((ownship_pos, endpoint)))
-        
+
         return shapely.MultiLineString(linestrings)
-    
+
     def _translate_sensor_suite(
-            self, 
-            ownship_pos: np.ndarray, 
-            sensor_suite: shapely.MultiLineString
+        self, ownship_pos: np.ndarray, sensor_suite: shapely.MultiLineString
     ) -> shapely.MultiLineString:
         """Moves the sensor suite polygon to the current ownship position
-        
+
         Args:
             ownship_pos (array): ownship position as (easting, northing) coordinates
             sensor_suite (MultiLineString): current sensor suite polygon
-        
+
         Returns:
             MultiLineString: Translated sensor suite
         """
         dist = np.array(ownship_pos) - np.array(sensor_suite.geoms[0].coords[0])
         return shapely.affinity.translate(sensor_suite, dist[0], dist[1])
-    
+
     def _rotate_sensor_suite(
-            self, 
-            ownship_heading: float, 
-            sensor_suite: shapely.MultiLineString
+        self, ownship_heading: float, sensor_suite: shapely.MultiLineString
     ) -> shapely.MultiLineString:
         """Rotates the sensor suite polygon to match the ownship heading
 
@@ -384,29 +381,29 @@ class LidarLikeObservation(ObservationType):
 
         Returns:
             MultiLineString: Rotated sensor suite
-        
+
         """
         return shapely.affinity.rotate(geom=sensor_suite, angle=-ownship_heading, use_radians=True)
-    
+
     def _sense(
-            self, 
-            ownship_pos: shapely.Point, 
-            sensor_suite: shapely.MultiLineString,
-            dynamic_obstacle_polygons: List[shapely.Polygon]
+        self,
+        ownship_pos: shapely.Point,
+        sensor_suite: shapely.MultiLineString,
+        dynamic_obstacle_polygons: List[shapely.Polygon],
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Simulates the sensor suite. For each sensor in the sensor suite the
         distance to the closest obstacle is found. If the obstacle is dynamic,
         the velocity is also decomposed in a vessel-relative frame and returned
-        
+
         Args:
             ownship_pos (Point): Ownship position (easting, northing) as a Point polygon
             sensor_suite (MultiLineString): Polygon representing the sensor suite
             dynamic_obstacle_polygons (list): List of polygons representing the target ships
 
         Returns:
-            Tuple (ndarray, ndarray): Tuple of the measured distances (size = n_sensors) 
+            Tuple (ndarray, ndarray): Tuple of the measured distances (size = n_sensors)
             and decomposed velocities (size = 2*n_sensors) for the entire sensor suite
-            """
+        """
         # Create empty arrays for both measurements
         distances = self.max_distance_measurement.copy()
         velocities = self.min_velocity_measurement.copy()
@@ -414,39 +411,31 @@ class LidarLikeObservation(ObservationType):
         # Decompose sensor suite multilinestring into list of linestrings
         sensor_rays = np.array(sensor_suite.geoms)
         # Query for intersections with grounding hazards
-        static_indices = self.grounding_spatial_index.query(
-            geometry=sensor_rays,
-            predicate='intersects',
-            distance=0
-        )
+        static_indices = self.grounding_spatial_index.query(geometry=sensor_rays, predicate="intersects", distance=0)
         # Get query result on the form [(sensor index, hazard index), ...]
         static_indices = static_indices.T.tolist()
 
         for sensor_idx, static_idx in static_indices:
             intersection = mapf.standardize_polygon_intersections(
                 shapely.intersection(sensor_rays[sensor_idx], self.grounding_hazards[static_idx])
-                )
+            )
             dist = ownship_pos.distance(intersection)
-            
+
             if dist < distances[sensor_idx]:
                 distances[sensor_idx] = dist
-        
+
         # Dynamic obstacles
         dynamic_strtree = shapely.STRtree(dynamic_obstacle_polygons)
 
         # Query for intersections between sensor linestrings and dynamic obstacles
-        dynamic_indices = dynamic_strtree.query(
-            geometry=sensor_rays,
-            predicate='intersects',
-            distance=0
-        )
+        dynamic_indices = dynamic_strtree.query(geometry=sensor_rays, predicate="intersects", distance=0)
         # Get query result on the form [(sensor index, target ship index), ...]
         dynamic_indices = dynamic_indices.T.tolist()
 
         for sensor_idx, dynamic_idx in dynamic_indices:
             intersection = mapf.standardize_polygon_intersections(
                 shapely.intersection(sensor_rays[sensor_idx], dynamic_obstacle_polygons[dynamic_idx])
-                )
+            )
             dist = ownship_pos.distance(intersection)
 
             if dist < distances[sensor_idx]:
@@ -456,7 +445,7 @@ class LidarLikeObservation(ObservationType):
                 vxvy_state = mhm.convert_state_to_vxvy_state(csog_state)
                 velocity_ned = np.array([vxvy_state[2], vxvy_state[3]]).T
                 # Rotate velocity vector to sensor coordinates
-                R_ned_to_sensor = mf.Rmtrx2D( self.env.ownship.heading + self._sensor_angles[sensor_idx] + np.pi / 2)
+                R_ned_to_sensor = mf.Rmtrx2D(self.env.ownship.heading + self._sensor_angles[sensor_idx] + np.pi / 2)
                 velocity_sensor = R_ned_to_sensor.T @ velocity_ned
                 velocities[sensor_idx] = velocity_sensor
 
@@ -464,11 +453,7 @@ class LidarLikeObservation(ObservationType):
 
 
 class PathRelativeNavigationObservation(ObservationType):
-    """Observes the own-ship navigational info relative to a nominal geometric path on
-    the form:
-
-    [distance_to_path, speed_reference_error, u, v, r]
-    """
+    """Observes the own-ship navigational info relative to a nominal geometric path"""
 
     def __init__(
         self,
@@ -674,16 +659,17 @@ class Navigation3DOFStateObservation(ObservationType):
 
 
 class NavigationPathObservation(ObservationType):
-    """Observation of the ship's state in relation to a preplanned trajectory, 
+    """Observation of the ship's state in relation to a preplanned trajectory,
     as implemented in Meyer et al.(2020).
     NOTE: Extended to include the observation of speed error.
     """
+
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
         self.name = "NavigationPathObservation"
         self.size = 7
         self.define_observation_ranges()
-        
+
         self.wp_linestring = None
 
         self.lookahead_dist = 100
@@ -699,7 +685,7 @@ class NavigationPathObservation(ObservationType):
             "speed": (-self.env.ownship.max_speed, self.env.ownship.max_speed),
             "turn_rate": (-self.env.ownship.max_turn_rate, self.env.ownship.max_turn_rate),
             "angles": (-np.pi, np.pi),
-            "cte": (-500, 500)
+            "cte": (-500, 500),
         }
 
     def normalize(self, obs: Observation) -> Observation:
@@ -719,12 +705,12 @@ class NavigationPathObservation(ObservationType):
                 mf.linear_map(obs[3], self.observation_range["cte"], (-1.0, 1.0)),
                 mf.linear_map(obs[4], self.observation_range["angles"], (-1.0, 1.0)),
                 mf.linear_map(obs[5], self.observation_range["angles"], (-1.0, 1.0)),
-                mf.linear_map(obs[6], self.observation_range["speed"], (-1.0, 1.0))
+                mf.linear_map(obs[6], self.observation_range["speed"], (-1.0, 1.0)),
             ],
             dtype=np.float32,
         )
         return normalized_obs
-    
+
     def unnormalize(self, obs: Observation) -> Observation:
         """Unnormalize the input normalized observation to be within the original range
 
@@ -743,7 +729,7 @@ class NavigationPathObservation(ObservationType):
                 mf.linear_map(obs[3], (-1.0, 1.0), self.observation_range["cte"]),
                 mf.linear_map(obs[4], (-1.0, 1.0), self.observation_range["angles"]),
                 mf.linear_map(obs[5], (-1.0, 1.0), self.observation_range["angles"]),
-                mf.linear_map(obs[6], (-1.0, 1.0), self.observation_range["speed"])
+                mf.linear_map(obs[6], (-1.0, 1.0), self.observation_range["speed"]),
             ],
             dtype=np.float32,
         )
@@ -751,9 +737,9 @@ class NavigationPathObservation(ObservationType):
 
     def observe(self) -> Observation:
         """Get an observation on the form:
-        obs = [ surge velocity, sway velocity, yaw rate, cross-track error, 
+        obs = [ surge velocity, sway velocity, yaw rate, cross-track error,
                 course error, look-ahead course error, speed error]
-        
+
         Returns:
             np.ndarray: Normalized observation vector
         """
@@ -763,7 +749,7 @@ class NavigationPathObservation(ObservationType):
         assert self.wp_linestring is not None, "Path is not defined"
         ownship_pos = self.env.ownship.csog_state[:2]
         ownship_course = self.env.ownship.csog_state[3]
-        
+
         # Arc length from the start of the path to the ownship position
         ownship_ref = self.wp_linestring.line_locate_point(shapely.Point(ownship_pos))
         # Ownship reference point projected onto the path
@@ -780,14 +766,18 @@ class NavigationPathObservation(ObservationType):
             LA_path_angle = self.get_path_angle(self.wp_linestring.length - 1)
         else:
             LA_path_angle = self.get_path_angle(ownship_ref + self.lookahead_dist)
-        
+
         # Course angle errors at the ownship reference and lookahead point
-        course_error = mf.wrap_angle_diff_to_pmpi(np.arctan2(lookahead_point[1] - ownship_pos[1], lookahead_point[0] - ownship_pos[0]), ownship_course)
+        course_error = mf.wrap_angle_diff_to_pmpi(
+            np.arctan2(lookahead_point[1] - ownship_pos[1], lookahead_point[0] - ownship_pos[0]), ownship_course
+        )
         course_error_LA = mf.wrap_angle_diff_to_pmpi(LA_path_angle, ownship_course)
 
         # Cross track error
-        cte = -np.sin(path_angle)*(ownship_ref_point[0] - ownship_pos[0]) + np.cos(path_angle)*(ownship_ref_point[1] - ownship_pos[1])
-        
+        cte = -np.sin(path_angle) * (ownship_ref_point[0] - ownship_pos[0]) + np.cos(path_angle) * (
+            ownship_ref_point[1] - ownship_pos[1]
+        )
+
         # Speed error
         ownship_speed = self.env.ownship.csog_state[2]
         # TODO: add functionality to handle waypoint switching in speed plan
@@ -798,35 +788,35 @@ class NavigationPathObservation(ObservationType):
 
         assert obs.shape == (self.size,), "Path observation is not correct shape!"
         return self.normalize(obs)
-    
+
     def get_path_angle(self, ref_dist: float):
-        """Calculates the angle of the path tangential line at a given reference 
+        """Calculates the angle of the path tangential line at a given reference
         distance from the path starting point
-        
+
         Args:
             ref_dist(float): Distance along path from starting point to the reference point
-        
+
         Returns:
             float: Angle from north vector to path tangent line
         """
         dp = 0.1
         # Reference point
         p = self.wp_linestring.line_interpolate_point(ref_dist)
-        
+
         # Reference point + a small distance dp
         pdp = self.wp_linestring.line_interpolate_point(ref_dist + dp)
-        
+
         tangent = np.array(pdp.coords[0]) - np.array(p.coords[0])
         return np.arctan2(tangent[1], tangent[0])
-    
+
     def set_waypoints(self, waypoints: np.ndarray):
         """Sets the current waypoints. Creates a path linestring of linear segments.
-        
+
         Args:
             waypoints(np.ndarray): waypoints in NED coordinates
         """
-        n_wps = waypoints.shape[1]        
-        self.wp_linestring = shapely.LineString(np.array([waypoints[:,i] for i in range(n_wps)]))
+        n_wps = waypoints.shape[1]
+        self.wp_linestring = shapely.LineString(np.array([waypoints[:, i] for i in range(n_wps)]))
 
     @property
     def path_progress(self) -> float:
