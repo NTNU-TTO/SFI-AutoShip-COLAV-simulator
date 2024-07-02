@@ -140,6 +140,7 @@ class Simulator:
 
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
+        self.relevant_grounding_hazards_as_union = mapf.extract_relevant_grounding_hazards_as_union(ownship_min_depth, self.enc)
 
         for ship_obj in self.ship_list:
             ship_obj.reset(seed=seed)
