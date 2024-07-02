@@ -325,11 +325,22 @@ class COLAVEnvironment(gym.Env):
         self.done = False
 
         if self.episodes == self.n_episodes or self.scenario_data_tup[0] == []:
-            self._generate(
-                scenario_config=self.scenario_config,
-                reload_map=False,
-                max_number_of_episodes=self.max_number_of_episodes,
-            )
+            if self.scenario_file_folder is not None:
+                self._load(
+                    scenario_file_folder=self.scenario_file_folder,
+                    reload_map=self.reload_map,
+                    show=False,
+                    shuffle=True,
+                    merge_loaded_scenario_episodes=True,
+                    max_number_of_episodes=self.max_number_of_episodes,
+                )
+                self.loaded_scenario_data = True
+            else:
+                self._generate(
+                    scenario_config=self.scenario_config,
+                    reload_map=self.reload_map,
+                    max_number_of_episodes=self.max_number_of_episodes,
+                )
             self.episodes = 0
 
         assert self.scenario_config is not None, "Scenario config not initialized!"

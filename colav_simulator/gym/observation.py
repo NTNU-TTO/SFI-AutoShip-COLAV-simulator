@@ -429,7 +429,7 @@ class PathRelativeNavigationObservation(ObservationType):
 
     def create_path(self) -> None:
         """Creates a nominal path + speed spline based on the ownship waypoints and speed plan."""
-        self._map_origin = self._map_origin = self.env.ownship.csog_state[:2]
+        self._map_origin = self.env.ownship.csog_state[:2]
         speed_plan = self.env.ownship.speed_plan.copy()
         speed_plan[speed_plan > 7.0] = 6.0
         speed_plan[speed_plan < 2.0] = 2.0
@@ -521,7 +521,9 @@ class PathRelativeNavigationObservation(ObservationType):
         p_lookahead = np.array([self._x_spline(s_lookahead), self._y_spline(s_lookahead)])
         course_error = np.arctan2(p_lookahead[1] - state[1], p_lookahead[0] - state[0]) - course
         course_error = mf.wrap_angle_to_pmpi(course_error)
-        print(f"{self.env.env_id} | d2goal: {d2goal:.2f} | d2path: {d2path:.2f} | speed dev: {speed_diff:.2f} | course err: {course_error:.2f}")
+        print(
+            f"{self.env.env_id} | d2goal: {d2goal:.2f} | d2path: {d2path:.2f} | s: {s:.2f} | speed dev: {speed_diff:.2f} | course err: {course_error:.2f}"
+        )
 
         obs = np.array([d2path, d2goal, course_error, speed_diff, state[5]])
         normalized_obs = self.normalize(obs)
