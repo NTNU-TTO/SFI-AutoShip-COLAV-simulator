@@ -8,6 +8,7 @@
 
     Author: Trym Tengesdal
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Tuple
@@ -45,14 +46,20 @@ class VOParams:
     t_grounding_max: float = 10.0  # Maximum time to consider for grounding.
     t_colregs_update_interval: float = 1.0  # The interval at which the COLREGS situation for an obstacle is updated.
     head_on_width: float = 30.0  # The width of the head-on sector for determining COLREGS constraints/situations.
-    overtaking_angle: float = 112.0  # The boundary angle for the overtaking sector for determining COLREGS constraints/situations.
-    heading_set_limits: list = field(default_factory=lambda: [-120.0, 120.0])  # List of heading modifications to consider in the planning [deg].
+    overtaking_angle: float = (
+        112.0  # The boundary angle for the overtaking sector for determining COLREGS constraints/situations.
+    )
+    heading_set_limits: list = field(
+        default_factory=lambda: [-120.0, 120.0]
+    )  # List of heading modifications to consider in the planning [deg].
     heading_set_spacing: float = 2.5  # The spacing between the headings to consider in the planning [deg]
     speed_set_limits: list = field(
         default_factory=lambda: [0.0, 10.0]
     )  # List of speed modifications to consider in the planning. [m/s] Should be set based on the ship min-max speed.
     speed_set_spacing: float = 0.5  # The spacing between the speeds to consider in the planning [m/s]
-    safety_buffer: float = 15.0  #  A buffer length [m] to add to the obstacle's bounding box to take speed uncertainty into account
+    safety_buffer: float = (
+        15.0  #  A buffer length [m] to add to the obstacle's bounding box to take speed uncertainty into account
+    )
     vo_violation_cost: float = 1000.0  # The cost for a velocity obstacle violation.
     grounding_cost: float = 10000.0  # The cost for grounding.
     colregs_violation_cost: float = 100.0  # The cost for a COLREGS violation.
@@ -135,8 +142,14 @@ class VO:
         self._safety_buffer_poly = geometry.Polygon(coords)
         self._relevant_do_list: list = []
         self._colregs_situations: list = []
-        self._speed_set = np.arange(self._params.speed_set_limits[0], self._params.speed_set_limits[1], self._params.speed_set_spacing)
-        self._heading_set = np.deg2rad(np.arange(self._params.heading_set_limits[0], self._params.heading_set_limits[1], self._params.heading_set_spacing))
+        self._speed_set = np.arange(
+            self._params.speed_set_limits[0], self._params.speed_set_limits[1], self._params.speed_set_spacing
+        )
+        self._heading_set = np.deg2rad(
+            np.arange(
+                self._params.heading_set_limits[0], self._params.heading_set_limits[1], self._params.heading_set_spacing
+            )
+        )
         self._violation_costs: np.ndarray = np.ones((len(self._speed_set), len(self._heading_set)))
         self._total_costs: np.ndarray = np.zeros((len(self._speed_set), len(self._heading_set)))
         self._references = np.zeros((9, 1))
@@ -145,7 +158,9 @@ class VO:
         """Get the current plan."""
         return self._references
 
-    def plan(self, t: float, v_ref: np.ndarray, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None) -> np.ndarray:
+    def plan(
+        self, t: float, v_ref: np.ndarray, ownship_state: np.ndarray, do_list: list, enc: Optional[ENC] = None
+    ) -> np.ndarray:
 
         if self._initialized and t - self._t_prev < (1.0 / self._params.planning_frequency):
             return self.get_current_plan()
@@ -186,7 +201,9 @@ class VO:
 
                 if situation_started:
                     self._relevant_do_list.append(id_do)
-                    self._colregs_situations.append((id_do, t, self._determine_colregs_situation(p_os, psi_os, p_do, psi_do)))
+                    self._colregs_situations.append(
+                        (id_do, t, self._determine_colregs_situation(p_os, psi_os, p_do, psi_do))
+                    )
                 else:
                     continue
 
@@ -194,13 +211,28 @@ class VO:
 
             _, _, situation = [x for x in self._colregs_situations if x[0] == id_do][0]
 
-            poly_do = geometry.Polygon([(-length / 2, -width / 2), (length / 2, -width / 2), (length / 2, width / 2), (-length / 2, width / 2)])
+            poly_do = geometry.Polygon(
+                [(-length / 2, -width / 2), (length / 2, -width / 2), (length / 2, width / 2), (-length / 2, width / 2)]
+            )
             poly_do = affinity.rotate(poly_do, psi_do, use_radians=True)
             poly_do = affinity.translate(poly_do, p_do[0], p_do[1])
 
             expanded_poly_do, expanded_poly_do_buffered = self._compute_expanded_do_polygon(poly_os, poly_do)
 
-            self._update_violation_costs(situation, expanded_poly_do, expanded_poly_do_buffered, p_do, v_do, p_os, v_os, psi_os, enc, False, poly_do, poly_os)
+            self._update_violation_costs(
+                situation,
+                expanded_poly_do,
+                expanded_poly_do_buffered,
+                p_do,
+                v_do,
+                p_os,
+                v_os,
+                psi_os,
+                enc,
+                False,
+                poly_do,
+                poly_os,
+            )
 
         if self._relevant_do_list:
             heading_opt, speed_opt = self._compute_optimal_controls(v_ref, v_os, psi_os)
@@ -227,7 +259,9 @@ class VO:
                 candidate_heading = heading + psi_os
                 candidate_speed = speed + np.linalg.norm(v_os)
                 v_os_new = np.array([candidate_speed * np.cos(candidate_heading), speed * np.sin(candidate_heading)])
-                self._total_costs[i, j] = self._violation_costs[i, j] + (v_ref - v_os_new).transpose() @ self._params.Q @ (v_ref - v_os_new)
+                self._total_costs[i, j] = self._violation_costs[i, j] + (
+                    v_ref - v_os_new
+                ).transpose() @ self._params.Q @ (v_ref - v_os_new)
 
                 if self._total_costs[i, j] < min_cost:
                     min_cost = self._total_costs[i, j]
@@ -271,7 +305,14 @@ class VO:
         """
         if show_debug_plots:
             assert poly_do is not None and poly_os is not None
-            fig, ax = plot_vo_situation(expanded_poly_do, expanded_poly_do_buffered, affinity.translate(poly_os, p_os[0], p_os[1]), v_os, poly_do, v_do)
+            fig, ax = plot_vo_situation(
+                expanded_poly_do,
+                expanded_poly_do_buffered,
+                affinity.translate(poly_os, p_os[0], p_os[1]),
+                v_os,
+                poly_do,
+                v_do,
+            )
             velocity_handles = self.plot_current_velocity_grid(fig, ax, v_os, psi_os)
             ax.plot([0.0, v_os[1] * 2.5 * self._params.t_max], [0.0, v_os[0] * 2.5 * self._params.t_max], "m")
             ray_plot = ax.plot([0.0, 0.0], [0.0, 0.0], "m")[0]
@@ -284,7 +325,9 @@ class VO:
 
                 candidate_heading = heading + psi_os
                 candidate_speed = speed + np.linalg.norm(v_os)
-                v_os_new = np.array([candidate_speed * np.cos(candidate_heading), candidate_speed * np.sin(candidate_heading)])
+                v_os_new = np.array(
+                    [candidate_speed * np.cos(candidate_heading), candidate_speed * np.sin(candidate_heading)]
+                )
 
                 p_diff = p_os - p_do
                 v_diff = v_os_new - v_do
@@ -302,7 +345,11 @@ class VO:
                     # Check if own-ship follows a velocity in V1, i.e. it moves such that the DO is on its starboard side
                     in_v1 = not in_v3 and (p_diff[0] * v_diff[1] - p_diff[1] * v_diff[0] > 0)
 
-                    if in_v1 and (situation == VOCOLREGSSituation.HO or situation == VOCOLREGSSituation.OT_ing or situation == VOCOLREGSSituation.CR_SS):
+                    if in_v1 and (
+                        situation == VOCOLREGSSituation.HO
+                        or situation == VOCOLREGSSituation.OT_ing
+                        or situation == VOCOLREGSSituation.CR_SS
+                    ):
                         self._violation_costs[i, j] = self._params.colregs_violation_cost
                         color = "r"
 
@@ -313,9 +360,15 @@ class VO:
 
                 if show_debug_plots:
                     ray_plot.remove()
-                    ray_plot = ax.plot([0.0, v_os_new[1] * 3.0 * self._params.t_max], [0.0, v_os_new[0] * 3.0 * self._params.t_max], "m")[0]
+                    ray_plot = ax.plot(
+                        [0.0, v_os_new[1] * 3.0 * self._params.t_max],
+                        [0.0, v_os_new[0] * 3.0 * self._params.t_max],
+                        "m",
+                    )[0]
                     velocity_handles[i][j].remove()
-                    velocity_handles[i][j] = ax.arrow(0, 0, v_os_new[1], v_os_new[0], color=color, width=0.1, head_width=0.3, head_length=0.3)
+                    velocity_handles[i][j] = ax.arrow(
+                        0, 0, v_os_new[1], v_os_new[0], color=color, width=0.1, head_width=0.3, head_length=0.3
+                    )
 
     def _check_grounding_risk(self, p_os: np.ndarray, v_os: np.ndarray, enc: ENC) -> bool:
         """Checks if the candidate velocity leads to a grounding hazard within t_max.
@@ -331,7 +384,9 @@ class VO:
         p2 = p_os + v_os * self._params.t_max
         return mapf.check_if_segment_crosses_grounding_hazards(enc, p2, p_os, self._params.draft_os)
 
-    def _update_colregs_situation(self, t: float, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float, id_do: int):
+    def _update_colregs_situation(
+        self, t: float, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float, id_do: int
+    ):
         """Updates the COLREGS situation of the ownship and the dynamic obstacle, if a time threshold is exceeded.
 
         Args:
@@ -347,7 +402,9 @@ class VO:
                 self._colregs_situations[idx] = (id_, t, self._determine_colregs_situation(p_os, psi_os, p_do, psi_do))
                 return
 
-    def _determine_colregs_situation(self, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float) -> VOCOLREGSSituation:
+    def _determine_colregs_situation(
+        self, p_os: np.ndarray, psi_os: float, p_do: np.ndarray, psi_do: float
+    ) -> VOCOLREGSSituation:
         """Determines the COLREGS situation of the ownship and the dynamic obstacle.
 
         Args:
@@ -364,7 +421,9 @@ class VO:
         bearing_os_do = mf.compute_bearing(psi_os, p_os, p_do)
         heading_diff = mf.wrap_angle_diff_to_pmpi(psi_do, psi_os)
 
-        if (heading_diff < -np.pi + self._params.head_on_width / 2.0) or (heading_diff > np.pi - self._params.head_on_width / 2.0):
+        if (heading_diff < -np.pi + self._params.head_on_width / 2.0) or (
+            heading_diff > np.pi - self._params.head_on_width / 2.0
+        ):
             return VOCOLREGSSituation.HO
 
         if bearing_os_do > self._params.overtaking_angle or bearing_os_do < -self._params.overtaking_angle:
@@ -407,7 +466,9 @@ class VO:
         ray = geometry.LineString([p_os, p_os + v_os * self._params.t_max])
         return ray.intersects(vo)
 
-    def _compute_expanded_do_polygon(self, poly_os: geometry.Polygon, poly_do: geometry.Polygon) -> Tuple[geometry.Polygon, geometry.Polygon]:
+    def _compute_expanded_do_polygon(
+        self, poly_os: geometry.Polygon, poly_do: geometry.Polygon
+    ) -> Tuple[geometry.Polygon, geometry.Polygon]:
         """Computes the minowski sum poly_do + (-poly_os) for the ownship (zero origin referenced) and the dynamic obstacle (referenced to its position).
 
         Returns the expanded DO polygon and the expanded DO polygon with the safety buffer (for velocity uncertainty adedd).
