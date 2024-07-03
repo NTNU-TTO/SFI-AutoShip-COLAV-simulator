@@ -325,9 +325,11 @@ class Visualizer:
         # plt.rcParams.update(matplotlib.rcParamsDefault)
         plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
         plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
-        matplotlib.rcParams["pdf.fonttype"] = 42
-        matplotlib.rcParams["ps.fonttype"] = 42
-
+        # matplotlib.rcParams["pdf.fonttype"] = 42
+        # matplotlib.rcParams["ps.fonttype"] = 42
+        matplotlib.rcParams["font.family"] = "DeJavu Serif"
+        matplotlib.rcParams["font.serif"] = ["Times New Roman"]
+        matplotlib.rcParams["text.usetex"] = False
         self.xlimits, self.ylimits = self.find_plot_limits(enc, ship_list[0])
         self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]], fignum=fignum)
         if self._config.zoom_in_liveplot_on_ownship:
@@ -1103,9 +1105,8 @@ class Visualizer:
         if not self._config.show_results:
             return [], []
 
-        plt.rcParams.update(matplotlib.rcParamsDefault)
-        matplotlib.rcParams["pdf.fonttype"] = 42
-        matplotlib.rcParams["ps.fonttype"] = 42
+        # matplotlib.rcParams["pdf.fonttype"] = 42
+        # matplotlib.rcParams["ps.fonttype"] = 42
 
         if save_file_path is None:
             save_file_path = dp.figure_output / "scenario_ne.pdf"
