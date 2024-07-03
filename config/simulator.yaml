@@ -33,7 +33,8 @@ visualizer:
   ownship_waypoint_color: "xkcd:white"
   target_trajectory_color: "xkcd:peach"
   target_waypoint_color: "xkcd:orange"
-  figsize: [6.0, 6.0]
+  fig_size: [512, 512]
+  fig_dpi: 64
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
   ship_scaling: [2.5, 2.5]

@@ -595,9 +595,9 @@ class PathRelativeNavigationObservation(ObservationType):
         p_lookahead = np.array([self._x_spline(s_lookahead), self._y_spline(s_lookahead)])
         course_error = np.arctan2(p_lookahead[1] - state[1], p_lookahead[0] - state[0]) - course
         course_error = mf.wrap_angle_to_pmpi(course_error)
-        print(
-            f"{self.env.env_id} | d2goal: {d2goal:.2f} | d2path: {d2path:.2f} | s: {s:.2f} | speed dev: {speed_diff:.2f} | course err: {course_error:.2f}"
-        )
+        # print(
+        #     f"{self.env.env_id} | d2goal: {d2goal:.2f} | d2path: {d2path:.2f} | s: {s:.2f} | speed dev: {speed_diff:.2f} | course err: {course_error:.2f}"
+        # )
 
         obs = np.array([d2path, d2goal, course_error, speed_diff, state[5]])
         normalized_obs = self.normalize(obs)
@@ -1093,6 +1093,7 @@ class PerceptionImageObservation(ObservationType):
         self.t_prev: float = 0.0
         self.render_rate: float = 0.5  # Hz
         self.env.viewer2d.set_update_rate(self.render_rate)
+        self.resize: bool = True
 
     def space(self) -> gym.spaces.Space:
         """Get the observation space."""
@@ -1156,7 +1157,11 @@ class PerceptionImageObservation(ObservationType):
         ]
 
         # downsample the image to configured image shape
-        downsampled_img = cv2.resize(cropped_img, (self.image_dim[1], self.image_dim[2]), interpolation=cv2.INTER_AREA)
+        downsampled_img = cropped_img
+        if self.resize:
+            downsampled_img = cv2.resize(
+                cropped_img, (self.image_dim[1], self.image_dim[2]), interpolation=cv2.INTER_AREA
+            )
         grayscale_img = cv2.cvtColor(downsampled_img, cv2.COLOR_BGR2GRAY)
 
         if False:

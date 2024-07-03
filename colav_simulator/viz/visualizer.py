@@ -4,7 +4,7 @@
     Summary:
         Contains functionality for visualizing/animating ship scenarios.
 
-    Author: Trym Tengesdal, Magne Aune, Melih Akdag, Joachim Miller
+    Author: Trym Tengesdal
 """
 
 import time
@@ -19,12 +19,8 @@ import colav_simulator.common.plotters as plotters
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.style as mplstyle
-
-mplstyle.use("fast")
 import matplotlib.pyplot as plt
+import matplotlib.style as mplstyle
 import matplotlib.ticker as mticker
 import numpy as np
 import seacharts.display.colors as colors
@@ -72,7 +68,8 @@ class Config:
     save_result_figures: bool = False
     save_liveplot_animation: bool = False
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
-    figsize: list = field(default_factory=lambda: [12, 10])
+    fig_size: list = field(default_factory=lambda: [256, 256])
+    fig_dpi: int = 72
     margins: list = field(default_factory=lambda: [0.0, 0.0])
     uniform_seabed_color: bool = True
     black_land: bool = True
@@ -165,6 +162,7 @@ class Visualizer:
         self.ship_plt_handles: list = []  # handles used for live plotting
         self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
         self.background: Any = None  # background for live plotting
+        self.backend: str = "Agg"
 
         self.xlimits = [-1e10, 1e10]
         self.ylimits = [-1e10, 1e10]
@@ -178,6 +176,21 @@ class Visualizer:
         self._t_prev_update = 0.0
         self.t_start = 0.0
         self.frames = []
+
+        if self.backend == "Agg":
+            matplotlib.use("Agg")
+        else:
+            matplotlib.use("TkAgg")
+        mplstyle.use("fast")
+        # plt.rcParams.update(matplotlib.rcParamsDefault)
+        plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
+        plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
+
+        # matplotlib.rcParams["pdf.fonttype"] = 42
+        # matplotlib.rcParams["ps.fonttype"] = 42
+        matplotlib.rcParams["font.family"] = "DeJavu Serif"
+        matplotlib.rcParams["font.serif"] = ["Times New Roman"]
+        matplotlib.rcParams["text.usetex"] = False
 
     def toggle_liveplot_visibility(self, show: bool) -> None:
         """Toggles the visibility of the live plot."""
@@ -210,7 +223,9 @@ class Visualizer:
             - extent (list): List specifying the extent of the map.
         """
         self.frames = []
-        self.fig = plt.figure(num=fignum, figsize=self._config.figsize, dpi=72)
+        fig_width = self._config.fig_size[0] / self._config.fig_dpi
+        fig_height = self._config.fig_size[1] / self._config.fig_dpi
+        self.fig = plt.figure(num=fignum, figsize=(fig_width, fig_height), dpi=self._config.fig_dpi)
 
         self.n_seabed_colorbins = len(enc.seabed.keys())
         ax_map = self.fig.add_subplot(1, 1, 1)
@@ -248,9 +263,11 @@ class Visualizer:
         self.axes = [ax_map]
         ax_map.set_aspect("equal")
         self.toggle_liveplot_axis_labels(self._config.show_liveplot_map_axes)
-        plt.show(block=False)
+        if matplotlib.get_backend() == "TkAgg":
+            plt.show(block=False)
         # self.fig.tight_layout(pad=0.0)
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
+        self.fig.set_size_inches(fig_width, fig_height)
 
     def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
@@ -322,14 +339,6 @@ class Visualizer:
         self.clear()
 
         self._t_prev_update = 0.0
-        # plt.rcParams.update(matplotlib.rcParamsDefault)
-        plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
-        plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
-        # matplotlib.rcParams["pdf.fonttype"] = 42
-        # matplotlib.rcParams["ps.fonttype"] = 42
-        matplotlib.rcParams["font.family"] = "DeJavu Serif"
-        matplotlib.rcParams["font.serif"] = ["Times New Roman"]
-        matplotlib.rcParams["text.usetex"] = False
         self.xlimits, self.ylimits = self.find_plot_limits(enc, ship_list[0])
         self.init_figure(enc, [self.ylimits[0], self.ylimits[1], self.xlimits[0], self.xlimits[1]], fignum=fignum)
         if self._config.zoom_in_liveplot_on_ownship:
@@ -525,16 +534,16 @@ class Visualizer:
             )
 
         if self._config.show_liveplot_disturbances:
-            corner_offset = (-125, -110)
+            corner_offset = (125, -100)
             self.misc_plt_handles["disturbance"] = {}
             dhandles = {
                 "currents": {
                     "arrow": ax_map.quiver([], [], [], [], color="blue", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
-                        xlim[1] + corner_offset[1] - 85,
+                        ylim[0] + corner_offset[0] - 105,
+                        xlim[1] + corner_offset[1] - 70,
                         "Currents: 0.0 m/s",
-                        fontsize=15,
+                        fontsize=13,
                         color="white",
                         verticalalignment="top",
                         horizontalalignment="left",
@@ -545,10 +554,10 @@ class Visualizer:
                 "wind": {
                     "arrow": ax_map.quiver([], [], [], [], color="yellow", scale=1000, zorder=10),
                     "text": ax_map.text(
-                        ylim[1] + corner_offset[0] - 105,
-                        xlim[1] + corner_offset[1] - 115,
+                        ylim[0] + corner_offset[0] - 105,
+                        xlim[1] + corner_offset[1] - 125,
                         "Wind: 0.0 m/s",
-                        fontsize=15,
+                        fontsize=13,
                         color="yellow",
                         verticalalignment="top",
                         horizontalalignment="left",
@@ -588,8 +597,8 @@ class Visualizer:
         xlim = ax_map.get_ylim()  # northing
         arrow_scale = 60
         circ_x, circ_y = mhm.create_circle(78, 100)
-        corner_offset = (-125, -110)
-        circ_poly = Polygon(zip(circ_y + ylim[1] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
+        corner_offset = (125, -100)
+        circ_poly = Polygon(zip(circ_y + ylim[0] + corner_offset[0], circ_x + xlim[1] + corner_offset[1]))
         dhandles["circle"].remove()
         dhandles["circle"] = ax_map.fill(*circ_poly.exterior.xy, color="white", alpha=0.2, zorder=10, label="")[0]
         if w is not None and w.currents is not None and "speed" in w.currents:
@@ -597,10 +606,10 @@ class Visualizer:
             direction = w.currents["direction"]
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
-                xlim[1] + corner_offset[1] - 85,
+                ylim[0] + corner_offset[0] - 105,
+                xlim[1] + corner_offset[1] - 70,
                 f"Currents: {speed:.2f} m/s",
-                fontsize=15,
+                fontsize=13,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -609,7 +618,7 @@ class Visualizer:
             )
             dhandles["currents"]["arrow"].remove()
             dhandles["currents"]["arrow"] = ax_map.arrow(
-                ylim[1] + corner_offset[0],
+                ylim[0] + corner_offset[0],
                 xlim[1] + corner_offset[1],
                 arrow_scale * np.sin(direction),
                 arrow_scale * np.cos(direction),
@@ -622,10 +631,10 @@ class Visualizer:
         else:
             dhandles["currents"]["text"].remove()
             dhandles["currents"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
-                xlim[1] + corner_offset[1] - 90,
+                ylim[0] + corner_offset[0] - 105,
+                xlim[1] + corner_offset[1] - 70,
                 "Currents: 0.0 m/s",
-                fontsize=15,
+                fontsize=13,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -637,10 +646,10 @@ class Visualizer:
             direction = w.wind["direction"]
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
-                xlim[1] + corner_offset[1] - 115,
+                ylim[0] + corner_offset[0] - 105,
+                xlim[1] + corner_offset[1] - 125,
                 f"Wind: {speed:.2f} m/s",
-                fontsize=15,
+                fontsize=13,
                 color="yellow",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -649,7 +658,7 @@ class Visualizer:
             )
             dhandles["wind"]["arrow"].remove()
             dhandles["wind"]["arrow"] = ax_map.arrow(
-                ylim[1] + corner_offset[0],
+                ylim[0] + corner_offset[0],
                 xlim[1] + corner_offset[1],
                 arrow_scale * np.sin(direction),
                 arrow_scale * np.cos(direction),
@@ -662,10 +671,10 @@ class Visualizer:
         else:
             dhandles["wind"]["text"].remove()
             dhandles["wind"]["text"] = ax_map.text(
-                ylim[1] + corner_offset[0] - 105,
-                xlim[1] + corner_offset[1] - 115,
+                ylim[0] + corner_offset[0] - 105,
+                xlim[1] + corner_offset[1] - 125,
                 "Wind: 0.0 m/s",
-                fontsize=15,
+                fontsize=13,
                 color="yellow",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -869,7 +878,7 @@ class Visualizer:
                 ylim[0] + 30,
                 xlim[0] + 150,
                 f"t = {t:.2f} s",
-                fontsize=15,
+                fontsize=13,
                 color="white",
                 verticalalignment="top",
                 horizontalalignment="left",
@@ -924,7 +933,8 @@ class Visualizer:
 
         self.fig.canvas.blit(ax_map.bbox)
         self.fig.canvas.flush_events()
-        plt.show(block=False)
+        if matplotlib.get_backend() == "TkAgg":
+            plt.show(block=False)
         self.frames.append(self.get_live_plot_image())
         # print(f"Time spent updating live plot: {time.time() - t_start:.2f} s")
 
@@ -1058,7 +1068,7 @@ class Visualizer:
         if not (self._config.save_liveplot_animation and self._config.show_liveplot):
             return
 
-        fig = plt.figure(figsize=(self.frames[0].shape[1] / 72.0, self.frames[0].shape[0] / 72.0), dpi=72)
+        fig = plt.figure(fig_size=(self.frames[0].shape[1] / 72.0, self.frames[0].shape[0] / 72.0), dpi=72)
 
         patch = plt.imshow(self.frames[0], aspect="auto")
         plt.axis("off")
@@ -1149,7 +1159,7 @@ class Visualizer:
 
         figs = []
         axes = []
-        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.figsize)
+        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), fig_size=self._config.fig_size)
         ax_map = fig_map.add_subplot(1, 1, 1)
         plotters.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
@@ -1382,7 +1392,7 @@ class Visualizer:
             Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
 
-        fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 10))
+        fig = plt.figure(num="Own-ship distance to obstacles", fig_size=(10, 10))
         n_do = len(do_labels)
         axes = fig.subplots(n_do + 1, 1, sharex=True)
         plt.show(block=False)
@@ -1452,7 +1462,7 @@ class Visualizer:
             - Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
         n_samples = min(sim_times.shape[0], reference_trajectory.shape[1])
-        fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", figsize=(10, 10))
+        fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", fig_size=(10, 10))
         axes = fig.subplot_mosaic(
             [
                 ["x"],
@@ -1598,7 +1608,7 @@ class Visualizer:
         Returns:
             Tuple[plt.Figure, list]: Figure and axes handles for the DO <do_idx> tracking results.
         """
-        fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), figsize=(10, 10))
+        fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), fig_size=(10, 10))
         axes = fig.subplot_mosaic(
             [
                 ["x", "y"],

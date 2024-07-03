@@ -95,13 +95,16 @@ visualizer:
     n_snapshots:
       required: False
       type: integer
-    figsize:
+    fig_size:
       required: True
       type: list
       minlength: 2
       maxlength: 2
       schema:
         type: integer
+    fig_dpi:
+      required: True
+      type: int
     margins:
       required: True
       type: list
