@@ -15,12 +15,43 @@ import colav_simulator.common.math_functions as mf
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib import animation
 
 matplotlib.use("Agg")
 import numpy as np
 import skimage.morphology as ski_morph
 import skimage.util as ski_util
 from matplotlib import gridspec
+
+# Depending on your OS, you might need to change these paths
+plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
+plt.rcParams["animation.ffmpeg_path"] = "/usr/bin/ffmpeg"
+
+
+def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False) -> None:
+    # Mess with this to change frame size
+    fig = plt.figure(figsize=(frame_list[0].shape[1] / 72.0, frame_list[0].shape[0] / 72.0), dpi=72)
+
+    patch = plt.imshow(frame_list[0], aspect="auto")
+    plt.axis("off")
+
+    def init():
+        patch.set_data(frame_list[0])
+        return (patch,)
+
+    def animate(i):
+        patch.set_data(frame_list[i])
+        return (patch,)
+
+    anim = animation.FuncAnimation(
+        fig=fig, func=animate, init_func=init, blit=True, frames=len(frame_list), interval=50, repeat=True
+    )
+    anim.save(
+        filename=filename.as_posix(),
+        writer=animation.PillowWriter(fps=20),
+        progress_callback=lambda i, n: print(f"Saving frame {i} of {n}") if verbose else None,
+    )
+    print(f"Saved gif to {filename}")
 
 
 def find_edges(img: np.ndarray, *, bw_threshold: int = 150, limits: Tuple[float, float] = (0.2, 0.15)) -> list:
