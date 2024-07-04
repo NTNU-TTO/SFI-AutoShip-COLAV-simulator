@@ -29,8 +29,6 @@ import matplotlib.ticker as mticker
 import numpy as np
 import seacharts.display.colors as colors
 from matplotlib import animation
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
