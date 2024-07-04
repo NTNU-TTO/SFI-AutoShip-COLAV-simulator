@@ -7,11 +7,15 @@
     Author: Trym Tengesdal
 """
 
+import copy
+import gc
 import time
+import tracemalloc
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
+import colav_simulator.common.image_helper_methods as ihm
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.common.paths as dp
@@ -25,6 +29,8 @@ import matplotlib.ticker as mticker
 import numpy as np
 import seacharts.display.colors as colors
 from matplotlib import animation
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
@@ -157,12 +163,17 @@ class Visualizer:
         else:
             self._config = Config()
 
-        self.fig: plt.figure = None  # handle to figure for live plotting
+        self.fig: matplotlib.figure.Figure = None  # handle to figure for live plotting
         self.axes: list = []  # handle to axes for live plotting
         self.ship_plt_handles: list = []  # handles used for live plotting
         self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
         self.background: Any = None  # background for live plotting
+        self.background_handles: dict = {}  # handles for the background of the live plot
         self.backend: str = "Agg"
+        if self.backend == "Agg":
+            matplotlib.use("Agg")
+        else:
+            matplotlib.use("TkAgg")
 
         self.xlimits = [-1e10, 1e10]
         self.ylimits = [-1e10, 1e10]
@@ -177,10 +188,9 @@ class Visualizer:
         self.t_start = 0.0
         self.frames = []
 
-        if self.backend == "Agg":
-            matplotlib.use("Agg")
-        else:
-            matplotlib.use("TkAgg")
+        # print("Visualizer backend: {}".format(matplotlib.get_backend()))
+        # print("Visualizer canvas class: {}".format(self.canvas_cls))
+
         mplstyle.use("fast")
         # plt.rcParams.update(matplotlib.rcParamsDefault)
         plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
@@ -222,13 +232,12 @@ class Visualizer:
             - enc (ENC): ENC object for the map background.
             - extent (list): List specifying the extent of the map.
         """
-        self.frames = []
         fig_width = self._config.fig_size[0] / self._config.fig_dpi
         fig_height = self._config.fig_size[1] / self._config.fig_dpi
-        self.fig = plt.figure(num=fignum, figsize=(fig_width, fig_height), dpi=self._config.fig_dpi)
+        self.fig = plt.figure(num=fignum, figsize=(fig_width, fig_height), dpi=self._config.fig_dpi, tight_layout=True)
+        ax_map = self.fig.add_subplot(1, 1, 1)
 
         self.n_seabed_colorbins = len(enc.seabed.keys())
-        ax_map = self.fig.add_subplot(1, 1, 1)
         ax_map, background_handles = plotters.plot_background(
             ax_map,
             enc,
@@ -238,8 +247,6 @@ class Visualizer:
             shore_color="black" if self._config.black_shore else None,
         )
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
-        # plt.ion()
-
         ax_map.set_xlim(extent[0], extent[1])
         ax_map.set_ylim(extent[2], extent[3])
 
@@ -265,7 +272,6 @@ class Visualizer:
         self.toggle_liveplot_axis_labels(self._config.show_liveplot_map_axes)
         if matplotlib.get_backend() == "TkAgg":
             plt.show(block=False)
-        # self.fig.tight_layout(pad=0.0)
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
         self.fig.set_size_inches(fig_width, fig_height)
 
@@ -296,33 +302,32 @@ class Visualizer:
 
     def close_live_plot(self) -> None:
         """Closes the live plot."""
-        if self._config.show_liveplot:
-            plt.close(fig=self.fig)
-            self.frames = []
+        self.clear()
 
     def get_live_plot_image(self) -> np.ndarray:
         """Returns the live plot image as a numpy array."""
         if not self._config.show_liveplot:
-            raise ValueError("Live plot is not enabled")
-
-        self.fig.canvas.draw()
-        self.background = self.fig.canvas.copy_from_bbox(self.axes[0].bbox)
-        data = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
-        data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+            return np.empty((0, 0, 3), dtype=np.uint8)
+        data = ihm.mplfig2np(self.fig)
         return data
 
     def clear(self) -> None:
         """Clears all plot handles."""
-
         if self.fig:
+            self.clear_background_plot_handles()
+            self.clear_ship_plot_handles()
+            self.clear_misc_plot_handles()
             for ax in self.axes:
                 ax.cla()
+            self.axes = []
+            self.background_handles = {}
             self.fig.clf()
             self.background = None
-
-        self.ship_plt_handles = []
-        self.misc_plt_handles = {}
-        self.frames = []
+            self.ship_plt_handles = []
+            self.misc_plt_handles = {}
+            self.frames = []
+            plt.close(self.fig)
+            gc.collect()
 
     def init_live_plot(self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None) -> None:
         """Initializes the plot handles of the live plot for a simulation
@@ -344,7 +349,7 @@ class Visualizer:
         if self._config.zoom_in_liveplot_on_ownship:
             self.zoom_in_live_plot_on_ownship(enc, ship_list[0].csog_state)
 
-        ax_map = self.axes[0]
+        ax_map: plt.Axes = self.axes[0]
         self.background = self.fig.canvas.copy_from_bbox(ax_map.bbox)
 
         n_ships = len(ship_list)
@@ -1043,6 +1048,69 @@ class Visualizer:
         if "time" in self.misc_plt_handles and self.misc_plt_handles["time"] is not None:
             self.misc_plt_handles["time"].set_visible(show)
 
+    def clear_misc_plot_handles(self) -> None:
+        if not self._config.show_liveplot:
+            return
+
+        if "time" in self.misc_plt_handles and self.misc_plt_handles["time"] is not None:
+            self.misc_plt_handles["time"].remove()
+
+        if "disturbance" in self.misc_plt_handles:
+            dhandles = self.misc_plt_handles["disturbance"]
+            dhandles["circle"].remove()
+            if "currents" in dhandles:
+                dhandles["currents"]["arrow"].remove()
+                dhandles["currents"]["text"].remove()
+            if "wind" in dhandles:
+                dhandles["wind"]["arrow"].remove()
+                dhandles["wind"]["text"].remove()
+
+    def clear_ship_plot_handles(self) -> None:
+        if not self._config.show_liveplot:
+            return
+
+        for idx, ship_handle in enumerate(self.ship_plt_handles):
+            if "trajectory" in ship_handle and ship_handle["trajectory"] is not None:
+                ship_handle["trajectory"].remove()
+
+            if "waypoints" in ship_handle and ship_handle["waypoints"] is not None:
+                ship_handle["waypoints"].remove()
+
+            if "info" in ship_handle and ship_handle["info"] is not None:
+                ship_handle["info"].remove()
+
+            if "ground_truth_patch" in ship_handle and ship_handle["ground_truth_patch"] is not None:
+                ship_handle["ground_truth_patch"].remove()
+
+            if "colav_nominal_trajectory" in ship_handle and ship_handle["colav_nominal_trajectory"] is not None:
+                ship_handle["colav_nominal_trajectory"].remove()
+
+            if "colav_predicted_trajectory" in ship_handle and ship_handle["colav_predicted_trajectory"] is not None:
+                ship_handle["colav_predicted_trajectory"].remove()
+
+            if "do_tracks" in ship_handle:
+                for track in ship_handle["do_tracks"]:
+                    track.remove()
+
+            if "do_covariances" in ship_handle:
+                for cov in ship_handle["do_covariances"]:
+                    cov.remove()
+
+            if "do_track_poses" in ship_handle:
+                for pose in ship_handle["do_track_poses"]:
+                    pose.remove()
+
+    def clear_background_plot_handles(self) -> None:
+        if not self._config.show_liveplot:
+            return
+        if "land" in self.background_handles:
+            self.background_handles["land"].remove()
+        if "shore" in self.background_handles:
+            self.background_handles["shore"].remove()
+        if "seabed" in self.background_handles:
+            for layer, _ in self.background_handles["seabed"]:
+                layer.remove()
+
     def zoom_in_live_plot_on_ownship(self, enc: ENC, os_state: np.ndarray) -> None:
         """Narrows the live plot extent to the own-ship position.
 
@@ -1068,7 +1136,10 @@ class Visualizer:
         if not (self._config.save_liveplot_animation and self._config.show_liveplot):
             return
 
-        fig = plt.figure(fig_size=(self.frames[0].shape[1] / 72.0, self.frames[0].shape[0] / 72.0), dpi=72)
+        fig = plt.figure(
+            fig_size=(self.frames[0].shape[1] / self._config.fig_dpi, self.frames[0].shape[0] / self._config.fig_dpi),
+            dpi=self._config.fig_dpi,
+        )
 
         patch = plt.imshow(self.frames[0], aspect="auto")
         plt.axis("off")

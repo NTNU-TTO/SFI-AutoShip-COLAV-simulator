@@ -28,6 +28,7 @@ import colav_simulator.scenario_config as sc
 import numpy as np
 import seacharts.enc as senc
 import shapely.geometry as geometry
+import yaml
 
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:.2f}".format})
 
@@ -126,6 +127,13 @@ class Config:
             np.rad2deg(output["perpendicular_csog_state_perturbation_pm_range"][2])
         )
         return output
+
+    @classmethod
+    def from_file(cls, config_file: Path):
+        assert config_file.exists(), f"Configuration file {config_file} does not exist."
+        with open(config_file, "r", encoding="utf-8") as f:
+            config_dict = yaml.safe_load(f)
+        return cls.from_dict(config_dict)
 
 
 class ScenarioGenerator:

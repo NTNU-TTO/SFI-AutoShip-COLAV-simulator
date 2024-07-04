@@ -426,8 +426,8 @@ class Ship(IShip):
             t (float): Current time (s) relative to the start of the simulation.
             dt (float): Time step (s) between the current and last planning step.
             do_list (list): List of dynamic obstacles in the vicinity of the ship.
-            enc (Optional[senc.ENC], optional): Electronic navigational chart object. Defaults to None.
-            w (Optional[stochasticity.DisturbanceData], optional): Disturbance data possibly available to the COLAV system. Defaults to None.
+            enc (Optional[senc.ENC]): Electronic navigational chart object. Defaults to None.
+            w (Optional[stochasticity.DisturbanceData]): Disturbance data possibly available to the COLAV system. Defaults to None.
 
         Returns:
             np.ndarray: The new planned trajectory for the ship.

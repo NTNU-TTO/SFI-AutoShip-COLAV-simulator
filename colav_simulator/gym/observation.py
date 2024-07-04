@@ -15,6 +15,7 @@
 """
 
 import time
+import tracemalloc
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
@@ -1122,6 +1123,7 @@ class PerceptionImageObservation(ObservationType):
         if self.env.time < 0.001:
             self.t_prev = self.env.time
 
+        # img = np.zeros((256, 256, 3), dtype=np.uint8)
         self.env.render()  # must be called to update the liveplot image
         self.toggle_unneccessary_liveplot_features(show=False)
         img = self.env.liveplot_image.copy()
@@ -1230,7 +1232,6 @@ class DictObservation(ObservationType):
 
     def space(self) -> gym.spaces.Space:
         obs_space = dict()
-
         for obs_type in self.observation_types:
             obs_space[obs_type.name] = obs_type.space()
         return gym.spaces.Dict(obs_space)

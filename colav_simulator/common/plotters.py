@@ -123,8 +123,8 @@ def plot_shapely_multipolygon(
 
     poly_verts = [np.array(poly.exterior.coords) for poly in mp.geoms]
     collection = PolyCollection(poly_verts, edgecolor=color, facecolor=color, alpha=alpha, zorder=zorder)
-    handle = ax.add_collection(collection)
-    return ax, handle
+    collection = ax.add_collection(collection)
+    return ax, collection
 
 
 def plot_background(

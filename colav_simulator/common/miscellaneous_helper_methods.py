@@ -18,9 +18,26 @@ import colav_simulator.common.math_functions as mf
 import colav_simulator.common.vessel_data as vd
 import numpy as np
 import pandas as pd
+import psutil
 import shapely.geometry as geometry
 from scipy.interpolate import interp1d
 from scipy.stats import chi2
+
+
+def print_resource_usage() -> None:
+    memusage = psutil.virtual_memory()
+    cpuusage = psutil.cpu_percent()
+    print(f"[System] memory usage: {memusage.percent}% | CPU usage: {cpuusage}%")
+
+
+def print_process_memory_usage(prefix_str: str) -> None:
+    """Prints the memory usage of the current process.
+
+    Args:
+        prefix_str (str): Prefix string to print before the memory usage.
+    """
+    process = psutil.Process(os.getpid())
+    print(f"[Process {os.getpid()}] {prefix_str} Memory usage: {process.memory_info().rss / 1024 ** 2:.2f} MB")
 
 
 def get_ship_ais_df_list_from_ais_df(df: pd.DataFrame) -> list:

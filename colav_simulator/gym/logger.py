@@ -11,9 +11,9 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
+import colav_simulator.common.miscellaneous_helper_methods as mhm
 import cv2
 import numpy as np
-import psutil
 import scipy.ndimage as scimg
 
 
@@ -59,13 +59,36 @@ class Logger:
         log_dir: Path,
         save_freq: int = 10,
         n_envs: int = 1,
-        max_num_logged_episodes: int = 500,
+        max_num_logged_episodes: int = 100,
     ) -> None:
         if not log_dir.exists():
             log_dir.mkdir(parents=True)
 
         self.max_num_logged_episodes: int = max_num_logged_episodes
-        self.env_data: List[EpisodeData] = []
+        self.env_data: List[EpisodeData] = [
+            EpisodeData(
+                "",
+                0,
+                0,
+                0.0,
+                np.array([]),
+                np.array([]),
+                False,
+                False,
+                False,
+                False,
+                np.array([]),
+                0.0,
+                0.0,
+                0.0,
+                [],
+                None,
+                [],
+                [],
+                [],
+            )
+        ] * max_num_logged_episodes
+        self.pos: int = 0
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
         self.save_freq: int = save_freq
@@ -97,8 +120,8 @@ class Logger:
         if name is None:
             name = "env_data"
 
-        with open(self.log_dir / (name + ".pkl"), "wba") as f:
-            pickle.dump(self.env_data, f)
+        with open(self.log_dir / (name + ".pkl"), "ba") as f:
+            pickle.dump(self.env_data[: self.pos], f)
 
     def load_from_pickle(self, name: Optional[str]) -> None:
         """Loads the environment data from a pickle file.
@@ -197,12 +220,6 @@ class Logger:
         if done:
             self.add_episode_data(env_idx)
             self.reset_data_structures(env_idx)
-            self.print_memory_usage(env_idx)
-
-    def print_memory_usage(self, env_idx: int) -> None:
-        """Prints the current memory usage."""
-        process = psutil.Process()
-        print(f"Env{env_idx} memory usage: {process.memory_info().rss / 1024**2:.2f} MB")
 
     def add_episode_data(self, env_idx) -> None:
         """Adds the data from the current episode to the environment data list.
@@ -231,16 +248,15 @@ class Logger:
             frames=self.frames[env_idx],
             actor_infos=self.actor_infos[env_idx],
         )
-        self.env_data.append(episode_data)
-
-        num_episodes = len(self.env_data)
+        self.env_data[self.pos] = episode_data
+        self.pos += 1
         self.episode_nr += 1
-        if num_episodes > self.max_num_logged_episodes:
+        mhm.print_process_memory_usage(prefix_str=f"Env {env_idx} | Episode {self.episode_nr} |")
+        if self.pos >= self.max_num_logged_episodes:
             self.save_as_pickle()
 
-            # Clear the data after saving to free up memory
-            self.env_data = []
-            self.episode_nr = 0
+            # Reset the memory pointer
+            self.pos = 0
 
     def reset_data_structures(self, env_idx: int) -> None:
         """Resets the data structures in preparation of new episode.
@@ -248,7 +264,6 @@ class Logger:
         Args:
             env_idx (int): The index of the environment.
         """
-        self.episode_nr[env_idx] += 1
         self.timesteps[env_idx] = 0
         self.duration[env_idx] = 0.0
         self.rewards[env_idx] = []
@@ -262,3 +277,12 @@ class Logger:
         self.unnormalized_actions[env_idx] = []
         self.unnormalized_obs[env_idx] = []
         self.frames[env_idx] = []
+
+
+if __name__ == "__main__":
+    log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / "sac_rlmpc1"
+    experiment_name = "sac_rlmpc1"
+    logger = Logger(experiment_name=experiment_name, log_dir=log_dir, save_freq=10)
+    logger.load_from_pickle(f"{experiment_name}_env_training_data4")
+
+    print(f"Ep0: {logger.env_data[0]}")

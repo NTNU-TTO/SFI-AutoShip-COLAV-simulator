@@ -10,6 +10,7 @@
 
 import pathlib
 import time as timelib
+import tracemalloc
 from typing import List, Optional, Tuple
 
 import colav_simulator.core.ship as cs_ship
@@ -32,7 +33,7 @@ class COLAVEnvironment(gym.Env):
     The environment is centered on the own-ship (single-agent), and consists of a maritime scenario with possibly multiple other vessels and grounding hazards from ENC data.
     """
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30, "video.frames_per_second": 30}
+    metadata = {"render_modes": ["human", "rgb_array", "none"], "render_fps": 30, "video.frames_per_second": 30}
     observation_type: csgym_obs.ObservationType
     action_type: csgym_action.ActionType
     scenario_config: sc.ScenarioConfig
@@ -120,7 +121,6 @@ class COLAVEnvironment(gym.Env):
         self._live_plot_closed: bool = True
         self.verbose: bool = verbose
         self.current_frame: np.ndarray = np.zeros((1, 1, 3), dtype=np.uint8)
-
         if self.scenario_file_folder is not None:
             self._load(
                 scenario_file_folder=self.scenario_file_folder,
@@ -164,6 +164,11 @@ class COLAVEnvironment(gym.Env):
         self.rewarder_class = rewarder_class
         self.rewarder_kwargs = rewarder_kwargs
         self.rewarder = self.rewarder_class(env=self, **self.rewarder_kwargs)
+
+        # if self.episodes == 0:
+        #     self._clear_render()
+        #     tracemalloc.start(40)
+        #     self.t_prev_malloc_snapshot = tracemalloc.take_snapshot()
 
         self._define_spaces()
 
@@ -294,7 +299,7 @@ class COLAVEnvironment(gym.Env):
             "os_course": self.ownship.course,
             "reward": self.last_reward,
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
-            "render_frame": self.current_frame.copy(),
+            "render_frame": self.viewer2d.get_live_plot_image(),
         }
         return self.last_info
 
@@ -323,6 +328,22 @@ class COLAVEnvironment(gym.Env):
             Tuple[Observation, dict]: Initial observation and additional information
         """
         self.seed(seed=seed, options=options)
+        self._clear_render()
+        self.observation_type = None
+        self.action_type = None
+        # t_now = tracemalloc.take_snapshot()
+        # stats = t_now.compare_to(self.t_prev_malloc_snapshot, "traceback")
+        # print(f"Memory usage env {self.env_id}:")
+        # # for stat in stats[:5]:
+        # #     print(stat)
+
+        # for entry in stats[:7]:
+        #     print("\nEntry: {}".format(entry))
+        #     print("Traceback:")
+        #     for line in entry.traceback:
+        #         print("  {}".format(line))
+        # print("----------------------------------------------------------------------------")
+
         self.steps = 0  # Actions performed, not necessarily equal to the simulator steps
         self.last_reward = 0.0
         self.done = False
@@ -408,6 +429,12 @@ class COLAVEnvironment(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
+    def _clear_render(self) -> None:
+        """Clears the renderer."""
+        if self.viewer2d is not None:
+            self.viewer2d.close_live_plot()
+            self._live_plot_closed = True
+
     def _init_render(self) -> None:
         """Initializes the renderer."""
         if self.render_mode == "rgb_array":
@@ -441,8 +468,7 @@ class COLAVEnvironment(gym.Env):
                 self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
                 remote_actor=True,
             )
-            self.current_frame = self.viewer2d.get_live_plot_image()
-            img = self.current_frame
+            img = self.viewer2d.get_live_plot_image()
         # print(f"Render time env {self.env_id}: {time.time() - t_now}")
         return img
 

@@ -90,6 +90,7 @@ class Simulator:
         self.enc: senc.ENC = None
         self.sconfig: sc.ScenarioConfig = None
         self.relevant_grounding_hazards: list = []
+        self.relevant_grounding_hazards_as_union = None
         self.recent_sensor_measurements: list = []
 
         self.t = 0.0
@@ -140,7 +141,9 @@ class Simulator:
 
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
-        self.relevant_grounding_hazards_as_union = mapf.extract_relevant_grounding_hazards_as_union(ownship_min_depth, self.enc)
+        self.relevant_grounding_hazards_as_union = mapf.extract_relevant_grounding_hazards_as_union(
+            ownship_min_depth, self.enc
+        )
 
         for ship_obj in self.ship_list:
             ship_obj.reset(seed=seed)
@@ -153,7 +156,7 @@ class Simulator:
         self.t_start = sconfig.t_start
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
-        self.recent_sensor_measurements: list = [None] * len(self.ship_list)
+        self.recent_sensor_measurements = [None] * len(self.ship_list)
         # print(
         #     f"Initialized scenario ep={sconfig.name} with {len(self.ship_list)} ships and Disturbance={disturbance is not None}."
         # )
