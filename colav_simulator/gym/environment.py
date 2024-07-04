@@ -94,7 +94,7 @@ class COLAVEnvironment(gym.Env):
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
-
+        self.simulator_config: cssim.Config = simulator_config
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(
             config=scenario_generator_config, seed=seed
@@ -328,9 +328,6 @@ class COLAVEnvironment(gym.Env):
             Tuple[Observation, dict]: Initial observation and additional information
         """
         self.seed(seed=seed, options=options)
-        self._clear_render()
-        self.observation_type = None
-        self.action_type = None
         # t_now = tracemalloc.take_snapshot()
         # stats = t_now.compare_to(self.t_prev_malloc_snapshot, "traceback")
         # print(f"Memory usage env {self.env_id}:")
@@ -428,12 +425,6 @@ class COLAVEnvironment(gym.Env):
         self.steps += 1
 
         return obs, reward, terminated, truncated, info
-
-    def _clear_render(self) -> None:
-        """Clears the renderer."""
-        if self.viewer2d is not None:
-            self.viewer2d.close_live_plot()
-            self._live_plot_closed = True
 
     def _init_render(self) -> None:
         """Initializes the renderer."""

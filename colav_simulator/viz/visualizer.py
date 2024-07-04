@@ -328,6 +328,7 @@ class Visualizer:
             self.frames = []
             plt.close(self.fig)
             gc.collect()
+            self.fig = None
 
     def init_live_plot(self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None) -> None:
         """Initializes the plot handles of the live plot for a simulation
@@ -1139,6 +1140,7 @@ class Visualizer:
         fig = plt.figure(
             fig_size=(self.frames[0].shape[1] / self._config.fig_dpi, self.frames[0].shape[0] / self._config.fig_dpi),
             dpi=self._config.fig_dpi,
+            tight_layout=True,
         )
 
         patch = plt.imshow(self.frames[0], aspect="auto")
