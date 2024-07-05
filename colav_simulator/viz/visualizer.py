@@ -7,7 +7,6 @@
     Author: Trym Tengesdal
 """
 
-import copy
 import gc
 import time
 import tracemalloc
@@ -29,8 +28,6 @@ import matplotlib.ticker as mticker
 import numpy as np
 import seacharts.display.colors as colors
 from matplotlib import animation
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib_scalebar.scalebar import ScaleBar
 from pandas import DataFrame
 from scipy.stats import chi2, norm
@@ -169,7 +166,7 @@ class Visualizer:
         self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
         self.background: Any = None  # background for live plotting
         self.background_handles: dict = {}  # handles for the background of the live plot
-        self.backend: str = "Agg"
+        self.backend: str = "TkAgg"
         if self.backend == "Agg":
             matplotlib.use("Agg")
         else:

@@ -1080,11 +1080,11 @@ class TimeObservation(ObservationType):
 class PerceptionImageObservation(ObservationType):
     """Observation consisting of a perception image."""
 
-    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 256, 256), **kwargs) -> None:
+    def __init__(self, env: "COLAVEnvironment", image_dim: Tuple[int, int, int] = (1, 128, 128), **kwargs) -> None:
         """
         Args:
             env (COLAVEnvironment): The environment to observe.
-            image_dim (Tuple[int, int, int], optional): The dimensions of the image. Defaults to (1, 256, 256) (history window of 1)
+            image_dim (Tuple[int, int, int], optional): The dimensions of the image. Defaults to (1, 128, 128) (history window of 1)
         """
         super().__init__(env)
         self.name = "PerceptionImageObservation"
@@ -1123,7 +1123,7 @@ class PerceptionImageObservation(ObservationType):
         if self.env.time < 0.001:
             self.t_prev = self.env.time
 
-        # img = np.zeros((256, 256, 3), dtype=np.uint8)
+        # img = np.zeros((128, 128, 3), dtype=np.uint8)
         self.env.render()  # must be called to update the liveplot image
         self.toggle_unneccessary_liveplot_features(show=False)
         img = self.env.liveplot_image.copy()

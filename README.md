@@ -18,7 +18,7 @@ The main functionality is contained in the `Simulator` class of `simulator.py`, 
 
 ## Citation
 If you are using the `colav_simulator` in your work, please use the following citation:
-```
+```bibtex
 @Article{Tengesdal2023sfse,
   author  = {Trym Tengesdal and Tor A. Johansen},
   journal = {7th IEEE Conference on Control Technology and Applications (CCTA)},
@@ -32,7 +32,7 @@ If you are using the `colav_simulator` in your work, please use the following ci
 ```
 
 If you are using `RRTs` for ship behavior generation in your work, please also use the following citation:
-```
+```bibtex
 @Article{Tengesdal2024csrrt,
   title={A Comparative Study of Rapidly-exploring Random Tree Algorithms Applied to Ship Trajectory Planning and Behavior Generation},
   author={Tengesdal, Trym and Pedersen, Tom Arne and Johansen, Tor Arne},
@@ -55,7 +55,7 @@ To use `seacharts` in the simulator, you should download `.gdb` files from <http
 
 If you get troubles installing `gdal`, this might be due to:
 - The native `gdal`library not being installed, see e.g. <https://github.com/OSGeo/gdal/issues/2166>
-- It not being installed correctly, maybe you need install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>). An issue on the topic is found on <https://github.com/trymte/seacharts/issues/4>
+- It not being installed correctly. Try to install from source or fix the gdal-version (see e.g. <https://stackoverflow.com/questions/34408699/having-trouble-installing-gdal-for-python> or <https://github.com/OSGeo/gdal/issues/2827>). An issue on the topic is found on <https://github.com/trymte/seacharts/issues/4>
 
 If you get troubles with import errors caused by not finding dependencies such as fiona, try to reinstall the dependencies causing error.
 
@@ -111,6 +111,7 @@ And download the .gdb files into this folder.
 
 Inside the colav_simulator directory test the installation with
 `python tests/test_ship.py`
+
 ## Git Workflow
 
 All contributors are obligated to follow methods as outlined in <https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow> for ensuring a pain-free workflow with the repository.
@@ -118,6 +119,7 @@ All contributors are obligated to follow methods as outlined in <https://www.atl
 If you're unfamiliar with git, check out <https://try.github.io/> to get familiar, and use <https://learngitbranching.js.org/> for trying out topics on your own.
 
 ### Main branch
+
 The `main` branch shall always be working. This means that:
 
 - All of its features/modules shall be properly documented through quality code + descriptive text where appropriate. Use `type annotation` for increased readability.
@@ -238,7 +240,7 @@ NOTE: The random generation of scenarios (poses, waypoints, speed plans etc.) ar
 
 Class responsible for visualizing scenarios run through by the Simulator, and visualizing/saving the results from these. A basic live plotting feature when simulating scenarios is available. The class can, as most other main modules, be configured from the example simulator configuration file under `config/`.
 
-Note that the visualizer uses Matplotlib, and scales badly with a large number of vessels and plot data. Use with care.
+Note that the visualizer uses Matplotlib, and scales badly with a large number of vessels and plot data. Use with care. See Roadmap below.
 
 ### Ship
 The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
@@ -296,7 +298,7 @@ The `colav_interface.py` provides an interface for arbitrary `COLAV` planning al
 - Create github actions for CI/CD pipeline.
 - Mandate unittesting of all modules and their core functionality.
 - Improve random generation of vessel COLREGS scenarios. E.g. use AIS data to sample "realistic" vessel trajectories based on a fitted distribution for historical vessel positions and velocities.
-- Improve live-visualization in the simulator w.r.t. code readability and run-time. Switch out matplotlib for a faster backend.
+- Improve live-visualization in the simulator w.r.t. code readability and run-time. Switch out matplotlib for a faster backend. Matplotlib is known to leak memory, so switching it for e.g. PyGtGraph <https://www.pyqtgraph.org/> or VisPy <https://vispy.org/> is promising.
 - Add functionality for saving simulation results to file.
 - Streamline installation of `seacharts`, `colav_evaluation_tool` and the `colav_simulator` through a script.
 - Separate the large `schemas/scenario.yaml` validation schema into multiple sub-schemas for easier readability.

@@ -89,6 +89,7 @@ class Logger:
             )
         ] * max_num_logged_episodes
         self.pos: int = 0
+        self.prev_pos: int = 0
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
         self.save_freq: int = save_freq
@@ -97,6 +98,7 @@ class Logger:
         self.duration: List[float] = [0.0 for _ in range(n_envs)]
         self.rewards: List[float] = [[] for _ in range(n_envs)]
         self.timesteps: List[int] = [0 for _ in range(n_envs)]
+        self.prev_episode_nr: int = -1
         self.episode_nr: int = 0
 
         self.reward_components: List[List[Dict[str, float]]] = [[] for _ in range(n_envs)]
@@ -118,10 +120,16 @@ class Logger:
             name (Optional[str]): The name of the pickle file, without the .pkl extension.
         """
         if name is None:
-            name = "env_data"
+            name = self.experiment_name + "_env_training_data"
+
+        # Don't save if there is no data or if the episode number hasn't changed
+        if self.pos == 0 or self.pos == self.prev_pos:
+            return
 
         with open(self.log_dir / (name + ".pkl"), "ba") as f:
             pickle.dump(self.env_data[: self.pos], f)
+
+        self.prev_pos = self.pos
 
     def load_from_pickle(self, name: Optional[str]) -> None:
         """Loads the environment data from a pickle file.
@@ -129,14 +137,19 @@ class Logger:
             name (Optional[str]): Name of the pickle file, without the .pkl extension.
         """
         if name is None:
-            name = "env_data"
+            name = self.experiment_name
+        # Because multiple objects might be stored in the same file
+        # we need to load them one by one
+        self.env_data = []
         with open(self.log_dir / (name + ".pkl"), "rb") as f:
             while 1:
                 try:
-                    env_data = pickle.load(f)
-                    self.env_data.extend(env_data)
+                    edata = pickle.load(f)
+                    self.env_data.extend(edata)
                 except EOFError:
                     break
+        # prune equal episodes by checking the episode number
+        self.env_data = list({edata.episode: edata for edata in self.env_data}.values())
         print(f"Loaded {len(self.env_data)} episodes from {name}.pkl")
 
     def __call__(self, cs_env_infos: List[Dict[str, Any]]) -> None:
@@ -191,7 +204,7 @@ class Logger:
                 center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
                 center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
             ]
-            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA).astype(np.uint8)
+            reduced_frame = cv2.resize(cropped_img, (128, 128), interpolation=cv2.INTER_AREA).astype(np.uint8)
             self.frames[env_idx].append(reduced_frame)
 
         # Special case for an NMPC actor
@@ -217,6 +230,9 @@ class Logger:
             self.collision[env_idx] or self.grounding[env_idx] or self.goal_reached[env_idx] or self.truncated[env_idx]
         )
 
+        # # Alternative check for new episode, as we might not always log the
+        # done = done or self.timesteps[env_idx] < self.prev_timesteps[env_idx]
+
         if done:
             self.add_episode_data(env_idx)
             self.reset_data_structures(env_idx)
@@ -227,6 +243,10 @@ class Logger:
         Args:
             env_idx (int): The index of the environment.
         """
+        # Don't log if there is only one timestep
+        if len(self.rewards[env_idx]) == 1 or self.episode_nr == self.prev_episode_nr:
+            return
+
         episode_data = EpisodeData(
             name=self.episode_name[env_idx],
             episode=self.episode_nr,
@@ -249,14 +269,14 @@ class Logger:
             actor_infos=self.actor_infos[env_idx],
         )
         self.env_data[self.pos] = episode_data
+        self.prev_episode_nr = self.episode_nr
         self.pos += 1
         self.episode_nr += 1
-        mhm.print_process_memory_usage(prefix_str=f"Env {env_idx} | Episode {self.episode_nr} |")
+        # mhm.print_process_memory_usage(prefix_str=f"Env {env_idx} | Episode {self.episode_nr} |")
         if self.pos >= self.max_num_logged_episodes:
             self.save_as_pickle()
-
-            # Reset the memory pointer
             self.pos = 0
+            self.prev_pos = 0
 
     def reset_data_structures(self, env_idx: int) -> None:
         """Resets the data structures in preparation of new episode.
@@ -280,9 +300,9 @@ class Logger:
 
 
 if __name__ == "__main__":
-    log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / "sac_rlmpc1"
-    experiment_name = "sac_rlmpc1"
+    log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / "sac_drl1"
+    experiment_name = "sac_drl1"
     logger = Logger(experiment_name=experiment_name, log_dir=log_dir, save_freq=10)
-    logger.load_from_pickle(f"{experiment_name}_env_training_data4")
+    logger.load_from_pickle(f"{experiment_name}_env_training_data")
 
     print(f"Ep0: {logger.env_data[0]}")

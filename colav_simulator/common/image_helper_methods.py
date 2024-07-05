@@ -42,7 +42,6 @@ def mplfig2np(fig: matplotlib.figure.Figure) -> np.ndarray:
     buff.close()
     w, h = fig.canvas.get_width_height()
     im = data.reshape((int(w), int(h), -1)).copy()
-    del data
     im = im[:, :, :3]
     return im
 
