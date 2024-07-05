@@ -166,7 +166,7 @@ class Visualizer:
         self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
         self.background: Any = None  # background for live plotting
         self.background_handles: dict = {}  # handles for the background of the live plot
-        self.backend: str = "TkAgg"
+        self.backend: str = "Agg"
         if self.backend == "Agg":
             matplotlib.use("Agg")
         else:
