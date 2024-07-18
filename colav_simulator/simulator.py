@@ -332,7 +332,7 @@ class Simulator:
         """Step through the simulation by one time step.
 
         Args:
-            remote_actor (bool, optional): Whether the own-ship is controlled by a remote actor, i.e. references are set externally from the Ship object. Defaults to False.
+            remote_actor (bool, optional): Whether the own-ship is controlled by a remote actor, i.e. references are set externally from the Ship object. Used in DRL training.
 
         Returns:
             dict: Dictionary containing the current time step simulation data for each ship and the disturbance data if applicable.

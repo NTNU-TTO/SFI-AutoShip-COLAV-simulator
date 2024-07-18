@@ -28,7 +28,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.core.colav.kuwata_vo_alg.kuwata_vo as kvo
@@ -136,7 +136,7 @@ class ICOLAV(ABC):
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
-        do_list: list,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
@@ -145,14 +145,14 @@ class ICOLAV(ABC):
         """Plans a (hopefully) collision free trajectory for the ship to follow.
 
         Args:
-            t (float): The current time.
-            waypoints (np.ndarray): The waypoints to follow, typically used for COLAV planners assuming a nominal path/trajectory as input.
-            speed_plan (np.ndarray): The speed plan to follow. typically used for COLAV planners assuming a nominal path/trajectory as input.
-            ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r]. Used as start state in case of high level planners.
-            do_list (list): List of information on dynamic obstacles. This is a list of tuples of the form (id, state [x, y, Vx, Vy], covariance, length, width).
-            enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info. Defaults to None.
-            goal_state (Optional[np.ndarray]): The goal state [x, y, psi, u, v, r], typically used for high level COLAV planners where no nominal path/trajectory is assumed. Defaults to None.
-            w (Optional[stochasticity.DisturbanceData]): The stochastic disturbance data. Defaults to None.
+            t (float): The current time since the start of the simulation.
+            waypoints (np.ndarray): The waypoints to follow, typically used for COLAV planners assuming a nominal path/trajectory as input. Dimensions: [2, N] composed of the waypoint NE coordinates.
+            speed_plan (np.ndarray): Reference speeds at each waypoint, typically used for COLAV planners assuming a nominal path/trajectory as input.
+            ownship_state (np.ndarray): The ownship state [x, y, psi, u, v, r]^T. Used as start state in case of high level planners.
+            do_list (List[Tuple[int, np.ndarray, np.ndarray, float, float]]): List of dynamic obstacles in the vicinity of the ship, on the format (ID, state, covariance, length, width). The state is on the format [x, y, Vx, Vy]^T.
+            enc (Optional[ENC]): The relevant Electronic Navigational Chart (ENC) for static obstacle info.
+            goal_state (Optional[np.ndarray]): The goal state [x, y, psi, u, v, r]^T, typically used for high level COLAV planners where no nominal path/trajectory is assumed.
+            w (Optional[stochasticity.DisturbanceData]): The stochastic disturbance data.
             **kwargs: Additional arguments to the COLAV planning algorithm, e.g. the own-ship length.
 
         Returns:
@@ -173,7 +173,7 @@ class ICOLAV(ABC):
 
     @abstractmethod
     def get_colav_data(self) -> dict:
-        """Returns the plotting data relevant for the COLAV planning algorithm. This includes e.g. the predicted trajectory, considered obstacles, optimal inputs etc..
+        """Returns the plotting data relevant for the COLAV planning algorithm. This includes e.g. the predicted trajectory, considered obstacles, optimal inputs etc. Used for plotting and logging.
 
         Returns:
             dict: The relevant data used in the COLAV planning algorithm.

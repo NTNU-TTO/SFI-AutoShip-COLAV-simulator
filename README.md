@@ -3,6 +3,8 @@ This repository implements a framework for simulating and evaluating autonomous 
 
 The main functionality is contained in the `Simulator` class of `simulator.py`, which runs through scenarios defined by the `ScenarioGenerator`. One can visualize the results underway, save the results, and use the `colav_evaluation_tool` afterwards to evaluate the performance of the own-ship (potentially) running a COLAV algorithm. The `seacharts` package is used to provide usage of Electronic Navigational Charts for visualization and anti-grounding purposes. See the examples and tests for simple tutorials on how to use the repository.
 
+The framework uses the North-East coordinate system with values in meters, speed in meters per second, angles in radians, and angular velocities in radians per second.
+
 [![platform](https://img.shields.io/badge/platform-linux-lightgrey)]()
 [![python version](https://img.shields.io/badge/python-3.10-blue)]()
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
@@ -243,15 +245,23 @@ Class responsible for visualizing scenarios run through by the Simulator, and vi
 Note that the visualizer uses Matplotlib, and scales badly with a large number of vessels and plot data. Use with care. See Roadmap below.
 
 ### Ship
-The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides a:
+#### Interface and core functionality
+The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides among others:
 
-- `forward(dt: float, w = Optional[DisturbanceData] = None) -> np.ndarray` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available.
-- `plan(t: float, dt: float, do_list: list, enc: Optional[ENC] = None, w: Optional[DisturbanceData] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system. A list of dynamic obstacle data, possibly Electronic Navigational Chart (ENC) object and disturbance information can be used by the planner.
-- `track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]` function that tracks nearby dynamic obstacles.
+- `forward(self, dt: float, w = Optional[DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available.
+- `plan(self, t: float, dt: float, do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]], enc: Optional[ENC] = None, w: Optional[DisturbanceData] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system. A list of dynamic obstacle data, possibly Electronic Navigational Chart (ENC) object and disturbance information can be used by the planner.
+- `track_obstacles(self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]]) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:` function that tracks nearby dynamic obstacles.
 
-Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out.
+Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out. For the Guidance, Navigation and Control (GNC) system, we consider interface input/output dimensions based on a typical 3DOF surface vessel model (see Fossen, 2011 for reference):
 
-It can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality. Check out the `ship_list` entry under the `schemas/scenario.yaml` to get a clue on what you can configure for the ship. NOTE: The own-ship must always have `ID=0` and is the first ship to configure under `ship_list`.
+- State of dimension `nx = 6` x 1 consisting of `[x, y, psi, u, v, r]^T` for the typical 3DOF model case (`^T` for transposed vectors). For kinematic models or other models with reduced state dimension, the first entries are filled out. For the kinematic model in the framework this equates to setting the state as `[x, y, chi, U, 0, 0]^T` where `chi` is the course over ground and `U` the speed over ground.
+- Inputs of dimension `nu = 3` x 1 consisting of the generalized forces and moments `[X, Y, N]^T` for the 3DOF ship model. When using e.g. a kinematic model that has different state and input dimensions, the ship controller will nominally just feed references (typically in course and speed) directly forward to the ship model.
+- References are of dimension 9 x N, where N is the number of trajectory samples, consisting of 3DOF reference poses, velocities and accelerations in general. E.g. for LOS-guidance the references will be populated as `[0, 0, chi_ref, U_ref, 0, 0, 0, 0, 0]^T`
+
+If you need to implement a model which has state, input or reference dimensions larger than the aforementioned, make an issue on the topic and pull request with the necessary interface changes.
+
+#### Subsystem Configurations
+The ship can be configured to use different combinations of collision avoidance algorithms, guidance systems, controllers, estimators, sensors, and models. The key element here is that each subsystem provides a standard inferface, which any external module using the subsystem must adhere to.  See the source code and test files for more in depth info on the functionality. Check out the `ship_list` entry under the `schemas/scenario.yaml` to get a clue on what you can configure for the ship. NOTE: The own-ship must always have `ID=0` and is the first ship to configure under `ship_list`.
 
 If you want to expand the `Ship` object by adding support for a new model, controller, guidance law etc., a rough recipe is the following (in this example for a new model, but the procedure will be the same for any subsystem or module in the framework):
 
