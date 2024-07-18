@@ -142,7 +142,7 @@ class ICOLAV(ABC):
         w: Optional[stochasticity.DisturbanceData] = None,
         **kwargs
     ) -> np.ndarray:
-        """Plans a (hopefully) collision free trajectory for the ship to follow.
+        """Main COLAV planning function.
 
         Args:
             t (float): The current time since the start of the simulation.
@@ -156,7 +156,7 @@ class ICOLAV(ABC):
             **kwargs: Additional arguments to the COLAV planning algorithm, e.g. the own-ship length.
 
         Returns:
-            np.ndarray: The planned poses, velocities and accelerations (vstacked) from the COLAV planning algorithm. Must be compatible with the control system you are using.
+            np.ndarray: The planned poses, velocities and accelerations (vstacked as a 9 x N array, N >= 1 being the number of samples) from the COLAV planning algorithm. Must be compatible with the control system you are using.
         """
 
     @abstractmethod
@@ -168,7 +168,7 @@ class ICOLAV(ABC):
         """Returns the current planned trajectory.
 
         Returns:
-            np.ndarray: The most recent planned poses, velocities and accelerations (vstacked) over the COLAV planning horizon (if any). Must be compatible with the control system you are using.
+            np.ndarray: The most recent planned poses, velocities and accelerations (vstacked as a 9 x N array, N >= 1 being the number of samples) over the COLAV planning horizon (if any). Must be compatible with the control system you are using.
         """
 
     @abstractmethod
@@ -220,7 +220,7 @@ class VOWrapper(ICOLAV):
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
-        do_list: list,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
@@ -286,7 +286,7 @@ class SBMPCWrapper(ICOLAV):
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
-        do_list: list,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
         enc: Optional[ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,

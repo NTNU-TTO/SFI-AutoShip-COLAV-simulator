@@ -163,8 +163,18 @@ class IController(ABC):
     def compute_inputs(self, refs: np.ndarray, xs: np.ndarray, dt: float) -> np.ndarray:
         """Computes inputs using the specific controller strategy.
 
-        References should be of dimension 9 to be able to include pose (typically in NED),
-        pose derivative (NED or BODY), and pose double derivative (NED or BODY).
+        References should be of dimension 9 x 1 consisting of pose, velocity and acceleration refs. E.g.
+        for LOS-guidance with a PID controller (FLSH) for surge and course control, the refs are typically
+        [0, 0, chi_ref, U_ref, 0, 0, 0, 0, 0]^T.
+
+        Args:
+            refs (np.ndarray): Desired/references = [x, y, psi, u, v, r, ax, ay, rdot]
+            xs (np.ndarray): State typically on the form [x, y, psi, u, v, r]^T, or [x, y, chi, U, 0, 0]^T for a CSOG kinematic model.
+            dt (float): Time step
+
+        Returns:
+            np.ndarray: 3 x 1 inputs u.
+
         """
 
     @abstractmethod
@@ -205,7 +215,7 @@ class PassThroughCS(IController):
 
         Args:
             refs (np.ndarray): Desired/references = [x, y, psi, u, v, r, ax, ay, rdot]
-            xs (np.ndarray): State xs
+            xs (np.ndarray): State typically on the form [x, y, psi, u, v, r]^T, or [x, y, chi, U, 0, 0]^T for a CSOG kinematic model.
             dt (float): Time step
 
         Returns:
@@ -244,12 +254,12 @@ class PassThroughInputs(IController):
         """Takes out relevant parts of references as inputs directly
 
         Args:
-            refs (np.ndarray): Force inputs = [X, Y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] or [X, Y, -Y * l_r, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] depending on the model.
-            xs (np.ndarray): State xs
+            refs (np.ndarray): Force inputs = [X, Y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]^T or [X, Y, -Y * l_r, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]^T depending on the model.
+            xs (np.ndarray): State typically on the form [x, y, psi, u, v, r]^T, or [x, y, chi, U, 0, 0]^T for a CSOG kinematic model.
             dt (float): Time step
 
         Returns:
-            np.ndarray: 3 x 1 inputs u = [X, Y, N]^T
+            np.ndarray: 3 x 1 inputs u
         """
 
         if len(refs) != 9:

@@ -33,7 +33,7 @@ class ISensor(ABC):
 
     @abstractmethod
     def reset(self, seed: int | None) -> None:
-        """Resets the sensor to its initial state."""
+        """Resets the sensor to its initial state, optionally seeding the rng for measurement generation."""
 
     @abstractmethod
     def seed(self, seed: int | None) -> None:
@@ -297,7 +297,7 @@ class AIS(ISensor):
             dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
 
             if (t - self._prev_meas_time[i]) >= (
-                1.0 / self.measurement_rate(do_state)
+                1.0 / self._measurement_rate(do_state)
             ) and dist_ownship_to_do <= self._params.max_range:
                 z = self.h(do_state) + self._rng.multivariate_normal(np.zeros(4), self._params.R_true)
                 self._prev_meas_time[i] = t
@@ -307,7 +307,7 @@ class AIS(ISensor):
 
         return measurements
 
-    def measurement_rate(self, xs: np.ndarray) -> float:
+    def _measurement_rate(self, xs: np.ndarray) -> float:
         """Returns the measurement rate for the input state. This depends on
         the input state's speed and AIS class (and also if the course is changing,
         but this is not considered here (yet)).

@@ -9,7 +9,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.paths as dp
@@ -143,7 +143,7 @@ class PQRRTStar(ci.ICOLAV):
         waypoints: np.ndarray,
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
-        do_list: list,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
         enc: Optional[senc.ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,

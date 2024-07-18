@@ -89,7 +89,18 @@ class IGuidance(ABC):
     def compute_references(
         self, waypoints: np.ndarray, speed_plan: np.ndarray, times: Optional[np.ndarray], xs: np.ndarray, dt: float
     ) -> np.ndarray:
-        "Computes guidance reference states for the ship controller to track. 9 x n_samples (typically n_samples = 1) array of reference states are returned, consisting of reference pose, velocity and acceleration."
+        """Computes guidance reference states for the ship controller to track.
+
+        Args:
+            waypoints (np.ndarray): The waypoints to follow, Dimensions: [2, N] composed of the waypoint NE coordinates.
+            speed_plan (np.ndarray): Reference speeds at each waypoint.
+            times (Optional[np.ndarray]): Optional array corresponding to arrival times at each waypoint.
+            xs (np.ndarray): The ownship 3DOF state [x, y, psi, u, v, r]^T or [x ,y, chi, U, 0, 0]^T in case of a kinematic CSOG model.
+            dt (float): Time step
+
+        Returns:
+            np.ndarray: References of dimension 9 x N (typically N = 1), consisting of ref poses, velocities and accelerations.
+        """
 
     @abstractmethod
     def reset(self) -> None:
