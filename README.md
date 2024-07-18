@@ -246,16 +246,16 @@ Note that the visualizer uses Matplotlib, and scales badly with a large number o
 
 ### Ship
 #### Interface and core functionality
-The Ship class simulates the behaviour of an individual ship and adheres to the `IShip` interface, which necessitates that the ship class provides among others:
+The Ship class simulates the behaviour of an individual ship and must adhere to the `IShip` interface, which necessitates that the ship class provides among others, a:
 
-- `forward(self, dt: float, w = Optional[DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available.
+- `forward(self, dt: float, w = Optional[DisturbanceData] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]` function that allows simple forward simulation of the vessel, with disturbance consideration if data is available. Returns the new state, inputs to get there and the references used.
 - `plan(self, t: float, dt: float, do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]], enc: Optional[ENC] = None, w: Optional[DisturbanceData] = None) -> np.ndarray` function that plans a new trajectory/generates new references for the ship, either using the guidance system or COLAV system. A list of dynamic obstacle data, possibly Electronic Navigational Chart (ENC) object and disturbance information can be used by the planner.
 - `track_obstacles(self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]]) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:` function that tracks nearby dynamic obstacles.
 
 Standardized input/output formats are used for the interfaces to make the code for each subsystem easy to switch in/out. For the Guidance, Navigation and Control (GNC) system, we consider interface input/output dimensions based on a typical 3DOF surface vessel model (see Fossen, 2011 for reference):
 
 - State of dimension `nx = 6` x 1 consisting of `[x, y, psi, u, v, r]^T` for the typical 3DOF model case (`^T` for transposed vectors). For kinematic models or other models with reduced state dimension, the first entries are filled out. For the kinematic model in the framework this equates to setting the state as `[x, y, chi, U, 0, 0]^T` where `chi` is the course over ground and `U` the speed over ground.
-- Inputs of dimension `nu = 3` x 1 consisting of the generalized forces and moments `[X, Y, N]^T` for the 3DOF ship model. When using e.g. a kinematic model that has different state and input dimensions, the ship controller will nominally just feed references (typically in course and speed) directly forward to the ship model.
+- Inputs of dimension `nu = 3` x 1 consisting of the generalized forces and moments `[X, Y, N]^T` for the 3DOF ship model. When using e.g. a kinematic model that has different state and input dimensions, the ship controller will nominally just feed references (typically in course and speed) directly forward to the ship model (Must be configured. See below for examples).
 - References are of dimension 9 x N, where N is the number of trajectory samples, consisting of 3DOF reference poses, velocities and accelerations in general. E.g. for LOS-guidance the references will be populated as `[0, 0, chi_ref, U_ref, 0, 0, 0, 0, 0]^T`
 
 If you need to implement a model which has state, input or reference dimensions larger than the aforementioned, make an issue on the topic and pull request with the necessary interface changes.
