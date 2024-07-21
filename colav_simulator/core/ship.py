@@ -329,6 +329,10 @@ class IShip(ABC):
         "Return COLAV related data for the ship in dictionary format, if any. Typically contains planned trajectories, solver times etc."
 
     @abstractmethod
+    def set_colav_data(self, colav_data: dict) -> None:
+        "Set COLAV related data for the ship in dictionary format, can be used for external control (DRL purposes). Typically contains planned trajectories, solver times etc."
+
+    @abstractmethod
     def get_sim_data(self, t: float, timestamp_0: int) -> dict:
         """Returns simulation related data for the ship.
 
@@ -440,6 +444,7 @@ class Ship(IShip):
         self._last_valid_idx: int = -1  # Index of last valid AIS message in predefined trajectory
         self.t_start: float = 0.0  # The time when the ship appears in the simulation
         self.t_end: float = 1e12  # The time when the ship disappears from the simulation
+        self._ext_colav_data: dict = {}
         (
             self._model,
             self._controller,
@@ -645,9 +650,13 @@ class Ship(IShip):
     def set_controller(self, controller: controllers.IController) -> None:
         self._controller = controller
 
+    def set_colav_data(self, colav_data: dict) -> None:
+        assert self._colav is None, "COLAV data can only be set if the ship does not have an onboard COLAV system."
+        self._ext_colav_data = colav_data
+
     def get_colav_data(self) -> dict:
         if self._colav is None:
-            return {}
+            return self._ext_colav_data
 
         return self._colav.get_colav_data()
 

@@ -414,7 +414,7 @@ class COLAVEnvironment(gym.Env):
                 break
 
         obs = self.observation_type.observe()
-        rewarder_kwargs = {"num_steps": self.steps}
+        rewarder_kwargs = {"num_steps": self.steps, "truncated": truncated, "terminated": terminated}
         reward = self.rewarder(obs, action, **rewarder_kwargs)
         self.last_reward = reward
 

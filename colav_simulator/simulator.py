@@ -439,8 +439,12 @@ class Simulator:
         d2grounding = self.distance_to_grounding(ship_idx)
         return d2grounding <= self.ship_list[ship_idx].length / 2.0
 
-    def determine_ship_goal_reached(self, ship_idx: int = 0) -> bool:
+    def determine_ship_goal_reached(self, ship_idx: int = 0, radius: Optional[float] = None) -> bool:
         """Determines whether the ship has reached its goal.
+
+        Args:
+            ship_idx (int, optional): Index of the ship to check for goal reached.
+            radius (Optional[float]): Radius around the goal to consider the goal reached.
 
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
@@ -455,6 +459,9 @@ class Simulator:
             )
         ship_state = self.ship_list[ship_idx].csog_state
         d2goal = np.linalg.norm(ship_state[:2] - goal_state[:2])
+        if radius is not None:
+            return d2goal <= radius
+
         scale_factor = 4.0
         return d2goal <= self.ship_list[ship_idx].length * scale_factor
 

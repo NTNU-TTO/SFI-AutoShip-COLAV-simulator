@@ -300,8 +300,8 @@ class Logger:
 
 
 if __name__ == "__main__":
-    log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / "sac_drl1"
-    experiment_name = "sac_drl1"
+    experiment_name = "sac_rlmpc1"
+    log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / experiment_name
     logger = Logger(experiment_name=experiment_name, log_dir=log_dir, save_freq=10)
     logger.load_from_pickle(f"{experiment_name}_env_training_data")
 
