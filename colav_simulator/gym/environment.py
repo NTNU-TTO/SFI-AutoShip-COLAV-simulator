@@ -369,7 +369,7 @@ class COLAVEnvironment(gym.Env):
 
         episode_data = scenario_episode_list.pop(0)
 
-        episode_data["disturbance"].disable_wind()
+        # episode_data["disturbance"].disable_wind()
         self.simulator.initialize_scenario_episode(
             ship_list=episode_data["ship_list"],
             sconfig=episode_data["config"],
