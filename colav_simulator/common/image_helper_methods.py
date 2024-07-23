@@ -289,8 +289,7 @@ if __name__ == "__main__":
     # plt.imshow(img_cropped)
     # cv2.imwrite(str(filename_out), img_cropped)
 
-    data_dir = Path("/home/doctor/Desktop/machine_learning/data/vae/")
-    # data_dir = Path("/Users/trtengesdal/Desktop/machine_learning/data/vae/")
+    data_dir = Path.home() / "Desktop/machine_learning/perception_vae/"
     npy_filename = "perception_images_rogaland_random_everything_vecenv_test"
 
     npy_file = np.load(data_dir / (npy_filename + ".npy"), mmap_mode="r", allow_pickle=True).astype(np.uint8)

@@ -57,7 +57,6 @@ class Logger:
         self,
         experiment_name: str,
         log_dir: Path,
-        save_freq: int = 10,
         n_envs: int = 1,
         max_num_logged_episodes: int = 100,
     ) -> None:
@@ -92,7 +91,6 @@ class Logger:
         self.prev_pos: int = 0
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
-        self.save_freq: int = save_freq
 
         self.episode_name: List[str] = ["" for _ in range(n_envs)]
         self.duration: List[float] = [0.0 for _ in range(n_envs)]
@@ -297,6 +295,7 @@ class Logger:
         self.unnormalized_actions[env_idx] = []
         self.unnormalized_obs[env_idx] = []
         self.frames[env_idx] = []
+        self.actor_infos[env_idx] = []
 
 
 if __name__ == "__main__":
