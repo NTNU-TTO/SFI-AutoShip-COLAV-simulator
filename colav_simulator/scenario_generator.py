@@ -677,7 +677,8 @@ class ScenarioGenerator:
 
             if self._config.verbose:
                 print(
-                    f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created. Num target ships: {n_random_ships}."
+                    f"ScenarioGenerator: Episode {self._episode_counter} of {n_episodes} created. Num target ships: "
+                    + str(episode["config"].n_random_ships)
                 )
 
             scenario_episode_list.append(episode)

@@ -220,15 +220,14 @@ class GaussMarkovDisturbance(IDisturbance):
 
         speed_impulse = 0.0
         direction_impulse = 0.0
-        if (
-            self._params.add_impulse_noise
-            and self._params.impulse_times[self._impulse_counter]
+        if self._params.add_impulse_noise and (
+            self._params.impulse_times[self._impulse_counter]
             <= t
             < self._params.impulse_times[self._impulse_counter] + 3.0 * dt
         ):
             speed_impulse = random.choice(self._params.speed_impulses)
             direction_impulse = random.choice(self._params.direction_impulses)
-            self._impulse_counter += 1 if self._impulse_counter < len(self._params.impulse_times) else 0
+            self._impulse_counter += 1 if self._impulse_counter < len(self._params.impulse_times) - 1 else 0
 
         # "Euler integration"
         self._speed = mf.sat(
