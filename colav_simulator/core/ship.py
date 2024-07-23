@@ -534,7 +534,7 @@ class Ship(IShip):
 
         if self._goal_state.size == 0 and (self._waypoints.size < 2 or self._speed_plan.size < 2):
             raise ValueError(
-                "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
+                f"Ship{self.id}: Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
             )
 
         if self._colav is not None:
@@ -554,13 +554,13 @@ class Ship(IShip):
         elif self._guidance is not None:
             assert (
                 self._waypoints.size > 2
-            ), "Waypoints must be provided for the ship to follow, when you do not provide a nominal trajectory externally or use the onboard colav planner!"
+            ), f"Ship{self.id}: Waypoints must be provided for the ship to follow, when you do not provide a nominal trajectory externally or use the onboard colav planner!"
             assert (
                 self._waypoints.ndim == 2 and self._speed_plan.ndim == 1
-            ), "Waypoints must be a 2D array and speed plan a 1D array!"
+            ), f"Ship{self.id}: Waypoints must be a 2D array and speed plan a 1D array!"
             assert (
                 self._waypoints.shape[1] == self._speed_plan.size
-            ), "Waypoints and speed plan must have the same number of columns!"
+            ), f"Ship{self.id}: Waypoints and speed plan must have the same number of columns!"
             self._references = self._guidance.compute_references(
                 self._waypoints, self._speed_plan, None, self._state, dt
             )
@@ -611,26 +611,28 @@ class Ship(IShip):
             self._colav.reset()
 
     def set_id(self, identifier: int) -> None:
-        assert identifier >= 0, "Ship identifier must be a non-negative integer!"
+        assert identifier >= 0, f"Ship{self.id}: Identifier must be a non-negative integer!"
         self._id = identifier
 
     def set_initial_state(self, csog_state: np.ndarray, t_start: Optional[float] = None) -> None:
-        assert csog_state.size == 4, "Initial state must be a 4D vector!"
+        assert csog_state.size == 4, f"Ship{self.id}: Initial state must be a 4D vector!"
         self._state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
         self.t_start = t_start if t_start is not None else 0.0
 
     def set_goal_state(self, csog_state: np.ndarray) -> None:
-        assert csog_state.size == 4, "Goal state must be a 4D vector!"
+        assert csog_state.size == 4, f"Ship{self.id}: Goal state must be a 4D vector!"
         self._goal_state = np.array([csog_state[0], csog_state[1], csog_state[3], csog_state[2], 0.0, 0.0])
 
     def set_nominal_plan(self, waypoints: np.ndarray, speed_plan: np.ndarray):
-        assert speed_plan.size == waypoints.shape[1], "Waypoints and speed plan must have the same number of columns!"
+        assert (
+            speed_plan.size == waypoints.shape[1]
+        ), f"Ship{self.id}: Waypoints and speed plan must have the same number of columns!"
         n_px, n_wps = waypoints.shape
         if n_px != 2:
-            raise ValueError("Waypoints do not contain planar coordinates along each column!")
+            raise ValueError(f"Ship{self.id}: Waypoints do not contain planar coordinates along each column!")
 
         if n_wps < 2:
-            raise ValueError("Insufficient number of waypoints (< 2)!")
+            raise ValueError(f"Ship{self.id}: Insufficient number of waypoints (< 2)!")
 
         self._waypoints = waypoints
         self._speed_plan = speed_plan
@@ -651,7 +653,9 @@ class Ship(IShip):
         self._controller = controller
 
     def set_colav_data(self, colav_data: dict) -> None:
-        assert self._colav is None, "COLAV data can only be set if the ship does not have an onboard COLAV system."
+        assert (
+            self._colav is None
+        ), f"Ship{self.id}: COLAV data can only be set if the ship does not have an onboard COLAV system."
         self._ext_colav_data = colav_data
 
     def get_colav_data(self) -> dict:
