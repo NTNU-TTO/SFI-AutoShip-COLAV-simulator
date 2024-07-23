@@ -53,6 +53,6 @@ if __name__ == "__main__":
 
     save_gif = False
     if save_gif:
-        ihm.save_frames_as_gif(frames, dp.animation_output / "demo2.gif")
+        ihm.save_frames_as_gif(frames, dp.animation_output / "demo.gif")
 
     print("done")

@@ -225,6 +225,7 @@ class Simulator:
                 )
 
                 self.visualizer.save_live_plot_animation(dp.animation_output / (episode_config.name + ".gif"))
+                self.visualizer.close_live_plot()
 
                 vessel_data = mhm.convert_simulation_data_to_vessel_data(sim_data, ship_info, episode_config.utm_zone)
 
@@ -322,8 +323,6 @@ class Simulator:
             if terminated or truncated:
                 t_end = self.t
                 break
-
-        self.visualizer.close_live_plot()
 
         sim_times = np.arange(self.t_start, t_end, self.dt)
         return pd.DataFrame(sim_data), ship_info, sim_times
