@@ -71,6 +71,7 @@ class Config:
     save_result_figures: bool = False
     save_liveplot_animation: bool = False
     n_snapshots: int = 3  # number of scenario shape snapshots to show in result plotting
+    matplotlib_backend: str = "TkAgg"
     fig_size: list = field(default_factory=lambda: [256, 256])
     fig_dpi: int = 72
     margins: list = field(default_factory=lambda: [0.0, 0.0])
@@ -166,8 +167,7 @@ class Visualizer:
         self.misc_plt_handles: dict = {}  # Extra handles used for live plotting
         self.background: Any = None  # background for live plotting
         self.background_handles: dict = {}  # handles for the background of the live plot
-        self.backend: str = "Agg"
-        if self.backend == "Agg":
+        if self._config.matplotlib_backend == "Agg":
             matplotlib.use("Agg")
         else:
             matplotlib.use("TkAgg")
@@ -1135,7 +1135,8 @@ class Visualizer:
             return
 
         fig = plt.figure(
-            fig_size=(self.frames[0].shape[1] / self._config.fig_dpi, self.frames[0].shape[0] / self._config.fig_dpi),
+            "Live plot",
+            figsize=(self.frames[0].shape[1] / self._config.fig_dpi, self.frames[0].shape[0] / self._config.fig_dpi),
             dpi=self._config.fig_dpi,
             tight_layout=True,
         )
@@ -1229,7 +1230,7 @@ class Visualizer:
 
         figs = []
         axes = []
-        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), fig_size=self._config.fig_size)
+        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.fig_size)
         ax_map = fig_map.add_subplot(1, 1, 1)
         plotters.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
@@ -1462,7 +1463,7 @@ class Visualizer:
             Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
 
-        fig = plt.figure(num="Own-ship distance to obstacles", fig_size=(10, 10))
+        fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 10))
         n_do = len(do_labels)
         axes = fig.subplots(n_do + 1, 1, sharex=True)
         plt.show(block=False)
@@ -1532,7 +1533,7 @@ class Visualizer:
             - Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
         n_samples = min(sim_times.shape[0], reference_trajectory.shape[1])
-        fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", fig_size=(10, 10))
+        fig = plt.figure(num=f"Ship{ship_idx}: Trajectory tracking results", figsize=(10, 10))
         axes = fig.subplot_mosaic(
             [
                 ["x"],
@@ -1678,7 +1679,7 @@ class Visualizer:
         Returns:
             Tuple[plt.Figure, list]: Figure and axes handles for the DO <do_idx> tracking results.
         """
-        fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), fig_size=(10, 10))
+        fig = plt.figure(num=f"Ship{ship_idx}: Tracking results DO" + str(do_idx), figsize=(10, 10))
         axes = fig.subplot_mosaic(
             [
                 ["x", "y"],

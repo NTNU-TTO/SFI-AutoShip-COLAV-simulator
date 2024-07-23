@@ -95,6 +95,9 @@ visualizer:
     n_snapshots:
       required: False
       type: integer
+    matplotlib_backend:
+      required: True
+      type: string
     fig_size:
       required: True
       type: list
@@ -104,7 +107,7 @@ visualizer:
         type: integer
     fig_dpi:
       required: True
-      type: int
+      type: integer
     margins:
       required: True
       type: list

@@ -498,7 +498,7 @@ class BehaviorGenerator:
             )
             goal_state = np.array([goal_position[0], goal_position[1], 0.0, 0.0, 0.0, 0.0])
 
-            ship_obj.set_goal_state(goal_state)
+            ship_obj.set_goal_state(goal_state[:4])
 
         bbox = mapf.create_bbox_from_points(self._enc, ship_obj.csog_state[:2], goal_state[:2], buffer=800.0)
         relevant_hazards = mapf.extract_hazards_within_bounding_box(
@@ -550,6 +550,23 @@ class BehaviorGenerator:
             self._prev_ship_plans[ship_obj.id] = waypoints, speed_plan
 
         self._prev_ship_states[ship_obj.id] = ship_obj.csog_state
+
+    def plot_rrt_planner_tree(self, ship_id: int) -> None:
+        """Plots the RRT planner tree for the specified ship.
+
+        Args:
+            ship_id (int): Ship ID.
+        """
+        assert (
+            RRT_LIB_FOUND
+        ), "You specified usage of RRT for ship behavior generation, but the RRT library is not found."
+        assert ship_id < len(self._rrt_list), "Invalid ship ID."
+        if self._bg_method_list[ship_id] == BehaviorGenerationMethod.RRT:
+            plotters.plot_rrt_tree(self._rrt_list[ship_id].get_tree_as_list_of_dicts(), self._enc)
+        elif self._bg_method_list[ship_id] == BehaviorGenerationMethod.RRTStar:
+            plotters.plot_rrt_tree(self._rrtstar_list[ship_id].get_tree_as_list_of_dicts(), self._enc)
+        elif self._bg_method_list[ship_id] == BehaviorGenerationMethod.PQRRTStar:
+            plotters.plot_rrt_tree(self._pqrrtstar_list[ship_id].get_tree_as_list_of_dicts(), self._enc)
 
     def visualize_ship_behaviors(self, ship_list: list, show_plots: bool = True) -> None:
         """Plots the ship waypoints and trajectories.
