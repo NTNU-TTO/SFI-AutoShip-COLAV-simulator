@@ -130,13 +130,9 @@ class Config:
 
         config_dict["id"] = self.id
         config_dict["mmsi"] = self.mmsi
-
         config_dict["model"] = self.model.to_dict()
-
         config_dict["controller"] = self.controller.to_dict()
-
         config_dict["sensors"] = self.sensors.to_dict_list()
-
         config_dict["tracker"] = self.tracker.to_dict()
 
         if self.guidance is not None:
@@ -511,23 +507,10 @@ class Ship(IShip):
         self,
         t: float,
         dt: float,
-        do_list: list,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
         enc: Optional[senc.ENC] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
     ) -> np.ndarray:
-        """Plans a new trajectory for the ship, either using the onboard guidance system or COLAV system employed.
-
-        Args:
-            t (float): Current time (s) relative to the start of the simulation.
-            dt (float): Time step (s) between the current and last planning step.
-            do_list (list): List of dynamic obstacles in the vicinity of the ship.
-            enc (Optional[senc.ENC]): Electronic navigational chart object. Defaults to None.
-            w (Optional[stochasticity.DisturbanceData]): Disturbance data possibly available to the COLAV system. Defaults to None.
-
-        Returns:
-            np.ndarray: The new planned trajectory for the ship.
-        """
-
         # Return the AIS trajectory if it is defined, i.e. the ship is following a predefined trajectory.
         if self._trajectory.size > 0:
             return self._trajectory
