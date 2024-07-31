@@ -696,7 +696,7 @@ class Ship(IShip):
         return output
 
     def get_do_track_information(self) -> Tuple[list, list]:
-        return self._tracker.get_track_information()
+        return self._tracker.get_track_information(mhm.convert_state_to_vxvy_state(self.csog_state))
 
     def plot_colav_results(
         self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, remote_actor: bool = False, **kwargs

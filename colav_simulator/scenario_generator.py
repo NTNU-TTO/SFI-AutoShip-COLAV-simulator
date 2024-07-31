@@ -780,7 +780,7 @@ class ScenarioGenerator:
             ship_list,
             config.ship_list,
             simulation_timespan=config.t_end - config.t_start,
-            show_plots=show_plots,
+            show_plots=False,
         )
 
         ship_list.sort(key=lambda x: x.id)
@@ -792,6 +792,8 @@ class ScenarioGenerator:
 
         self._prev_ship_list[: len(ship_list)] = copy.deepcopy(ship_list)
         self._prev_ship_list[len(ship_list) :] = [None for _ in range(len(ship_list), len(self._prev_ship_list))]
+
+        # self.behavior_generator.visualize_ship_behaviors(ship_list)
         return ship_list, disturbance, config
 
     def check_for_bad_episode(
@@ -800,6 +802,7 @@ class ScenarioGenerator:
         config: sc.ScenarioConfig,
         minimum_os_plan_length: float = 300.0,
         minimum_do_plan_length: float = 100.0,
+        show_plots: bool = False,
     ) -> Tuple[bool, list, sc.ScenarioConfig]:
         """Checks if the episode is bad, i.e. if any of the ships are outside the map,
         the plan is less than the minimum length.
@@ -808,11 +811,17 @@ class ScenarioGenerator:
             ship_list (list): List of ships to be considered in simulation.
             config (sc.ScenarioConfig): Scenario config object.
             minimum_plan_length (float, optional): Minimum length of the plan. Defaults to 400.0.
+            show_plots (bool, optional): Flag determining whether or not to show seacharts debugging plots.
 
         Returns:
-            Tuple[bool, list, sc.ScenarioConfig]: Tuple of boolean determining if the episode is bad, the new ship list and the new scenario config object
-                If the episode is OK, we may still want to prune the DOs with bad paths (i.e. too short paths).
+            Tuple[bool, list, sc.ScenarioConfig]: Tuple of boolean determining if the episode is bad, the new ship list and the new scenario config object. If the episode is OK, we may still want to prune the DOs with bad paths (i.e. too short paths).
         """
+        if show_plots:
+            os_poly_handle = None
+            os_traj_handle = None
+            do_traj_handle = None
+            do_poly_handle = None
+
         ownship = ship_list[0]
         if ownship.waypoints.size > 1:
             os_simple_traj = mhm.trajectory_from_waypoints_and_speed(
@@ -840,19 +849,65 @@ class ScenarioGenerator:
                 break
 
             if ship_obj.id > 0:
-                dist_os_to_ship = np.linalg.norm(ownship.state[:2] - ship_obj.state[:2])
+                start_idx_ship = int(np.floor(ship_obj.t_start / config.dt_sim))
+                dist_os_to_ship = np.linalg.norm(os_simple_traj[:2, start_idx_ship] - ship_obj.state[:2])
                 traj_do = mhm.trajectory_from_waypoints_and_speed(
-                    ship_obj.waypoints, ship_obj.speed_plan, config.dt_sim, config.t_end - config.t_start
+                    ship_obj.waypoints, ship_obj.speed_plan, config.dt_sim, config.t_end - ship_obj.t_start
                 )
-                t_cpa, d_cpa, _ = mhm.compute_actual_vessel_pair_cpa(os_simple_traj, traj_do, config.dt_sim)
+                t_cpa, d_cpa, _ = mhm.compute_actual_vessel_pair_cpa(
+                    os_simple_traj[:, start_idx_ship : start_idx_ship + len(traj_do[0, :])], traj_do, config.dt_sim
+                )
+                do_path_crosses_hazards = False
+                for wp_idx in range(1, ship_obj.waypoints.shape[1]):
+                    do_path_crosses_hazards = mapf.check_if_segment_crosses_grounding_hazards(
+                        enc=self.enc,
+                        p1=traj_do[:2, wp_idx - 1],
+                        p2=traj_do[:2, wp_idx],
+                        draft=ship_obj.draft,
+                        hazards=self._sg_hazards,
+                    )
+                    if do_path_crosses_hazards:
+                        break
+
+                if show_plots:
+                    os_poly = mapf.create_ship_polygon(
+                        ownship.csog_state[0],
+                        ownship.csog_state[1],
+                        mf.wrap_angle_to_pmpi(ownship.heading),
+                        ownship.length,
+                        ownship.width,
+                        5.0,
+                        5.0,
+                    )
+                    do_poly = mapf.create_ship_polygon(
+                        ship_obj.csog_state[0],
+                        ship_obj.csog_state[1],
+                        mf.wrap_angle_to_pmpi(ship_obj.heading),
+                        ship_obj.length,
+                        ship_obj.width,
+                        5.0,
+                        5.0,
+                    )
+                    os_traj_handle = plotters.plot_trajectory(
+                        os_simple_traj[:, start_idx_ship:], self.enc, color="purple", linewidth=1.0
+                    )
+                    os_poly_handle = self.enc.draw_polygon(os_poly, color="magenta", fill=True, alpha=0.6)
+                    do_traj_handle = plotters.plot_trajectory(traj_do, self.enc, color="orangered", linewidth=1.0)
+                    do_poly_handle = self.enc.draw_polygon(do_poly, color="red", fill=True, alpha=0.6)
+                    if os_traj_handle:
+                        os_poly_handle.remove()
+                        os_traj_handle.remove()
+                        do_traj_handle.remove()
+                        do_poly_handle.remove()
 
                 if (
                     ship_obj.waypoints.size == 0
                     or not in_safe_sea
                     or path_length < minimum_do_plan_length
                     or dist_os_to_ship < self._config.dist_between_ships_range[0]
-                    # or t_cpa > self._config.t_cpa_threshold
+                    or t_cpa > self._config.t_cpa_threshold
                     or d_cpa > self._config.d_cpa_threshold
+                    or do_path_crosses_hazards
                 ):
                     bad_do_path_indices.append(ship_obj.id)
                     continue
@@ -1234,9 +1289,13 @@ class ScenarioGenerator:
                 self._config.t_cpa_threshold,
                 self._config.d_cpa_threshold,
             )
+            pointing_towards_land = mapf.check_if_pointing_too_close_towards_land(
+                np.array([x, y, speed, course]), enc=self.enc, hazards=self._sg_hazards, min_dist_to_hazard=100.0
+            )
+
             d2hazards = mapf.distance_to_enc_hazards(y, x, min_depth=min_depth, enc=self.enc, hazards=self._sg_hazards)
 
-            if risky_enough and d2hazards >= min_hazard_clearance and inside_bbox:
+            if risky_enough and d2hazards >= min_hazard_clearance and inside_bbox and not pointing_towards_land:
                 accepted = True
                 break
 

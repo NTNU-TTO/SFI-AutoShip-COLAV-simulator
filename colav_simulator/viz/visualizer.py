@@ -272,17 +272,26 @@ class Visualizer:
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
         self.fig.set_size_inches(fig_width, fig_height)
 
-    def find_plot_limits(self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0) -> Tuple[list, list]:
+    def find_plot_limits(
+        self, enc: ENC, ownship: ship.Ship, buffer: float = 500.0, constrain_to_enc_bbox: bool = True
+    ) -> Tuple[list, list]:
         """Finds the limits of the map, based on the own-ship trajectory
 
         Args:
             - enc (ENC): ENC object containing the map data
             - ownship (ship.Ship): The own-ship object
             - buffer (float): Buffer to add to the limits
+            - constrain_to_enc_bbox (bool): If true, the limits are constrained to the ENC bounding box
 
         Returns:
             Tuple[list, list]: The x and y limits of the map
         """
+        enc_ymin, enc_xmin, enc_ymax, enc_xmax = enc.bbox
+        if constrain_to_enc_bbox:
+            xlimits = [enc_xmin, enc_xmax]
+            ylimits = [enc_ymin, enc_ymax]
+            return xlimits, ylimits
+
         xlimits = [-1e10, 1e10]
         ylimits = [-1e10, 1e10]
         if ownship.trajectory.size > 0:
@@ -292,7 +301,6 @@ class Visualizer:
         xlimits = [xlimits[0] - buffer, xlimits[1] + buffer]
         ylimits = [ylimits[0] - buffer, ylimits[1] + buffer]
 
-        enc_ymin, enc_xmin, enc_ymax, enc_xmax = enc.bbox
         xlimits = [max(xlimits[0], enc_xmin), min(xlimits[1], enc_xmax)]
         ylimits = [max(ylimits[0], enc_ymin), min(ylimits[1], enc_ymax)]
         return xlimits, ylimits
@@ -305,7 +313,13 @@ class Visualizer:
         """Returns the live plot image as a numpy array."""
         if not self._config.show_liveplot:
             return np.empty((0, 0, 3), dtype=np.uint8)
-        data = ihm.mplfig2np(self.fig)
+
+        # data = ihm.mplfig2np(self.fig)
+
+        self.fig.canvas.draw()
+        self.background = self.fig.canvas.copy_from_bbox(self.axes[0].bbox)
+        data = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
+        data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         return data
 
     def clear(self) -> None:
@@ -1114,7 +1128,7 @@ class Visualizer:
 
         Args:
             - enc (ENC): ENC object containing the map data.
-            os_state (np.ndarray): Own-ship CSOG state.
+            - os_state (np.ndarray): Own-ship state.
         """
         buffer = self._config.zoom_window_width / 2.0
         xlimits_os = [os_state[0] - buffer, os_state[0] + buffer]

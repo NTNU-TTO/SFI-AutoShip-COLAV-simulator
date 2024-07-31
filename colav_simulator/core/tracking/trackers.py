@@ -31,17 +31,25 @@ class ITracker(ABC):
             dt (float): Time since last update
             t (float): Current time (assumed >= 0)
             true_do_states (List[Tuple[int, np.ndarray, float, float]]): List of tuples of true dynamic obstacle indices and states (do_idx, [x, y, Vx, Vy], length, width) x n_do. Used for simulating sensor measurements.
-            ownship_state (np.ndarray): Ownship state vector [x, y, Vx, Vy] used for simulating sensor measurements.
+            ownship_state (np.ndarray): Ownship state vector on the form [x, y, Vx, Vy] used for simulating sensor measurements.
 
         Returns:
-            Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]: List of updated dynamic obstacle tracks (ID, state, cov, length, width). Also, a list the sensor measurements used.
+            Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]: List of updated dynamic obstacle tracks (ID, state, cov, length, width), sorted in ascending order
+        by the distance from the ownship. Also, a list the sensor measurements used.
         """
 
     @abstractmethod
-    def get_track_information(self) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]:
-        """Returns the dynamic obstacle track information (ID, state, cov, length, width).
+    def get_track_information(
+        self, ownship_state: np.ndarray
+    ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]:
+        """Returns the dynamic obstacle track information (ID, state, cov, length, width), sorted in ascending order
+        by the distance from the ownship.
+
         Also, it returns the associated Normalized Innovation error Squared (NIS) values for
         the most recent update step for each track, and the track labels.
+
+        Args:
+            ownship_state (np.ndarray): Ownship state vector on the form [x, y, Vx, Vy] used for simulating sensor measurements.
 
         Returns:
             Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]: List of tracks and list of NISes.
@@ -151,7 +159,7 @@ class GodTracker(ITracker):
     ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
         # If the function is run at the same time as the previous, return the same tracks
         if t <= self._t_prev:
-            tracks, _ = self.get_track_information()
+            tracks, _ = self.get_track_information(ownship_state)
             return tracks, self._recent_sensor_measurements
 
         self._t_prev = t
@@ -184,9 +192,10 @@ class GodTracker(ITracker):
                     self._width_upd[i],
                 )
             )
-        return tracks, sensor_measurements
+        tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
+        return tracks_sorted_by_distance, sensor_measurements
 
-    def get_track_information(self) -> Tuple[list, list]:
+    def get_track_information(self, ownship_state: np.ndarray) -> Tuple[list, list]:
         tracks = []
         for i, label in enumerate(self._labels):
             tracks.append(
@@ -198,7 +207,8 @@ class GodTracker(ITracker):
                     self._width_upd[i],
                 )
             )
-        return tracks, [0.0 for _ in range(len(tracks))]
+        tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
+        return tracks_sorted_by_distance, [0.0 for _ in range(len(tracks_sorted_by_distance))]
 
 
 class KF(ITracker):
@@ -249,7 +259,7 @@ class KF(ITracker):
     ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
         # If the function is run at the same time as the previous, return the same tracks
         if t <= self._t_prev:
-            tracks, _ = self.get_track_information()
+            tracks, _ = self.get_track_information(ownship_state)
             return tracks, self._recent_sensor_measurements
 
         self._t_prev = t
@@ -317,7 +327,8 @@ class KF(ITracker):
         # print(f"xs_p: {self._xs_p}, xs_upd: {self._xs_upd}")
         # print(f"P_p: {self._P_p}")
         # print(f"P_upd: {self._P_upd}")
-        return tracks, sensor_measurements
+        tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
+        return tracks_sorted_by_distance, sensor_measurements
 
     def predict(self, xs_upd: np.ndarray, P_upd: np.ndarray, dt: float):
         F = self._model.F(dt)
@@ -353,7 +364,7 @@ class KF(ITracker):
 
         return x_upd, P_upd, NIS(v, S)
 
-    def get_track_information(self) -> Tuple[list, list]:
+    def get_track_information(self, ownship_state: np.ndarray) -> Tuple[list, list]:
         tracks = []
         for i, label in enumerate(self._labels):
             tracks.append(
@@ -365,7 +376,8 @@ class KF(ITracker):
                     self._width_upd[i],
                 )
             )
-        return tracks, self._NIS
+        tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
+        return tracks_sorted_by_distance, [0.0 for _ in range(len(tracks_sorted_by_distance))]
 
 
 def NIS(v: np.ndarray, S: np.ndarray) -> float:

@@ -568,40 +568,38 @@ class BehaviorGenerator:
         elif self._bg_method_list[ship_id] == BehaviorGenerationMethod.PQRRTStar:
             plotters.plot_rrt_tree(self._pqrrtstar_list[ship_id].get_tree_as_list_of_dicts(), self._enc)
 
-    def visualize_ship_behaviors(self, ship_list: list, show_plots: bool = True) -> None:
+    def visualize_ship_behaviors(self, ship_list: list) -> None:
         """Plots the ship waypoints and trajectories.
 
         Args:
             ship_list (list): List of ships to be considered in simulation.
-            show_plots (bool, optional): Whether to show plots. Defaults to False.
         """
-        if show_plots:
-            for ship_idx in reversed(range(len(ship_list))):
-                ship_obj = ship_list[ship_idx]
-                if self._enc is not None and ship_obj.waypoints.size > 1:
-                    color = "purple" if ship_obj.id == 0 else "orangered"
-                    plotters.plot_waypoints(
-                        ship_obj.waypoints,
-                        self._enc,
-                        color=color,
-                        point_buffer=2.0,
-                        disk_buffer=6.0,
-                        hole_buffer=2.0,
-                    )
-                if ship_obj.trajectory.size > 1:
-                    color = "purple" if ship_obj.id == 0 else "orangered"
-                    plotters.plot_trajectory(ship_obj.trajectory, self._enc, color=color, alpha=0.6)
-                color = "magenta" if ship_obj.id == 0 else "red"
-                ship_poly = mapf.create_ship_polygon(
-                    ship_obj.csog_state[0],
-                    ship_obj.csog_state[1],
-                    mf.wrap_angle_to_pmpi(ship_obj.csog_state[3]),
-                    ship_obj.length,
-                    ship_obj.width,
-                    5.0,
-                    5.0,
+        for ship_idx in reversed(range(len(ship_list))):
+            ship_obj = ship_list[ship_idx]
+            if self._enc is not None and ship_obj.waypoints.size > 1:
+                color = "purple" if ship_obj.id == 0 else "orangered"
+                plotters.plot_waypoints(
+                    ship_obj.waypoints,
+                    self._enc,
+                    color=color,
+                    point_buffer=2.0,
+                    disk_buffer=6.0,
+                    hole_buffer=2.0,
                 )
-                self._enc.draw_polygon(ship_poly, color=color, alpha=0.6)
+            if ship_obj.trajectory.size > 1:
+                color = "purple" if ship_obj.id == 0 else "orangered"
+                plotters.plot_trajectory(ship_obj.trajectory, self._enc, color=color, alpha=0.6)
+            color = "magenta" if ship_obj.id == 0 else "red"
+            ship_poly = mapf.create_ship_polygon(
+                ship_obj.csog_state[0],
+                ship_obj.csog_state[1],
+                mf.wrap_angle_to_pmpi(ship_obj.csog_state[3]),
+                ship_obj.length,
+                ship_obj.width,
+                5.0,
+                5.0,
+            )
+            self._enc.draw_polygon(ship_poly, color=color, alpha=0.6)
 
     def generate(
         self,
@@ -636,8 +634,8 @@ class BehaviorGenerator:
             ship_list[ship_cfg_idx] = ship_obj
             ship_config_list[ship_cfg_idx] = ship_config
             self._prev_ship_plans[ship_cfg_idx] = ship_config.waypoints, ship_config.speed_plan
-
-        self.visualize_ship_behaviors(ship_list, show_plots)
+        if show_plots:
+            self.visualize_ship_behaviors(ship_list)
         return ship_list, ship_config_list
 
     def generate_ship_behavior(
@@ -926,8 +924,9 @@ class BehaviorGenerator:
         east_min, north_min, east_max, north_max = self._enc.bbox
         waypoints = np.zeros((2, n_wps))
         waypoints[:, 0] = np.array([x, y])
-        clipped = False
-        max_iter = 150
+        clipped_to_close_hazard_point = False
+        clipped_to_bbox = False
+        max_iter = 500
         for i in range(1, n_wps):
             iter_count = -1
             crosses_grounding_hazards = False
@@ -956,41 +955,43 @@ class BehaviorGenerator:
                     continue
 
                 crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
-                    self._enc, waypoints[:, i - 1], new_wp, draft, self._grounding_hazards
+                    enc=self._enc, p1=waypoints[:, i - 1], p2=new_wp, draft=draft, hazards=self._grounding_hazards
                 )
+                if crosses_grounding_hazards:
+                    new_wp = mapf.find_closest_collision_free_point_on_segment(
+                        self._enc,
+                        waypoints[:, i - 1],
+                        new_wp,
+                        draft,
+                        self._grounding_hazards,
+                        min_dist=min_dist_to_hazards,
+                    )
+                    clipped_to_close_hazard_point = True
 
+                crosses_grounding_hazards = mapf.check_if_segment_crosses_grounding_hazards(
+                    enc=self._enc, p1=waypoints[:, i - 1], p2=new_wp, draft=draft, hazards=self._grounding_hazards
+                )
                 if not crosses_grounding_hazards:
                     break
 
-            if crosses_grounding_hazards:
-                new_wp = mapf.find_closest_collision_free_point_on_segment(
-                    self._enc,
-                    waypoints[:, i - 1],
-                    new_wp,
-                    draft,
-                    self._grounding_hazards,
-                    min_dist=min_dist_to_hazards,
-                )
-                clipped = True
-
             waypoints[:, i] = new_wp
-            waypoints[:, i - 1 : i + 1], clipped = mhm.clip_waypoint_segment_to_bbox(
+            waypoints[:, i - 1 : i + 1], clipped_to_bbox = mhm.clip_waypoint_segment_to_bbox(
                 waypoints[:, i - 1 : i + 1], (float(north_min), float(east_min), float(north_max), float(east_max))
             )
 
-            if clipped:
+            if clipped_to_bbox or clipped_to_close_hazard_point:
                 waypoints = waypoints[:, : i + 1]
                 break
 
         if waypoints.shape[1] < 2:
             new_wp = np.array(
                 [
-                    waypoints[0, i - 1] + 1000.0 * np.cos(psi),
-                    waypoints[1, i - 1] + 1000.0 * np.sin(psi),
+                    waypoints[0, i - 1] + 500.0 * np.cos(psi),
+                    waypoints[1, i - 1] + 500.0 * np.sin(psi),
                 ],
             ).reshape(2, 1)
             waypoints = np.append(waypoints, new_wp, axis=1)
-        return waypoints, clipped
+        return waypoints, clipped_to_close_hazard_point or clipped_to_bbox
 
     def generate_random_speed_plan(
         self, rng: np.random.Generator, U: float, U_min: float = 2.0, U_max: float = 8.0, n_wps: Optional[int] = None

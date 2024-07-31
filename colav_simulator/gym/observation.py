@@ -974,7 +974,7 @@ class TrackingObservation(ObservationType):
         super().__init__(env)
         assert self.env.ownship is not None, "Ownship is not defined"
         self.max_num_do = 15
-        self.do_info_size = 6 + 16  # [x, y, Vx, Vy, length, width] + covariance matrix of 4x4
+        self.do_info_size = 1 + 6 + 16  # ID + [x, y, Vx, Vy, length, width] + covariance matrix of 4x4
         self.name = "TrackingObservation"
         self.define_observation_ranges()
 
@@ -1038,8 +1038,8 @@ class TrackingObservation(ObservationType):
         tracks, _ = self.env.ownship.get_do_track_information()
         obs = np.zeros((self.do_info_size, self.max_num_do), dtype=np.float32)
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
-            obs[:6, idx] = np.array([do_state[0], do_state[1], do_state[2], do_state[3], do_length, do_width])
-            obs[6:, idx] = do_cov.flatten()
+            obs[:7, idx] = np.array([do_idx, do_state[0], do_state[1], do_state[2], do_state[3], do_length, do_width])
+            obs[7:, idx] = do_cov.flatten()
         return obs
 
 
@@ -1327,6 +1327,8 @@ class RelativeTrackingObservation(ObservationType):
         obs[0, :] = self.observation_range["distance"][1]  # Set all distances to max value
         R_psi = mf.Rmtrx2D(os_state[2])
         for idx, (do_idx, do_state, do_cov, do_length, do_width) in enumerate(tracks):
+            if idx > self.max_num_do - 1:
+                break
             speed_cov = do_cov[2:4, 2:4]
             rel_speed = R_psi.T @ do_state[2:4] - os_state[3:5]
             rel_speed_cov = R_psi.T @ speed_cov @ R_psi

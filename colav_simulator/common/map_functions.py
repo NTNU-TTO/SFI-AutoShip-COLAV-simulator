@@ -23,8 +23,33 @@ import shapely.ops as ops
 from osgeo import osr
 from seacharts.enc import ENC
 from shapely import affinity, strtree
-from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
-                              MultiPolygon, Point, Polygon)
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, MultiPolygon, Point, Polygon
+
+
+def check_if_pointing_too_close_towards_land(
+    csog_state: np.ndarray, enc: ENC, hazards: Optional[list] = None, min_dist_to_hazard: float = 50.0
+) -> bool:
+    """Checks if the ship is pointing towards land when being too close to it.
+
+    Args:
+        csog_state (np.ndarray): The ship`s state [x, y, U, chi]^T.
+        enc (ENC): The Electronic Navigational Chart object.
+        hazards (Optional[list], optional): List of relevant grounding hazards. Defaults to None.
+        min_dist_to_hazard (float, optional): Minimum distance to static hazards. Defaults to 50.0.
+
+    Returns:
+        bool: True if the ship is pointing towards land, False otherwise.
+    """
+    x, y, U, chi = csog_state
+    x_end = x + 10000.0 * np.cos(chi)
+    y_end = y + 10000.0 * np.sin(chi)
+    if hazards is None:
+        hazards = [enc.land.geometry, enc.shore.geometry]
+    closest_point = find_closest_collision_free_point_on_segment(
+        enc=enc, p1=np.array([x, y]), p2=np.array([x_end, y_end]), hazards=hazards, min_dist=0.0
+    )
+    d2hazard = np.linalg.norm(closest_point - np.array([x, y]))
+    return d2hazard <= min_dist_to_hazard
 
 
 def create_bbox_from_points(

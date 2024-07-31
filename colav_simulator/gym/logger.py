@@ -148,7 +148,7 @@ class Logger:
                     break
         # prune equal episodes by checking the episode number
         self.env_data = list({edata.episode: edata for edata in self.env_data}.values())
-        print(f"Loaded {len(self.env_data)} episodes from {name}.pkl")
+        # print(f"Loaded {len(self.env_data)} episodes from {name}.pkl")
 
     def __call__(self, cs_env_infos: List[Dict[str, Any]]) -> None:
         """Logs data from the input env info dictionary
