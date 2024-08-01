@@ -293,6 +293,7 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
+            "actor_failure": False,  # set externally in the actor
             "truncated": self._is_truncated(),
             "os_heading": self.ownship.heading,
             "os_speed": self.ownship.speed,

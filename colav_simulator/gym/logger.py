@@ -39,6 +39,7 @@ class EpisodeData(NamedTuple):
     unnormalized_actions: List[np.ndarray]
     unnormalized_obs: List[np.ndarray]
     actor_infos: List[Dict[str, Any]]
+    actor_failure: bool = False
 
 
 class Logger:
@@ -110,6 +111,7 @@ class Logger:
         self.unnormalized_actions: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
         self.unnormalized_obs: List[List[np.ndarray | Dict[str, np.ndarray]]] = [[] for _ in range(n_envs)]
         self.actor_infos: List[List[Dict[str, Any]]] = [[] for _ in range(n_envs)]
+        self.actor_failure: List[bool] = [False for _ in range(n_envs)]
 
     def save_as_pickle(self, name: Optional[str] = None) -> None:
         """Saves the environment data to a pickle file.
@@ -175,6 +177,7 @@ class Logger:
         self.grounding[env_idx] = info["grounding"]
         self.goal_reached[env_idx] = info["goal_reached"]
         self.truncated[env_idx] = info["truncated"]
+        self.actor_failure[env_idx] = info["actor_failure"]
 
         self.distances_to_collision[env_idx].append(info["distance_to_collision"])
         self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
@@ -222,10 +225,15 @@ class Logger:
             stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
             stored_actor_info["norm_mpc_action"] = actor_info["norm_mpc_action"]
             stored_actor_info["norm_prev_action"] = actor_info["norm_prev_action"]
+            stored_actor_info["num_consecutive_qp_failures"] = actor_info["num_consecutive_qp_failures"]
             self.actor_infos[env_idx].append(stored_actor_info)
 
         done = (
-            self.collision[env_idx] or self.grounding[env_idx] or self.goal_reached[env_idx] or self.truncated[env_idx]
+            self.collision[env_idx]
+            or self.grounding[env_idx]
+            or self.goal_reached[env_idx]
+            or self.truncated[env_idx]
+            or self.actor_failure[env_idx]
         )
 
         # # Alternative check for new episode, as we might not always log the
@@ -265,6 +273,7 @@ class Logger:
             unnormalized_obs=self.unnormalized_obs[env_idx],
             frames=self.frames[env_idx],
             actor_infos=self.actor_infos[env_idx],
+            actor_failure=self.actor_failure[env_idx],
         )
         self.env_data[self.pos] = episode_data
         self.prev_episode_nr = self.episode_nr
@@ -296,12 +305,13 @@ class Logger:
         self.unnormalized_obs[env_idx] = []
         self.frames[env_idx] = []
         self.actor_infos[env_idx] = []
+        self.actor_failure[env_idx] = False
 
 
 if __name__ == "__main__":
     experiment_name = "sac_rlmpc1"
     log_dir = Path.home() / "Desktop" / "machine_learning" / "rlmpc" / experiment_name
-    logger = Logger(experiment_name=experiment_name, log_dir=log_dir, save_freq=10)
+    logger = Logger(experiment_name=experiment_name, log_dir=log_dir)
     logger.load_from_pickle(f"{experiment_name}_env_training_data")
 
     print(f"Ep0: {logger.env_data[0]}")
