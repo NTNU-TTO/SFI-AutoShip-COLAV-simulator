@@ -69,7 +69,8 @@ def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False) 
         writer=animation.PillowWriter(fps=20),
         progress_callback=lambda i, n: print(f"Saving frame {i} of {n}") if verbose else None,
     )
-    print(f"Saved gif to {filename}")
+    if verbose:
+        print(f"Saved gif to {filename}")
 
 
 def find_edges(img: np.ndarray, *, bw_threshold: int = 150, limits: Tuple[float, float] = (0.2, 0.15)) -> list:
