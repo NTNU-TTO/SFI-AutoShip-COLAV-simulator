@@ -1142,16 +1142,16 @@ class PerceptionImageObservation(ObservationType):
         # Image coordinate system is (0,0) in the upper left corner, height is the first index, width is the second index
         center_pixel_x = int(rotated_img.shape[0] // 2)
         center_pixel_y = int(rotated_img.shape[1] // 2)
-        cutoff_index_below_vessel = int(0.05 * npx)  # corresponds to 100 m for a 1200 m zoom width
+        cutoff_index_below_vessel = int(0.05 * npx)
         cutoff_index_below_vessel = (
             cutoff_index_below_vessel if cutoff_index_below_vessel <= center_pixel_y else center_pixel_y
         )
 
-        cutoff_index_above_vessel = int(0.4 * npx)  # corresponds to 400 m for a 1200 m zoom width
+        cutoff_index_above_vessel = int(0.4 * npx)
         cutoff_index_above_vessel = (
             cutoff_index_above_vessel if cutoff_index_above_vessel <= center_pixel_x else center_pixel_x
         )
-        cutoff_laterally = int(0.2 * npy)  # corresponds to 150 m for a 1000 m zoom width
+        cutoff_laterally = int(0.2 * npy)
 
         cropped_img = rotated_img[
             center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,

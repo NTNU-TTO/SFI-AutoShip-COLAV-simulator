@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.common.plotters as plotters
 import cv2
 import numpy as np
 import scipy.ndimage as scimg
@@ -92,6 +93,9 @@ class Logger:
         self.prev_pos: int = 0
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
+
+        self.log_frame_freq: int = 4
+        self.log_count: List[int] = [0 for _ in range(n_envs)]
 
         self.episode_name: List[str] = ["" for _ in range(n_envs)]
         self.duration: List[float] = [0.0 for _ in range(n_envs)]
@@ -184,28 +188,41 @@ class Logger:
         # self.unnormalized_actions[env_idx].append(info["unnormalized_action"])
         # self.unnormalized_obs[env_idx].append(info["unnormalized_obs"])
         self.reward_components[env_idx].append(info["reward_components"])
-        if info["render_frame"] is not None and info["render_frame"].size > 10:
-            frame = info["render_frame"]
-            os_course = info["os_course"]
-            rotated_img = scimg.rotate(frame, np.rad2deg(os_course), reshape=False)
-            npx, npy = rotated_img.shape[:2]
-            center_pixel_x = int(rotated_img.shape[0] // 2)
-            center_pixel_y = int(rotated_img.shape[1] // 2)
-            cutoff_index_below_vessel = int(0.1 * npx)  # corresponds to 100 m for a 1200 m zoom width
+        if (
+            info["render_frame"] is not None
+            and info["render_frame"].size > 10
+            and (self.log_count[env_idx] % self.log_frame_freq == 0)
+        ):
+            stored_frame = info["render_frame"].copy()
+
+            rotate = False
+            if rotate:
+                stored_frame = scimg.rotate(stored_frame, np.rad2deg(info["os_course"]), reshape=False)
+
+            npx, npy = stored_frame.shape[:2]
+            center_pixel_x = int(stored_frame.shape[0] // 2)
+            center_pixel_y = int(stored_frame.shape[1] // 2)
+            if rotate:
+                cutoff_index_below_vessel = int(0.1 * npx)  # corresponds to 100 m for a 1200 m zoom width
+                cutoff_index_above_vessel = int(0.4 * npx)
+                cutoff_laterally = int(0.25 * npy)
+            else:
+                cutoff_index_below_vessel = int(0.3 * npx)
+                cutoff_index_above_vessel = int(0.3 * npx)
+                cutoff_laterally = int(0.3 * npy)
+            cutoff_laterally = cutoff_laterally if cutoff_laterally <= center_pixel_y else center_pixel_y
             cutoff_index_below_vessel = (
                 cutoff_index_below_vessel if cutoff_index_below_vessel <= center_pixel_y else center_pixel_y
             )
-            cutoff_index_above_vessel = int(0.4 * npx)
             cutoff_index_above_vessel = (
                 cutoff_index_above_vessel if cutoff_index_above_vessel <= center_pixel_x else center_pixel_x
             )
-            cutoff_laterally = int(0.25 * npy)
-
-            cropped_img = rotated_img[
+            cropped_img = stored_frame[
                 center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
                 center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
             ]
-            reduced_frame = cv2.resize(cropped_img, (128, 128), interpolation=cv2.INTER_AREA).astype(np.uint8)
+            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA).astype(np.uint8)
+            plotters.plot_image(image=reduced_frame, title="Reduced frame for logging")
             self.frames[env_idx].append(reduced_frame)
 
         # Special case for an NMPC actor
@@ -235,6 +252,8 @@ class Logger:
             or self.truncated[env_idx]
             or self.actor_failure[env_idx]
         )
+
+        self.log_count[env_idx] += 1
 
         # # Alternative check for new episode, as we might not always log the
         # done = done or self.timesteps[env_idx] < self.prev_timesteps[env_idx]
@@ -291,6 +310,7 @@ class Logger:
         Args:
             env_idx (int): The index of the environment.
         """
+        self.log_count[env_idx] = 0
         self.timesteps[env_idx] = 0
         self.duration[env_idx] = 0.0
         self.rewards[env_idx] = []
