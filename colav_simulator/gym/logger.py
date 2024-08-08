@@ -222,7 +222,7 @@ class Logger:
                 center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
             ]
             reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA).astype(np.uint8)
-            plotters.plot_image(image=reduced_frame, title="Reduced frame for logging")
+            # plotters.plot_image(image=reduced_frame, title="Reduced frame for logging")
             self.frames[env_idx].append(reduced_frame)
 
         # Special case for an NMPC actor
