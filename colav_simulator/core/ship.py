@@ -313,6 +313,10 @@ class IShip(ABC):
         """
 
     @abstractmethod
+    def set_tracker(self, tracker: trackers.ITracker) -> None:
+        "Set the tracker to be used by the ship."
+
+    @abstractmethod
     def set_colav_system(self, colav: ci.ICOLAV) -> None:
         "Set the COLAV system to be used by the ship."
 
@@ -631,6 +635,9 @@ class Ship(IShip):
 
         if self._guidance is not None:
             self._guidance = None
+
+    def set_tracker(self, tracker: trackers.ITracker) -> None:
+        self._tracker = tracker
 
     def set_controller(self, controller: controllers.IController) -> None:
         self._controller = controller

@@ -301,6 +301,8 @@ class COLAVEnvironment(gym.Env):
             "reward": self.last_reward,
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
             "render_frame": self.viewer2d.get_live_plot_image(),
+            "action": action,
+            "observation": obs,
         }
         return self.last_info
 

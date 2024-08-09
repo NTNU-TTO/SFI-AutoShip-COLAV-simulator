@@ -37,8 +37,8 @@ class EpisodeData(NamedTuple):
     std_reward: float
     reward_components: List[Dict[str, float]]
     frames: Optional[List[np.ndarray]]
-    unnormalized_actions: List[np.ndarray]
-    unnormalized_obs: List[np.ndarray]
+    actions: List[np.ndarray]
+    obs: List[np.ndarray]
     actor_infos: List[Dict[str, Any]]
     actor_failure: bool = False
 
@@ -112,8 +112,8 @@ class Logger:
         self.frames: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
         self.distances_to_grounding: List[List[float]] = [[] for _ in range(n_envs)]
         self.distances_to_collision: List[List[float]] = [[] for _ in range(n_envs)]
-        self.unnormalized_actions: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
-        self.unnormalized_obs: List[List[np.ndarray | Dict[str, np.ndarray]]] = [[] for _ in range(n_envs)]
+        self.actions: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
+        self.obs: List[List[np.ndarray | Dict[str, np.ndarray]]] = [[] for _ in range(n_envs)]
         self.actor_infos: List[List[Dict[str, Any]]] = [[] for _ in range(n_envs)]
         self.actor_failure: List[bool] = [False for _ in range(n_envs)]
 
@@ -185,8 +185,8 @@ class Logger:
 
         self.distances_to_collision[env_idx].append(info["distance_to_collision"])
         self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
-        # self.unnormalized_actions[env_idx].append(info["unnormalized_action"])
-        # self.unnormalized_obs[env_idx].append(info["unnormalized_obs"])
+        self.actions[env_idx].append(info["action"])
+        self.obs[env_idx].append(info["observation"])
         self.reward_components[env_idx].append(info["reward_components"])
         if (
             info["render_frame"] is not None
@@ -288,8 +288,8 @@ class Logger:
             truncated=self.truncated[env_idx],
             distances_to_grounding=np.array(self.distances_to_grounding[env_idx], dtype=np.float32),
             distances_to_collision=np.array(self.distances_to_collision[env_idx], dtype=np.float32),
-            unnormalized_actions=self.unnormalized_actions[env_idx],
-            unnormalized_obs=self.unnormalized_obs[env_idx],
+            actions=self.actions[env_idx],
+            obs=self.obs[env_idx],
             frames=self.frames[env_idx],
             actor_infos=self.actor_infos[env_idx],
             actor_failure=self.actor_failure[env_idx],
@@ -321,8 +321,8 @@ class Logger:
         self.truncated[env_idx] = False
         self.distances_to_grounding[env_idx] = []
         self.distances_to_collision[env_idx] = []
-        self.unnormalized_actions[env_idx] = []
-        self.unnormalized_obs[env_idx] = []
+        self.actions[env_idx] = []
+        self.obs[env_idx] = []
         self.frames[env_idx] = []
         self.actor_infos[env_idx] = []
         self.actor_failure[env_idx] = False

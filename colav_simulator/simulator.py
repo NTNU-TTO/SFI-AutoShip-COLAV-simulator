@@ -68,7 +68,7 @@ class Simulator:
         Additional key-value arguments can be passed to override the settings in the config file:
 
         Args:
-            config (Optional[Config]): Configuration object. Defaults to None.
+            config (Optional[Config]): Configuration object.
             config_file (Optional[Path]): Path to configuration file. Defaults to dp.simulator_config.
             kwargs: key-value dictionary of settings to override. This includes:
                 scenario_files (List[str]): List of scenario files to run.
@@ -114,6 +114,7 @@ class Simulator:
         enc: senc.ENC,
         disturbance: Optional[stochasticity.Disturbance] = None,
         colav_systems: Optional[list] = None,
+        trackers: Optional[list] = None,
         seed: int | None = None,
     ) -> None:
         """Initializes the simulation through setting relevant internal state objects.
@@ -124,9 +125,10 @@ class Simulator:
             the scenario start (t0).
             - sconfig (ScenarioConfig): Scenario episode configuration object.
             - enc (senc.ENC): ENC object relevant for the scenario.
-            - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario. Defaults to None.
-            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
-            - seed (int | None): Seed for the random number generator. Defaults to None.
+            - disturbance (Optional[stochasticity.Disturbance]): Disturbance object relevant for the scenario.
+            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones.
+            - trackers (Optional[list]): List of tuples (ship ID, tracker system) to use for the selected ships involved in the scenario, overrides the existing ones.
+            - seed (int | None): Seed for the random number generator.
         """
         self.ship_list = ship_list
         self.sconfig = sconfig
@@ -138,6 +140,12 @@ class Simulator:
                 for _, ship_obj in enumerate(self.ship_list):
                     if ship_obj.id == ship_id:
                         ship_obj.set_colav_system(colav_system)
+
+        if trackers is not None:
+            for ship_id, tracker in trackers:
+                for _, ship_obj in enumerate(self.ship_list):
+                    if ship_obj.id == ship_id:
+                        ship_obj.set_tracker(tracker)
 
         ownship_min_depth = mapf.find_minimum_depth(self.ownship.draft, self.enc)
         self.relevant_grounding_hazards = mapf.extract_relevant_grounding_hazards(ownship_min_depth, self.enc)
@@ -165,6 +173,7 @@ class Simulator:
         self,
         scenario_data_list: list,
         colav_systems: Optional[list] = None,
+        trackers: Optional[list] = None,
         terminate_on_collision_or_grounding: bool = True,
     ) -> list:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
@@ -173,7 +182,8 @@ class Simulator:
 
         Args:
             - scenario_data_list (list): Premade list of created/configured scenarios. Each entry contains a list of ship objects, scenario configuration objects and relevant ENC objects.
-            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones. Defaults to None.
+            - colav_systems (Optional[list]): List of tuples (ship ID, COLAV system) to use for the selected ships involved in the scenario, overrides the existing ones.
+            - trackers (Optional[list]): List of tuples (ship ID, tracker system) to use for the selected ships involved in the scenario, overrides the existing ones.
             - terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
 
         Returns:
@@ -205,7 +215,13 @@ class Simulator:
                 scenario_episode_file = episode_config.filename
 
                 self.initialize_scenario_episode(
-                    ship_list, episode_config, scenario_enc, episode_disturbance, colav_systems, seed=seed_val
+                    ship_list=ship_list,
+                    sconfig=episode_config,
+                    enc=scenario_enc,
+                    disturbance=episode_disturbance,
+                    colav_systems=colav_systems,
+                    trackers=trackers,
+                    seed=seed_val,
                 )
 
                 if self._config.verbose:
