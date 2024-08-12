@@ -185,8 +185,8 @@ class Logger:
 
         self.distances_to_collision[env_idx].append(info["distance_to_collision"])
         self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
-        self.actions[env_idx].append(info["action"])
-        self.obs[env_idx].append(info["observation"])
+        # self.actions[env_idx].append(info["action"])
+        # self.obs[env_idx].append(info["observation"])
         self.reward_components[env_idx].append(info["reward_components"])
         if (
             info["render_frame"] is not None
