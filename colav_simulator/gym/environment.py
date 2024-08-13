@@ -49,8 +49,11 @@ class COLAVEnvironment(gym.Env):
         rewarder_class: Optional[rw.IReward] = rw.Rewarder,
         rewarder_kwargs: Optional[dict] = {},
         action_type: Optional[str] = None,
+        action_type_class: Optional[csgym_action.ActionType] = None,
+        action_kwargs: Optional[dict] = {},
         action_sample_time: Optional[float] = None,
         observation_type: Optional[dict | str] = None,
+        observation_kwargs: Optional[dict] = {},
         render_mode: Optional[str] = "rgb_array",
         render_update_rate: Optional[float] = None,
         verbose: Optional[bool] = True,
@@ -74,8 +77,10 @@ class COLAVEnvironment(gym.Env):
             rewarder_class (Optional[rw.IReward]): Rewarder class.
             rewarder_kwargs (Optional[dict]): Rewarder keyword arguments.
             action_type (Optional[str]): Action type.
+            action_kwargs (Optional[dict]): Keyword arguments passed to the action type.
             action_sample_time (Optional[float]): Action sample time, i.e. the time between each applied action.
             observation_type (Optional[dict | str]): Observation type.
+            observation_kwargs (Optional[dict]): Keyword arguments passed to the observation type.
             render_mode (Optional[str]): Render mode.
             render_update_rate (Optional[float]): Render update rate.
             verbose (Optional[bool]): Wheter to print debugging info or not.
@@ -92,6 +97,9 @@ class COLAVEnvironment(gym.Env):
         ), "Either scenario config or scenario file folder must be provided!"
 
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
+        self.action_kwargs = action_kwargs
+        self.action_type_class = action_type_class
+        self.observation_kwargs = observation_kwargs
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
         self.simulator_config: cssim.Config = simulator_config
@@ -187,8 +195,17 @@ class COLAVEnvironment(gym.Env):
         assert (
             self.dt_action % self.simulator.dt == 0.0
         ), "Action sampling time must be a multiple of simulator time step!"
-        self.action_type = csgym_action.action_factory(self, self.action_type_cfg, sample_time=self.dt_action)
-        self.observation_type = csgym_obs.observation_factory(self, self.observation_type_cfg)
+
+        if self.action_type_class is None:
+            self.action_type = csgym_action.action_factory(
+                self, self.action_type_cfg, sample_time=self.dt_action, **self.action_kwargs
+            )
+        else:
+            self.action_type = self.action_type_class(self, sample_time=self.dt_action, **self.action_kwargs)
+
+        self.observation_type = csgym_obs.observation_factory(
+            self, self.observation_type_cfg, **self.observation_kwargs
+        )
 
         self.action_space = self.action_type.space()
         self.observation_space = self.observation_type.space()
@@ -406,14 +423,14 @@ class COLAVEnvironment(gym.Env):
             "applied": False
         }  # Used for action types where it is important to know if the action has been applied
         for _ in range(n_steps_between_actions):
-            self.action_type.act(action, **action_kwargs)
+            action_result = self.action_type.act(action, **action_kwargs)
             action_kwargs["applied"] = True
 
             _ = self.simulator.step(remote_actor=True)
 
             terminated = self._is_terminated()
             truncated = self._is_truncated()
-            if terminated or truncated:
+            if terminated or truncated or not action_result.success:
                 break
 
         obs = self.observation_type.observe()

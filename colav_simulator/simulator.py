@@ -477,7 +477,7 @@ class Simulator:
         if radius is not None:
             return d2goal <= radius
 
-        scale_factor = 5.0
+        scale_factor = 6.0
         return d2goal <= self.ship_list[ship_idx].length * scale_factor
 
 

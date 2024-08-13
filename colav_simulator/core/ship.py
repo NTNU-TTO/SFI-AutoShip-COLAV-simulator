@@ -702,7 +702,7 @@ class Ship(IShip):
         output["max_turn_rate"] = self.max_turn_rate
         return output
 
-    def get_do_track_information(self) -> Tuple[list, list]:
+    def get_do_track_information(self) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]:
         return self._tracker.get_track_information(mhm.convert_state_to_vxvy_state(self.csog_state))
 
     def plot_colav_results(
