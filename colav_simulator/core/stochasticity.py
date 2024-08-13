@@ -195,10 +195,16 @@ class GaussMarkovDisturbance(IDisturbance):
         self._direction: float = params.initial_direction
         self._impulse_counter: int = 0
         self._rng = np.random.default_rng()
+        self._impulse_applied: bool = False
+        self._speed_impulse: float = 0.0
+        self._direction_impulse: float = 0.0
 
     def reset(self, seed: int | None) -> None:
         self._speed = self._params.initial_speed
         self._direction = self._params.initial_direction
+        self._speed_impulse = 0.0
+        self._direction_impulse = 0.0
+        self._impulse_applied = False
         self._impulse_counter = 0
         self._rng = np.random.default_rng(seed)
 
@@ -218,23 +224,29 @@ class GaussMarkovDisturbance(IDisturbance):
         V_dot = -self._params.mu_speed * self._speed + w_V
         beta_dot = -self._params.mu_direction * self._direction + w_beta
 
-        speed_impulse = 0.0
-        direction_impulse = 0.0
         if self._params.add_impulse_noise and (
             self._params.impulse_times[self._impulse_counter]
             <= t
             < self._params.impulse_times[self._impulse_counter] + 3.0 * dt
         ):
-            speed_impulse = random.choice(self._params.speed_impulses)
-            direction_impulse = random.choice(self._params.direction_impulses)
+            self._speed_impulse = random.choice(self._params.speed_impulses)
+            self._direction_impulse = random.choice(self._params.direction_impulses)
             self._impulse_counter += 1 if self._impulse_counter < len(self._params.impulse_times) - 1 else 0
+            self._impulse_applied = True
+        elif self._impulse_applied:
+            # subtract impulse noise from the speed and direction dynamics to avoid permanent disturbance change
+            self._speed -= self._speed_impulse
+            self._direction -= self._direction_impulse
+            self._impulse_applied = False
+            self._speed_impulse = 0.0
+            self._direction_impulse = 0.0
 
         # "Euler integration"
         self._speed = mf.sat(
-            self._speed + V_dot * dt + speed_impulse, self._params.speed_range[0], self._params.speed_range[1]
+            self._speed + V_dot * dt + self._speed_impulse, self._params.speed_range[0], self._params.speed_range[1]
         )
         self._direction = mf.sat(
-            self._direction + beta_dot * dt + direction_impulse,
+            self._direction + beta_dot * dt + self._direction_impulse,
             self._params.direction_range[0],
             self._params.direction_range[1],
         )

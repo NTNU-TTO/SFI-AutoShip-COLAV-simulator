@@ -173,6 +173,7 @@ class PQRRTStar(ci.ICOLAV):
                 U_d=U_d,
                 initialized=False,
                 return_on_first_solution=False,
+                verbose=False,
             )
             self._rrt_waypoints, self._rrt_trajectory, self._rrt_inputs, times, cost = parse_rrt_solution(rrt_solution)
 

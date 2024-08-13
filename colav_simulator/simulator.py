@@ -263,11 +263,15 @@ class Simulator:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
-    def is_terminated(self, verbose: bool = False, terminate_on_collision_or_grounding: bool = True) -> bool:
+    def is_terminated(
+        self, verbose: bool = False, terminate_on_collision_or_grounding: bool = True, prefix_string: str = ""
+    ) -> bool:
         """Check whether the current own-ship state is a terminal state.
 
         Args:
             verbose (bool): Whether to print out the reason for the termination.
+            terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
+            prefix_string (str): Prefix string to add to the printout.
 
         Returns:
             bool: Whether the current own-ship state is a terminal state
@@ -276,25 +280,26 @@ class Simulator:
         collided = self.determine_ship_collision(ship_idx=0) and terminate_on_collision_or_grounding
         grounded = self.determine_ship_grounding(ship_idx=0) and terminate_on_collision_or_grounding
         if verbose and collided:
-            print(f"Collision at t = {self.t}!")
+            print(f"{prefix_string}Collision at t = {self.t}!")
         if verbose and grounded:
-            print(f"Grounding at t = {self.t}!")
+            print(f"{prefix_string}Grounding at t = {self.t}!")
         if verbose and goal_reached:
-            print(f"Goal reached at t = {self.t}!")
+            print(f"{prefix_string}Goal reached at t = {self.t}!")
         return collided or grounded or goal_reached
 
-    def is_truncated(self, verbose: bool = False) -> bool:
+    def is_truncated(self, verbose: bool = False, prefix_string: str = "") -> bool:
         """Check whether the current own-ship state is a truncated state (time limit reached).
 
         Args:
             verbose (bool): Whether to print out the reason for the truncation.
+            prefix_string (str): Prefix string to add to the printout.
 
         Returns:
             bool: Whether the current own-ship state is a truncated state
         """
         truncated = self.t > self.t_end
         if verbose and truncated:
-            print("Time limit reached!")
+            print(f"{prefix_string}Time limit reached!")
         return truncated
 
     def run_scenario_episode(

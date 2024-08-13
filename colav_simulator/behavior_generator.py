@@ -533,6 +533,7 @@ class BehaviorGenerator:
             U_d=U_d,
             initialized=False,
             return_on_first_solution=False,
+            verbose=False,
         )
         waypoints, _, _, _ = mhm.parse_rrt_solution(rrt_soln)
         speed_plan = waypoints[2, :]

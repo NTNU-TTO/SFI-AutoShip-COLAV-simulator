@@ -114,6 +114,7 @@ class COLAVEnvironment(gym.Env):
         self._has_init_generated: bool = False
         self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
+        self.actor_failure: bool = False
         self.env_id = identifier
         self.done = False
         self.steps: int = 0
@@ -216,7 +217,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a terminal state
         """
-        return bool(self.simulator.is_terminated(self.verbose))
+        return bool(self.simulator.is_terminated(self.verbose, prefix_string=f"[{self.env_id.upper()}] "))
 
     def _is_truncated(self) -> bool:
         """Check whether the current state is a truncated state (time limit reached).
@@ -224,7 +225,7 @@ class COLAVEnvironment(gym.Env):
         Returns:
             bool: Whether the current state is a truncated state
         """
-        return bool(self.simulator.is_truncated(self.verbose))
+        return bool(self.simulator.is_truncated(self.verbose, prefix_string=f"[{self.env_id.upper()}] "))
 
     def _load(
         self,
@@ -310,7 +311,7 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
-            "actor_failure": False,  # set externally in the actor
+            "actor_failure": self.actor_failure,
             "truncated": self._is_truncated(),
             "os_heading": self.ownship.heading,
             "os_speed": self.ownship.speed,
@@ -363,6 +364,7 @@ class COLAVEnvironment(gym.Env):
 
         self.steps = 0  # Actions performed, not necessarily equal to the simulator steps
         self.last_reward = 0.0
+        self.actor_failure = False
         self.done = False
 
         if self.episodes == self.n_episodes or self.scenario_data_tup[0] == []:
@@ -430,7 +432,12 @@ class COLAVEnvironment(gym.Env):
 
             terminated = self._is_terminated()
             truncated = self._is_truncated()
-            if terminated or truncated or not action_result.success:
+            self.actor_failure = not action_result.success
+            if self.actor_failure:
+                print(f"[{self.env_id.upper()}] Actor failure!")
+
+            terminated = terminated or self.actor_failure
+            if terminated or truncated:
                 break
 
         obs = self.observation_type.observe()
