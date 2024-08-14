@@ -241,8 +241,6 @@ class Logger:
             stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
             stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
             stored_actor_info["norm_mpc_action"] = actor_info["norm_mpc_action"]
-            stored_actor_info["norm_prev_action"] = actor_info["norm_prev_action"]
-            stored_actor_info["num_consecutive_qp_failures"] = actor_info["num_consecutive_qp_failures"]
             self.actor_infos[env_idx].append(stored_actor_info)
 
         done = (
@@ -254,9 +252,6 @@ class Logger:
         )
 
         self.log_count[env_idx] += 1
-
-        # # Alternative check for new episode, as we might not always log the
-        # done = done or self.timesteps[env_idx] < self.prev_timesteps[env_idx]
 
         if done:
             self.add_episode_data(env_idx)

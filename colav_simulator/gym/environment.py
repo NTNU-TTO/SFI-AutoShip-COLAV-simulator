@@ -114,7 +114,6 @@ class COLAVEnvironment(gym.Env):
         self._has_init_generated: bool = False
         self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
-        self.actor_failure: bool = False
         self.env_id = identifier
         self.done = False
         self.steps: int = 0
@@ -291,12 +290,15 @@ class COLAVEnvironment(gym.Env):
             )
         self.scenario_config = self.scenario_data_tup[0][0]["config"]
 
-    def _info(self, obs: csgym_obs.Observation, action: Optional[csgym_action.Action] = None) -> dict:
+    def _info(
+        self, obs: csgym_obs.Observation, action: csgym_action.Action, action_result: csgym_action.ActionResult
+    ) -> dict:
         """Returns a dictionary of additional information as defined by the environment.
 
         Args:
             obs (Observation): Observation vector from the environment
             action (Optional[Action]): Action vector applied by the agent.
+            action_result (ActionResult): Result of the action applied by the agent.
 
         Returns:
             dict: Dictionary of additional information
@@ -311,7 +313,7 @@ class COLAVEnvironment(gym.Env):
             "grounding": self.simulator.determine_ship_grounding(ship_idx=0),
             "distance_to_collision": np.min(self.simulator.distance_to_nearby_vessels(ship_idx=0)),
             "distance_to_grounding": self.simulator.distance_to_grounding(ship_idx=0),
-            "actor_failure": self.actor_failure,
+            "actor_failure": not action_result.success,
             "truncated": self._is_truncated(),
             "os_heading": self.ownship.heading,
             "os_speed": self.ownship.speed,
@@ -320,6 +322,7 @@ class COLAVEnvironment(gym.Env):
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
             "render_frame": self.viewer2d.get_live_plot_image(),
             "action": action,
+            "actor_info": action_result.info,
             "observation": obs,
         }
         return self.last_info
@@ -364,7 +367,6 @@ class COLAVEnvironment(gym.Env):
 
         self.steps = 0  # Actions performed, not necessarily equal to the simulator steps
         self.last_reward = 0.0
-        self.actor_failure = False
         self.done = False
 
         if self.episodes == self.n_episodes or self.scenario_data_tup[0] == []:
@@ -405,7 +407,11 @@ class COLAVEnvironment(gym.Env):
         self._init_render()
 
         obs = self.observation_type.observe()
-        info = self._info(obs, action=None)
+        info = self._info(
+            obs,
+            action=np.zeros(self.action_space.shape[0]),
+            action_result=csgym_action.ActionResult(success=True, info={}),
+        )
 
         self.episodes += 1  # Episodes performed
         return obs, info
@@ -432,11 +438,10 @@ class COLAVEnvironment(gym.Env):
 
             terminated = self._is_terminated()
             truncated = self._is_truncated()
-            self.actor_failure = not action_result.success
-            if self.actor_failure:
+            if not action_result.success:
                 print(f"[{self.env_id.upper()}] Actor failure!")
 
-            terminated = terminated or self.actor_failure
+            terminated = terminated or not action_result.success
             if terminated or truncated:
                 break
 
@@ -445,7 +450,7 @@ class COLAVEnvironment(gym.Env):
         reward = self.rewarder(obs, action, **rewarder_kwargs)
         self.last_reward = reward
 
-        info = self._info(obs, action)
+        info = self._info(obs, action, action_result)
         if terminated or truncated:
             self.terminal_info = info
 

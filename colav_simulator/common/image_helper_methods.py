@@ -69,6 +69,7 @@ def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False) 
         writer=animation.PillowWriter(fps=20),
         progress_callback=lambda i, n: print(f"Saving frame {i} of {n}") if verbose else None,
     )
+    plt.close(fig)
     if verbose:
         print(f"Saved gif to {filename}")
 
