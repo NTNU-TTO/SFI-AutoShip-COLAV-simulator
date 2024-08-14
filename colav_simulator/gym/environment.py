@@ -184,7 +184,7 @@ class COLAVEnvironment(gym.Env):
         """Closes the environment. To be called after usage."""
         self.done = True
         if self.viewer2d is not None:
-            self.viewer2d.close_live_plot()
+            self.viewer2d.close_live_plot()  # not thread safe unless the matplotlib backend is set to 'Agg'
             self._live_plot_closed = True
 
     def _define_spaces(self) -> None:
