@@ -10,7 +10,8 @@ import numpy as np
 from colav_simulator.gym.environment import COLAVEnvironment
 from colav_simulator.scenario_generator import ScenarioGenerator
 
-if __name__ == "__main__":
+
+def test_gym() -> None:
     config_file = dp.scenarios / "rl_scenario_smaller.yaml"
 
     # scenario_generator = ScenarioGenerator(seed=0)
@@ -55,4 +56,8 @@ if __name__ == "__main__":
     if save_gif:
         ihm.save_frames_as_gif(frames, dp.animation_output / "demo.gif")
 
-    print("done")
+    assert 1 == 1  # NOTE: The test is passed if the above code runs without any errors
+
+
+if __name__ == "__main__":
+    test_gym()

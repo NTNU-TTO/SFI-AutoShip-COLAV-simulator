@@ -2,7 +2,8 @@ import colav_simulator.common.paths as dp
 from colav_simulator.behavior_generator import BehaviorGenerationMethod, RRTBehaviorSamplingMethod
 from colav_simulator.scenario_generator import Config, ScenarioGenerator
 
-if __name__ == "__main__":
+
+def test_behavior_generator() -> None:
     sg_config = Config()
     sg_config.behavior_generator.ownship_method = BehaviorGenerationMethod.ConstantSpeedAndCourse
     sg_config.behavior_generator.target_ship_method = (
@@ -19,4 +20,6 @@ if __name__ == "__main__":
         show_plots=True,
     )
 
-    print("done")
+
+if __name__ == "__main__":
+    test_behavior_generator()

@@ -5,7 +5,8 @@ from colav_evaluation_tool.evaluator import Evaluator
 from colav_simulator.scenario_generator import ScenarioGenerator
 from colav_simulator.simulator import Simulator
 
-if __name__ == "__main__":
+
+def test_simulation_and_evaluation() -> None:
     scenario_generator = ScenarioGenerator()
     simulator = Simulator()
     evaluator = Evaluator()
@@ -46,4 +47,6 @@ if __name__ == "__main__":
     print("Average framework execution time in seconds: " + str(sum(framework_exec_times) / n_runs))
     print("Standard deviation of framework execution time in seconds: " + str(std_dev_exec_time))
 
-    print("done")
+
+if __name__ == "__main__":
+    test_simulation_and_evaluation()

@@ -17,7 +17,8 @@ legend_size = 10  # legend size
 fig_size = [25, 13]  # figure1 size in cm
 dpi_value = 150  # figure dpi value
 
-if __name__ == "__main__":
+
+def test_gunnerus() -> None:
     horizon = 300.0
     dt = 0.1  # NOTE: time step affects the dynamics accuracy and also control performance
 
@@ -280,4 +281,7 @@ if __name__ == "__main__":
         axs["N"].legend()
 
     plt.show(block=False)
-    print("Done")
+
+
+if __name__ == "__main__":
+    test_gunnerus()

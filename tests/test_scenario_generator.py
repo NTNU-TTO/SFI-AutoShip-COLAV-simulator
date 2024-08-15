@@ -1,9 +1,9 @@
 import colav_simulator.common.paths as dp
 from colav_simulator.scenario_generator import ScenarioGenerator
 
-if __name__ == "__main__":
-    scenario_generator = ScenarioGenerator(seed=0)
 
+def test_scenario_generator() -> None:
+    scenario_generator = ScenarioGenerator(seed=0)
     scenario_name = "rlmpc_scenario_ms_channel"
 
     # Generate scenario and save all episode .yaml files to folder
@@ -28,4 +28,6 @@ if __name__ == "__main__":
         show=True,
     )
 
-    print("done")
+
+if __name__ == "__main__":
+    test_scenario_generator()
