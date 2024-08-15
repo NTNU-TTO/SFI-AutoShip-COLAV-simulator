@@ -233,6 +233,7 @@ class Visualizer:
         fig_height = self._config.fig_size[1] / self._config.fig_dpi
         self.fig = plt.figure(num=fignum, figsize=(fig_width, fig_height), dpi=self._config.fig_dpi, tight_layout=True)
         ax_map = self.fig.add_subplot(1, 1, 1)
+        ax_map.axis("off")
 
         self.n_seabed_colorbins = len(enc.seabed.keys())
         ax_map, background_handles = plotters.plot_background(
@@ -824,11 +825,11 @@ class Visualizer:
         start_idx_ship_line_data = kwargs["start_idx_ship_line_data"] if "start_idx_ship_line_data" in kwargs else 0
         ax_map = self.axes[0]
         zorder_patch = 3
-        csog_state = ship_obj.csog_state
+        state = ship_obj.state if ship_obj.id == 0 else ship_obj.csog_state
         ship_poly = mapf.create_ship_polygon(
-            csog_state[0],
-            csog_state[1],
-            csog_state[3],
+            state[0],
+            state[1],
+            ship_obj.heading,
             ship_obj.length,
             ship_obj.width,
             self._config.ship_scaling[0],
@@ -844,17 +845,17 @@ class Visualizer:
             self.ship_plt_handles[idx]["ground_truth_patch"].set_color(c)
 
         if not self._config.disable_ship_labels:
-            self.ship_plt_handles[idx]["info"].set_x(csog_state[1] - 50)
-            self.ship_plt_handles[idx]["info"].set_y(csog_state[0] + 50)
+            self.ship_plt_handles[idx]["info"].set_x(state[1] - 50)
+            self.ship_plt_handles[idx]["info"].set_y(state[0] + 50)
 
         if (ship_obj.id == 0 and self._config.show_liveplot_ownship_trajectory) or (
             ship_obj.id > 0 and self._config.show_liveplot_target_trajectories
         ):
             self.ship_plt_handles[idx]["trajectory"].set_xdata(
-                [*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], csog_state[1]]
+                [*self.ship_plt_handles[idx]["trajectory"].get_xdata()[start_idx_ship_line_data:], state[1]]
             )
             self.ship_plt_handles[idx]["trajectory"].set_ydata(
-                [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], csog_state[0]]
+                [*self.ship_plt_handles[idx]["trajectory"].get_ydata()[start_idx_ship_line_data:], state[0]]
             )
 
         if self._config.show_liveplot_colav_results:

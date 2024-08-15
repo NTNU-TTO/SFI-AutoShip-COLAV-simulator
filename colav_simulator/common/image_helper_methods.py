@@ -20,6 +20,7 @@ import numpy as np
 import skimage.morphology as ski_morph
 import skimage.util as ski_util
 from matplotlib import animation, gridspec
+from PIL import Image, ImageOps
 
 # Depending on your OS, you might need to change these paths
 plt.rcParams["animation.convert_path"] = "/usr/bin/convert"
@@ -46,12 +47,22 @@ def mplfig2np(fig: matplotlib.figure.Figure) -> np.ndarray:
     return im
 
 
-def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False) -> None:
-    # Mess with this to change frame size
-    fig = plt.figure(figsize=(frame_list[0].shape[1] / 72.0, frame_list[0].shape[0] / 72.0), dpi=72)
+def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False, crop: bool = True) -> None:
+    # if crop:
+    #     cropped_frame_list = []
+    #     for frame in frame_list:
+    #         img = Image.fromarray(frame)
+    #         bbox = ImageOps.invert(img).getbbox()
+    #         cropped = img.crop(bbox)
+    #         cropped_frame_list.append(np.array(cropped, dtype=np.uint8))
+    #     frame_list = cropped_frame_list
 
-    patch = plt.imshow(frame_list[0], aspect="auto")
+    # Mess with this to change frame size
+    dpi = 64.0
+    fig = plt.figure(figsize=(frame_list[0].shape[1] / dpi, frame_list[0].shape[0] / dpi), dpi=dpi)
     plt.axis("off")
+    fig.tight_layout()
+    patch = plt.imshow(frame_list[0])
 
     def init():
         patch.set_data(frame_list[0])
@@ -67,6 +78,7 @@ def save_frames_as_gif(frame_list: list, filename: Path, verbose: bool = False) 
     anim.save(
         filename=filename.as_posix(),
         writer=animation.PillowWriter(fps=20),
+        dpi=dpi,
         progress_callback=lambda i, n: print(f"Saving frame {i} of {n}") if verbose else None,
     )
     plt.close(fig)

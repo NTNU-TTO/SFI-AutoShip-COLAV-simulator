@@ -199,6 +199,8 @@ class GaussMarkovDisturbance(IDisturbance):
         self._speed_impulse: float = 0.0
         self._direction_impulse: float = 0.0
 
+        self._params.add_impulse_noise = False
+
     def reset(self, seed: int | None) -> None:
         self._speed = self._params.initial_speed
         self._direction = self._params.initial_direction

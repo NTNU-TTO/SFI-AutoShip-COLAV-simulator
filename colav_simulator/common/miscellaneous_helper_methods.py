@@ -10,7 +10,7 @@
 import math
 import os.path
 from datetime import datetime
-from typing import Any, Tuple
+from typing import Any, Dict, List, Tuple
 from zoneinfo import ZoneInfo
 
 import colav_simulator.common.map_functions as mapf
@@ -38,6 +38,76 @@ def print_process_memory_usage(prefix_str: str) -> None:
     """
     process = psutil.Process(os.getpid())
     print(f"[Process {os.getpid()}] {prefix_str} Memory usage: {process.memory_info().rss / 1024 ** 2:.2f} MB")
+
+
+def normalize_mpc_param(
+    x: np.ndarray,
+    param_list: List[str],
+    parameter_ranges: Dict[str, Any],
+    parameter_lengths: Dict[str, Any],
+    parameter_indices: Dict[str, Any],
+) -> np.ndarray:
+    """Normalize the input parameter.
+
+    Args:
+        x (np.ndarray): The unnormalized parameter
+        param_list (List[str]): The list of parameters to map.
+        parameter_ranges (Dict[str, Any]): The parameter ranges.
+        parameter_lengths (Dict[str, Any]): The parameter lengths.
+        parameter_indices (Dict[str, Any]): The parameter indices.
+
+    Returns:
+        np.ndarray: The normalized parameter
+    """
+    x_norm = np.zeros_like(x, dtype=np.float32)
+    for param_name in param_list:
+        param_range = parameter_ranges[param_name]
+        param_length = parameter_lengths[param_name]
+        pindx = parameter_indices[param_name]
+        x_param = x[pindx : pindx + param_length].copy()
+
+        for j in range(len(x_param)):  # pylint: disable=consider-using-enumerate
+            if param_name == "Q_p":
+                x_param[j] = mf.linear_map(x_param[j], tuple(param_range[j]), (-1.0, 1.0))
+            else:
+                x_param[j] = mf.linear_map(x_param[j], tuple(param_range), (-1.0, 1.0))
+        x_norm[pindx : pindx + param_length] = x_param
+    return x_norm
+
+
+def unnormalize_mpc_param(
+    x: np.ndarray,
+    param_list: List[str],
+    parameter_ranges: Dict[str, Any],
+    parameter_lengths: Dict[str, Any],
+    parameter_indices: Dict[str, Any],
+) -> np.ndarray:
+    """Unnormalize the input parameter.
+
+    Args:
+        x (np.ndarray): The normalized parameter
+        param_list (List[str]): The list of parameters to map.
+        parameter_ranges (Dict[str, Any]): The parameter ranges.
+        parameter_lengths (Dict[str, Any]): The parameter lengths.
+        parameter_indices (Dict[str, Any]): The parameter indices.
+
+    Returns:
+        np.ndarray: The unnormalized output as a numpy array
+    """
+    x_unnorm = np.zeros_like(x, dtype=np.float32)
+    for param_name in param_list:
+        param_range = parameter_ranges[param_name]
+        param_length = parameter_lengths[param_name]
+        pindx = parameter_indices[param_name]
+        x_param = x[pindx : pindx + param_length].copy()
+
+        for j in range(len(x_param)):  # pylint: disable=consider-using-enumerate
+            if param_name == "Q_p":
+                x_param[j] = mf.linear_map(x_param[j], (-1.0, 1.0), tuple(param_range[j]))
+            else:
+                x_param[j] = mf.linear_map(x_param[j], (-1.0, 1.0), tuple(param_range))
+        x_unnorm[pindx : pindx + param_length] = x_param
+    return x_unnorm
 
 
 def get_ship_ais_df_list_from_ais_df(df: pd.DataFrame) -> list:

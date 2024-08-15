@@ -1353,6 +1353,57 @@ class RelativeTrackingObservation(ObservationType):
         return norm_obs
 
 
+class MPCParameterObservation(ObservationType):
+    """Observation containing the MPC parameters."""
+
+    def __init__(
+        self,
+        env: "COLAVEnvironment",
+    ) -> None:
+        super().__init__(env)
+        assert self.env.ownship is not None, "Ownship is not defined"
+        assert self.env.action_type.mpc is not None, "MPC not defined in action type"
+        self.name = "MPCParameterObservation"
+        self.mpc_parameter_ranges, self.mpc_parameter_incr_ranges, self.mpc_parameter_lengths = (
+            self.env.action_type.mpc_params.get_adjustable_parameter_info()
+        )
+        self.mpc_param_list = env.action_type.mpc_param_list
+
+        offset = 0
+        self.mpc_parameter_indices = {}
+        for param in self.mpc_param_list:
+            self.mpc_parameter_indices[param] = offset
+            offset += self.mpc_parameter_lengths[param]
+        self.num_adjustable_mpc_params = offset
+
+    def space(self) -> gym.spaces.Space:
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(self.num_adjustable_mpc_params,), dtype=np.float32)
+
+    def normalize(self, obs: Observation) -> Observation:
+        return mhm.normalize_mpc_param(
+            x=obs,
+            param_list=self.mpc_param_list,
+            parameter_ranges=self.mpc_parameter_ranges,
+            parameter_lengths=self.mpc_parameter_lengths,
+            parameter_indices=self.mpc_parameter_indices,
+        )
+
+    def unnormalize(self, obs: Observation) -> Observation:
+        return mhm.unnormalize_mpc_param(
+            x=obs,
+            param_list=self.mpc_param_list,
+            parameter_ranges=self.mpc_parameter_ranges,
+            parameter_lengths=self.mpc_parameter_lengths,
+            parameter_indices=self.mpc_parameter_indices,
+        )
+
+    def observe(self) -> Observation:
+        assert hasattr(self.env.action_type, "mpc"), "MPC not defined in action type"
+        obs = self.env.action_type.mpc.get_adjustable_mpc_params()
+        normalized_obs = self.normalize(obs)
+        return normalized_obs
+
+
 def observation_factory(
     env: "COLAVEnvironment", observation_type: str | dict = "time_observation", **kwargs
 ) -> ObservationType:
@@ -1386,6 +1437,8 @@ def observation_factory(
         return DisturbanceObservation(env, **kwargs)
     elif "time_observation" in observation_type:
         return TimeObservation(env, **kwargs)
+    elif "mpc_parameter_observation" in observation_type:
+        return MPCParameterObservation(env, **kwargs)
     elif "dict_observation" in observation_type:
         return DictObservation(env, observation_type["dict_observation"], **kwargs)
     else:

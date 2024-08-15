@@ -188,6 +188,11 @@ class Logger:
         # self.actions[env_idx].append(info["action"])
         # self.obs[env_idx].append(info["observation"])
         self.reward_components[env_idx].append(info["reward_components"])
+
+        # FIX logging disturbance data between steps
+        # if info["disturbance"] is not None:
+        #     self.disturbance_data[env_idx]
+
         if (
             info["render_frame"] is not None
             and info["render_frame"].size > 10
@@ -226,7 +231,7 @@ class Logger:
             self.frames[env_idx].append(reduced_frame)
 
         # Special case for an NMPC actor
-        if "actor_info" in info and "old_mpc_params" in info["actor_info"]:
+        if "actor_info" in info and "soln" in info["actor_info"]:
             actor_info = info["actor_info"]
             stored_actor_info = {}
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
