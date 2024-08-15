@@ -11,7 +11,7 @@
 import pathlib
 import time as timelib
 import tracemalloc
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import colav_simulator.core.ship as cs_ship
 import colav_simulator.core.stochasticity as stoch
@@ -202,12 +202,11 @@ class COLAVEnvironment(gym.Env):
             )
         else:
             self.action_type = self.action_type_class(self, sample_time=self.dt_action, **self.action_kwargs)
+        self.action_space = self.action_type.space()
 
         self.observation_type = csgym_obs.observation_factory(
             self, self.observation_type_cfg, **self.observation_kwargs
         )
-
-        self.action_space = self.action_type.space()
         self.observation_space = self.observation_type.space()
 
     def _is_terminated(self) -> bool:
@@ -324,6 +323,7 @@ class COLAVEnvironment(gym.Env):
             "action": action,
             "actor_info": action_result.info,
             "observation": obs,
+            "disturbance": self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
         }
         return self.last_info
 
@@ -439,7 +439,7 @@ class COLAVEnvironment(gym.Env):
             terminated = self._is_terminated()
             truncated = self._is_truncated()
             if not action_result.success:
-                print(f"[{self.env_id.upper()}] Actor failure!")
+                print(f"[{self.env_id.upper()}] Actor failure at t = {self.time}!")
 
             terminated = terminated or not action_result.success
             if terminated or truncated:
