@@ -778,12 +778,12 @@ class Visualizer:
                     self.ship_plt_handles[0]["do_covariances"][do_plt_idx] = ax_map.fill(
                         *ell_geometry.exterior.xy,
                         linewidth=lw,
-                        color="orange",
-                        alpha=0.2,
+                        color="orangered",
+                        alpha=0.4,
                         label=f"DO {j - 1} est. 1sigma cov.",
                         zorder=zorder_patch - 2,
                     )[0]
-                    self.ship_plt_handles[0]["do_covariances"][do_plt_idx].set_color("orange")
+                    self.ship_plt_handles[0]["do_covariances"][do_plt_idx].set_color("orangered")
 
         if self._config.show_liveplot_measurements:
             for sensor_id, sensor in enumerate(ownship.sensors):
