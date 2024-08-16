@@ -1122,6 +1122,7 @@ class PerceptionImageObservation(ObservationType):
         # t_now = time.time()
         if self.env.time < 0.001:
             self.t_prev = self.env.time
+            self.previous_image_stack = np.zeros(self.image_dim, dtype=np.uint8)
 
         # img = np.zeros((128, 128, 3), dtype=np.uint8)
         self.env.render()  # must be called to update the liveplot image

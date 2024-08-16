@@ -99,9 +99,11 @@ class COLAVEnvironment(gym.Env):
         # Dummy spaces, must be overwritten by _define_spaces after call to reset the environment
         self.action_kwargs = action_kwargs
         self.action_type_class = action_type_class
-        self.observation_kwargs = observation_kwargs
         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
+        self.action_type = None
+        self.observation_kwargs = observation_kwargs
         self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(1, 1), dtype=np.float32)
+        self.observation_type = None
         self.simulator_config: cssim.Config = simulator_config
         self.simulator: cssim.Simulator = cssim.Simulator(config=simulator_config)
         self.scenario_generator: sg.ScenarioGenerator = sg.ScenarioGenerator(
@@ -190,6 +192,9 @@ class COLAVEnvironment(gym.Env):
     def _define_spaces(self) -> None:
         """Defines the action and observation spaces."""
         assert self.scenario_config is not None, "Scenario config not initialized!"
+
+        if self.action_type is not None and self.observation_type is not None:
+            return
 
         self.dt_action = self.dt_action if self.dt_action is not None else self.simulator.dt
         assert (
