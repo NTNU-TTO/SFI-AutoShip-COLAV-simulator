@@ -172,6 +172,10 @@ class Logger:
             info (Dict[str, Any]): The environment info dictionary.
             env_idx (int): The index of the environment.
         """
+        if "episode_name" not in info:
+            print(f"Episode name not found in info dictionary!: Info = {info}")
+            return
+
         self.episode_name[env_idx] = info["episode_name"]
         self.duration[env_idx] = info["duration"]
         self.timesteps[env_idx] = info["timesteps"]

@@ -1399,7 +1399,7 @@ class MPCParameterObservation(ObservationType):
         )
 
     def observe(self) -> Observation:
-        assert hasattr(self.env.action_type, "mpc"), "MPC not defined in action type"
+        assert hasattr(self.env.action_type, "mpc"), "Must have MPC in the action type for this observation to work!"
         if self.env.time < 0.0001:
             obs = self.env.action_type.mpc_adjustable_params_arr_init
         else:
