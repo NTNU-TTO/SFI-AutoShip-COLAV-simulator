@@ -66,35 +66,15 @@ class Logger:
             log_dir.mkdir(parents=True)
 
         self.max_num_logged_episodes: int = max_num_logged_episodes
-        self.env_data: List[EpisodeData] = [
-            EpisodeData(
-                "",
-                0,
-                0,
-                0.0,
-                np.array([]),
-                np.array([]),
-                False,
-                False,
-                False,
-                False,
-                np.array([]),
-                0.0,
-                0.0,
-                0.0,
-                [],
-                None,
-                [],
-                [],
-                [],
-            )
-        ] * max_num_logged_episodes
+        self.env_data: List[EpisodeData] = []
         self.pos: int = 0
         self.prev_pos: int = 0
+        self.reset_logger()
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
+        self.store_actor_info: bool = True
 
-        self.log_frame_freq: int = 4
+        self.log_frame_freq: int = 10
         self.log_count: List[int] = [0 for _ in range(n_envs)]
 
         self.episode_name: List[str] = ["" for _ in range(n_envs)]
@@ -197,10 +177,18 @@ class Logger:
         # if info["disturbance"] is not None:
         #     self.disturbance_data[env_idx]
 
+        done = (
+            self.collision[env_idx]
+            or self.grounding[env_idx]
+            or self.goal_reached[env_idx]
+            or self.truncated[env_idx]
+            or self.actor_failure[env_idx]
+        )
+
         if (
             info["render_frame"] is not None
             and info["render_frame"].size > 10
-            and (self.log_count[env_idx] % self.log_frame_freq == 0)
+            and ((self.log_count[env_idx] % self.log_frame_freq == 0) or done)
         ):
             stored_frame = info["render_frame"].copy()
 
@@ -235,30 +223,18 @@ class Logger:
             self.frames[env_idx].append(reduced_frame)
 
         # Special case for an NMPC actor
-        if "actor_info" in info and "soln" in info["actor_info"]:
+        if self.store_actor_info and "actor_info" in info and "optimal" in info["actor_info"]:
             actor_info = info["actor_info"]
             stored_actor_info = {}
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
             stored_actor_info["mpc_cost"] = actor_info["cost_val"]
             stored_actor_info["optimal"] = actor_info["optimal"]
-            # stored_actor_info["predicted_trajectory"] = actor_info["trajectory"]
             stored_actor_info["n_iterations"] = actor_info["n_iter"]
-            stored_actor_info["so_constr_inf_norm"] = float(actor_info["so_constr_vals"].max())
-            stored_actor_info["do_constr_inf_norm"] = float(actor_info["do_constr_vals"].max())
             stored_actor_info["dnn_input_features"] = actor_info["dnn_input_features"]
-            stored_actor_info["norm_old_mpc_params"] = actor_info["norm_old_mpc_params"]
             stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
             stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
             stored_actor_info["norm_mpc_action"] = actor_info["norm_mpc_action"]
             self.actor_infos[env_idx].append(stored_actor_info)
-
-        done = (
-            self.collision[env_idx]
-            or self.grounding[env_idx]
-            or self.goal_reached[env_idx]
-            or self.truncated[env_idx]
-            or self.actor_failure[env_idx]
-        )
 
         self.log_count[env_idx] += 1
 
@@ -292,9 +268,9 @@ class Logger:
             truncated=self.truncated[env_idx],
             distances_to_grounding=np.array(self.distances_to_grounding[env_idx], dtype=np.float32),
             distances_to_collision=np.array(self.distances_to_collision[env_idx], dtype=np.float32),
-            actions=self.actions[env_idx],
+            actions=np.array(self.actions[env_idx], dtype=np.float32),
             obs=self.obs[env_idx],
-            frames=self.frames[env_idx],
+            frames=np.array(self.frames[env_idx], dtype=np.uint8),
             actor_infos=self.actor_infos[env_idx],
             actor_failure=self.actor_failure[env_idx],
         )
@@ -305,8 +281,35 @@ class Logger:
         # mhm.print_process_memory_usage(prefix_str=f"Env {env_idx} | Episode {self.episode_nr} |")
         if self.pos >= self.max_num_logged_episodes:
             self.save_as_pickle()
-            self.pos = 0
-            self.prev_pos = 0
+            self.reset_logger()
+
+    def reset_logger(self) -> None:
+        """Resets the logger."""
+        self.env_data: List[EpisodeData] = [
+            EpisodeData(
+                "",
+                0,
+                0,
+                0.0,
+                np.array([]),
+                np.array([]),
+                False,
+                False,
+                False,
+                False,
+                np.array([]),
+                0.0,
+                0.0,
+                0.0,
+                [],
+                None,
+                [],
+                [],
+                [],
+            )
+        ] * self.max_num_logged_episodes
+        self.pos = 0
+        self.prev_pos = 0
 
     def reset_data_structures(self, env_idx: int) -> None:
         """Resets the data structures in preparation of new episode.

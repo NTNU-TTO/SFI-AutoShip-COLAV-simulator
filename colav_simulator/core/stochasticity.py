@@ -350,13 +350,13 @@ class Disturbance:
         if self._wind is not None:
             disturbance_data.wind = {}
             wind = self._wind.get()
-            disturbance_data.wind["speed"] = wind[0]
+            disturbance_data.wind["speed"] = wind[0]  # min(wind[0], 4.0)
             disturbance_data.wind["direction"] = wind[1]
 
         if self._currents is not None:
             disturbance_data.currents = {}
             current = self._currents.get()
-            disturbance_data.currents["speed"] = current[0]
+            disturbance_data.currents["speed"] = current[0]  # min(current[0], 2.0)
             disturbance_data.currents["direction"] = current[1]
 
         return disturbance_data

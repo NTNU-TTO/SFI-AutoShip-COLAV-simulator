@@ -433,14 +433,14 @@ class FLSC(IController):
         if abs(speed_error) <= self._params.speed_error_int_threshold:
             self._speed_error_int += speed_error * dt
 
-        if abs(speed_error) < 0.01:
-            self._speed_error_int = 0.0
+        # if abs(speed_error) < 0.01:
+        #     self._speed_error_int = 0.0
 
         if abs(chi_error) <= self._params.chi_error_int_threshold:
             self._chi_error_int = mf.unwrap_angle(self._chi_error_int, chi_error * dt)
 
-        if abs(chi_error) < 0.1 * np.pi / 180.0:
-            self._chi_error_int = 0.0
+        # if abs(chi_error) < 0.1 * np.pi / 180.0:
+        #     self._chi_error_int = 0.0
 
         self._speed_error_int = mf.sat(
             self._speed_error_int, -self._params.max_speed_error_int, self._params.max_speed_error_int
@@ -505,7 +505,7 @@ class FLSC(IController):
             ) @ nu
             l_r = abs(self._model_params.r_t[0])
 
-        speed_error = u_d - nu[0]
+        speed_error = u_d - speed
         chi_error: float = mf.wrap_angle_diff_to_pmpi(chi_d_unwrapped, chi_unwrapped)
         chi_error_unwrapped = mf.unwrap_angle(chi_error_prev, chi_error)
         self.update_integrators(speed_error, chi_error_unwrapped, dt)

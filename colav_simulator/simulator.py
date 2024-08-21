@@ -130,9 +130,13 @@ class Simulator:
             - trackers (Optional[list]): List of tuples (ship ID, tracker system) to use for the selected ships involved in the scenario, overrides the existing ones.
             - seed (int | None): Seed for the random number generator.
         """
+        self.ship_list = None
         self.ship_list = ship_list
+        self.sconfig = None
         self.sconfig = sconfig
+        self.enc = None
         self.enc = enc
+        self.disturbance = None
         self.disturbance = disturbance
         self.ownship = ship_list[0]
         if colav_systems is not None:

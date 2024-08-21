@@ -1093,7 +1093,7 @@ class PerceptionImageObservation(ObservationType):
         self.previous_image_stack: np.ndarray = np.zeros(image_dim, dtype=np.uint8)  # All black
         self.t_prev: float = 0.0
         self.render_rate: float = 0.5  # Hz
-        self.env.viewer2d.set_update_rate(self.render_rate)
+        self.env.simulator.visualizer.set_update_rate(self.render_rate)
         self.resize: bool = True
 
     def space(self) -> gym.spaces.Space:
@@ -1109,13 +1109,13 @@ class PerceptionImageObservation(ObservationType):
         return obs
 
     def toggle_unneccessary_liveplot_features(self, show: bool) -> None:
-        self.env.viewer2d.toggle_uniform_seabed_color(show)
-        self.env.viewer2d.toggle_liveplot_sensor_measurement_visibility(show)
-        self.env.viewer2d.toggle_liveplot_trajectory_visibility(show)
-        self.env.viewer2d.toggle_liveplot_waypoint_visibility(show)
-        self.env.viewer2d.toggle_liveplot_disturbance_visibility(show)
-        self.env.viewer2d.toggle_liveplot_dynamic_obstacle_visibility(show)
-        self.env.viewer2d.toggle_misc_plot_visibility(show)
+        self.env.simulator.visualizer.toggle_uniform_seabed_color(show)
+        self.env.simulator.visualizer.toggle_liveplot_sensor_measurement_visibility(show)
+        self.env.simulator.visualizer.toggle_liveplot_trajectory_visibility(show)
+        self.env.simulator.visualizer.toggle_liveplot_waypoint_visibility(show)
+        self.env.simulator.visualizer.toggle_liveplot_disturbance_visibility(show)
+        self.env.simulator.visualizer.toggle_liveplot_dynamic_obstacle_visibility(show)
+        self.env.simulator.visualizer.toggle_misc_plot_visibility(show)
 
     def observe(self) -> Observation:
         assert self.env.ownship is not None, "Ownship is not defined"

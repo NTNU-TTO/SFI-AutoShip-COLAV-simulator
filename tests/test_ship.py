@@ -22,17 +22,22 @@ def test_ship() -> None:
     legend_size = 10  # legend size
     fig_size = [25, 13]  # figure1 size in cm
     dpi_value = 150  # figure dpi value
-    horizon = 100.0
-    dt = 0.1  # NOTE: time step affects the dynamics accuracy and also control performance
+    horizon = 150.0
+    dt = 0.5  # NOTE: time step affects the dynamics accuracy and also control performance
 
     utm_zone = 33
-    map_size = [1500.0, 1500.0]
-    map_origin_enu = [-31824.0, 6573700.0]
+    map_size = [1400.0, 1500.0]
+    map_orig = np.array([6573700.0, -31924.0])
     map_data_files = ["Rogaland_utm33.gdb"]
 
     # Put new_data to True to load map data in ENC if it is not already loaded
     scenario_generator = ScenarioGenerator(
-        init_enc=True, new_data=True, utm_zone=utm_zone, size=map_size, origin=map_origin_enu, files=map_data_files
+        init_enc=True,
+        new_data=False,
+        utm_zone=utm_zone,
+        size=map_size,
+        origin=[map_orig[1], map_orig[0]],
+        files=map_data_files,
     )
     origin = scenario_generator.enc_origin
 
@@ -40,8 +45,8 @@ def test_ship() -> None:
     ctrl_params = controllers.FLSCParams(
         K_p_u=3.0,
         K_i_u=0.3,
-        K_p_chi=2.5,
-        K_d_chi=3.0,
+        K_p_chi=2.2,
+        K_d_chi=4.0,
         K_i_chi=0.1,
         max_speed_error_int=4.0,
         speed_error_int_threshold=0.5,
@@ -79,13 +84,15 @@ def test_ship() -> None:
         U_min=2.0,
         U_max=ownship.max_speed,
     )
-    csog_state = np.array(
-        [6574229.448438326, -31157.753734698883, 5.805685027679189, -131.1969202238676 * np.pi / 180.0]
-    )
-    ownship.set_initial_state(csog_state)
+    # csog_state = np.array(
+    #     [6574229.448438326, -31157.753734698883, 5.805685027679189, -131.1969202238676 * np.pi / 180.0]
+    # )
+    # ownship.set_initial_state(csog_state)
+    ownship._state = np.array([6574512.209, -31657.653, 1.513, 4.012, 2.421, -0.057])
 
     disturbance_config = stochasticity.Config()
     disturbance = stochasticity.Disturbance(disturbance_config)
+    # disturbance.disable_wind()
     # disturbance._currents = None
     # disturbance._wind = None
 
@@ -111,6 +118,36 @@ def test_ship() -> None:
     ownship.set_nominal_plan(waypoints=waypoints, speed_plan=speed_plan)
 
     disturbance_config = stochasticity.Config()
+    disturbance_config.currents = stochasticity.GaussMarkovDisturbanceParams(
+        constant=False,
+        initial_speed=1.9496385863730494,
+        initial_direction=-2.9234709165353365,
+        speed_range=(0.0, 2.0),
+        direction_range=(-3.141592653589793, 3.141592653589793),
+        mu_speed=0.0001,
+        mu_direction=0.0005,
+        sigma_speed=0.005,
+        sigma_direction=0.005,
+        add_impulse_noise=False,
+        speed_impulses=[5.0],
+        direction_impulses=np.array([0.785]),
+        impulse_times=[82.0],
+    )
+    disturbance_config.wind = stochasticity.GaussMarkovDisturbanceParams(
+        constant=False,
+        initial_speed=6.185481173407966,
+        initial_direction=171.7304503635763,
+        speed_range=(0.0, 7.0),
+        direction_range=(-3.141592653589793, 3.141592653589793),
+        mu_speed=0.0001,
+        mu_direction=0.0005,
+        sigma_speed=0.005,
+        sigma_direction=0.005,
+        add_impulse_noise=False,
+        speed_impulses=[1.0, 2.5, 5.0],
+        direction_impulses=np.array([-1.571, -0.785, 0.0, 0.785, 1.571, 2.094, 3.142]),
+        impulse_times=[131.0],
+    )
     disturbance = stochasticity.Disturbance(disturbance_config)
     # disturbance._currents = None
     # disturbance._wind = None
@@ -124,138 +161,219 @@ def test_ship() -> None:
     tau = np.zeros((n_u, n_samples))
     time = np.zeros(n_samples)
 
-    map_orig = np.array([6574512.2536, -31378.5372])
     traj = np.array(
         [
             [
-                81.5652,
-                104.7765,
-                124.5801,
-                136.6765,
-                139.8153,
-                138.2139,
-                136.6566,
-                135.3308,
-                134.3252,
-                133.6635,
-                133.3588,
-                133.2365,
-                133.1173,
-                133.0005,
-                132.8854,
-                132.7711,
-                132.1291,
+                6574512.0,
+                6574505.5,
+                6574501.0,
+                6574499.0,
+                6574498.5,
+                6574500.5,
+                6574504.0,
+                6574507.5,
+                6574509.0,
+                6574509.5,
+                6574510.0,
+                6574510.5,
+                6574511.0,
+                6574511.0,
+                6574511.5,
+                6574512.0,
+                6574512.5,
+                6574513.0,
+                6574513.0,
+                6574513.5,
+                6574514.0,
+                6574514.5,
+                6574515.0,
+                6574515.0,
+                6574515.5,
+                6574516.0,
+                6574516.5,
+                6574517.0,
+                6574517.5,
+                6574517.5,
+                6574518.0,
             ],
             [
-                -139.6983,
-                -169.3614,
-                -201.2551,
-                -236.7254,
-                -274.0106,
-                -311.4461,
-                -346.3892,
-                -375.1232,
-                -396.3719,
-                -410.1322,
-                -416.4141,
-                -418.9215,
-                -421.3578,
-                -423.7392,
-                -426.0842,
-                -428.4122,
-                -430.6641,
+                -31657.652,
+                -31652.16,
+                -31645.988,
+                -31639.988,
+                -31633.645,
+                -31626.3,
+                -31618.887,
+                -31611.207,
+                -31602.885,
+                -31594.441,
+                -31586.01,
+                -31577.588,
+                -31569.176,
+                -31560.773,
+                -31552.38,
+                -31543.998,
+                -31535.625,
+                -31527.262,
+                -31518.906,
+                -31510.559,
+                -31502.22,
+                -31493.889,
+                -31485.564,
+                -31477.246,
+                -31468.932,
+                -31460.623,
+                -31452.318,
+                -31444.016,
+                -31435.715,
+                -31427.416,
+                -31419.117,
             ],
             [
-                -0.9066,
-                -0.9070,
-                -1.1233,
-                -1.3611,
-                -1.6126,
-                -1.6145,
-                -1.6162,
-                -1.6176,
-                -1.6186,
-                -1.6191,
-                -1.6194,
-                -1.6196,
-                -1.6198,
-                -1.6198,
-                -1.6199,
-                -1.6199,
-                -2.0750,
+                2.599,
+                2.32,
+                2.04,
+                1.761,
+                1.482,
+                1.203,
+                1.002,
+                1.281,
+                1.52,
+                1.521,
+                1.522,
+                1.523,
+                1.523,
+                1.524,
+                1.524,
+                1.524,
+                1.523,
+                1.523,
+                1.523,
+                1.523,
+                1.522,
+                1.522,
+                1.522,
+                1.521,
+                1.521,
+                1.521,
+                1.521,
+                1.521,
+                1.521,
+                1.521,
+                1.521,
             ],
             [
-                7.5379,
-                7.5281,
-                7.5179,
-                7.5079,
-                7.4984,
-                7.4895,
-                6.5016,
-                5.0042,
-                3.5048,
-                2.0057,
-                0.5100,
-                0.4942,
-                0.4815,
-                0.4723,
-                0.4669,
-                0.4655,
-                0.4793,
+                4.686,
+                4.086,
+                3.486,
+                2.886,
+                3.486,
+                4.086,
+                4.241,
+                4.235,
+                4.229,
+                4.224,
+                4.219,
+                4.213,
+                4.208,
+                4.203,
+                4.198,
+                4.194,
+                4.189,
+                4.184,
+                4.18,
+                4.176,
+                4.172,
+                4.169,
+                4.166,
+                4.163,
+                4.161,
+                4.159,
+                4.157,
+                4.156,
+                4.155,
+                4.154,
+                4.154,
             ],
             [
-                153.0425,
-                190.2473,
-                227.4443,
-                264.6259,
-                301.7756,
-                338.8675,
-                374.2344,
-                405.2686,
-                427.1566,
-                438.7751,
-                443.8346,
-                445.9798,
-                447.9524,
-                449.8519,
-                451.7122,
-                453.3884,
-                454.7265,
+                143.111,
+                151.123,
+                158.905,
+                166.202,
+                173.502,
+                181.287,
+                189.378,
+                197.531,
+                205.681,
+                213.827,
+                221.969,
+                230.109,
+                238.244,
+                246.376,
+                254.504,
+                262.628,
+                270.749,
+                278.868,
+                286.988,
+                295.109,
+                303.232,
+                311.358,
+                319.488,
+                327.621,
+                335.755,
+                343.881,
+                351.991,
+                360.088,
+                368.182,
+                376.282,
+                384.387,
             ],
             [
-                7.4416,
-                7.4403,
-                7.4384,
-                7.4342,
-                7.4257,
-                7.4111,
-                6.7357,
-                5.6780,
-                3.0772,
-                1.5702,
-                0.4537,
-                0.4044,
-                0.3847,
-                0.3751,
-                0.3690,
-                0.3014,
-                0.2338,
+                4.0,
+                4.012,
+                3.77,
+                3.528,
+                3.771,
+                4.014,
+                4.077,
+                4.076,
+                4.074,
+                4.072,
+                4.07,
+                4.069,
+                4.067,
+                4.065,
+                4.063,
+                4.061,
+                4.06,
+                4.06,
+                4.06,
+                4.061,
+                4.062,
+                4.064,
+                4.066,
+                4.067,
+                4.067,
+                4.059,
+                4.051,
+                4.046,
+                4.048,
+                4.051,
+                4.054,
             ],
-        ]
+        ],
+        dtype=np.float32,
     )
-    traj[:2, :] += map_orig.reshape(2, 1)
-    state = np.array([6574583.5000, -31501.8203, -1.1510, 7.4657, -0.8312, 0.2618], dtype=np.float32)
-    ownship._state = state
 
-    ref_counter = 0
+    ref_counter = 2
     t_prev_upd = 0.0
     chi_ref = traj[2, 1]
     U_ref = traj[3, 1]
     for k in range(n_samples):
         time[k] = k * dt
         disturbance_data = disturbance.get()
-        disturbance_data.currents = {"speed": 1.0429484, "direction": 0.59327924}
-        disturbance_data.wind = {"speed": 6.546729, "direction": -3.7480865}
+        # disturbance_data.currents = {"speed": 1.0429484, "direction": 0.59327924}
+        # disturbance_data.wind = {"speed": 6.546729, "direction": -3.7480865}
         if disturbance_data.wind:
             disturbances[0, k] = disturbance_data.wind["speed"]
             disturbances[1, k] = disturbance_data.wind["direction"]
@@ -264,7 +382,7 @@ def test_ship() -> None:
             disturbances[3, k] = disturbance_data.currents["direction"]
 
         # ownship.plan(time[k], dt, [], None, w=disturbance_data)
-        if time[k] - t_prev_upd >= 5.0:
+        if time[k] - t_prev_upd >= 2.0:
             ref_counter += 1 if ref_counter < traj.shape[1] - 1 else 0
             t_prev_upd = time[k]
             chi_ref = traj[2, ref_counter]
@@ -426,6 +544,7 @@ def test_ship() -> None:
         axs["N"].legend()
 
     plt.show(block=False)
+    print("Done")
 
 
 if __name__ == "__main__":
