@@ -79,15 +79,15 @@ class SHPIDParams:
 @dataclass
 class FLSCParams:
     "Parameters for the feedback linearizing surge-course controller."
-    K_p_u: float = 2.0
-    K_i_u: float = 0.1
-    K_p_chi: float = 2.5
-    K_d_chi: float = 1.75
-    K_i_chi: float = 0.003
-    max_speed_error_int: float = 2.0
-    speed_error_int_threshold: float = 1.0
-    max_chi_error_int: float = 50.0 * np.pi / 180.0
-    chi_error_int_threshold: float = 15.0 * np.pi / 180.0
+    K_p_u: float = 3.0
+    K_i_u: float = 0.3
+    K_p_chi: float = 2.2
+    K_d_chi: float = 4.0
+    K_i_chi: float = 0.1
+    max_speed_error_int: float = 4.0
+    speed_error_int_threshold: float = 0.5
+    max_chi_error_int: float = 90.0 * np.pi / 180.0
+    chi_error_int_threshold: float = 20.0 * np.pi / 180.0
 
     def to_dict(self):
         output = asdict(self)

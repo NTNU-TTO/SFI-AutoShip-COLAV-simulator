@@ -1125,6 +1125,7 @@ class PerceptionImageObservation(ObservationType):
             self.previous_image_stack = np.zeros(self.image_dim, dtype=np.uint8)
 
         # img = np.zeros((128, 128, 3), dtype=np.uint8)
+        assert self.env.simulator.visualizer is not None, "Visualizer is not defined"
         self.env.render()  # must be called to update the liveplot image
         self.toggle_unneccessary_liveplot_features(show=False)
         img = self.env.liveplot_image.copy()

@@ -179,11 +179,12 @@ class KinematicTrajectoryPlanner(IGuidance):
             Tuple[interp.BSpline, interp.BSpline, interp.PchipInterpolator, interp.PchipInterpolator, float]: Splines for x, y, heading and speed. The final arc length of the trajectory is also returned.
         """
         _, n_wps = waypoints.shape
-
+        mod_waypoints = waypoints.copy()
+        mod_speed_plan = speed_plan.copy()
         if n_wps == 2:
-            wp_near_last = waypoints[:, -1] - 0.05 * (waypoints[:, -1] - waypoints[:, -2])
-            waypoints = np.insert(waypoints, 1, wp_near_last, axis=1)
-            speed_plan = np.insert(speed_plan, 1, speed_plan[0])
+            wp_near_last = mod_waypoints[:, -1] - 0.05 * (mod_waypoints[:, -1] - mod_waypoints[:, -2])
+            mod_waypoints = np.insert(mod_waypoints, 1, wp_near_last, axis=1)
+            mod_speed_plan = np.insert(mod_speed_plan, 1, mod_speed_plan[0])
 
             if times:
                 times = np.insert(times, 1, np.mean(times))
@@ -191,20 +192,20 @@ class KinematicTrajectoryPlanner(IGuidance):
             n_wps += 1
 
         if n_wps == 3:
-            waypoints = np.insert(waypoints, 1, np.mean(waypoints[:, :2], axis=1), axis=1)
-            speed_plan = np.insert(speed_plan, 1, np.mean(speed_plan[:2]))
+            mod_waypoints = np.insert(mod_waypoints, 1, np.mean(mod_waypoints[:, :2], axis=1), axis=1)
+            mod_speed_plan = np.insert(mod_speed_plan, 1, np.mean(mod_speed_plan[:2]))
             if times:
                 times = np.insert(times, 1, np.mean(times[:2]))
             n_wps += 1
 
         # add artificial waypoint just beyond the last, to ensure that the spline is well-behaved
-        waypoints = np.insert(
-            waypoints, n_wps, waypoints[:, -1] + 500.0 * (waypoints[:, -1] - waypoints[:, -2]), axis=1
+        mod_waypoints = np.insert(
+            mod_waypoints, n_wps, mod_waypoints[:, -1] + 500.0 * (mod_waypoints[:, -1] - mod_waypoints[:, -2]), axis=1
         )
-        speed_plan = np.insert(speed_plan, n_wps, speed_plan[-1])
+        mod_speed_plan = np.insert(mod_speed_plan, n_wps, mod_speed_plan[-1])
         n_wps += 1
 
-        arc_lengths = [np.linalg.norm(waypoints[:, i + 1] - waypoints[:, i]) for i in range(n_wps - 1)]
+        arc_lengths = [np.linalg.norm(mod_waypoints[:, i + 1] - mod_waypoints[:, i]) for i in range(n_wps - 1)]
         arc_lengths = np.array([0.0, *np.cumsum(arc_lengths)])
         final_arc_length = arc_lengths[-2]  # last arc length is due to the artificial point
         self._final_arc_length = final_arc_length
@@ -213,12 +214,12 @@ class KinematicTrajectoryPlanner(IGuidance):
         else:
             linspace = np.linspace(0.0, 1.0, n_wps)
 
-        self._speed_spline = interp.PchipInterpolator(linspace, speed_plan)
+        self._speed_spline = interp.PchipInterpolator(linspace, mod_speed_plan)
 
         order = 3
         if arc_length_parameterization:
             x_arc_spline, y_arc_spline, arc_lengths = mhm.create_arc_length_spline(
-                waypoints[0, :].tolist(), waypoints[1, :].tolist()
+                mod_waypoints[0, :].tolist(), mod_waypoints[1, :].tolist()
             )
             n_points = len(arc_lengths)
             smoothing = 0.005 * (n_points - np.sqrt(2 * n_points))

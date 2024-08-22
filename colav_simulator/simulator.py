@@ -473,10 +473,10 @@ class Simulator:
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
-        if self.ship_list[ship_idx].goal_csog_state.size > 0:
-            goal_state = self.ship_list[ship_idx].goal_csog_state
-        elif self.ship_list[ship_idx].waypoints.size > 1:
+        if self.ship_list[ship_idx].waypoints.size > 1:
             goal_state = self.ownship.waypoints[:, -1]
+        elif self.ship_list[ship_idx].goal_csog_state.size > 0:
+            goal_state = self.ship_list[ship_idx].goal_csog_state
         else:
             raise ValueError(
                 "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
@@ -486,7 +486,7 @@ class Simulator:
         if radius is not None:
             return d2goal <= radius
 
-        scale_factor = 6.0
+        scale_factor = 7.0
         return d2goal <= self.ship_list[ship_idx].length * scale_factor
 
 
