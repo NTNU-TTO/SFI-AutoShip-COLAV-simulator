@@ -33,7 +33,7 @@ def test_ship() -> None:
     # Put new_data to True to load map data in ENC if it is not already loaded
     scenario_generator = ScenarioGenerator(
         init_enc=True,
-        new_data=False,
+        new_data=True,
         utm_zone=utm_zone,
         size=map_size,
         origin=[map_orig[1], map_orig[0]],
@@ -543,8 +543,7 @@ def test_ship() -> None:
         axs["N"].grid()
         axs["N"].legend()
 
-    plt.show(block=False)
-    print("Done")
+    plt.show()
 
 
 if __name__ == "__main__":

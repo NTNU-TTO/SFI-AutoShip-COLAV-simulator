@@ -280,7 +280,7 @@ def test_gunnerus() -> None:
         axs["N"].grid()
         axs["N"].legend()
 
-    plt.show(block=False)
+    plt.show()
 
 
 if __name__ == "__main__":
