@@ -2,7 +2,7 @@
     observation.py
 
     Summary:
-        This file contains various observation type/space definitions for a ship agent in the colav-simulator.
+        This file contains various observation type/space definitions for a ship agent operating in the colav-simulator.
 
         To add an observation type:
         1: Create a new class inheriting from ObservationType and implement the abstract methods.
@@ -1356,7 +1356,7 @@ class RelativeTrackingObservation(ObservationType):
 
 
 class MPCParameterObservation(ObservationType):
-    """Observation containing the MPC parameters."""
+    """Observation containing the MPC parameters. Used together with the MPC action defined in https://github.com/NTNU-Autoship-Internal/rlmpc/blob/main/rlmpc/action.py"""
 
     def __init__(
         self,
