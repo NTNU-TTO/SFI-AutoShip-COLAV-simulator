@@ -173,10 +173,6 @@ class Logger:
         # self.obs[env_idx].append(info["observation"])
         self.reward_components[env_idx].append(info["reward_components"])
 
-        # FIX logging disturbance data between steps
-        # if info["disturbance"] is not None:
-        #     self.disturbance_data[env_idx]
-
         done = (
             self.collision[env_idx]
             or self.grounding[env_idx]
