@@ -61,7 +61,7 @@ class COLAVEnvironment(gym.Env):
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
         merge_loaded_scenario_episodes: Optional[bool] = False,
-        identifier: Optional[int | str] = None,
+        identifier: Optional[int | str] = "COLAVEnv",
         seed: Optional[int] = None,
         **kwargs,
     ) -> None:
@@ -470,7 +470,7 @@ class COLAVEnvironment(gym.Env):
         """Initializes the renderer."""
         if self.render_mode == "rgb_array":
             self.simulator.visualizer = None
-            self.simulator.visualizer = cssim.viz.Visualizer(config=self.simulator_config.visualizer)
+            self.simulator.visualizer = cssim.viz.Visualizer(config=self.simulator.config.visualizer)
             self.simulator.visualizer.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
                 self.simulator.visualizer.set_update_rate(self.render_update_rate)
