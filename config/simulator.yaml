@@ -34,7 +34,7 @@ visualizer:
   target_trajectory_color: "xkcd:peach"
   target_waypoint_color: "xkcd:orange"
   matplotlib_backend: "TkAgg"
-  fig_size: [256, 256]
+  fig_size: [512, 512]
   fig_dpi: 64
   margins: [0.0, 0.0]
   ship_linewidth: 1.7

@@ -61,12 +61,17 @@ class COLAVEnvironment(gym.Env):
         shuffle_loaded_scenario_data: Optional[bool] = False,
         max_number_of_episodes: Optional[int] = None,
         merge_loaded_scenario_episodes: Optional[bool] = False,
-        identifier: Optional[int | str] = None,
+        identifier: Optional[int | str] = "COLAVEnv",
         seed: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes the environment.
         Note that the scenario config object takes precedence over the scenario config file, which again takes precedence over the scenario file list.
+
+        For action and observation types defined under `gym/action` and `gym/observation`, specify usage of these by providing the class name as a lower snake case string with the `action_type` and `observation_type` parameters.
+
+        For external action types and the reward class you want to use, provide the class as an argument with the `action_type_class` and `rewarder_class` parameters, respectively.
+
 
         Args:
             simulator_config (Optional[cssim.Config]): Simulator configuration.
@@ -77,7 +82,8 @@ class COLAVEnvironment(gym.Env):
             rewarder_class (Optional[rw.IReward]): Rewarder class.
             rewarder_kwargs (Optional[dict]): Rewarder keyword arguments.
             action_type (Optional[str]): Action type.
-            action_kwargs (Optional[dict]): Keyword arguments passed to the action type.
+            action_type_class (Optional[csgym_action.ActionType]): Action type class. Typically used for externally developed action types.
+            action_kwargs (Optional[dict]): Keyword arguments passed to the action type upon construction.
             action_sample_time (Optional[float]): Action sample time, i.e. the time between each applied action.
             observation_type (Optional[dict | str]): Observation type.
             observation_kwargs (Optional[dict]): Keyword arguments passed to the observation type.
@@ -87,7 +93,7 @@ class COLAVEnvironment(gym.Env):
             show_loaded_scenario_data (Optional[bool]): Whether to show the loaded scenario data or not.
             shuffle_loaded_scenario_data (Optional[bool]): Whether to shuffle the loaded scenario data or not.
             max_number_of_episodes (Optional[int]): Maximum number of episodes to generate/load. Defaults to none (i.e. no limit).
-            merge_loaded_scenario_episodes (Optional[bool]): Whether to merge the loaded scenario episodes into one scenario or not.
+            merge_loaded_scenario_episodes (Optional[bool]): Whether to merge multiple loaded scenario episodes into one scenario or not.
             identifier (Optional[int | str]): Identifier for the environment.
             seed (Optional[int]): Seed for the random number generator.
         """
@@ -463,7 +469,7 @@ class COLAVEnvironment(gym.Env):
         """Initializes the renderer."""
         if self.render_mode == "rgb_array":
             self.simulator.visualizer = None
-            self.simulator.visualizer = cssim.viz.Visualizer(config=self.simulator_config.visualizer)
+            self.simulator.visualizer = cssim.viz.Visualizer(config=self.simulator.config.visualizer)
             self.simulator.visualizer.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
                 self.simulator.visualizer.set_update_rate(self.render_update_rate)

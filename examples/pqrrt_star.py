@@ -173,7 +173,7 @@ class PQRRTStar(ci.ICOLAV):
                 U_d=U_d,
                 initialized=False,
                 return_on_first_solution=False,
-                verbose=False,
+                verbose=True,
             )
             self._rrt_waypoints, self._rrt_trajectory, self._rrt_inputs, times, cost = parse_rrt_solution(rrt_solution)
 
@@ -245,11 +245,11 @@ if __name__ == "__main__":
     params.rrt.params = PQRRTStarParams(
         max_nodes=3000,
         max_iter=10000,
-        max_time=2.0,
+        max_time=5.0,
         iter_between_direct_goal_growth=500,
         min_node_dist=5.0,
         goal_radius=300.0,
-        step_size=1.0,
+        step_size=0.5,
         min_steering_time=1.0,
         max_steering_time=30.0,
         steering_acceptance_radius=10.0,

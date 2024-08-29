@@ -30,7 +30,7 @@ def test_gym() -> None:
         "scenario_config": config_file,
         "reload_map": True,
         "render_mode": "rgb_array",
-        "render_update_rate": 1.0,
+        "render_update_rate": 0.5,
         "seed": 1,
     }
     env = gym.make(id=env_id, **env_config)
@@ -55,8 +55,6 @@ def test_gym() -> None:
     save_gif = False
     if save_gif:
         ihm.save_frames_as_gif(frames, dp.animation_output / "demo.gif")
-
-    assert 1 == 1  # NOTE: The test is passed if the above code runs without any errors
 
 
 if __name__ == "__main__":

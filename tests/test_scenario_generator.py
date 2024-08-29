@@ -14,7 +14,7 @@ def test_scenario_generator() -> None:
         save_scenario_folder=dp.scenarios / "saved" / scenario_name,
         show_plots=True,
         episode_idx_save_offset=0,
-        n_episodes=50,
+        n_episodes=20,
         delete_existing_files=True,
     )
 

@@ -75,14 +75,14 @@ class Simulator:
 
         """
         if config is not None:
-            self._config = config
+            self.config: Config = config
         elif config_file is not None:
-            self._config = cp.extract(Config, config_file, dp.simulator_schema, **kwargs)
+            self.config = cp.extract(Config, config_file, dp.simulator_schema, **kwargs)
         else:
             raise ValueError("No configuration file or configuration object provided.")
 
-        self.visualizer: viz.Visualizer = viz.Visualizer(self._config.visualizer)
-        self.config: Config = self._config
+        self.visualizer: viz.Visualizer = viz.Visualizer(self.config.visualizer)
+        self.config = self.config
 
         self.ownship: Ship = None
         self.ship_list: List[Ship] = []
@@ -199,7 +199,7 @@ class Simulator:
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
 
-        if self._config.verbose:
+        if self.config.verbose:
             print("\rSimulator: Started running through scenarios...")
 
         seed_val = 0
@@ -207,7 +207,7 @@ class Simulator:
         scenario_simdata_list = []
         for i, (scenario_episode_list, scenario_enc) in enumerate(scenario_data_list):
             scenario_simdata = {}
-            if self._config.verbose:
+            if self.config.verbose:
                 print(f"\rSimulator: Running scenario nr {i + 1}...")
 
             episode_simdata_list = []
@@ -228,10 +228,10 @@ class Simulator:
                     seed=seed_val,
                 )
 
-                if self._config.verbose:
+                if self.config.verbose:
                     print(f"\rSimulator: Running scenario episode nr {ep + 1}: {scenario_episode_file}...")
                 sim_data, ship_info, sim_times = self.run_scenario_episode(terminate_on_collision_or_grounding)
-                if self._config.verbose:
+                if self.config.verbose:
                     print(
                         f"\rSimulator: Finished running through scenario episode nr {ep + 1}: {scenario_episode_file}."
                     )
@@ -256,14 +256,14 @@ class Simulator:
 
                 seed_val += 1
 
-            if self._config.verbose:
+            if self.config.verbose:
                 print(f"\rSimulator: Finished running through episodes of scenario nr {i + 1}.")
 
             scenario_simdata["episode_simdata_list"] = episode_simdata_list
             scenario_simdata["enc"] = scenario_enc
             scenario_simdata_list.append(scenario_simdata)
 
-        if self._config.verbose:
+        if self.config.verbose:
             print("\rSimulator: Finished running through scenarios.")
         return scenario_simdata_list
 
@@ -377,7 +377,7 @@ class Simulator:
                 continue
 
             tracks, new_measurements = [], []
-            if not (i > 0 and self._config.tracking_from_ownship_only):
+            if not (i > 0 and self.config.tracking_from_ownship_only):
                 relevant_true_do_states = mhm.get_relevant_do_states(true_do_states, i)
                 tracks, new_measurements = ship_obj.track_obstacles(self.t, self.dt, relevant_true_do_states)
 
@@ -473,14 +473,12 @@ class Simulator:
         Returns:
             bool: True if the own-ship has reached its goal, False otherwise.
         """
-        if self.ship_list[ship_idx].waypoints.size > 1:
-            goal_state = self.ownship.waypoints[:, -1]
-        elif self.ship_list[ship_idx].goal_csog_state.size > 0:
+        if self.ship_list[ship_idx].goal_csog_state.size > 0:
             goal_state = self.ship_list[ship_idx].goal_csog_state
+        elif self.ship_list[ship_idx].waypoints.size > 1:
+            goal_state = self.ownship.waypoints[:, -1]
         else:
-            raise ValueError(
-                "Either the goal pose must be provided, or a sufficient number of waypoints for the ship to follow!"
-            )
+            return False
         ship_state = self.ship_list[ship_idx].csog_state
         d2goal = np.linalg.norm(ship_state[:2] - goal_state[:2])
         if radius is not None:
