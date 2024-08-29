@@ -200,7 +200,7 @@ class KinematicTrajectoryPlanner(IGuidance):
 
         # add artificial waypoint just beyond the last, to ensure that the spline is well-behaved
         mod_waypoints = np.insert(
-            mod_waypoints, n_wps, mod_waypoints[:, -1] + 500.0 * (mod_waypoints[:, -1] - mod_waypoints[:, -2]), axis=1
+            mod_waypoints, n_wps, mod_waypoints[:, -1] + 2.0 * (mod_waypoints[:, -1] - mod_waypoints[:, -2]), axis=1
         )
         mod_speed_plan = np.insert(mod_speed_plan, n_wps, mod_speed_plan[-1])
         n_wps += 1

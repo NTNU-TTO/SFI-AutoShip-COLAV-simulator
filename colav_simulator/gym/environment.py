@@ -389,7 +389,6 @@ class COLAVEnvironment(gym.Env):
                     reload_map=self.reload_map,
                     max_number_of_episodes=self.max_number_of_episodes,
                 )
-            self.episodes = 0
 
         assert self.scenario_config is not None, "Scenario config not initialized!"
         (scenario_episode_list, scenario_enc) = self.scenario_data_tup
