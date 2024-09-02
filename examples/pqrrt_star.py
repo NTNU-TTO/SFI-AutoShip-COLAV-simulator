@@ -1,5 +1,6 @@
 """
-    Demonstrates how to use the PQ-RRT* algorithm with the colav-simulator.
+    Demonstrates how to use the PQ-RRT* algorithm with the colav-simulator. Note that the underlying ship model in the planner does not
+    match the ship model used from the colav-simulator, and thus should be tuned for usage outside this example.
 
     Remember to install the dependencies (COLAV-simulator) and rrt-rs https://github.com/NTNU-Autoship-Internal/rrt-rs before running this script.
 
