@@ -1,3 +1,11 @@
+"""
+    sbmpc.py
+
+    Summary: This module contains an implementation of the SB-MPC algorithm for COLAV.
+
+    Author: Peder H. Lycke
+"""
+
 import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -124,7 +132,7 @@ class SBMPC:
             enc (senc.ENC): Electronic navigational chart.
 
         Returns:
-            Tuple[float, float]: _description_
+            Tuple[float, float]: Optimal control offset to the own ship nominal LOS references, (speed factor, course offset).
         """
         cost = np.inf
         cost_i = 0
