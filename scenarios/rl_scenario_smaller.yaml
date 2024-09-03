@@ -32,7 +32,6 @@ rl:
       - "path_relative_navigation_observation"
       - "perception_image_observation"
       - "navigation_3dof_state_observation"
-      - "ground_truth_tracking_observation"
       - "disturbance_observation"
 stochasticity:
   currents:

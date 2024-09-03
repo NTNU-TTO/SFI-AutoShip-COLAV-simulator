@@ -248,7 +248,10 @@ class VOWrapper(ICOLAV):
 
 
 class SBMPCWrapper(ICOLAV):
-    """SBMPC wrapper"""
+    """SBMPC is here implemented as a COLAV planning algorithm that provides trajectory offsets to the nominal LOS guidance.
+
+    NOTE: No land consideration is added in this implementation.
+    """
 
     def __init__(
         self,
@@ -305,9 +308,9 @@ class SBMPCWrapper(ICOLAV):
                 speed_ref, course_ref, ownship_state, do_list, enc
             )
             self._t_run_sbmpc_last = t
-            print(
-                f"[SBMPC] Course output: {np.rad2deg(course_ref + self._course_os_best)} | Best course offset: {np.rad2deg(self._course_os_best)} | Nominal course ref: {np.rad2deg(course_ref)} | Speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}"
-            )
+            # print(
+            #     f"[SBMPC] Course output: {np.rad2deg(course_ref + self._course_os_best)} | Best course offset: {np.rad2deg(self._course_os_best)} | Nominal course ref: {np.rad2deg(course_ref)} | Speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}"
+            # )
         references[2, 0] = course_ref + self._course_os_best
         references[3, 0] = speed_ref * self._speed_os_best
         return references

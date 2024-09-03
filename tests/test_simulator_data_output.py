@@ -10,7 +10,7 @@ import colav_simulator.scenario_generator as sg
 import colav_simulator.simulator as sim
 
 
-def test_simulator_output() -> None:
+def test_simulator_data_output() -> None:
     scenario_name = "rlmpc_scenario_ms_channel"
     scenario_generator = sg.ScenarioGenerator()
     scenario_data_list = scenario_generator.generate(
@@ -39,4 +39,4 @@ def test_simulator_output() -> None:
 
 
 if __name__ == "__main__":
-    test_simulator_output()
+    test_simulator_data_output()
