@@ -37,7 +37,7 @@ import colav_simulator.core.guidances as guidance
 import colav_simulator.core.stochasticity as stochasticity
 import matplotlib.pyplot as plt
 import numpy as np
-from seacharts.enc import ENC
+import seacharts.enc as senc
 
 
 class COLAVType(Enum):
@@ -137,10 +137,10 @@ class ICOLAV(ABC):
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
         do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
-        enc: Optional[ENC] = None,
+        enc: Optional[senc.ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         """Main COLAV planning function.
 
@@ -180,7 +180,7 @@ class ICOLAV(ABC):
         """
 
     @abstractmethod
-    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+    def plot_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         """Plots the COLAV planning algorithm results data, e.g. the predicted trajectory, considered obstacles, optimal inputs etc..
 
         Args:
@@ -221,10 +221,10 @@ class VOWrapper(ICOLAV):
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
         do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
-        enc: Optional[ENC] = None,
+        enc: Optional[senc.ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         if not self._initialized:
             self._t_prev = t
@@ -243,7 +243,7 @@ class VOWrapper(ICOLAV):
     def get_colav_data(self) -> dict:
         return {}
 
-    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+    def plot_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         return plt_handles
 
 
@@ -257,7 +257,7 @@ class SBMPCWrapper(ICOLAV):
             layer1=LayerConfig(sbmpc=sb_mpc.SBMPCParams()),
             layer2=LayerConfig(los=guidance.LOSGuidanceParams()),
         ),
-        **kwargs
+        **kwargs,
     ) -> None:
         assert config.layer1.sbmpc is not None, "SBMPC must be on the first layer for the SBMPC wrapper."
         self._sbmpc = sb_mpc.SBMPC(config.layer1.sbmpc)
@@ -287,10 +287,10 @@ class SBMPCWrapper(ICOLAV):
         speed_plan: np.ndarray,
         ownship_state: np.ndarray,
         do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
-        enc: Optional[ENC] = None,
+        enc: Optional[senc.ENC] = None,
         goal_state: Optional[np.ndarray] = None,
         w: Optional[stochasticity.DisturbanceData] = None,
-        **kwargs
+        **kwargs,
     ) -> np.ndarray:
         if not self._initialized or t < 0.0001:
             self._t_prev = t
@@ -302,11 +302,12 @@ class SBMPCWrapper(ICOLAV):
         speed_ref = references[3, 0]
         if t - self._t_run_sbmpc_last >= 5.0:
             self._speed_os_best, self._course_os_best = self._sbmpc.get_optimal_ctrl_offset(
-                speed_ref, course_ref, ownship_state, do_list
+                speed_ref, course_ref, ownship_state, do_list, enc
             )
             self._t_run_sbmpc_last = t
-            # print(f"SBMPC course output: {np.rad2deg(course_ref) + self._course_os_best} | Best course offset: {self._course_os_best} | Nominal course ref: {course_ref}")
-            # print(f"SBMPC speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}")
+            print(
+                f"[SBMPC] Course output: {np.rad2deg(course_ref + self._course_os_best)} | Best course offset: {np.rad2deg(self._course_os_best)} | Nominal course ref: {np.rad2deg(course_ref)} | Speed output: {speed_ref * self._speed_os_best} | Best speed offset: {self._speed_os_best} | Nominal speed ref: {speed_ref}"
+            )
         references[2, 0] = course_ref + self._course_os_best
         references[3, 0] = speed_ref * self._speed_os_best
         return references
@@ -318,7 +319,7 @@ class SBMPCWrapper(ICOLAV):
     def get_colav_data(self) -> dict:
         return {}
 
-    def plot_results(self, ax_map: plt.Axes, enc: ENC, plt_handles: dict, **kwargs) -> dict:
+    def plot_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         return plt_handles
 
 

@@ -10,7 +10,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import colav_simulator.common.config_parsing as cp
 import colav_simulator.common.map_functions as mapf
@@ -179,7 +179,7 @@ class Simulator:
         colav_systems: Optional[list] = None,
         trackers: Optional[list] = None,
         terminate_on_collision_or_grounding: bool = True,
-    ) -> list:
+    ) -> List[Dict[str, Any]]:
         """Runs through all specified scenarios with their number of episodes. If none are specified, the scenarios are generated from the config file and run through.
 
         Seeds for the random number generator are set and incremented for each scenario episode.
@@ -191,11 +191,11 @@ class Simulator:
             - terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
 
         Returns:
-            list: List of dictionaries containing the following simulation data for each scenario:
-            - episode_simdata_list (list): List of dictionaries containing the following simulation data for each scenario episode:
-                - vessel_data (list): List of data containers containing the vessel simulation data for each ship (used for evaluation).
-                - sim_data (pd.DataFrame): Dataframe containing the simulated data for each ship.
-                - ship_info (pd.DataFrame): Dataframe containing the ship info for each ship.
+            List[Dict[str, Any]]: List of dictionaries containing the following simulation data for each scenario:
+            - episode_simdata_list (List[Dict[str, Any]]): List of dictionaries containing the following simulation data for each scenario episode:
+                - vessel_data (List[VesselData]): List of data containers containing the vessel simulation data for each ship (used for evaluation).
+                - sim_data (List[Dict[str, Any]]): List of dictionaries containing the simulated data for each ship.
+                - ship_info (Dict[str, Any]): Dataframe containing the ship info for each ship.
             - enc (senc.Enc): ENC object used in all the scenario episodes.
         """
 
@@ -253,7 +253,6 @@ class Simulator:
                 episode_simdata["sim_data"] = sim_data
                 episode_simdata["ship_info"] = ship_info
                 episode_simdata_list.append(episode_simdata)
-
                 seed_val += 1
 
             if self.config.verbose:
@@ -308,16 +307,16 @@ class Simulator:
 
     def run_scenario_episode(
         self, terminate_on_collision_or_grounding: bool = True
-    ) -> Tuple[pd.DataFrame, dict, np.ndarray]:
+    ) -> Tuple[pd.DataFrame, Dict[str, Any], np.ndarray]:
         """Runs the simulator for a scenario episode specified by the ship object array, using a time step dt_sim.
 
         Args:
             terminate_on_collision_or_grounding (bool): Whether to terminate the simulation if a collision or grounding occurs.
 
         Returns: a tuple containing:
-            - sim_data (DataFrame): Dataframe/table containing the ship simulation data.
-            - ship_info (dict): Dictionary containing the ship info for each ship.
-            - sim_times (np.array): Array containing the simulation times.
+            - sim_data (pd.DataFrame): Dataframe containing the ship simulation data for each time step
+            - ship_info (Dict[str, Any]): Dictionary containing the ship info for each ship.
+            - sim_times (np.ndarray): Array containing the simulation times.
         """
 
         self.visualizer.init_live_plot(self.enc, self.ship_list)
@@ -374,6 +373,7 @@ class Simulator:
         true_do_states = mhm.extract_do_states_from_ship_list(self.t, self.ship_list)
         for i, ship_obj in enumerate(self.ship_list):
             if self.t < ship_obj.t_start:
+                sim_data_dict[f"Ship{i}"] = {}
                 continue
 
             tracks, new_measurements = [], []

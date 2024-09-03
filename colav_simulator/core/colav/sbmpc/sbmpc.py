@@ -1,11 +1,10 @@
 import math
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import colav_simulator.common.math_functions as mf
 import numpy as np
-from colav_simulator.common.math_functions import wrap_angle_to_pmpi
-
-# from utils import normalize_angle
+import seacharts.enc as senc
 
 
 @dataclass
@@ -100,24 +99,39 @@ class SBMPC:
 
         self.cost_ = np.inf
 
-        self.own_ship = ShipModel(self.T_, self.DT_)
+        self.ownship = ShipModel(self.T_, self.DT_)
 
         if config:
             self._params = config
         else:
             self._params = SBMPCParams()
 
-    def get_optimal_ctrl_offset(self, u_d: float, chi_d: float, os_state: np.ndarray, obs_states: np.ndarray):
-        """
-        os_state: np.array(6)
-        obs_state: list of np.array(4)
+    def get_optimal_ctrl_offset(
+        self,
+        u_d: float,
+        chi_d: float,
+        os_state: np.ndarray,
+        do_list: List[Tuple[int, np.ndarray, np.ndarray, float, float]],
+        enc: senc.ENC,
+    ) -> Tuple[float, float]:
+        """Calculates the optimal control offset for the own ship using the SB-MPC algorithm.
+
+        Args:
+            u_d (float): Nominal surge speed reference for the own ship.
+            chi_d (float): Nominal course reference for the own ship.
+            os_state (np.ndarray): Current state of the own ship.
+            do_list (List[Tuple[int, np.ndarray, np.ndarray, float, float]]): List of tuples containing the dynamic obstale info
+            enc (senc.ENC): Electronic navigational chart.
+
+        Returns:
+            Tuple[float, float]: _description_
         """
         cost = np.inf
         cost_i = 0
         colav_active = False
         d = np.zeros(2)
 
-        if obs_states is None:
+        if do_list is None:
             u_os_best = 1
             chi_os_best = 0
             self._params.P_ca_last_ = 1
@@ -125,8 +139,8 @@ class SBMPC:
             return u_os_best, chi_os_best
         else:
             obstacles = []
-            n_obst = len(obs_states)
-            for obs_state in obs_states:
+            n_obst = len(do_list)
+            for obs_state in do_list:
                 obstacle = Obstacle(obs_state, self.T_, self.DT_)
                 obstacles.append(obstacle)
 
@@ -145,7 +159,7 @@ class SBMPC:
 
         for i in range(len(self._params.Chi_ca_)):
             for j in range(len(self._params.P_ca_)):
-                self.own_ship.linear_pred(os_state, u_d * self._params.P_ca_[j], chi_d + self._params.Chi_ca_[i])
+                self.ownship.linear_pred(os_state, u_d * self._params.P_ca_[j], chi_d + self._params.Chi_ca_[i])
 
                 cost_i = -1
                 for k in range(n_obst):
@@ -168,8 +182,8 @@ class SBMPC:
     def cost_func(self, P_ca: float, Chi_ca: float, obstacle):
         obs_l = obstacle.l
         obs_w = obstacle.w
-        os_l = self.own_ship.l
-        os_w = self.own_ship.w
+        os_l = self.ownship.l
+        os_w = self.ownship.w
 
         d, los, los_inv, v_o, v_s = np.zeros(2), np.zeros(2), np.zeros(2), np.zeros(2), np.zeros(2)
         self.combined_radius = os_l + obs_l
@@ -184,8 +198,8 @@ class SBMPC:
 
             t += self.DT_
 
-            d[0] = obstacle.x_[i] - self.own_ship.x_[i]
-            d[1] = obstacle.y_[i] - self.own_ship.y_[i]
+            d[0] = obstacle.x_[i] - self.ownship.x_[i]
+            d[1] = obstacle.y_[i] - self.ownship.y_[i]
             dist = np.linalg.norm(d)
 
             R = 0
@@ -197,13 +211,13 @@ class SBMPC:
                 v_o[1] = obstacle.v_[i]
                 v_o = self.rot2d(obstacle.psi_, v_o)
 
-                v_s[0] = self.own_ship.u_[i]
-                v_s[1] = self.own_ship.v_[i]
-                v_s = self.rot2d(self.own_ship.psi_[i], v_s)
+                v_s[0] = self.ownship.u_[i]
+                v_s[1] = self.ownship.v_[i]
+                v_s = self.rot2d(self.ownship.psi_[i], v_s)
 
-                psi_o = wrap_angle_to_pmpi(obstacle.psi_)
-                phi = wrap_angle_to_pmpi(math.atan2(d[1], d[0]) - self.own_ship.psi_[i])
-                psi_rel = wrap_angle_to_pmpi(psi_o - self.own_ship.psi_[i])
+                psi_o = mf.wrap_angle_to_pmpi(obstacle.psi_)
+                phi = mf.wrap_angle_to_pmpi(math.atan2(d[1], d[0]) - self.ownship.psi_[i])
+                psi_rel = mf.wrap_angle_to_pmpi(psi_o - self.ownship.psi_[i])
 
                 los = d / dist
                 los_inv = -d / dist
@@ -215,7 +229,7 @@ class SBMPC:
                 else:
                     d_safe_i = d_safe + os_w / 2
 
-                phi_o = wrap_angle_to_pmpi(math.atan2(-d[1], -d[0]) - obstacle.psi_)
+                phi_o = mf.wrap_angle_to_pmpi(math.atan2(-d[1], -d[0]) - obstacle.psi_)
 
                 if phi_o < self._params.PHI_AH_:
                     d_safe_i += d_safe + obs_l / 2
@@ -380,7 +394,7 @@ class ShipModel:
         self.os_y = self.D_ - self.C_
 
     def linear_pred(self, state, u_d, psi_d):
-        self.psi_[0] = wrap_angle_to_pmpi(psi_d)
+        self.psi_[0] = mf.wrap_angle_to_pmpi(psi_d)
         self.x_[0] = state[0] + self.os_x * np.cos(state[2]) - self.os_y * np.sin(state[2])
         self.y_[0] = state[1] + self.os_x * np.sin(state[2]) + self.os_y * np.cos(state[2])
         self.u_[0] = state[3]

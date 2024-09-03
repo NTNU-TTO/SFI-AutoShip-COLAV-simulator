@@ -4,7 +4,7 @@
     Author: Trym Tengesdal
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import colav_simulator.common.paths as dp
@@ -23,8 +23,10 @@ from colav_simulator.simulator import Simulator
 
 @dataclass
 class DummyPlannerParams:
-    los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
-        K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+    los: guidances.LOSGuidanceParams = field(
+        default_factory=lambda: guidances.LOSGuidanceParams(
+            K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+        )
     )
 
 

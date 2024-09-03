@@ -9,7 +9,7 @@
     Author: Trym Tengesdal
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 import colav_simulator.common.map_functions as mapf
@@ -31,25 +31,29 @@ from shapely import strtree
 
 @dataclass
 class RRTConfig:
-    params: PQRRTStarParams = PQRRTStarParams()
-    model: models.KinematicCSOGParams = models.KinematicCSOGParams(
-        name="KinematicCSOG",
-        draft=0.5,
-        length=10.0,
-        width=3.0,
-        T_chi=10.0,
-        T_U=7.0,
-        r_max=np.deg2rad(4),
-        U_min=0.0,
-        U_max=15.0,
+    params: PQRRTStarParams = field(default_factory=lambda: PQRRTStarParams())
+    model: models.KinematicCSOGParams = field(
+        default_factory=lambda: models.KinematicCSOGParams(
+            name="KinematicCSOG",
+            draft=0.5,
+            length=10.0,
+            width=3.0,
+            T_chi=10.0,
+            T_U=7.0,
+            r_max=np.deg2rad(4),
+            U_min=0.0,
+            U_max=15.0,
+        )
     )
-    los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
-        K_p=0.03,
-        K_i=0.0001,
-        pass_angle_threshold=90.0,
-        R_a=25.0,
-        max_cross_track_error_int=1000.0,
-        cross_track_error_int_threshold=30.0,
+    los: guidances.LOSGuidanceParams = field(
+        default_factory=lambda: guidances.LOSGuidanceParams(
+            K_p=0.03,
+            K_i=0.0001,
+            pass_angle_threshold=90.0,
+            R_a=25.0,
+            max_cross_track_error_int=1000.0,
+            cross_track_error_int_threshold=30.0,
+        )
     )
 
     @classmethod
@@ -93,10 +97,12 @@ def parse_rrt_solution(soln: dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
 
 @dataclass
 class RRTPlannerParams:
-    los: guidances.LOSGuidanceParams = guidances.LOSGuidanceParams(
-        K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+    los: guidances.LOSGuidanceParams = field(
+        default_factory=lambda: guidances.LOSGuidanceParams(
+            K_p=0.035, K_i=0.0, pass_angle_threshold=90.0, R_a=25.0, max_cross_track_error_int=30.0
+        )
     )
-    rrt: RRTConfig = RRTConfig()
+    rrt: RRTConfig = field(default_factory=lambda: RRTConfig())
 
     @classmethod
     def from_dict(cls, config_dict: dict):
@@ -260,7 +266,6 @@ if __name__ == "__main__":
         safe_distance=0.5,
         max_ancestry_level=1,
     )
-
     rrt = PQRRTStar(params)
 
     scenario_file = dp.scenarios / "rrt_test.yaml"
@@ -272,4 +277,3 @@ if __name__ == "__main__":
     simulator.toggle_liveplot_visibility(True)
     # Hint: Close ENC Seacharts plot with RRT tree to speed up livesim
     output = simulator.run([scenario_data], colav_systems=[(0, rrt)], terminate_on_collision_or_grounding=False)
-    print("done")

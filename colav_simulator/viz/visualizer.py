@@ -8,6 +8,7 @@
 """
 
 import gc
+import platform
 import time
 import tracemalloc
 from dataclasses import asdict, dataclass, field
@@ -268,7 +269,7 @@ class Visualizer:
         self.axes = [ax_map]
         ax_map.set_aspect("equal")
         self.toggle_liveplot_axis_labels(self._config.show_liveplot_map_axes)
-        if matplotlib.get_backend() == "TkAgg":
+        if matplotlib.get_backend() == "TkAgg" or matplotlib.get_backend() == "MacOSX":
             plt.show(block=False)
         plt.subplots_adjust(0, 0, 1, 1, 0, 0)
         self.fig.set_size_inches(fig_width, fig_height)
@@ -315,12 +316,12 @@ class Visualizer:
         if not self._config.show_liveplot:
             return np.empty((0, 0, 3), dtype=np.uint8)
 
-        # data = ihm.mplfig2np(self.fig)
+        data = ihm.mplfig2np(self.fig)
 
-        self.fig.canvas.draw()
-        self.background = self.fig.canvas.copy_from_bbox(self.axes[0].bbox)
-        data = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
-        data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        # self.fig.canvas.draw()
+        # self.background = self.fig.canvas.copy_from_bbox(self.axes[0].bbox)
+        # data = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
+        # data = data.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
         return data
 
     def clear(self) -> None:

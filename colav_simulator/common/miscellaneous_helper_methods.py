@@ -455,7 +455,9 @@ def compute_vessel_pair_cpa(
     return t_cpa, d_cpa, d_cpa_vec
 
 
-def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: dict, utm_zone: int) -> list:
+def convert_simulation_data_to_vessel_data(
+    sim_data: pd.DataFrame, ship_info: Dict[str, Any], utm_zone: int
+) -> List[vd.VesselData]:
     """Converts simulation data to vessel data.
 
     Args:
@@ -464,7 +466,7 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         utm_zone (int): UTM zone used for the planar xy coordinate system.
 
     Returns:
-        list: List of vessel data.
+        List[vd.VesselData]: List of vessel data containers
     """
     vessels = []
     identifier = 0
@@ -479,6 +481,8 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
         )
 
         X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_dataframe(sim_data[name])
+        if X.size == 0:
+            continue
 
         vessel.first_valid_idx, vessel.last_valid_idx = index_of_first_and_last_non_nan(X[0, :])
         n_msgs = len(vessel.timestamps)
@@ -522,11 +526,8 @@ def convert_simulation_data_to_vessel_data(sim_data: pd.DataFrame, ship_info: di
 
         # print(f"Vessel {identifier} travelled a distance of {vessel.travel_dist} m")
         # print(f"Vessel status: {vessel.status}")
-
         vessels.append(vessel)
-
         identifier += 1
-
     return vessels
 
 
@@ -609,14 +610,16 @@ def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.nd
     Returns:
         Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
     """
-    X = np.zeros((6, len(ship_df)))
+    state_list = []
     timestamps = []
     datetimes_utc = []
-    for k, ship_df_k in enumerate(ship_df):
-        X[:, k] = ship_df_k["state"]
-        timestamps.append(float(ship_df_k["timestamp"]))
-        datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
-        datetimes_utc.append(datetime_utc)
+    for _, ship_df_k in enumerate(ship_df):
+        if pd.notna(ship_df_k) and ship_df_k:
+            state_list.append(ship_df_k["state"])
+            timestamps.append(float(ship_df_k["timestamp"]))
+            datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
+            datetimes_utc.append(datetime_utc)
+    X = np.array(state_list).T
     return X, timestamps, datetimes_utc
 
 

@@ -693,6 +693,7 @@ class Ship(IShip):
 
     def get_ship_info(self) -> dict:
         output: dict = {}
+        output["id"] = self.id
         output["mmsi"] = self.mmsi
         output["length"] = self.length
         output["width"] = self.width
