@@ -2,7 +2,7 @@ name: "overtaking"
 save_scenario: False
 t_start: 0.0
 t_end: 300.0
-dt_sim: 0.1
+dt_sim: 0.5
 utm_zone: 33
 map_size: [5000.0, 5000.0]
 map_origin_enu: [39000.0, 6956450.0]
@@ -25,8 +25,13 @@ ship_list:
       - radar:
           max_range: 2000.0
           measurement_rate: 0.5
-          R: [25.0, 25.0]
-          R_true: [25.0, 25.0]
+          R_ne: [30.0, 30.0]
+          R_ne_true: [25.0, 25.0]
+          R_polar_true: [64.0, 0.0003]
+          generate_clutter: False
+          clutter_cardinality_expectation: 5
+          detection_probability: 0.95
+          include_polar_meas_noise: False
       - ais:
           max_range: 5000.0
           ais_class: A
@@ -53,9 +58,9 @@ ship_list:
         chi_error_int_threshold: 20.0
     model:
       telemetron: ''
-  - csog_state: [6958000.0, 40000.0, 7.0, 45.0]
+  - csog_state: [6958000.0, 40000.0, 5.0, 45.0]
     waypoints: [[6958000.0, 6959500.0], [40000.0, 41500.0]]
-    speed_plan: [7.0, 7.0]
+    speed_plan: [5.0, 5.0]
     id: 1
     mmsi: 101
     tracker:
@@ -66,8 +71,13 @@ ship_list:
       - radar:
           max_range: 2000.0
           measurement_rate: 0.5
-          R: [25.0, 25.0]
-          R_true: [25.0, 25.0]
+          R_ne: [30.0, 30.0]
+          R_ne_true: [25.0, 25.0]
+          R_polar_true: [64.0, 0.0003]
+          generate_clutter: False
+          clutter_cardinality_expectation: 5
+          detection_probability: 0.95
+          include_polar_meas_noise: False
       - ais:
           max_range: 5000.0
           ais_class: A

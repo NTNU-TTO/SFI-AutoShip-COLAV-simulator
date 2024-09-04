@@ -581,9 +581,10 @@ class Ship(IShip):
         self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, w, dt)
         return self._state, u, self._references[:, 0]
 
-    def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
-        tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
-        return tracks
+    def track_obstacles(
+        self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]]
+    ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
+        return self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
 
     def reset(self, seed: int | None) -> None:
         self._controller.reset()
@@ -877,3 +878,7 @@ class Ship(IShip):
     @property
     def sensors(self) -> list:
         return self._sensors
+
+    @property
+    def tracker(self) -> trackers.ITracker:
+        return self._tracker

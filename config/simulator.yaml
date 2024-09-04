@@ -12,7 +12,7 @@ visualizer:
   show_liveplot_ownship_trajectory: True
   show_liveplot_ground_truth_target_pose: False
   zoom_in_liveplot_on_ownship: True
-  zoom_window_width: 1000.0
+  zoom_window_width: 1500.0
   show_liveplot_map_axes: False
   show_liveplot_scalebar: True
   show_liveplot_time: True
@@ -38,7 +38,7 @@ visualizer:
   fig_dpi: 64
   margins: [0.0, 0.0]
   ship_linewidth: 1.7
-  ship_scaling: [2.5, 2.5]
+  ship_scaling: [3.0, 3.0]
   ship_info_fontsize: 10
   ship_colors: ["xkcd:purple",
               "xkcd:red",

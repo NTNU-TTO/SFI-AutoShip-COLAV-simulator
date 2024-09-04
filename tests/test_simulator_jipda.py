@@ -25,23 +25,25 @@ def test_simulator() -> None:
 
     scenario_name = "head_on"
     scenario_generator = sg.ScenarioGenerator()
-    scenario_data = scenario_generator.generate(
-        config_file=dp.scenarios / (scenario_name + ".yaml"),
-        new_load_of_map_data=True,
-        save_scenario=True,
-        save_scenario_folder=dp.scenarios / "saved" / scenario_name,
-        show_plots=False,
-        episode_idx_save_offset=0,
-        n_episodes=1,
-        delete_existing_files=True,
-    )
+    # scenario_data = scenario_generator.generate(
+    #     config_file=dp.scenarios / (scenario_name + ".yaml"),
+    #     new_load_of_map_data=True,
+    #     save_scenario=True,
+    #     save_scenario_folder=dp.scenarios / "saved" / scenario_name,
+    #     show_plots=False,
+    #     episode_idx_save_offset=0,
+    #     n_episodes=1,
+    #     delete_existing_files=True,
+    # )
+    # scenario_data_list = [scenario_data]
+    scenario_data_list = scenario_generator.generate_configured_scenarios()
 
     simconfig = sim.Config.from_file(dp.simulator_config)
     simconfig.visualizer.show_liveplot_target_tracks = True
     simconfig.visualizer.show_liveplot_measurements = True
-    simulator = sim.Simulator()
+    simulator = sim.Simulator(config=simconfig)
     simulator.toggle_liveplot_visibility(True)
-    output = simulator.run([scenario_data], colav_systems=[(0, sbmpc_obj)], trackers=[(0, vimmjipda_tracker)])
+    output = simulator.run(scenario_data_list, colav_systems=[(0, sbmpc_obj)], trackers=[(0, vimmjipda_tracker)])
     print("done")
 
 

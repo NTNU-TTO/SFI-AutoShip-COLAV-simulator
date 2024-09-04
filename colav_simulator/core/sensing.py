@@ -191,8 +191,6 @@ class SensorSuiteBuilder:
 class Radar(ISensor):
     """Implements functionality for a radar sensor."""
 
-    # TODO: Implement clutter measurements and detection probability
-
     def __init__(self, params: RadarParams = RadarParams()) -> None:
         self.type: str = "radar"
         self._H: np.ndarray = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
@@ -264,11 +262,19 @@ class Radar(ISensor):
             measurements.append((do_idx, z))
 
         self._prev_meas_time = t
-        z_clutter = self.generate_clutter(t, ownship_state)
+        z_clutter = self.generate_clutter(ownship_state)
         measurements.extend(z_clutter)
         return measurements
 
-    def generate_clutter(self, t: float, ownship_state: np.ndarray) -> Optional[List[Tuple[int, np.ndarray]]]:
+    def generate_clutter(self, ownship_state: np.ndarray) -> List[Tuple[int, np.ndarray]]:
+        """Generates clutter measurements around the ownship using a Poisson distribution.
+
+        Args:
+            ownship_state (np.ndarray): The ownship state vector on the form [x, y, Vx, Vy].
+
+        Returns:
+            List[Tuple[int, np.ndarray]]: List of clutter measurements with -1 as the index (non-existent dynamic obstacle).
+        """
         clutter = []
         if not self._params.generate_clutter:
             return clutter

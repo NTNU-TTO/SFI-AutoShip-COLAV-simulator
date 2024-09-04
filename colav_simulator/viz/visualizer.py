@@ -22,6 +22,7 @@ import colav_simulator.common.paths as dp
 import colav_simulator.common.plotters as plotters
 import colav_simulator.core.ship as ship
 import colav_simulator.core.stochasticity as stoch
+import colav_simulator.core.tracking.trackers as cs_trackers
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
@@ -702,13 +703,13 @@ class Visualizer:
             )
 
     def update_ownship_live_tracking_data(
-        self, ownship: ship.Ship, sensor_measurements: list, n_ships: int, enc: ENC
+        self, ownship: ship.Ship, sensor_measurements: List[Tuple[int, np.ndarray]], n_ships: int, enc: ENC
     ) -> None:
         """Updates tracking-related plots for the own-ship
 
         Args:
             - ownship (ship.Ship): The own-ship object
-            - sensor_measurements (list): List of sensor measurements
+            - sensor_measurements (List[Tuple[int, np.ndarray]]): List of recent sensor measurements
             - n_ships (int): Number of ships in the simulation
             - enc (ENC): The ENC object
         """
@@ -786,8 +787,11 @@ class Visualizer:
                     )[0]
                     self.ship_plt_handles[0]["do_covariances"][do_plt_idx].set_color("orangered")
 
-        if self._config.show_liveplot_measurements:
+        if self._config.show_liveplot_measurements and sensor_measurements:
             for sensor_id, sensor in enumerate(ownship.sensors):
+                if sensor.type == "ais" and not (isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF)):
+                    continue
+
                 sensor_data = sensor_measurements[sensor_id]
                 if not sensor_data:
                     continue
@@ -867,7 +871,7 @@ class Visualizer:
         t: float,
         enc: ENC,
         ship_list: List[ship.Ship],
-        sensor_measurements: list,
+        sensor_measurements: List[Tuple[int, np.ndarray]],
         w: Optional[stoch.DisturbanceData] = None,
         **kwargs,
     ) -> None:
@@ -877,7 +881,7 @@ class Visualizer:
             - t (float): Current time in the simulation.
             - enc (ENC): ENC object containing the map data.
             - ship_list (list): List of configured ships in the simulation.
-            - sensor_measurements (list): Most recent sensor measurements generated from the own-ship sensors.
+            - sensor_measurements (List[Tuple[int, np.ndarray]]): Most recent sensor measurements generated from the own-ship sensors.
         """
         if not self._config.show_liveplot:
             return

@@ -28,10 +28,15 @@ ship_list:
         q: 1.0
     sensors:
       - radar:
-          max_range: 3000.0
-          measurement_rate: 0.000001
-          R: [250.0, 250.0]
-          R_true: [25.0, 25.0]
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R_ne: [30.0, 30.0]
+          R_ne_true: [25.0, 25.0]
+          R_polar_true: [64.0, 0.0003]
+          generate_clutter: False
+          clutter_cardinality_expectation: 5
+          detection_probability: 0.95
+          include_polar_meas_noise: False
       - ais:
           max_range: 3000.0
           ais_class: A

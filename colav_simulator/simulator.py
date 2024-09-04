@@ -169,9 +169,6 @@ class Simulator:
         self.t_end = sconfig.t_end
         self.dt = sconfig.dt_sim
         self.recent_sensor_measurements = [None] * len(self.ship_list)
-        # print(
-        #     f"Initialized scenario ep={sconfig.name} with {len(self.ship_list)} ships and Disturbance={disturbance is not None}."
-        # )
 
     def run(
         self,
@@ -489,20 +486,20 @@ class Simulator:
 
 
 def extract_valid_sensor_measurements(
-    t: float, recent_sensor_measurements: list, new_sensor_measurements: list
+    t: float,
+    recent_sensor_measurements: List[Tuple[int, np.ndarray]],
+    new_sensor_measurements: List[Tuple[int, np.ndarray]],
 ) -> list:
     """Extracts non-NaN sensor measurements from the recent sensor measurements list and appends them to the most recent sensor measurements list.
 
     Args:
         t (float): Current simulation time.
-        recent_sensor_measurements (list): List of most recent valid (non-nan) sensor measurements for the current ship
-        new_sensor_measurements (list): List of new sensor measurements for the current ship.
+        recent_sensor_measurements (List[Tuple[int, np.ndarray]]): List of most recent valid (non-nan) sensor measurements for the current ship
+        new_sensor_measurements (List[Tuple[int, np.ndarray]]): List of new sensor measurements for the current ship.
 
     Returns:
-        list: List of updated most recent valid (non-nan) sensor measurements for the current ship
+        List[Tuple[int, np.ndarray]]: List of updated most recent valid (non-nan) sensor measurements for the current ship
     """
-    if t == 0.0 or recent_sensor_measurements is None:
-        recent_sensor_measurements = new_sensor_measurements
     for j, sensor_j_measurements in enumerate(new_sensor_measurements):
         if not sensor_j_measurements:
             continue
@@ -511,5 +508,7 @@ def extract_valid_sensor_measurements(
             if not np.isnan(do_meas).any():
                 valid_meas.append((do_idx, do_meas))
         if valid_meas:
+            if not recent_sensor_measurements:
+                recent_sensor_measurements = [None] * len(new_sensor_measurements)
             recent_sensor_measurements[j] = valid_meas
     return recent_sensor_measurements
