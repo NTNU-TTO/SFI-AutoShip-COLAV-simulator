@@ -8,7 +8,7 @@
     Author: Trym Tengesdal, Magne Aune, Joachim Miller
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -32,12 +32,12 @@ np.set_printoptions(suppress=True, formatter={"float_kind": "{:.4f}".format})
 class Config:
     """Simulation related configuration/parameter class."""
 
-    save_scenario_results: bool
-    verbose: bool
+    save_scenario_results: bool = False
+    verbose: bool = True
     tracking_from_ownship_only: (
         bool  # Whether to track obstacles from ownship only (True) or all ships track each other (False)
-    )
-    visualizer: viz.Config
+    ) = True
+    visualizer: viz.Config = field(default_factory=viz.Config())
 
     @classmethod
     def from_dict(cls, config_dict: dict):

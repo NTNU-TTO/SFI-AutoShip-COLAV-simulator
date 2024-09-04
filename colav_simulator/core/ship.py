@@ -638,6 +638,7 @@ class Ship(IShip):
 
     def set_tracker(self, tracker: trackers.ITracker) -> None:
         self._tracker = tracker
+        self._tracker.set_sensor_list(self._sensors)
 
     def set_controller(self, controller: controllers.IController) -> None:
         self._controller = controller
