@@ -725,21 +725,25 @@ class Visualizer:
         do_widths = [track[4] for track in tracks]
         ax_map = self.axes[0]
         zorder_patch = 4
+        os_handles = self.ship_plt_handles[0]
         if len(do_estimates) > 0:
             lw = self._config.do_linewidth
             do_c = self._config.do_colors[0]
             for j, do_estimate in enumerate(do_estimates):  # pylint: disable=consider-using-enumerate
-                do_plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
+                if isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF):
+                    do_plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
+                else: # VIMMJIPDA multi-target tracker
+                    do_plt_idx = j
 
-                if self.ship_plt_handles[0]["track_started"][do_plt_idx]:
+                if os_handles["track_started"][do_plt_idx]:
                     start_idx_track_line_data = 0
                 else:
                     start_idx_track_line_data = 1
-                    self.ship_plt_handles[0]["track_started"][do_plt_idx] = True
+                    os_handles["track_started"][do_plt_idx] = True
 
                 if not self._config.show_liveplot_ground_truth_target_pose:
-                    if self.ship_plt_handles[0]["do_track_poses"][do_plt_idx] is not None:
-                        self.ship_plt_handles[0]["do_track_poses"][do_plt_idx].remove()
+                    if os_handles["do_track_poses"][do_plt_idx] is not None:
+                        os_handles["do_track_poses"][do_plt_idx].remove()
                     chi_j = np.arctan2(do_estimate[3], do_estimate[2])
                     target_ship_polygon = mapf.create_ship_polygon(
                         do_estimate[0],
@@ -750,34 +754,34 @@ class Visualizer:
                         self._config.ship_scaling[0],
                         self._config.ship_scaling[1],
                     )
-                    self.ship_plt_handles[0]["do_track_poses"][do_plt_idx] = ax_map.fill(
+                    os_handles["do_track_poses"][do_plt_idx] = ax_map.fill(
                         *target_ship_polygon.exterior.xy,
                         color=do_c,
                         linewidth=lw,
                         label="",
                         zorder=zorder_patch - 1,
                     )[0]
-                    self.ship_plt_handles[0]["do_track_poses"][do_plt_idx].set_color(do_c)
+                    os_handles["do_track_poses"][do_plt_idx].set_color(do_c)
 
                 if self._config.show_liveplot_target_tracks:
-                    self.ship_plt_handles[0]["do_tracks"][do_plt_idx].set_xdata(
+                    os_handles["do_tracks"][do_plt_idx].set_xdata(
                         [
-                            *self.ship_plt_handles[0]["do_tracks"][do_plt_idx].get_xdata()[start_idx_track_line_data:],
+                            *os_handles["do_tracks"][do_plt_idx].get_xdata()[start_idx_track_line_data:],
                             do_estimate[1],
                         ]
                     )
-                    self.ship_plt_handles[0]["do_tracks"][do_plt_idx].set_ydata(
+                    os_handles["do_tracks"][do_plt_idx].set_ydata(
                         [
-                            *self.ship_plt_handles[0]["do_tracks"][do_plt_idx].get_ydata()[start_idx_track_line_data:],
+                            *os_handles["do_tracks"][do_plt_idx].get_ydata()[start_idx_track_line_data:],
                             do_estimate[0],
                         ]
                     )
 
                     ellipse_x, ellipse_y = mhm.create_probability_ellipse(do_covariances[j], 0.67)
                     ell_geometry = Polygon(zip(ellipse_y + do_estimates[j][1], ellipse_x + do_estimates[j][0]))
-                    if self.ship_plt_handles[0]["do_covariances"][do_plt_idx] is not None:
-                        self.ship_plt_handles[0]["do_covariances"][do_plt_idx].remove()
-                    self.ship_plt_handles[0]["do_covariances"][do_plt_idx] = ax_map.fill(
+                    if os_handles["do_covariances"][do_plt_idx] is not None:
+                        os_handles["do_covariances"][do_plt_idx].remove()
+                    os_handles["do_covariances"][do_plt_idx] = ax_map.fill(
                         *ell_geometry.exterior.xy,
                         linewidth=lw,
                         color="orangered",
@@ -785,7 +789,7 @@ class Visualizer:
                         label=f"DO {j - 1} est. 1sigma cov.",
                         zorder=zorder_patch - 2,
                     )[0]
-                    self.ship_plt_handles[0]["do_covariances"][do_plt_idx].set_color("orangered")
+                    os_handles["do_covariances"][do_plt_idx].set_color("orangered")
 
         if self._config.show_liveplot_measurements and sensor_measurements:
             for sensor_id, sensor in enumerate(ownship.sensors):
@@ -807,12 +811,12 @@ class Visualizer:
                     continue
 
                 if sensor.type == "radar":
-                    self.ship_plt_handles[0]["radar"].set_xdata(xdata)
-                    self.ship_plt_handles[0]["radar"].set_ydata(ydata)
+                    os_handles["radar"].set_xdata(xdata)
+                    os_handles["radar"].set_ydata(ydata)
 
                 elif sensor.type == "ais":
-                    self.ship_plt_handles[0]["ais"].set_xdata(xdata)
-                    self.ship_plt_handles[0]["ais"].set_ydata(ydata)
+                    os_handles["ais"].set_xdata(xdata)
+                    os_handles["ais"].set_ydata(ydata)
 
     def update_ship_live_data(self, ship_obj: ship.Ship, idx: int, enc: ENC, **kwargs) -> None:
         """Updates the live plot with the current data of the input ship object.
