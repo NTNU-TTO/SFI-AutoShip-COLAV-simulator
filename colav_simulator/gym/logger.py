@@ -245,9 +245,6 @@ class Logger:
             self.frames[env_idx].append(reduced_frame)
 
             if done:
-                print(
-                    f"Dumped terminal frame for {self.episode_name[env_idx]} in env {env_idx + 1} at episode nr {self.episode_nr}"
-                )
                 self._dump_last_frame_as_img(reduced_frame, env_idx)
 
         # Special case for an NMPC actor
