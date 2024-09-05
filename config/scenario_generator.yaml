@@ -1,13 +1,13 @@
 verbose: True
 manual_episode_accept: False
-scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
+# scenario_files: ["head_on.yaml", "crossing_give_way.yaml", "crossing_stand_on.yaml", "overtaking.yaml", "overtaken.yaml"]
 #scenario_files: ["rl_scenario.yaml"]
-# scenario_files: ["head_on.yaml"]
+scenario_files: ["head_on.yaml"]
 #scenario_files: ["ais_scenario1.yaml"]
 #scenario_files: ["simple_planning_example.yaml"]
 #scenario_files: ["saved/aalesund_random2_18012023_13_48_46.yaml"]
 #scenario_files: ["saved/aalesund_random_20012023_13_00_55.yaml"]
-#scenario_folder: "imazu_cases"
+# scenario_folder: "imazu_cases"
 ho_bearing_range: [-3.0, 3.0]
 ho_course_range: [-5.0, 5.0]
 ot_bearing_range: [-20.0, 20.0]
@@ -36,7 +36,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 1.0
+      max_time: 4.0
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
@@ -70,7 +70,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 10000
-      max_time: 1.0
+      max_time: 4.0
       iter_between_direct_goal_growth: 100
       min_node_dist: 5.0
       goal_radius: 200.0
@@ -101,7 +101,7 @@ behavior_generator:
     params:
       max_nodes: 3000
       max_iter: 25000
-      max_time: 1.0
+      max_time: 4.0
       iter_between_direct_goal_growth: 100
       goal_radius: 200.0
       step_size: 2.5

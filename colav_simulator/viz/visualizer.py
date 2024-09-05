@@ -186,6 +186,7 @@ class Visualizer:
         self._t_prev_update = 0.0
         self.t_start = 0.0
         self.frames = []
+        self._prev_do_track_labels: list = []  # used by the visualizer when the VIMMJIPDA MTT is enabled
 
         # print("Visualizer backend: {}".format(matplotlib.get_backend()))
         # print("Visualizer canvas class: {}".format(self.canvas_cls))
@@ -381,6 +382,7 @@ class Visualizer:
 
             ship_i_handles: dict = {}
             if i == 0:
+                self._prev_do_track_labels = []
                 ship_name = "OS"
                 do_c = self._config.do_colors[0]
 
@@ -389,38 +391,41 @@ class Visualizer:
                 ship_i_handles["do_tracks"] = []
                 ship_i_handles["do_covariances"] = []
                 ship_i_handles["track_started"] = []
-                for j in range(1, n_ships):
-                    ship_i_handles["track_started"].append(False)
+                ownship = ship_list[0]
+                # For the VIMMJIPDA multi-target tracker, the track handles will be appended online
+                if isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF):
+                    for j in range(1, n_ships):
+                        ship_i_handles["track_started"].append(False)
 
-                    if not self._config.show_liveplot_ground_truth_target_pose:
-                        ship_i_handles["do_track_poses"].append(
-                            ax_map.fill([], [], color=do_c, linewidth=lw, label="", zorder=zorder_patch - 1)[0]
-                        )
+                        if not self._config.show_liveplot_ground_truth_target_pose:
+                            ship_i_handles["do_track_poses"].append(
+                                ax_map.fill([], [], color=do_c, linewidth=lw, label="", zorder=zorder_patch - 1)[0]
+                            )
 
-                    if self._config.show_liveplot_target_tracks:
-                        # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
-                        ship_i_handles["do_tracks"].append(
-                            ax_map.plot(
-                                [0.0],
-                                [0.0],
-                                linewidth=do_lw,
-                                color=do_c,
-                                label=f"DO {j - 1} est. traj.",
-                                zorder=zorder_patch - 2,
-                            )[0]
-                        )
+                        if self._config.show_liveplot_target_tracks:
+                            # Add 0.0 to data to avoid matplotlib error when plotting empty trajectory
+                            ship_i_handles["do_tracks"].append(
+                                ax_map.plot(
+                                    [0.0],
+                                    [0.0],
+                                    linewidth=do_lw,
+                                    color=do_c,
+                                    label=f"DO {j - 1} est. traj.",
+                                    zorder=zorder_patch - 2,
+                                )[0]
+                            )
 
-                        ship_i_handles["do_covariances"].append(
-                            ax_map.fill(
-                                [],
-                                [],
-                                linewidth=lw,
-                                color=do_c,
-                                alpha=0.5,
-                                label=f"DO {j - 1} est. 1sigma cov.",
-                                zorder=zorder_patch - 2,
-                            )[0]
-                        )
+                            ship_i_handles["do_covariances"].append(
+                                ax_map.fill(
+                                    [],
+                                    [],
+                                    linewidth=lw,
+                                    color=do_c,
+                                    alpha=0.5,
+                                    label=f"DO {j - 1} est. 1sigma cov.",
+                                    zorder=zorder_patch - 2,
+                                )[0]
+                            )
 
                 if self._config.show_liveplot_measurements:
                     for sensor in ship_obj.sensors:
@@ -732,8 +737,37 @@ class Visualizer:
             for j, do_estimate in enumerate(do_estimates):  # pylint: disable=consider-using-enumerate
                 if isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF):
                     do_plt_idx = do_labels[j] - 1  # -1 to account for own-ship being idx 0
-                else: # VIMMJIPDA multi-target tracker
-                    do_plt_idx = j
+                else:  # VIMMJIPDA multi-target tracker
+                    if do_labels[j] in self._prev_do_track_labels:
+                        do_plt_idx = self._prev_do_track_labels.index(do_labels[j])
+                    else:
+                        self._prev_do_track_labels.append(do_labels[j])
+                        os_handles["track_started"].append(False)
+                        do_plt_idx = len(self._prev_do_track_labels) - 1
+                        os_handles["do_track_poses"].append(
+                            ax_map.fill([], [], color=do_c, linewidth=lw, label="", zorder=zorder_patch - 1)[0]
+                        )
+                        os_handles["do_tracks"].append(
+                            ax_map.plot(
+                                [0.0],
+                                [0.0],
+                                linewidth=lw,
+                                color=do_c,
+                                label=f"DO {j - 1} est. traj.",
+                                zorder=zorder_patch - 2,
+                            )[0]
+                        )
+                        os_handles["do_covariances"].append(
+                            ax_map.fill(
+                                [],
+                                [],
+                                linewidth=lw,
+                                color=do_c,
+                                alpha=0.5,
+                                label=f"DO {j - 1} est. 1sigma cov.",
+                                zorder=zorder_patch - 2,
+                            )[0]
+                        )
 
                 if os_handles["track_started"][do_plt_idx]:
                     start_idx_track_line_data = 0
@@ -793,7 +827,9 @@ class Visualizer:
 
         if self._config.show_liveplot_measurements and sensor_measurements:
             for sensor_id, sensor in enumerate(ownship.sensors):
-                if sensor.type == "ais" and not (isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF)):
+                if sensor.type == "ais" and not (
+                    isinstance(ownship.tracker, cs_trackers.GodTracker) or isinstance(ownship.tracker, cs_trackers.KF)
+                ):
                     continue
 
                 sensor_data = sensor_measurements[sensor_id]

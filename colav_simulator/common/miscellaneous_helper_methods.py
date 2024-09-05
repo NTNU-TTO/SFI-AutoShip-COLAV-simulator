@@ -820,7 +820,7 @@ def create_probability_ellipse(P: np.ndarray, probability: float = 0.99) -> Tupl
     b = chisquare_val * math.sqrt(smallest_eigenval)
 
     # the ellipse in "body" x and y coordinates
-    t = np.linspace(0, 2.05 * np.pi, 100)
+    t = np.linspace(0, 2.0 * np.pi, 200)
     x = a * np.cos(t)
     y = b * np.sin(t)
 

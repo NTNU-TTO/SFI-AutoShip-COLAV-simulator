@@ -6,8 +6,7 @@ def test_scenario_generator() -> None:
     scenario_generator = ScenarioGenerator(seed=0)
     scenario_name = "rlmpc_scenario_ms_channel"
 
-    # Generate scenario and save all episode .yaml files to folder
-    scenario_data_list = scenario_generator.generate(
+    scenario_data = scenario_generator.generate(
         config_file=dp.scenarios / (scenario_name + ".yaml"),
         new_load_of_map_data=True,
         save_scenario=True,
@@ -18,7 +17,6 @@ def test_scenario_generator() -> None:
         delete_existing_files=True,
     )
 
-    # We can then load the scenario data from the saved files with
     scenario_data = scenario_generator.load_scenario_from_folders(
         folder=dp.scenarios / "saved" / scenario_name,
         scenario_name=scenario_name,
