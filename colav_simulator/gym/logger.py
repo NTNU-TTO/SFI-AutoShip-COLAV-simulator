@@ -72,6 +72,9 @@ class Logger:
         self.reset_logger()
         self.experiment_name: str = experiment_name
         self.log_dir: Path = log_dir
+        self.img_dir: Path = log_dir / "terminal_frames"
+        if not self.img_dir.exists():
+            self.img_dir.mkdir(parents=True)
         self.store_actor_info: bool = True
 
         self.log_frame_freq: int = 10
@@ -145,6 +148,29 @@ class Logger:
         for env_idx, info in enumerate(cs_env_infos):
             self._log_env_info(info, env_idx)
 
+    def _dump_last_frame_as_img(self, frame: np.ndarray, env_idx: int) -> None:
+        """Dumps the last frame of the episode as an image.
+
+        Args:
+            frame (np.ndarray): The frame to dump.
+            env_idx (int): The index of the environment.
+        """
+        ctxt = ""
+        if self.collision[env_idx]:
+            ctxt = "collision"
+        elif self.grounding[env_idx]:
+            ctxt = "grounding"
+        elif self.goal_reached[env_idx]:
+            ctxt = "goal_reached"
+        elif self.truncated[env_idx]:
+            ctxt = "truncated"
+        elif self.actor_failure[env_idx]:
+            ctxt = "actor_failure"
+        img_name = f"{self.episode_name[env_idx]}_env{env_idx}_ep{self.episode_nr}_{ctxt}_tf.png"
+
+        img_path = self.img_dir / img_name
+        cv2.imwrite(str(img_path), frame)
+
     def _log_env_info(self, info: Dict[str, Any], env_idx: int) -> None:
         """Logs the environment info to the logger.
 
@@ -214,18 +240,22 @@ class Logger:
                 center_pixel_x - cutoff_index_above_vessel : center_pixel_x + cutoff_index_below_vessel,
                 center_pixel_y - cutoff_laterally : center_pixel_y + cutoff_laterally,
             ]
-            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_AREA).astype(np.uint8)
+            reduced_frame = cv2.resize(cropped_img, (256, 256), interpolation=cv2.INTER_LINEAR).astype(np.uint8)
             # plotters.plot_image(image=reduced_frame, title="Reduced frame for logging")
             self.frames[env_idx].append(reduced_frame)
+
+            if done:
+                print(
+                    f"Dumped terminal frame for {self.episode_name[env_idx]} in env {env_idx + 1} at episode nr {self.episode_nr}"
+                )
+                self._dump_last_frame_as_img(reduced_frame, env_idx)
 
         # Special case for an NMPC actor
         if self.store_actor_info and "actor_info" in info and "optimal" in info["actor_info"]:
             actor_info = info["actor_info"]
             stored_actor_info = {}
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
-            stored_actor_info["mpc_cost"] = actor_info["cost_val"]
             stored_actor_info["optimal"] = actor_info["optimal"]
-            stored_actor_info["n_iterations"] = actor_info["n_iter"]
             stored_actor_info["dnn_input_features"] = actor_info["dnn_input_features"]
             stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
             stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
