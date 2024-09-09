@@ -122,6 +122,7 @@ class COLAVEnvironment(gym.Env):
         self._has_init_generated: bool = False
         self.max_number_of_episodes: Optional[int] = max_number_of_episodes
 
+        self._seed: Optional[int] = seed
         self.env_id = identifier
         self.done = False
         self.steps: int = 0
@@ -345,6 +346,7 @@ class COLAVEnvironment(gym.Env):
         """
         super().reset(seed=None, options=options)
         self.scenario_generator.seed(seed=seed)
+        self._seed = seed if seed is not None else self._seed
 
     def reset(
         self,
@@ -407,7 +409,7 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
-            seed=seed,
+            seed=seed if seed is not None else self._seed,
         )
         self.ownship = self.simulator.ownship
 
