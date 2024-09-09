@@ -473,7 +473,9 @@ class COLAVEnvironment(gym.Env):
             self.simulator.visualizer.toggle_liveplot_visibility(show=True)
             if self.render_update_rate is not None:
                 self.simulator.visualizer.set_update_rate(self.render_update_rate)
-            self.simulator.visualizer.init_live_plot(self.enc, self.simulator.ship_list, fignum=self.env_id)
+            self.simulator.visualizer.init_live_plot(
+                self.enc, self.simulator.ship_list, fignum=self.env_id, disable_frame_storage=True
+            )
             self.simulator.visualizer.update_live_plot(
                 self.simulator.t,
                 self.enc,

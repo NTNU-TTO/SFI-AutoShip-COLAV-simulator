@@ -185,6 +185,7 @@ class Visualizer:
         self._t_prev_update = 0.0
         self.t_start = 0.0
         self.frames = []
+        self.disable_frame_storage = False
 
         # print("Visualizer backend: {}".format(matplotlib.get_backend()))
         # print("Visualizer canvas class: {}".format(self.canvas_cls))
@@ -343,7 +344,9 @@ class Visualizer:
             gc.collect()
             self.fig = None
 
-    def init_live_plot(self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None) -> None:
+    def init_live_plot(
+        self, enc: ENC, ship_list: List[ship.Ship], fignum: Optional[int] = None, disable_frame_storage: bool = False
+    ) -> None:
         """Initializes the plot handles of the live plot for a simulation
         given by the ship list.
 
@@ -351,7 +354,9 @@ class Visualizer:
             - enc (ENC): ENC object containing the map data.
             - ship_list (list): List of configured ships in the simulation.
             - fignum (int, optional): Figure number for the live plot.
+            - disable_frame_storage (bool, optional): If true, the frames are not stored.
         """
+        self.disable_frame_storage = disable_frame_storage
         if not self._config.show_liveplot:
             return
 
@@ -597,6 +602,7 @@ class Visualizer:
             self.misc_plt_handles["disturbance"] = dhandles
 
         # plt.tight_layout()
+        # if not self.disable_frame_storage:
         # self.frames.append(self.get_live_plot_image())
         # if n_ships < 3:  # to avoid cluttering the legend
         #     plt.legend(loc="upper right")
@@ -954,7 +960,8 @@ class Visualizer:
         self.fig.canvas.flush_events()
         if matplotlib.get_backend() == "TkAgg":
             plt.show(block=False)
-        self.frames.append(self.get_live_plot_image())
+        if not self.disable_frame_storage:
+            self.frames.append(self.get_live_plot_image())
         # print(f"Time spent updating live plot: {time.time() - t_start:.2f} s")
 
     def toggle_liveplot_trajectory_visibility(self, show: bool) -> None:
