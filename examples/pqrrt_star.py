@@ -242,8 +242,8 @@ class PQRRTStar(ci.ICOLAV):
 
     def plot_results(self, ax_map: plt.Axes, enc: senc.ENC, plt_handles: dict, **kwargs) -> dict:
         if self._rrt_trajectory.size > 6:
-            plt_handles["colav_nominal_trajectory"].set_xdata(self._rrt_trajectory[1, 0:])
-            plt_handles["colav_nominal_trajectory"].set_ydata(self._rrt_trajectory[0, 0:])
+            plt_handles["colav_nominal_trajectory"].set_xdata(self._rrt_trajectory[1, 0::4])
+            plt_handles["colav_nominal_trajectory"].set_ydata(self._rrt_trajectory[0, 0::4])
         return plt_handles
 
 
