@@ -15,7 +15,7 @@ import colav_simulator.simulator as sim
 import vimmjipda.vimmjipda_tracker_interface as vti
 
 
-def test_simulator() -> None:
+def test_simulator_vimmjipda() -> None:
     vimmjipda_config_path = (
         Path.home() / "Desktop/autotuning/autotuning/vimmjipda/config/vimmjipda.yaml"
     )  # Path to the vimmjipda.yaml file, modify for your system
@@ -25,7 +25,7 @@ def test_simulator() -> None:
 
     scenario_generator = sg.ScenarioGenerator()
     simconfig = sim.Config.from_file(dp.simulator_config)
-    simconfig.visualizer.zoom_window_width = 1000.0
+    simconfig.visualizer.zoom_window_width = 1500.0
     simconfig.visualizer.show_liveplot_target_tracks = True
     simconfig.visualizer.show_liveplot_measurements = True
     simulator = sim.Simulator(config=simconfig)
@@ -46,8 +46,8 @@ def test_simulator() -> None:
         delete_existing_files=True,
     )
     scenario_data_list = [scenario_data]
-    output2 = simulator.run(scenario_data_list, colav_systems=[(0, sbmpc_obj)])  # , trackers=[(0, vimmjipda_tracker)])
+    output2 = simulator.run(scenario_data_list, colav_systems=[(0, sbmpc_obj)], trackers=[(0, vimmjipda_tracker)])
 
 
 if __name__ == "__main__":
-    test_simulator()
+    test_simulator_vimmjipda()

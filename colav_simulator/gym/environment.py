@@ -344,9 +344,9 @@ class COLAVEnvironment(gym.Env):
             seed (Optional[int]): Seed for the random number generator.
             options (Optional[dict]): Options for the environment.
         """
+        self._seed = seed if seed is not None else self._seed
         super().reset(seed=None, options=options)
-        self.scenario_generator.seed(seed=seed)
-        self._seed = seed
+        self.scenario_generator.seed(seed=self._seed)
 
     def reset(
         self,
@@ -409,7 +409,7 @@ class COLAVEnvironment(gym.Env):
             sconfig=episode_data["config"],
             enc=scenario_enc,
             disturbance=episode_data["disturbance"],
-            seed=seed if seed is not None else self._seed,
+            seed=self._seed,
         )
         self.ownship = self.simulator.ownship
 

@@ -221,8 +221,8 @@ class GaussMarkovDisturbance(IDisturbance):
         if self._params.constant:
             return
 
-        w_V = random.normalvariate(0.0, self._params.sigma_speed)
-        w_beta = random.normalvariate(0.0, self._params.sigma_direction)
+        w_V = self._rng.normal(0.0, self._params.sigma_speed)
+        w_beta = self._rng.normal(0.0, self._params.sigma_direction)
         V_dot = -self._params.mu_speed * self._speed + w_V
         beta_dot = -self._params.mu_direction * self._direction + w_beta
 
@@ -231,8 +231,8 @@ class GaussMarkovDisturbance(IDisturbance):
             <= t
             < self._params.impulse_times[self._impulse_counter] + 3.0 * dt
         ):
-            self._speed_impulse = random.choice(self._params.speed_impulses)
-            self._direction_impulse = random.choice(self._params.direction_impulses)
+            self._speed_impulse = self._rng.choice(self._params.speed_impulses)
+            self._direction_impulse = self._rng.choice(self._params.direction_impulses)
             self._impulse_counter += 1 if self._impulse_counter < len(self._params.impulse_times) - 1 else 0
             self._impulse_applied = True
         elif self._impulse_applied:
