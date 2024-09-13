@@ -49,10 +49,10 @@ class Logger:
     Args:
         experiment_name (str): The name of the experiment.
         log_dir (Path): The directory where the log files are saved.
-        save_freq (int, optional): The frequency (in episodes) of saving the data to a pickle file. Defaults to 10.
-        n_envs (int, optional): The number of environments. Defaults to 1.
-        max_num_logged_episodes (int, optional): The maximum number of episodes to log before saving and resetting. Defaults to 500.
-
+        save_freq (int, optional): The frequency (in episodes) of saving the data to a pickle file.
+        n_envs (int, optional): The number of environments.
+        max_num_logged_episodes (int, optional): The maximum number of episodes to log before saving and resetting.
+        minimal_logging (bool, optional): Whether to log the bare minimum (rewards, collisions, groundings, goal reached, and truncated).
     """
 
     def __init__(
@@ -61,11 +61,13 @@ class Logger:
         log_dir: Path,
         n_envs: int = 1,
         max_num_logged_episodes: int = 100,
+        minimal_logging: bool = False,
     ) -> None:
         if not log_dir.exists():
             log_dir.mkdir(parents=True)
 
         self.max_num_logged_episodes: int = max_num_logged_episodes
+        self.minimal_logging: bool = minimal_logging
         self.env_data: List[EpisodeData] = []
         self.pos: int = 0
         self.prev_pos: int = 0
@@ -192,11 +194,6 @@ class Logger:
         self.goal_reached[env_idx] = info["goal_reached"]
         self.truncated[env_idx] = info["truncated"]
         self.actor_failure[env_idx] = info["actor_failure"]
-
-        self.distances_to_collision[env_idx].append(info["distance_to_collision"])
-        self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
-        # self.actions[env_idx].append(info["action"])
-        # self.obs[env_idx].append(info["observation"])
         self.reward_components[env_idx].append(info["reward_components"])
 
         done = (
@@ -207,8 +204,15 @@ class Logger:
             or self.actor_failure[env_idx]
         )
 
+        if not self.minimal_logging:
+            self.distances_to_collision[env_idx].append(info["distance_to_collision"])
+            self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
+            # self.actions[env_idx].append(info["action"])
+            # self.obs[env_idx].append(info["observation"])
+
         if (
-            info["render_frame"] is not None
+            not self.minimal_logging
+            and info["render_frame"] is not None
             and info["render_frame"].size > 10
             and ((self.log_count[env_idx] % self.log_frame_freq == 0) or done)
         ):
@@ -248,7 +252,12 @@ class Logger:
                 self._dump_last_frame_as_img(reduced_frame, env_idx)
 
         # Special case for an NMPC actor
-        if self.store_actor_info and "actor_info" in info and "optimal" in info["actor_info"]:
+        if (
+            not self.minimal_logging
+            and self.store_actor_info
+            and "actor_info" in info
+            and "optimal" in info["actor_info"]
+        ):
             actor_info = info["actor_info"]
             stored_actor_info = {}
             stored_actor_info["mpc_runtime"] = actor_info["runtime"]
