@@ -38,6 +38,7 @@ class EpisodeData(NamedTuple):
     frames: Optional[List[np.ndarray]]
     actions: List[np.ndarray]
     obs: List[np.ndarray]
+    ownship_states: List[np.ndarray]
     actor_infos: List[Dict[str, Any]]
     actor_failure: bool = False
 
@@ -98,6 +99,7 @@ class Logger:
         self.distances_to_collision: List[List[float]] = [[] for _ in range(n_envs)]
         self.actions: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
         self.obs: List[List[np.ndarray | Dict[str, np.ndarray]]] = [[] for _ in range(n_envs)]
+        self.ownship_states: List[List[np.ndarray]] = [[] for _ in range(n_envs)]
         self.actor_infos: List[List[Dict[str, Any]]] = [[] for _ in range(n_envs)]
         self.actor_failure: List[bool] = [False for _ in range(n_envs)]
 
@@ -206,8 +208,9 @@ class Logger:
         if not self.minimal_logging:
             self.distances_to_collision[env_idx].append(info["distance_to_collision"])
             self.distances_to_grounding[env_idx].append(info["distance_to_grounding"])
-            # self.actions[env_idx].append(info["action"])
-            # self.obs[env_idx].append(info["observation"])
+            self.ownship_states[env_idx].append(info["os_state"])
+            # self.actions[env_idx].append(info["unnorm_action"])
+            # self.obs[env_idx].append(info["unnorm_observation"])
 
         if (
             not self.minimal_logging
@@ -247,8 +250,8 @@ class Logger:
             # plotters.plot_image(image=reduced_frame, title="Reduced frame for logging")
             self.frames[env_idx].append(reduced_frame)
 
-            if done:
-                self._dump_last_frame_as_img(reduced_frame, env_idx)
+            # if done:
+            #     self._dump_last_frame_as_img(reduced_frame, env_idx)
 
         # Special case for an NMPC actor
         if (
@@ -265,6 +268,7 @@ class Logger:
             stored_actor_info["old_mpc_params"] = actor_info["old_mpc_params"]
             stored_actor_info["new_mpc_params"] = actor_info["new_mpc_params"]
             stored_actor_info["norm_mpc_action"] = actor_info["norm_mpc_action"]
+            stored_actor_info["applied_refs"] = actor_info["applied_refs"]
             self.actor_infos[env_idx].append(stored_actor_info)
 
         self.log_count[env_idx] += 1
@@ -304,6 +308,7 @@ class Logger:
             distances_to_collision=np.array(self.distances_to_collision[env_idx], dtype=np.float32),
             actions=np.array(self.actions[env_idx], dtype=np.float32),
             obs=self.obs[env_idx],
+            ownship_states=np.array(self.ownship_states[env_idx], dtype=np.float32),
             frames=np.array(self.frames[env_idx], dtype=np.uint8),
             actor_infos=self.actor_infos[env_idx],
             actor_failure=self.actor_failure[env_idx],
@@ -320,25 +325,27 @@ class Logger:
         """Resets the logger."""
         self.env_data: List[EpisodeData] = [
             EpisodeData(
-                "",
-                0,
-                0,
-                0.0,
-                np.array([]),
-                np.array([]),
-                False,
-                False,
-                False,
-                False,
-                np.array([]),
-                0.0,
-                0.0,
-                0.0,
-                [],
-                None,
-                [],
-                [],
-                [],
+                name="",
+                timestamp="",
+                timesteps=0,
+                duration=0.0,
+                distances_to_grounding=np.array([], dtype=np.float32),
+                distances_to_collision=np.array([], dtype=np.float32),
+                goal_reached=False,
+                collision=False,
+                grounding=False,
+                truncated=False,
+                rewards=np.array([], dtype=np.float32),
+                cumulative_reward=0.0,
+                mean_reward=0.0,
+                std_reward=0.0,
+                reward_components=[],
+                frames=[],
+                actions=[],
+                obs=[],
+                ownship_states=[],
+                actor_infos=[],
+                actor_failure=False,
             )
         ] * self.max_num_logged_episodes
         self.pos = 0
@@ -363,6 +370,7 @@ class Logger:
         self.distances_to_collision[env_idx] = []
         self.actions[env_idx] = []
         self.obs[env_idx] = []
+        self.ownship_states[env_idx] = []
         self.frames[env_idx] = []
         self.actor_infos[env_idx] = []
         self.actor_failure[env_idx] = False

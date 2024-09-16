@@ -331,6 +331,8 @@ class COLAVEnvironment(gym.Env):
             "reward_components": self.rewarder.get_last_rewards_as_dict(),
             "render_frame": self.simulator.visualizer.get_live_plot_image(),
             "action": action,
+            "unnorm_action": self.action_type.unnormalize(action),
+            "os_state": self.ownship.state,
             "actor_info": action_result.info,
             "observation": obs,
             "disturbance": self.simulator.disturbance.get() if self.simulator.disturbance is not None else None,
@@ -345,8 +347,8 @@ class COLAVEnvironment(gym.Env):
             options (Optional[dict]): Options for the environment.
         """
         super().reset(seed=None, options=options)
-        self.scenario_generator.seed(seed=seed if seed is not None else self._seed)
-        self._seed = seed if seed is not None else self._seed
+        self._seed = seed if seed is not None else self._seed + 1
+        self.scenario_generator.seed(seed=self._seed)
 
     def reset(
         self,

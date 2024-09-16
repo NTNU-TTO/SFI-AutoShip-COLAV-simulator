@@ -622,6 +622,7 @@ class Rewarder(IReward):
             config (Config): The rewarder configuration
         """
         self.config = config if config else Config()
+        self._last_reward = 0.0
         self.rewarders = []
         for rewarder in self.config.rewarders:
             if isinstance(rewarder, ExistenceRewardParams):
@@ -645,6 +646,7 @@ class Rewarder(IReward):
         reward = 0.0
         for rewarder in self.rewarders:
             reward += rewarder(state, action, **kwargs)
+        self._last_reward = reward
         return reward
 
     def get_last_rewards_as_dict(self) -> dict:
@@ -652,3 +654,7 @@ class Rewarder(IReward):
         for rewarder in self.rewarders:
             rewards.update(rewarder.get_last_rewards_as_dict())
         return rewards
+
+    @property
+    def last_reward(self):
+        return self._last_reward
