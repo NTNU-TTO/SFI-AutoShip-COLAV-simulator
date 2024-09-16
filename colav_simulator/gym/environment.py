@@ -347,7 +347,7 @@ class COLAVEnvironment(gym.Env):
             options (Optional[dict]): Options for the environment.
         """
         super().reset(seed=None, options=options)
-        self._seed = seed if seed is not None else self._seed + 1
+        self._seed = seed if seed is not None else self._seed
         self.scenario_generator.seed(seed=self._seed)
 
     def reset(
