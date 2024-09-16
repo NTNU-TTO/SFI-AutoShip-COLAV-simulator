@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
 import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.plotters as plotters
 import cv2
 import numpy as np
 import scipy.ndimage as scimg
@@ -22,7 +21,7 @@ class EpisodeData(NamedTuple):
     """Data for a single episode in the COLAV environment."""
 
     name: str
-    episode: int
+    timestamp: str
     timesteps: int
     duration: float
     distances_to_grounding: np.ndarray
@@ -111,14 +110,14 @@ class Logger:
         if name is None:
             name = self.experiment_name + "_env_training_data"
 
-        # Don't save if there is no data or if the episode number hasn't changed
+        # Don't save if there is no data or no new data
         if self.pos == 0 or self.pos == self.prev_pos:
             return
 
         with open(self.log_dir / (name + ".pkl"), "ba") as f:
             pickle.dump(self.env_data[: self.pos], f)
 
-        self.prev_pos = self.pos
+        self.reset_logger()
 
     def load_from_pickle(self, name: Optional[str]) -> None:
         """Loads the environment data from a pickle file.
@@ -137,8 +136,8 @@ class Logger:
                     self.env_data.extend(edata)
                 except EOFError:
                     break
-        # prune equal episodes by checking the episode number
-        self.env_data = list({edata.episode: edata for edata in self.env_data}.values())
+
+        self.env_data = list({idx: edata for idx, edata in enumerate(self.env_data)}.values())
         # print(f"Loaded {len(self.env_data)} episodes from {name}.pkl")
 
     def __call__(self, cs_env_infos: List[Dict[str, Any]]) -> None:
@@ -284,9 +283,12 @@ class Logger:
         if len(self.rewards[env_idx]) == 1 or self.episode_nr == self.prev_episode_nr:
             return
 
+        datetime_t = mhm.utc_timestamp_to_datetime(mhm.current_utc_timestamp())
+        datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
+
         episode_data = EpisodeData(
             name=self.episode_name[env_idx],
-            episode=self.episode_nr,
+            timestamp=datetime_str,
             timesteps=self.timesteps[env_idx],
             duration=self.duration[env_idx],
             rewards=np.array(self.rewards[env_idx], dtype=np.float32),
@@ -313,7 +315,6 @@ class Logger:
         # mhm.print_process_memory_usage(prefix_str=f"Env {env_idx} | Episode {self.episode_nr} |")
         if self.pos >= self.max_num_logged_episodes:
             self.save_as_pickle()
-            self.reset_logger()
 
     def reset_logger(self) -> None:
         """Resets the logger."""
