@@ -552,22 +552,28 @@ def find_cpa_indices(trajectory_list: list) -> np.ndarray:
     return cpa_indices
 
 
-def find_cpa_index(trajectory_i, trajectory_j) -> int | float:
+def find_cpa_index(
+    trajectory_i: Tuple[np.ndarray, np.ndarray], trajectory_j: Tuple[np.ndarray, np.ndarray]
+) -> int | float:
     """Find the index of the closest point of approach between two ships.
 
     Args:
-        trajectory_i (np.ndarray): Trajectory of ship i.
-        trajectory_j (np.ndarray): Trajectory of ship j.
+        trajectory_i (Tuple[np.ndarray, np.ndarray]): Trajectory of ship i with corresponding timestamps.
+        trajectory_j (np.ndarray): Trajectory of ship j with corresponding timestamps.
 
     Returns:
         int: Index of the closest point of approach for the trajectory pair.
     """
     min_dist_idx = np.nan
 
-    n_samples = len(trajectory_i[0, :])
-    ranges = np.zeros(n_samples)
-    for k in range(len(trajectory_i[0, :])):
-        ranges[k] = np.linalg.norm(trajectory_i[0:2, k] - trajectory_j[0:2, k])
+    timestamps_i = trajectory_i[1]
+    timestamps_j = trajectory_j[1]
+    common_timestamps = np.intersect1d(timestamps_i, timestamps_j)
+    relevant_indices_i = np.where(np.isin(timestamps_i, common_timestamps))[0]
+    relevant_indices_j = np.where(np.isin(timestamps_j, common_timestamps))[0]
+    ranges = np.zeros(relevant_indices_i.size)
+    for idx, (t_i, t_j) in enumerate(zip(relevant_indices_i, relevant_indices_j)):
+        ranges[idx] = np.linalg.norm(trajectory_i[0][0:2, t_i] - trajectory_j[0][0:2, t_j])
 
     finite = np.where(~np.isnan(ranges))[0]
     if finite.size > 0:
@@ -587,10 +593,11 @@ def extract_ship_data_from_sim_dataframe(ship_list: list, sim_data: pd.DataFrame
     output = {}
     trajectory_list = []
     colav_data = []
+    references_list = []
     for i, ship in enumerate(ship_list):
-        X, timestamps, _ = extract_trajectory_data_from_dataframe(sim_data[f"Ship{i}"])
+        X, refs, timestamps, _ = extract_trajectory_data_from_dataframe(sim_data[f"Ship{i}"])
         colav_data_i = extract_colav_data_from_dataframe(sim_data[f"Ship{i}"])
-        trajectory_list.append(X)
+        trajectory_list.append((X, U, refs, timestamps))
         colav_data.append(colav_data_i)
 
     output["trajectory_list"] = trajectory_list
@@ -611,11 +618,15 @@ def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.nd
         Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
     """
     state_list = []
+    input_list = []
+    reference_list = []
     timestamps = []
     datetimes_utc = []
     for _, ship_df_k in enumerate(ship_df):
         if pd.notna(ship_df_k) and ship_df_k:
             state_list.append(ship_df_k["state"])
+            input_list.append(ship_df_k["input"])
+            reference_list.append(ship_df_k["reference"])
             timestamps.append(float(ship_df_k["timestamp"]))
             datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
             datetimes_utc.append(datetime_utc)
@@ -634,7 +645,8 @@ def extract_colav_data_from_dataframe(ship_df: pd.DataFrame) -> list:
     """
     colav_data = []
     for _, ship_df_k in enumerate(ship_df):
-        colav_data.append(ship_df_k["colav"])
+        if pd.notna(ship_df_k) and "colav" in ship_df_k:
+            colav_data.append(ship_df_k["colav"])
     return colav_data
 
 

@@ -431,6 +431,7 @@ class Ship(IShip):
         self._id = identifier
         self._ais_msg_nr: int = 18
         self._state: np.ndarray = np.empty(0)
+        self._input: np.ndarray = np.empty(0)
         self._goal_state: np.ndarray = np.empty(0)
         self._waypoints: np.ndarray = np.empty(0)
         self._speed_plan: np.ndarray = np.empty(0)
@@ -658,6 +659,8 @@ class Ship(IShip):
         datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         tracks, NISes = self.get_do_track_information()
+        # sort tracks after ID:
+        tracks.sort(key=lambda x: x[0])
         labels = [track[0] for track in tracks]
         xs_i_upd = [track[1].tolist() for track in tracks]
         P_i_upd = [track[2].tolist() for track in tracks]
@@ -675,6 +678,7 @@ class Ship(IShip):
             "mmsi": self.mmsi,
             "csog_state": csog_state,
             "state": self._state,
+            "inputs": self._input,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "references": self._references,

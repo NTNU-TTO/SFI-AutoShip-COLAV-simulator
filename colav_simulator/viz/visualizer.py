@@ -1206,9 +1206,10 @@ class Visualizer:
         Returns:
             Tuple[list, list]: List of figure and axes handles
         """
+
         if not self._config.show_results:
             return [], []
-
+        matplotlib.use("TkAgg")
         # matplotlib.rcParams["pdf.fonttype"] = 42
         # matplotlib.rcParams["ps.fonttype"] = 42
 
@@ -1224,6 +1225,8 @@ class Visualizer:
         for colav_data in colav_data_list:
             if "nominal_trajectory" in colav_data[0]:
                 nominal_trajectory_list.append(colav_data[0]["nominal_trajectory"])
+            else:
+                nominal_trajectory_list.append()
 
         os_colav_stats = {}
         if colav_data_list[0] and "mpc_soln" in colav_data_list[0]:
@@ -1249,7 +1252,12 @@ class Visualizer:
 
         n_samples = len(sim_times)
         if k_snapshots is None:
-            k_snapshots = [round(0.09 * n_samples), round(0.25 * n_samples), round(0.6 * n_samples)]
+            k_snapshots = [
+                round(0.09 * n_samples),
+                round(0.25 * n_samples),
+                round(0.6 * n_samples),
+                round(0.9 * n_samples),
+            ]
 
         figs = []
         axes = []
@@ -1274,7 +1282,7 @@ class Visualizer:
             else:
                 ship_color = self._config.ship_colors[i]
 
-            X = trajectory_list[i]
+            X = trajectory_list[i][0]
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
@@ -1354,12 +1362,25 @@ class Visualizer:
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
-                    do_true_states_j = trajectory_list[do_labels[j]]
+                    do_true_states_j = trajectory_list[do_labels[j]][0]
                     do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
+                    do_timestamps_j = np.array(trajectory_list[do_labels[j]][1])
+
+                    indices_relevant_j = np.where(
+                        np.logical_and(
+                            do_timestamps_j >= sim_times[first_valid_idx_track], do_timestamps_j < sim_times[end_idx_j]
+                        )
+                    )[0]
+                    indices_relevant_est_j = np.where(
+                        np.logical_and(
+                            sim_times[first_valid_idx_track:end_idx_j] >= do_timestamps_j[0],
+                            sim_times[first_valid_idx_track:end_idx_j] <= do_timestamps_j[-1],
+                        )
+                    )[0]
 
                     ax_map.plot(
-                        do_estimates_j[1, first_valid_idx_track:end_idx_j],
-                        do_estimates_j[0, first_valid_idx_track:end_idx_j],
+                        do_estimates_j[1, indices_relevant_est_j],
+                        do_estimates_j[0, indices_relevant_est_j],
                         color=do_color,
                         linewidth=ship_lw,
                         label=f"DO {do_labels[j] -1} est. traj.",
@@ -1387,10 +1408,11 @@ class Visualizer:
                         fig_do_j, axes_do_j = self.plot_do_tracking_results(
                             i,
                             sim_times[first_valid_idx_track:end_idx_j],
-                            do_true_states_j[:, first_valid_idx_track:end_idx_j],
+                            do_timestamps_j[indices_relevant_j],
+                            do_true_states_j[:, indices_relevant_j],
                             do_estimates_j[:, first_valid_idx_track:end_idx_j],
                             do_covariances[j][:, :, first_valid_idx_track:end_idx_j],
-                            do_NISes[j],
+                            do_NISes[j][first_valid_idx_track:end_idx_j],
                             j,
                             do_lw,
                         )
@@ -1489,9 +1511,11 @@ class Visualizer:
         fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 10))
         n_do = len(do_labels)
         axes = fig.subplots(n_do + 1, 1, sharex=True)
+        fig.subplots_adjust(hspace=0.3)
         plt.show(block=False)
 
-        os_traj = trajectory_list[0]
+        os_traj = trajectory_list[0][0]
+        os_timestamps = trajectory_list[0][1]
         os_en_traj = os_traj[:2, :].copy()
         os_en_traj[0, :] = os_traj[1, :]
         os_en_traj[1, :] = os_traj[0, :]
@@ -1511,7 +1535,8 @@ class Visualizer:
             if first_valid_idx_track >= last_valid_idx_track:
                 continue
 
-            do_true_states_j = trajectory_list[do_labels[j]]
+            do_true_states_j = trajectory_list[do_labels[j]][0]
+            timestamps_j = trajectory_list[do_labels[j]][1]
             do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
 
             # z_val = norm.ppf(confidence_level)
@@ -1523,13 +1548,22 @@ class Visualizer:
             #     color="xkcd:blue",
             #     alpha=0.3,
             # )
+            common_timestamps = np.intersect1d(os_timestamps, timestamps_j)
+            common_indices_os = np.where(np.isin(os_timestamps, common_timestamps))[0]
+            common_indices_do = np.where(np.isin(timestamps_j, common_timestamps))[0]
 
-            est_dist2do_j = np.linalg.norm(do_estimates_j[:2, :] - os_traj[:2, :], axis=0)[: sim_times.shape[0]]
-            dist2do_j = np.linalg.norm(do_true_states_j[:2, :] - os_traj[:2, :], axis=0)[: sim_times.shape[0]]
-            # axes[j + 1].plot(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
-            # axes[j + 1].plot(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
-            axes[j + 1].semilogy(sim_times, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
-            axes[j + 1].semilogy(sim_times, d_safe_do * np.ones_like(sim_times), "r--", label="Minimum safety margin")
+            est_dist2do_j = np.linalg.norm(
+                do_estimates_j[:2, common_indices_do] - os_traj[:2, common_indices_os], axis=0
+            )[: common_timestamps.shape[0]]
+            dist2do_j = np.linalg.norm(
+                do_true_states_j[:2, common_indices_do] - os_traj[:2, common_indices_os], axis=0
+            )[: common_timestamps.shape[0]]
+            # axes[j + 1].plot(common_timestamps, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+            # axes[j + 1].plot(common_timestamps, d_safe_do * np.ones_like(common_timestamps), "r--", label="Minimum safety margin")
+            axes[j + 1].semilogy(common_timestamps, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+            axes[j + 1].semilogy(
+                common_timestamps, d_safe_do * np.ones_like(common_timestamps), "r--", label="Minimum safety margin"
+            )
             axes[j + 1].set_ylabel("Distance [m]")
             axes[j + 1].set_xlabel("Time [s]")
             axes[j + 1].legend()
@@ -1678,6 +1712,7 @@ class Visualizer:
         self,
         ship_idx: int,
         sim_times: np.ndarray,
+        do_timestamps: np.ndarray,
         do_true_states: np.ndarray,
         do_estimates: np.ndarray,
         do_covariances: np.ndarray,
@@ -1691,6 +1726,7 @@ class Visualizer:
         Args:
             ship_idx (int): Index of the ship with the tracker.
             sim_times (np.ndarray): Simulation times.
+            do_timestamps (np.ndarray): Timestamps of the DO corresponding to the true states.
             do_true_states (np.ndarray): True states of the DO
             do_estimates (np.ndarray): Estimated states of the DO
             do_covariances (np.ndarray): Covariances of the DO.
@@ -1716,7 +1752,7 @@ class Visualizer:
             sim_times, do_estimates[0, :].round(decimals=1), color="xkcd:blue", linewidth=do_lw, label="estimate"
         )
         axes["x"].plot(
-            sim_times, do_true_states[0, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true"
+            do_timestamps, do_true_states[0, :].round(decimals=1), color="xkcd:red", linewidth=do_lw, label="true"
         )
         std_x = np.sqrt(do_covariances[0, 0, :])
         axes["x"].fill_between(
