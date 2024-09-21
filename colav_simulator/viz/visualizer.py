@@ -1494,7 +1494,6 @@ class Visualizer:
 
         figs.append(fig_map)
         axes.append(ax_map)
-        matplotlib.use("TkAgg")
         return figs, axes
 
     def plot_obstacle_distances_to_ownship(
