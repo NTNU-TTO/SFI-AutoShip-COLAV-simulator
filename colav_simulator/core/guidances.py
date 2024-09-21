@@ -491,8 +491,6 @@ class LOSGuidance(IGuidance):
             self._params: LOSGuidanceParams = params
         else:
             self._params = LOSGuidanceParams()
-
-        self._params = LOSGuidanceParams()
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
