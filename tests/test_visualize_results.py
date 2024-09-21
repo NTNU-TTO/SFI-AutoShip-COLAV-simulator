@@ -22,7 +22,12 @@ def test_visualize_results() -> None:
     pickle_file_path = Path("simdata.pkl")
     [enc, sim_data, sim_times, ship_list] = pickle.load(pickle_file_path.open("rb"))
     simulator.visualizer.visualize_results(
-        enc=enc, ship_list=ship_list, sim_data=sim_data, sim_times=sim_times, save_file_path="testres"
+        enc=enc,
+        ship_list=ship_list,
+        sim_data=sim_data,
+        sim_times=sim_times,
+        save_file_path="testres",
+        pickle_input_data_for_debugging=False,
     )
     print("done")
 

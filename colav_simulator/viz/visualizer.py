@@ -1193,6 +1193,7 @@ class Visualizer:
         sim_times: np.ndarray,
         k_snapshots: Optional[list] = None,
         save_file_path: Optional[Path] = dp.figure_output / "scenario_ne",
+        pickle_input_data_for_debugging: bool = False,
     ) -> Tuple[list, list]:
         """Visualize the results of a scenario simulation, save figures (only map figure as of now) to file if enabled.
 
@@ -1203,6 +1204,7 @@ class Visualizer:
             - sim_times (list): List of simulation times.
             - k_snapshots (Optional[list], optional): List of snapshots to visualize.
             - save_file_path (Optional[Path], optional): Path to the file where the figures are saved.
+            - pickle_input_data_for_debugging (bool, optional): Whether to pickle the input data for debugging.
 
         Returns:
             Tuple[list, list]: List of figure and axes handles
@@ -1218,14 +1220,15 @@ class Visualizer:
         else:
             save_file_path = Path(str(save_file_path) + ".pdf")
 
-        pickle_file_path = Path("simdata.pkl")
-        ship_list[0]._colav = None
-        enc._display = None
-        enc._cfg.validator = None
-        with pickle_file_path.open("wb") as f:
-            pickle.dump([enc, sim_data, sim_times, ship_list], f)
-
-        # [enc, sim_data, sim_times, ship_list] = pickle.load(pickle_file_path.open("rb"))
+        if (
+            pickle_input_data_for_debugging
+        ):  # to allow for quick simdata loading and plotting with the tests/test_visualize_results.py
+            pickle_file_path = Path("simdata.pkl")
+            ship_list[0]._colav = None
+            enc._display = None
+            enc._cfg.validator = None
+            with pickle_file_path.open("wb") as f:
+                pickle.dump([enc, sim_data, sim_times, ship_list], f)
 
         ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
         trajectory_list = ship_data["trajectory_list"]
@@ -1859,7 +1862,7 @@ class Visualizer:
         CI2 = np.array(chi2.ppf(q=[alpha / 2, 1 - alpha / 2], df=2))
 
         inCIpos = np.mean(np.multiply(np.less_equal(do_NIS, CI2[1]), np.greater_equal(do_NIS, CI2[0])) * 100)
-        print(f"DO{do_idx}: {inCIpos}% of estimates inside {(1 - alpha) * 100} CI")
+        # print(f"DO{do_idx}: {inCIpos}% of estimates inside {(1 - alpha) * 100} CI")
         axes["NIS"].plot(
             CI2[0] * np.ones(len(do_NIS)),
             color="xkcd:red",
