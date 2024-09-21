@@ -36,7 +36,7 @@ class LOSGuidanceParams:
     R_a: float = 25.0
     K_p: float = 0.02
     K_i: float = 0.0001
-    max_cross_track_error_int: float = 2000.0
+    max_cross_track_error_int: float = 1000.0
     cross_track_error_int_threshold: float = 50.0
 
     @classmethod
