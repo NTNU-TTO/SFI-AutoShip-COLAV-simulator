@@ -480,7 +480,7 @@ def convert_simulation_data_to_vessel_data(
             draft=ship_i_info["draft"],
         )
 
-        X, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_dataframe(sim_data[name])
+        X, U, refs, vessel.timestamps, vessel.datetimes_utc = extract_trajectory_data_from_dataframe(sim_data[name])
         if X.size == 0:
             continue
 
@@ -552,22 +552,28 @@ def find_cpa_indices(trajectory_list: list) -> np.ndarray:
     return cpa_indices
 
 
-def find_cpa_index(trajectory_i, trajectory_j) -> int | float:
+def find_cpa_index(
+    trajectory_i: Tuple[np.ndarray, np.ndarray], trajectory_j: Tuple[np.ndarray, np.ndarray]
+) -> int | float:
     """Find the index of the closest point of approach between two ships.
 
     Args:
-        trajectory_i (np.ndarray): Trajectory of ship i.
-        trajectory_j (np.ndarray): Trajectory of ship j.
+        trajectory_i (Tuple[np.ndarray, np.ndarray]): Trajectory of ship i with corresponding timestamps.
+        trajectory_j (np.ndarray): Trajectory of ship j with corresponding timestamps.
 
     Returns:
         int: Index of the closest point of approach for the trajectory pair.
     """
     min_dist_idx = np.nan
 
-    n_samples = len(trajectory_i[0, :])
-    ranges = np.zeros(n_samples)
-    for k in range(len(trajectory_i[0, :])):
-        ranges[k] = np.linalg.norm(trajectory_i[0:2, k] - trajectory_j[0:2, k])
+    timestamps_i = trajectory_i["timestamps"]
+    timestamps_j = trajectory_j["timestamps"]
+    common_timestamps = np.intersect1d(timestamps_i, timestamps_j)
+    relevant_indices_i = np.where(np.isin(timestamps_i, common_timestamps))[0]
+    relevant_indices_j = np.where(np.isin(timestamps_j, common_timestamps))[0]
+    ranges = np.zeros(relevant_indices_i.size)
+    for idx, (t_i, t_j) in enumerate(zip(relevant_indices_i, relevant_indices_j)):
+        ranges[idx] = np.linalg.norm(trajectory_i["X"][0:2, t_i] - trajectory_j["X"][0:2, t_j])
 
     finite = np.where(~np.isnan(ranges))[0]
     if finite.size > 0:
@@ -588,20 +594,21 @@ def extract_ship_data_from_sim_dataframe(ship_list: list, sim_data: pd.DataFrame
     trajectory_list = []
     colav_data = []
     for i, ship in enumerate(ship_list):
-        X, timestamps, _ = extract_trajectory_data_from_dataframe(sim_data[f"Ship{i}"])
+        X, U, refs, timestamps, _ = extract_trajectory_data_from_dataframe(sim_data[f"Ship{i}"])
         colav_data_i = extract_colav_data_from_dataframe(sim_data[f"Ship{i}"])
-        trajectory_list.append(X)
+        trajectory_list.append({"X": X, "U": U, "refs": refs, "timestamps": timestamps})
         colav_data.append(colav_data_i)
 
     output["trajectory_list"] = trajectory_list
     output["colav_data_list"] = colav_data
-    output["timestamps"] = timestamps
     cpa_indices = find_cpa_indices(trajectory_list)
     output["cpa_indices"] = cpa_indices
     return output
 
 
-def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.ndarray, list, list]:
+def extract_trajectory_data_from_dataframe(
+    ship_df: pd.DataFrame,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, list, list]:
     """Extract the trajectory related data from a ship dataframe.
 
     Args:
@@ -611,16 +618,22 @@ def extract_trajectory_data_from_dataframe(ship_df: pd.DataFrame) -> Tuple[np.nd
         Tuple[np.ndarray, list, list]: Tuple of array containing the trajectory and corresponding relative simulation timestamps and UTC timestamps.
     """
     state_list = []
+    input_list = []
+    reference_list = []
     timestamps = []
     datetimes_utc = []
     for _, ship_df_k in enumerate(ship_df):
         if pd.notna(ship_df_k) and ship_df_k:
             state_list.append(ship_df_k["state"])
+            input_list.append(ship_df_k["input"])
+            reference_list.append(ship_df_k["references"].reshape(-1))
             timestamps.append(float(ship_df_k["timestamp"]))
             datetime_utc = datetime.strptime(ship_df_k["date_time_utc"], "%d.%m.%Y %H:%M:%S")
             datetimes_utc.append(datetime_utc)
     X = np.array(state_list).T
-    return X, timestamps, datetimes_utc
+    U = np.array(input_list).T
+    refs = np.array(reference_list).T
+    return X, U, refs, timestamps, datetimes_utc
 
 
 def extract_colav_data_from_dataframe(ship_df: pd.DataFrame) -> list:
@@ -634,7 +647,8 @@ def extract_colav_data_from_dataframe(ship_df: pd.DataFrame) -> list:
     """
     colav_data = []
     for _, ship_df_k in enumerate(ship_df):
-        colav_data.append(ship_df_k["colav"])
+        if pd.notna(ship_df_k) and "colav" in ship_df_k:
+            colav_data.append(ship_df_k["colav"])
     return colav_data
 
 
@@ -651,27 +665,29 @@ def extract_track_data_from_dataframe(ship_df: pd.DataFrame) -> dict:
     do_estimates = []
     do_covariances = []
     do_NISes = []
+    do_timestamps = []
 
     n_samples = len(ship_df)
     n_do = len(ship_df[n_samples - 1]["do_estimates"])
     do_labels = ship_df[n_samples - 1]["do_labels"]
-
     for i in range(n_do):
         do_estimates.append(np.nan * np.ones((4, n_samples)))
         do_covariances.append(np.nan * np.ones((4, 4, n_samples)))
         do_NISes.append(np.nan * np.ones(n_samples))
+        do_timestamps.append(np.nan * np.ones(n_samples))
 
-    for i in range(n_do):
-        for k, ship_df_k in enumerate(ship_df):
-            for idx, _ in enumerate(ship_df_k["do_labels"]):
-                do_estimates[idx][:, k] = ship_df_k["do_estimates"][idx]
-                do_covariances[idx][:, :, k] = ship_df_k["do_covariances"][idx]
-                do_NISes[idx][k] = ship_df_k["do_NISes"][idx]
+    for k, ship_df_k in enumerate(ship_df):
+        for idx, do_idx in enumerate(ship_df_k["do_labels"]):
+            do_estimates[do_idx - 1][:, k] = ship_df_k["do_estimates"][idx]
+            do_covariances[do_idx - 1][:, :, k] = ship_df_k["do_covariances"][idx]
+            do_NISes[do_idx - 1][k] = ship_df_k["do_NISes"][idx]
+            do_timestamps[do_idx - 1][k] = ship_df_k["timestamp"]
 
     output["do_estimates"] = do_estimates
     output["do_covariances"] = do_covariances
     output["do_NISes"] = do_NISes
     output["do_labels"] = do_labels
+    output["timestamps"] = do_timestamps
     return output
 
 
@@ -962,13 +978,15 @@ def convert_state_to_vxvy_state(xs: np.ndarray) -> np.ndarray:
             return np.array([xs[0], xs[1], xs[2] * np.cos(xs[3]), xs[2] * np.sin(xs[3])])
         else:
             U = np.sqrt(xs[3] ** 2 + xs[4] ** 2)
-            return np.array([xs[0], xs[1], U * np.cos(xs[2]), U * np.sin(xs[2])])
+            chi = np.arctan2(xs[4], xs[3]) + xs[2]
+            return np.array([xs[0], xs[1], U * np.cos(chi), U * np.sin(chi)])
     else:
         if dim == 4:
             return np.array([xs[0, :], xs[1, :], xs[2, :] * np.cos(xs[3, :]), xs[2, :] * np.sin(xs[3, :])])
         else:
             U = np.sqrt(np.multiply(xs[3, :], xs[3, :]) + np.multiply(xs[4, :], xs[4, :]))
-            return np.array([xs[0, :], xs[1, :], U * np.cos(xs[2, :]), U * np.sin(xs[2, :])])
+            chi = np.arctan2(xs[4, :], xs[3, :]) + xs[2, :]
+            return np.array([xs[0, :], xs[1, :], U * np.cos(chi), U * np.sin(chi)])
 
 
 def convert_vxvy_state_to_sog_cog_state(xs: np.ndarray) -> np.ndarray:

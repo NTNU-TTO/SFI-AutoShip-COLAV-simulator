@@ -5,7 +5,7 @@
         Contains class definitions for various sensors.
         Every sensor must adhere to the ISensor interface.
 
-    Author: Trym Tengesdal
+    Author: Trym Tengesdal, Ragnar Wien
 """
 
 from abc import ABC, abstractmethod

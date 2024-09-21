@@ -431,6 +431,7 @@ class Ship(IShip):
         self._id = identifier
         self._ais_msg_nr: int = 18
         self._state: np.ndarray = np.empty(0)
+        self._input: np.ndarray = np.empty(0)
         self._goal_state: np.ndarray = np.empty(0)
         self._waypoints: np.ndarray = np.empty(0)
         self._speed_plan: np.ndarray = np.empty(0)
@@ -576,10 +577,12 @@ class Ship(IShip):
         if dt <= 0.0:
             return self._state, np.empty(3), np.empty(9)
 
-        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
+        self._input = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, w, dt)
-        return self._state, u, self._references[:, 0]
+        self._state = erk4_integration_step(
+            f=self._model.dynamics, b=self._model.bounds, x=self._state, u=self._input, w=w, dt=dt
+        )
+        return self._state, self._input, self._references[:, 0]
 
     def track_obstacles(
         self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]]
@@ -660,6 +663,8 @@ class Ship(IShip):
         datetime_t = mhm.utc_timestamp_to_datetime(int(t) + timestamp_0)
         datetime_str = datetime_t.strftime("%d.%m.%Y %H:%M:%S")
         tracks, NISes = self.get_do_track_information()
+        # sort tracks after ID:
+        tracks.sort(key=lambda x: x[0])
         labels = [track[0] for track in tracks]
         xs_i_upd = [track[1].tolist() for track in tracks]
         P_i_upd = [track[2].tolist() for track in tracks]
@@ -672,11 +677,15 @@ class Ship(IShip):
             csog_state = np.ones(4) * np.nan
             active = False
 
+        if self._input.size == 0:
+            self._input = self._controller.compute_inputs(self._references[:, 0], self._state, dt=0.0)
+
         ship_sim_data = {
             "id": self.id,
             "mmsi": self.mmsi,
             "csog_state": csog_state,
             "state": self._state,
+            "input": self._input,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "references": self._references,

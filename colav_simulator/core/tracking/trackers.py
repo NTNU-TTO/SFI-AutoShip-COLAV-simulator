@@ -72,8 +72,8 @@ class ITracker(ABC):
 class KFParams:
     """Class for holding KF parameters."""
 
-    P_0: np.ndarray = field(default_factory=lambda: np.diag([49.0, 49.0, 0.1, 0.1]))
-    q: float = 0.15
+    P_0: np.ndarray = field(default_factory=lambda: np.diag([49.0, 49.0, 0.5, 0.5]))
+    q: float = 0.4
 
     def to_dict(self):
         output_dict = {"P_0": self.P_0.diagonal().tolist(), "q": self.q}
@@ -308,7 +308,7 @@ class KF(ITracker):
                     for sensor_id in range(len(self.sensors)):
                         sensed_dos = [do_meas[0] for do_meas in sensor_measurements[sensor_id]]
 
-                        if self._labels[i] in sensed_dos:
+                        if self._labels[i] in sensed_dos:  # Automatic data association
                             z = sensor_measurements[sensor_id][sensed_dos.index(self._labels[i])][1]
 
                             self._xs_upd[i], self._P_upd[i], NIS_i = self.update(

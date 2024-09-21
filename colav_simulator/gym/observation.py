@@ -1265,7 +1265,7 @@ class RelativeTrackingObservation(ObservationType):
     def __init__(self, env: "COLAVEnvironment") -> None:
         super().__init__(env)
         self.max_num_do = 10
-        self.do_info_size = 7  # [relative dist, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
+        self.do_info_size = 7  # [relative dist, relative_bearing, relative speed body-x, relative speed body-y, cov-var speed x, cov-var speed y, cross covar speed x-y]
         self.name = "RelativeTrackingObservation"
         self.define_observation_ranges()
 
@@ -1276,7 +1276,7 @@ class RelativeTrackingObservation(ObservationType):
     def define_observation_ranges(self) -> None:
         assert self.env.ownship is not None, "Ownship is not defined"
         self.observation_range = {
-            "distance": (0.0, 1300.0),
+            "distance": (0.0, 800.0),
             "speed": (-20.0, 20.0),
             "angles": (-np.pi, np.pi),
             "variance": (0.0, 5.0),
@@ -1348,6 +1348,7 @@ class RelativeTrackingObservation(ObservationType):
                     rel_speed_cov[0, 1],
                 ]
             )
+        # Sort the observations based on distance in ascending order
         obs = obs.T[obs.T[:, 0].argsort()][::-1].T
         # print(f"first tracking obs row = {obs[0, :]}")
         norm_obs = self.normalize(obs)

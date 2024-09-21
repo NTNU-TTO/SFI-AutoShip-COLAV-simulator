@@ -34,8 +34,8 @@ class LOSGuidanceParams:
 
     pass_angle_threshold: float = 90.0
     R_a: float = 25.0
-    K_p: float = 0.01
-    K_i: float = 0.0
+    K_p: float = 0.02
+    K_i: float = 0.0001
     max_cross_track_error_int: float = 2000.0
     cross_track_error_int_threshold: float = 50.0
 
@@ -492,6 +492,7 @@ class LOSGuidance(IGuidance):
         else:
             self._params = LOSGuidanceParams()
 
+        self._params = LOSGuidanceParams()
         self._wp_counter: int = 0
         self._e_int: float = 0.0
 
@@ -534,9 +535,6 @@ class LOSGuidance(IGuidance):
 
         if abs(e) < self._params.cross_track_error_int_threshold:
             self._e_int += e * dt
-
-        if abs(e) < 0.5:
-            self._e_int = 0.0
 
         self._e_int = mf.sat(
             self._e_int, -self._params.max_cross_track_error_int, self._params.max_cross_track_error_int
