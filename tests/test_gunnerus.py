@@ -1,3 +1,7 @@
+"""
+Test file used for tuning a control system for the Gunnerus ship model.
+"""
+
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.math_functions as mf
 import colav_simulator.common.plotters as plotters

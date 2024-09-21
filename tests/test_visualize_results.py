@@ -1,7 +1,5 @@
 """
-    Test module for the Simulator class.
-
-    Shows how to use the simulator with a colav system.
+    Test module for the visualizer result plotting functionality.
 """
 
 import pickle

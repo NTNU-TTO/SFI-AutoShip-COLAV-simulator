@@ -1,3 +1,7 @@
+"""
+Shows how the radar sensor can be used to generate measurements for a single ownship and a single dynamic obstacle.
+"""
+
 import colav_simulator.common.map_functions as mapf
 import colav_simulator.common.miscellaneous_helper_methods as mhm
 import colav_simulator.core.sensing as sensing

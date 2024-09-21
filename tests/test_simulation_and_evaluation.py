@@ -1,3 +1,6 @@
+    """
+    This script demonstrates how to run the COLAV simulator and evaluator together.
+    """
 import time
 
 import numpy as np

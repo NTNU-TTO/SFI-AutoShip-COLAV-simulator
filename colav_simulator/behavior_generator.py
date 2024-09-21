@@ -839,7 +839,7 @@ class BehaviorGenerator:
                     raise ValueError(f"Sampling method {sampling_method} not supported!")
 
                 # Distance from start to sample must be at least 200m
-                if np.linalg.norm(p_rand - p_target) > 200.0:
+                if np.linalg.norm(p_rand - p_target) > 100.0:
                     break
 
             random_solution = planner.nearest_solution(p_rand.tolist())
@@ -850,9 +850,9 @@ class BehaviorGenerator:
             t_elapsed = time.time() - time_now
             sample_runtimes[s] = t_elapsed
 
-        print(
-            f"RRT-based planner behavior sampling time: {sample_runtimes.mean():.5f} +/- {sample_runtimes.std():.5f} s | (min, max): {sample_runtimes.min():.5f}, {sample_runtimes.max():.5f} s"
-        )
+        # print(
+        #     f"RRT-based planner behavior sampling time: {sample_runtimes.mean():.5f} +/- {sample_runtimes.std():.5f} s | (min, max): {sample_runtimes.min():.5f}, {sample_runtimes.max():.5f} s"
+        # )
         return waypoints, speed_plan, trajectory
 
     def generate_constant_speed_and_course_waypoints(

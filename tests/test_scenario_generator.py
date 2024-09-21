@@ -1,3 +1,7 @@
+"""
+Test the scenario generator, showing the main functionalities.
+"""
+
 import colav_simulator.common.paths as dp
 from colav_simulator.scenario_generator import ScenarioGenerator
 

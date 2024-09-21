@@ -1,5 +1,5 @@
 """
-    Test module for the Simulator class.
+    Test module for the Simulator class, shows how the output data is structured.
 
     Shows how to use the simulator with a colav system.
 """
