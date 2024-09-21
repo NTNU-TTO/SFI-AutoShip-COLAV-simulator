@@ -8,6 +8,7 @@
 """
 
 import gc
+import pickle
 import platform
 import time
 import tracemalloc
@@ -1209,24 +1210,36 @@ class Visualizer:
 
         if not self._config.show_results:
             return [], []
-        matplotlib.use("TkAgg")
-        # matplotlib.rcParams["pdf.fonttype"] = 42
-        # matplotlib.rcParams["ps.fonttype"] = 42
+        matplotlib.rcParams["pdf.fonttype"] = 42
+        matplotlib.rcParams["ps.fonttype"] = 42
 
         if save_file_path is None:
             save_file_path = dp.figure_output / "scenario_ne.pdf"
         else:
             save_file_path = Path(str(save_file_path) + ".pdf")
 
+        pickle_file_path = Path("simdata.pkl")
+        ship_list[0]._colav = None
+        enc._display = None
+        enc._cfg.validator = None
+        with pickle_file_path.open("wb") as f:
+            pickle.dump([enc, sim_data, sim_times, ship_list], f)
+
+        # [enc, sim_data, sim_times, ship_list] = pickle.load(pickle_file_path.open("rb"))
+
         ship_data = mhm.extract_ship_data_from_sim_dataframe(ship_list, sim_data)
         trajectory_list = ship_data["trajectory_list"]
         colav_data_list = ship_data["colav_data_list"]
         nominal_trajectory_list = []
-        for colav_data in colav_data_list:
+        is_csog_reference_trajectory = False
+        for idx, colav_data in enumerate(colav_data_list):
+            if not colav_data:
+                continue
             if "nominal_trajectory" in colav_data[0]:
                 nominal_trajectory_list.append(colav_data[0]["nominal_trajectory"])
             else:
-                nominal_trajectory_list.append()
+                nominal_trajectory_list.append(trajectory_list[idx]["refs"])
+                is_csog_reference_trajectory = True
 
         os_colav_stats = {}
         if colav_data_list[0] and "mpc_soln" in colav_data_list[0]:
@@ -1248,7 +1261,7 @@ class Visualizer:
             }
 
         cpa_indices = ship_data["cpa_indices"]
-        min_os_depth = mapf.find_minimum_depth(ship_list[0].draft, enc)
+        min_os_depth = 1  # mapf.find_minimum_depth(ship_list[0].draft, enc)
 
         n_samples = len(sim_times)
         if k_snapshots is None:
@@ -1261,7 +1274,14 @@ class Visualizer:
 
         figs = []
         axes = []
-        fig_map = plt.figure("Scenario: " + str(save_file_path.stem), figsize=self._config.fig_size)
+        fig_width = self._config.fig_size[0] / self._config.fig_dpi
+        fig_height = self._config.fig_size[1] / self._config.fig_dpi
+        fig_map = plt.figure(
+            "Scenario: " + str(save_file_path.stem),
+            figsize=(fig_width, fig_height),
+            dpi=self._config.fig_dpi,
+            tight_layout=True,
+        )
         ax_map = fig_map.add_subplot(1, 1, 1)
         plotters.plot_background(ax_map, enc)
         ax_map.margins(x=self._config.margins[0], y=self._config.margins[0])
@@ -1270,19 +1290,18 @@ class Visualizer:
 
         figs_tracking: list = []
         axes_tracking: list = []
+        figs_tt: list = []
+        axes_tt: list = []
         ship_lw = self._config.ship_linewidth
-        n_ships = len(ship_list)
         for i, ship_obj in enumerate(ship_list):
             ship_sim_data = sim_data[f"Ship{i}"]
             end_idx = k_snapshots[-1]
 
-            # If number of ships is greater than 16, use the same color for all target ships
-            if i > 0 and n_ships > len(self._config.ship_colors):
+            ship_color = self._config.ship_colors[i]
+            if i > 0:
                 ship_color = self._config.ship_colors[1]
-            else:
-                ship_color = self._config.ship_colors[i]
 
-            X = trajectory_list[i][0]
+            X = trajectory_list[i]["X"]
             first_valid_idx, last_valid_idx = mhm.index_of_first_and_last_non_nan(X[0, :])
             if first_valid_idx == -1 and last_valid_idx == -1:
                 continue
@@ -1330,13 +1349,19 @@ class Visualizer:
                 zorder=zorder_patch - 2,
             )
 
-            # If the ship is the own-ship: Also plot dynamic obstacle tracks, and trajectory tracking results
-            if i == 0:
-                if self._config.show_trajectory_tracking_results and len(nominal_trajectory_list) > 0:
-                    fig_tt, axes_tt = self.plot_trajectory_tracking_results(
-                        i, sim_times, X, nominal_trajectory_list[i], linewidth=1.0
-                    )
+            if self._config.show_trajectory_tracking_results and len(nominal_trajectory_list) > 0:
+                fig_tt_i, axes_tt_i = self.plot_trajectory_tracking_results(
+                    i,
+                    sim_times,
+                    X,
+                    nominal_trajectory_list[i],
+                    linewidth=1.0,
+                    is_csog_reference_trajectory=is_csog_reference_trajectory,
+                )
+                figs_tt.append(fig_tt_i)
+                axes_tt.append(axes_tt_i)
 
+            if i == 0:
                 track_data = mhm.extract_track_data_from_dataframe(ship_sim_data)
                 do_estimates = track_data["do_estimates"]
                 do_covariances = track_data["do_covariances"]
@@ -1362,25 +1387,19 @@ class Visualizer:
 
                     do_color = self._config.do_colors[j]
                     do_lw = self._config.do_linewidth
-                    do_true_states_j = trajectory_list[do_labels[j]][0]
+                    do_true_states_j = trajectory_list[do_labels[j]]["X"]
                     do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
-                    do_timestamps_j = np.array(trajectory_list[do_labels[j]][1])
+                    do_timestamps_j = np.array(trajectory_list[do_labels[j]]["timestamps"])
 
                     indices_relevant_j = np.where(
                         np.logical_and(
                             do_timestamps_j >= sim_times[first_valid_idx_track], do_timestamps_j < sim_times[end_idx_j]
                         )
                     )[0]
-                    indices_relevant_est_j = np.where(
-                        np.logical_and(
-                            sim_times[first_valid_idx_track:end_idx_j] >= do_timestamps_j[0],
-                            sim_times[first_valid_idx_track:end_idx_j] <= do_timestamps_j[-1],
-                        )
-                    )[0]
 
                     ax_map.plot(
-                        do_estimates_j[1, indices_relevant_est_j],
-                        do_estimates_j[0, indices_relevant_est_j],
+                        do_estimates_j[1, first_valid_idx_track:end_idx_j],
+                        do_estimates_j[0, first_valid_idx_track:end_idx_j],
                         color=do_color,
                         linewidth=ship_lw,
                         label=f"DO {do_labels[j] -1} est. traj.",
@@ -1475,6 +1494,7 @@ class Visualizer:
 
         figs.append(fig_map)
         axes.append(ax_map)
+        matplotlib.use("TkAgg")
         return figs, axes
 
     def plot_obstacle_distances_to_ownship(
@@ -1508,14 +1528,14 @@ class Visualizer:
             Tuple[plt.Figure, list]: Figure and axes of the output plots.
         """
 
-        fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 10))
+        fig = plt.figure(num="Own-ship distance to obstacles", figsize=(10, 15))
         n_do = len(do_labels)
         axes = fig.subplots(n_do + 1, 1, sharex=True)
-        fig.subplots_adjust(hspace=0.3)
+        fig.subplots_adjust(hspace=0.5)
         plt.show(block=False)
 
-        os_traj = trajectory_list[0][0]
-        os_timestamps = trajectory_list[0][1]
+        os_traj = trajectory_list[0]["X"]
+        os_timestamps = trajectory_list[0]["timestamps"]
         os_en_traj = os_traj[:2, :].copy()
         os_en_traj[0, :] = os_traj[1, :]
         os_en_traj[1, :] = os_traj[0, :]
@@ -1535,8 +1555,8 @@ class Visualizer:
             if first_valid_idx_track >= last_valid_idx_track:
                 continue
 
-            do_true_states_j = trajectory_list[do_labels[j]][0]
-            timestamps_j = trajectory_list[do_labels[j]][1]
+            do_true_states_j = trajectory_list[do_labels[j]]["X"]
+            timestamps_j = trajectory_list[do_labels[j]]["timestamps"]
             do_true_states_j = mhm.convert_state_to_vxvy_state(do_true_states_j)
 
             # z_val = norm.ppf(confidence_level)
@@ -1553,19 +1573,24 @@ class Visualizer:
             common_indices_do = np.where(np.isin(timestamps_j, common_timestamps))[0]
 
             est_dist2do_j = np.linalg.norm(
-                do_estimates_j[:2, common_indices_do] - os_traj[:2, common_indices_os], axis=0
-            )[: common_timestamps.shape[0]]
-            dist2do_j = np.linalg.norm(
-                do_true_states_j[:2, common_indices_do] - os_traj[:2, common_indices_os], axis=0
-            )[: common_timestamps.shape[0]]
-            # axes[j + 1].plot(common_timestamps, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
-            # axes[j + 1].plot(common_timestamps, d_safe_do * np.ones_like(common_timestamps), "r--", label="Minimum safety margin")
-            axes[j + 1].semilogy(common_timestamps, dist2do_j, "b", label=f"Distance to DO{do_labels[j]}")
+                do_estimates_j[:2, first_valid_idx_track:last_valid_idx_track]
+                - os_traj[:2, first_valid_idx_track:last_valid_idx_track],
+                axis=0,
+            )
+            dist2do_j = np.linalg.norm(do_true_states_j[:2, common_indices_do] - os_traj[:2, common_indices_os], axis=0)
+            axes[j + 1].semilogy(timestamps_j, dist2do_j, "b--", label=f"Distance to DO{do_labels[j]}")
+            axes[j + 1].semilogy(
+                sim_times[first_valid_idx_track:last_valid_idx_track],
+                est_dist2do_j,
+                "g",
+                label=f"Est. distance to DO{do_labels[j]}",
+            )
             axes[j + 1].semilogy(
                 common_timestamps, d_safe_do * np.ones_like(common_timestamps), "r--", label="Minimum safety margin"
             )
             axes[j + 1].set_ylabel("Distance [m]")
-            axes[j + 1].set_xlabel("Time [s]")
+            if j == n_do - 1:
+                axes[j + 1].set_xlabel("Time [s]")
             axes[j + 1].legend()
 
         return fig, axes
@@ -1577,6 +1602,7 @@ class Visualizer:
         trajectory: np.ndarray,
         reference_trajectory: np.ndarray,
         linewidth: float = 1.0,
+        is_csog_reference_trajectory: bool = False,
     ) -> Tuple[plt.Figure, list]:
         """Plots the trajectory tracking results of a ship.
 
@@ -1585,6 +1611,8 @@ class Visualizer:
             - trajectory (np.ndarray): Trajectory of the ship, same length as sim_times.
             - reference_trajectory (np.ndarray): Reference trajectory of the ship.
             - ship_idx (int): Index of the ship.
+            - linewidth (float, optional): Line width of the plots.
+            - is_csog_reference_trajectory (bool, optional): Flag indicating if the reference trajectory is on the form [0, 0, chi, U, 0, 0, 0, 0, 0] x n_samples.
 
         Returns:
             - Tuple[plt.Figure, list]: Figure and axes of the output plots.
@@ -1638,9 +1666,15 @@ class Visualizer:
         axes["y"].yaxis.set_major_locator(mticker.FixedLocator(current_values))
         axes["y"].set_yticklabels(["{:.1f}".format(y) for y in current_values])
 
+        if is_csog_reference_trajectory:
+            angle = trajectory[2, :n_samples] + np.arctan2(trajectory[4, :n_samples], trajectory[3, :n_samples])
+            speed = np.sqrt(trajectory[3, :n_samples] ** 2 + trajectory[4, :n_samples] ** 2)
+        else:
+            angle = trajectory[2, :n_samples]
+            speed = trajectory[3, :n_samples]
         axes["psi"].plot(
             sim_times[:n_samples],
-            trajectory[2, :n_samples] * 180.0 / np.pi,
+            angle * 180.0 / np.pi,
             color="xkcd:blue",
             linewidth=linewidth,
             label="actual",
@@ -1657,9 +1691,7 @@ class Visualizer:
         axes["psi"].set_ylabel("Heading [deg]")
         axes["psi"].legend()
 
-        axes["u"].plot(
-            sim_times[:n_samples], trajectory[3, :n_samples], color="xkcd:blue", linewidth=linewidth, label="actual"
-        )
+        axes["u"].plot(sim_times[:n_samples], speed, color="xkcd:blue", linewidth=linewidth, label="actual")
         axes["u"].plot(
             sim_times[:n_samples],
             reference_trajectory[3, :n_samples],
@@ -1719,7 +1751,7 @@ class Visualizer:
         do_NIS: np.ndarray,
         do_idx: int,
         do_lw: float = 1.0,
-        confidence_level: float = 0.95,
+        confidence_level: float = 0.66,
     ) -> Tuple[plt.Figure, list]:
         """Plot the tracking (for ship <ship_idx>) results of a specific dynamic obstacle (DO).
 
@@ -1732,8 +1764,8 @@ class Visualizer:
             do_covariances (np.ndarray): Covariances of the DO.
             do_NIS (np.ndarray): Normalized Innovation error Squared (NIS) values of the DO.
             do_idx (int): Index of the DO.
-            do_lw (float, optional): Line width of the DO. Defaults to 1.0.
-            confidence_level (float, optional): Confidence level considered for the uncertainty plotting. Defaults to 0.95.
+            do_lw (float, optional): Line width of the DO.
+            confidence_level (float, optional): Confidence level considered for the uncertainty plotting.
 
         Returns:
             Tuple[plt.Figure, list]: Figure and axes handles for the DO <do_idx> tracking results.

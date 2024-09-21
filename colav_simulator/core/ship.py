@@ -577,10 +577,12 @@ class Ship(IShip):
         if dt <= 0.0:
             return self._state, np.empty(3), np.empty(9)
 
-        u = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
+        self._input = self._controller.compute_inputs(self._references[:, 0], self._state, dt)
 
-        self._state = erk4_integration_step(self._model.dynamics, self._model.bounds, self._state, u, w, dt)
-        return self._state, u, self._references[:, 0]
+        self._state = erk4_integration_step(
+            f=self._model.dynamics, b=self._model.bounds, x=self._state, u=self._input, w=w, dt=dt
+        )
+        return self._state, self._input, self._references[:, 0]
 
     def track_obstacles(self, t: float, dt: float, true_do_states: list) -> Tuple[list, list]:
         tracks = self._tracker.track(t, dt, true_do_states, mhm.convert_state_to_vxvy_state(self.csog_state))
@@ -673,12 +675,15 @@ class Ship(IShip):
             csog_state = np.ones(4) * np.nan
             active = False
 
+        if self._input.size == 0:
+            self._input = self._controller.compute_inputs(self._references[:, 0], self._state, dt=0.0)
+
         ship_sim_data = {
             "id": self.id,
             "mmsi": self.mmsi,
             "csog_state": csog_state,
             "state": self._state,
-            "inputs": self._input,
+            "input": self._input,
             "waypoints": self._waypoints,
             "speed_plan": self._speed_plan,
             "references": self._references,

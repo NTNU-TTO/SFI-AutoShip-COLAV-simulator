@@ -304,7 +304,7 @@ class KF(ITracker):
                     for sensor_id in range(len(self.sensors)):
                         sensed_dos = [do_meas[0] for do_meas in sensor_measurements[sensor_id]]
 
-                        if self._labels[i] in sensed_dos:
+                        if self._labels[i] in sensed_dos:  # Automatic data association
                             z = sensor_measurements[sensor_id][sensed_dos.index(self._labels[i])][1]
 
                             self._xs_upd[i], self._P_upd[i], NIS_i = self.update(

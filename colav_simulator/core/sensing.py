@@ -217,7 +217,7 @@ class Radar(ISensor):
             return [(do_tup[0], np.nan * np.ones(2)) for do_tup in true_do_states]
 
         for i, (do_idx, do_state, _, _) in enumerate(true_do_states):
-            dist_ownship_to_do = np.sqrt((do_state[0] - ownship_state[0]) ** 2 + (do_state[1] - ownship_state[1]) ** 2)
+            dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
             if dist_ownship_to_do <= self._params.max_range:
                 z = self.h(do_state) + self._rng.multivariate_normal(np.zeros(2), self._params.R_true)
             else:
