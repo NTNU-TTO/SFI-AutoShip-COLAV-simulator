@@ -12,12 +12,12 @@ The framework is mainly developed and tested under a Unix-based operating system
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
 <p align="center">
-    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/mpc_teaser.gif?raw=true" width="1000px"><br/>
-    <em>Example run of an MPC-based COLAV planner in the simulator.</em>
+    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/gym_env_teaser.gif?raw=true" width="1000px"><br/>
+    <em>Example visualization of a DRL-based MPC algorithm run in multiple evaluation episodes using the COLAVEnvironment Gymnasium functionality.</em>
 </p>
 <p align="center">
     <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/teaser.gif?raw=true" width="1000px"><br/>
-    <em>An episode sample from the COLAVEnvironment.</em>
+    <em>Another episode sample from the COLAVEnvironment.</em>
 </p>
 
 ## Citation
@@ -35,13 +35,17 @@ If you are using the `colav_simulator` in your work, please use the following ci
 }
 ```
 
-If you are using `RRTs` for ship behavior generation in your work, please also use the following citation:
+If you are using `RRTs` from `rrt-rs` for ship behavior generation in your work based on [A Comparative Study of Rapidly-exploring Random Tree Algorithms Applied to Ship Trajectory Planning and Behavior Generation](https://link.springer.com/article/10.1007/s10846-025-02222-7), please also use the following citation:
 ```bibtex
-@Article{Tengesdal2024csrrt,
+@article{tengesdal2025comparative,
   title={A Comparative Study of Rapidly-exploring Random Tree Algorithms Applied to Ship Trajectory Planning and Behavior Generation},
   author={Tengesdal, Trym and Pedersen, Tom Arne and Johansen, Tor Arne},
-  journal={arXiv preprint arXiv:2403.01194},
-  year={2024}
+  journal={Journal of Intelligent \& Robotic Systems},
+  volume={111},
+  number={1},
+  pages={1--19},
+  year={2025},
+  publisher={Springer}
 }
 ```
 
@@ -147,7 +151,7 @@ It is also a good idea to keep the features small, so that they are easy to test
 
 ### Workflow
 
-When you're developing a feature (or beginning your thesis work) based on the simulator, the workflow begins by checking out the main branch, and creating a new branch from there.
+When you're developing a feature based on the simulator, the workflow begins by checking out the main branch, and creating a new branch from there.
 
 #### Retrieving main branch
 
