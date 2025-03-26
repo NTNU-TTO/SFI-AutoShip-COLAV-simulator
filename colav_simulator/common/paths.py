@@ -8,8 +8,9 @@
 """
 
 import pathlib
+import sys
 
-root = pathlib.Path(__file__).parents[2]
+root = pathlib.Path(sys.argv[0]).absolute().parents[1]
 config = root / "config"
 package = root / "colav_simulator"
 scenarios = root / "scenarios"
