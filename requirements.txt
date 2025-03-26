@@ -18,3 +18,4 @@ torch>=1.13
 stable_baselines3
 tqdm
 geopandas
+psutil
