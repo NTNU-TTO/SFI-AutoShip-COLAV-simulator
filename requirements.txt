@@ -18,4 +18,4 @@ torch>=1.13
 stable_baselines3
 tqdm
 geopandas
-psutil
+seacharts @ git+https://github.com/trymte/seacharts.git@457b5d6994330fa3b786068200022e495569c9be

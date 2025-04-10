@@ -52,7 +52,6 @@ If you are using `RRTs` from `rrt-rs` for ship behavior generation in your work 
 ## Dependencies
 Are all outlined in setup.cfg. Non-pip packages to install are
 
-- seacharts: https://github.com/trymte/seacharts for ENC support
 - rrt-rs: https://github.com/NTNU-Autoship-Internal/rrt-rs optionally for ship behavior generation
 - vimmjipda: <https://github.com/NTNU-Autoship-Internal/vimmjipda> for Multi-Target Tracking functionality.
 - colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool (optional dependency only for the `test_simulation_and_evaluation.py` test file)
