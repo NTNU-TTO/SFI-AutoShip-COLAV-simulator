@@ -12,15 +12,21 @@ The framework is mainly developed and tested under a Unix-based operating system
 [![python version](https://img.shields.io/badge/python-3.11-blue)]()
 
 <p align="center">
-    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/gym_env_teaser.gif?raw=true" width="1000px"><br/>
+    <img src="https://github.com/NTNU-TTO/SFI-AutoShip-COLAV-simulator/blob/main/gym_env_teaser.gif?raw=true" width="1000px"><br/>
     <em>Example visualization of a DRL-based MPC algorithm run in multiple evaluation episodes using the COLAVEnvironment Gymnasium functionality.</em>
 </p>
 <p align="center">
-    <img src="https://github.com/NTNU-Autoship-Internal/colav_simulator/blob/main/teaser.gif?raw=true" width="1000px"><br/>
+    <img src="https://github.com/NTNU-TTO/SFI-AutoShip-COLAV-simulator/blob/main/mpc_teaser.gif?raw=true" width="1000px"><br/>
+    <em>Another teaser using an MPC-based COLAV algorithm.</em>
+</p>
+<p align="center">
+    <img src="https://github.com/NTNU-TTO/SFI-AutoShip-COLAV-simulator/blob/main/teaser.gif?raw=true" width="1000px"><br/>
     <em>Another episode sample from the COLAVEnvironment.</em>
 </p>
 
 ## Citation
+This code was developed through the Autoship Centre for Research-based Innovation (SFI Autoship) based in Trondheim. 
+
 If you are using the `colav_simulator` in your work, please use the following citation:
 ```bibtex
 @Article{Tengesdal2023sfse,
@@ -52,9 +58,9 @@ If you are using `RRTs` from `rrt-rs` for ship behavior generation in your work 
 ## Dependencies
 Are all outlined in setup.cfg. Non-pip packages to install are
 
-- rrt-rs: https://github.com/NTNU-Autoship-Internal/rrt-rs optionally for ship behavior generation
-- vimmjipda: <https://github.com/NTNU-Autoship-Internal/vimmjipda> for Multi-Target Tracking functionality.
-- colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool (optional dependency only for the `test_simulation_and_evaluation.py` test file)
+- rrt-rs: https://github.com/NTNU-Autoship-Internal/rrt-rs optionally for ship behavior generation. To be open sourced.
+- vimmjipda: <https://github.com/NTNU-Autoship-Internal/vimmjipda> for Multi-Target Tracking functionality. To be open sourced.
+- colav_evaluation_tool: https://github.com/trymte/colav_evaluation_tool (optional dependency only for the `test_simulation_and_evaluation.py` test file). Closed source.
 
 ## Generic Install Instructions
 `seacharts`, `vimmjipda` and the `colav_evaluation_tool` (optional) are non-pip package dependencies in the simulator. Install these as editable packages first using `pip install -e .` in their respective root folders. For `rrt-rs` (also optional), follow the install instructions at <https://github.com/NTNU-Autoship-Internal/rrt-rs>. Then, install this simulator package using the same `pip install -e .` command inside the `colav_simulator` root folder. All of these packages should be installed using the same Python environment (e.g. a virtual or Conda environment).
