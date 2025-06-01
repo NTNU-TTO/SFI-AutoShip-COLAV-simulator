@@ -1,0 +1,168 @@
+name: "rl_scenario_smaller"
+save_scenario: False
+t_start: 0.0
+t_end: 100.0
+dt_sim: 0.5
+utm_zone: 33
+map_size: [2500.0, 2500.0]
+map_origin_enu: [-32824.0, 6573500.0]
+map_data_files: ["Rogaland_utm33.gdb"]
+map_tolerance: 1
+map_buffer: 0
+new_load_of_map_data: True
+type: MS
+n_random_ships: 5
+#n_random_ships_range: [1, 2]
+episode_generation:
+  n_episodes: 1
+  n_constant_os_state_episodes: 1
+  n_constant_os_plan_episodes: 100
+  n_constant_do_state_episodes: 1
+  n_plans_per_do_state: 1
+  n_constant_disturbance_episodes: 5
+  delta_uniform_position_sample: 5
+  ownship_position_generation: "MapUniformThenPerpendicular"
+  target_position_generation: "BasedOnOwnshipPositionThenGaussian"
+
+rl:
+  action_type: "relative_course_speed_reference_sequence_action"
+  action_sample_time: 0.5
+  observation_type:
+    dict_observation:
+      - "path_relative_navigation_observation"
+      - "perception_image_observation"
+      - "navigation_3dof_state_observation"
+      - "disturbance_observation"
+stochasticity:
+  currents:
+    constant: False
+    initial_direction: 180.0
+    speed_range: [0.0, 1.5]
+    direction_range: [-360.0, 360.0]
+    mu_speed: 0.00001
+    mu_direction: 0.00001
+    sigma_speed: 0.005
+    sigma_direction: 0.005
+    add_impulse_noise: False
+    speed_impulses: [5.0]
+    direction_impulses: [45.0]
+  wind:
+    constant: True
+    initial_speed: 0.0
+    initial_direction: 180.0
+    speed_range: [0.0, 5.0]
+    direction_range: [-360.0, 360.0]
+    mu_speed: 0.00001
+    mu_direction: 0.00001
+    sigma_speed: 0.005
+    sigma_direction: 0.005
+    add_impulse_noise: True
+    speed_impulses: [1.0, 2.5, 5.0]
+    direction_impulses: [-90.0, -45.0, 45.0, 90.0]
+    # impulse_times: [100.0]
+ship_list:
+  - id: 0
+    mmsi: 100
+    # csog_state: [6574280.0, -31824.0, 5.0, 0.0]
+    # goal_csog_state: [6578500.0, -29300.0, 5.0, 0.0] #[6583580.0, -31824.0, 0.0, 0.0]
+    random_generated: False
+    tracker:
+      kf:
+        P_0: [50.0, 50.0, 0.5, 0.5]
+        q: 0.1
+    sensors:
+      - radar:
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R_ne: [30.0, 30.0]
+          R_ne_true: [25.0, 25.0]
+          R_polar_true: [64.0, 0.0003]
+          generate_clutter: False
+          clutter_cardinality_expectation: 5
+          detection_probability: 0.95
+          include_polar_meas_noise: False
+      - ais:
+          max_range: 5000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 25.0
+        K_p: 0.03
+        K_i: 0.0
+        max_cross_track_error_int: 1000.0
+        cross_track_error_int_threshold: 30.0
+    controller:
+      flsc:
+        K_p_u: 3.0
+        K_i_u: 0.3
+        K_p_chi: 2.5
+        K_d_chi: 3.0
+        K_i_chi: 0.1
+        max_speed_error_int: 4.0
+        speed_error_int_threshold: 0.5
+        max_chi_error_int: 90.0
+        chi_error_int_threshold: 20.0
+    model:
+      telemetron: ''
+    # controller:
+    #   flsc:
+    #     K_p_u: 0.5
+    #     K_i_u: 0.1
+    #     K_p_chi: 0.15
+    #     K_d_chi: 0.5
+    #     K_i_chi: 0.001
+    #     max_speed_error_int: 2.0
+    #     speed_error_int_threshold: 1.0
+    #     max_chi_error_int: 50.0
+    #     chi_error_int_threshold: 15.0
+    # model:
+    #   rvgunnerus: ''
+  - id: 1
+    mmsi: 101
+    #csog_state: [6575080.0, -32424.0, 6.0, 120.0]
+    # csog_state: [6574280.0, -31800.0, 5.0, -90.0]
+    random_generated: True
+    tracker:
+      kf:
+        P_0: [49.1, 49.1, 0.11, 0.11]
+        q: 1.0
+    sensors:
+      - radar:
+          max_range: 2000.0
+          measurement_rate: 0.5
+          R_ne: [30.0, 30.0]
+          R_ne_true: [25.0, 25.0]
+          R_polar_true: [64.0, 0.0003]
+          generate_clutter: False
+          clutter_cardinality_expectation: 5
+          detection_probability: 0.95
+          include_polar_meas_noise: False
+      - ais:
+          max_range: 3000.0
+          ais_class: A
+          R: [26.3, 26.3, 0.1, 0.1]
+          R_true: [26.3, 26.3, 0.1, 0.1]
+    guidance:
+      los:
+        pass_angle_threshold: 80.0
+        R_a: 40.0
+        K_p: 0.015
+        K_i: 0.0
+        max_cross_track_error_int: 200.0
+        cross_track_error_int_threshold: 30.0
+    controller:
+      flsc:
+        K_p_u: 3.0
+        K_i_u: 0.3
+        K_p_chi: 2.5
+        K_d_chi: 3.0
+        K_i_chi: 0.1
+        max_speed_error_int: 4.0
+        speed_error_int_threshold: 0.5
+        max_chi_error_int: 90.0
+        chi_error_int_threshold: 20.0
+    model:
+      telemetron: ''

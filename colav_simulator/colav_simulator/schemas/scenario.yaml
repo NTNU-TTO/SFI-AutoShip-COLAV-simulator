@@ -1,0 +1,647 @@
+name:
+  required: True
+  type: string
+save_scenario:
+  required: True
+  type: boolean
+t_start:
+  required: True
+  type: float
+  min: 0.0
+t_end:
+  required: True
+  type: float
+  min: 1.0
+dt_sim:
+  required: True
+  type: float
+  min: 0.1
+type:
+  required: True
+  type: string
+utm_zone:
+  required: True
+  type: integer
+episode_generation:
+  required: False
+  type: dict
+  schema:
+    n_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_os_state_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_os_plan_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_do_state_episodes:
+      required: False
+      type: integer
+      nullable: True
+    n_plans_per_do_state:
+      required: False
+      type: integer
+      nullable: True
+    n_constant_disturbance_episodes:
+      required: False
+      nullable: True
+      type: integer
+    ownship_position_generation:
+      required: False
+      nullable: True
+      type: string
+    target_position_generation:
+      required: False
+      nullable: True
+      type: string
+
+    delta_uniform_position_sample:
+      required: False
+      nullable: True
+      type: integer
+n_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_constant_os_state_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_constant_os_plan_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_constant_do_state_episodes:
+  required: False
+  type: integer
+  nullable: True
+n_plans_per_do_state:
+  required: False
+  type: integer
+  nullable: True
+n_constant_disturbance_episodes:
+  required: False
+  nullable: True
+  type: integer
+delta_uniform_position_sample:
+  required: False
+  nullable: True
+  type: integer
+map_data_files:
+  required: True
+  type: list
+  minlength: 1
+  schema:
+    type: string
+map_size:
+  required: True
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: float
+
+map_origin_enu:
+  required: True
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: float
+  nullable: True
+
+map_tolerance:
+  required: False
+  type: integer
+  nullable: True
+
+map_buffer:
+  required: False
+  type: integer
+  nullable: True
+
+new_load_of_map_data:
+  required: True
+  type: boolean
+
+ais_data_file:
+  required: False
+  type: string
+  nullable: True
+
+ship_data_file:
+  required: False
+  type: string
+  nullable: True
+
+allowed_nav_statuses:
+  required: False
+  type: list
+  minlength: 1
+  schema:
+    type: integer
+  nullable: True
+
+n_random_ships:
+  required: False
+  type: integer
+  nullable: True
+
+n_random_ships_range:
+  required: False
+  type: list
+  maxlength: 2
+  minlength: 2
+  schema:
+    type: integer
+  nullable: True
+
+min_dist_between_ships:
+  required: False
+  type: float
+  nullable: True
+
+max_dist_between_ships:
+  required: False
+  type: float
+  nullable: True
+
+rl:
+  required: False
+  type: dict
+  nullable: True
+  schema:
+    observation_type:
+      required: True
+      type: dict
+      nullable: True
+      schema:
+        tuple_observation:
+          required: False
+          excludes: [dict_observation]
+          type: list
+          minlength: 1
+          schema:
+            type: string
+        dict_observation:
+          excludes: [tuple_observation]
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: string
+    action_type:
+      required: True
+      type: string
+      nullable: True
+    action_sample_time:
+        required: True
+        type: float
+
+
+filename:
+  required: False
+  type: string
+  nullable: True
+
+stochasticity:
+  required: False
+  type: dict
+  nullable: True
+  schema:
+    wind:
+      required: False
+      type: dict
+      nullable: True
+      schema:
+        constant:
+          required: True
+          type: boolean
+        initial_speed:
+          required: False
+          type: float
+        initial_direction:
+          required: False
+          type: float
+        speed_range:
+          required: True
+          type: list
+        direction_range:
+          required: True
+          type: list
+        mu_speed:
+          required: True
+          type: float
+        mu_direction:
+          required: True
+          type: float
+        sigma_speed:
+          required: True
+          type: float
+        sigma_direction:
+          required: True
+          type: float
+        add_impulse_noise:
+          required: False
+          type: boolean
+        speed_impulses:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+        direction_impulses:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+        impulse_times:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+
+
+    waves: # TBD
+      required: False
+      type: dict
+      nullable: True
+
+    currents:
+      required: False
+      type: dict
+      nullable: True
+      schema:
+        constant:
+          required: True
+          type: boolean
+        initial_speed:
+          required: False
+          type: float
+        initial_direction:
+          required: False
+          type: float
+        speed_range:
+          required: True
+          type: list
+        direction_range:
+          required: True
+          type: list
+        mu_speed:
+          required: True
+          type: float
+        mu_direction:
+          required: True
+          type: float
+        sigma_speed:
+          required: True
+          type: float
+        sigma_direction:
+          required: True
+          type: float
+        add_impulse_noise:
+          required: False
+          type: boolean
+        speed_impulses:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+        direction_impulses:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+        impulse_times:
+          required: False
+          type: list
+          minlength: 1
+          schema:
+            type: float
+
+ship_list:
+  required: False
+  type: list
+  nullable: True
+  schema:
+    type: dict
+    schema:
+      default:
+        required: False
+        type: string
+        empty: True
+        excludes: [colav, tracker, sensors, guidance, controller, model]
+      mmsi:
+        required: False
+        type: integer
+      id:
+        required: False
+        type: integer
+      t_start:
+        required: False
+        type: float
+      t_end:
+        required: False
+        type: float
+      random_generated:
+        required: False
+        type: boolean
+      csog_state:
+        required: False
+        type: list
+        maxlength: 4
+        minlength: 4
+        schema:
+          type: float
+      goal_csog_state:
+        required: False
+        type: list
+        schema:
+          type: float
+      waypoints:
+        required: False
+        type: list
+        schema:
+          type: list
+          schema:
+            type: float
+      speed_plan:
+        required: False
+        type: list
+        schema:
+          type: float
+
+      colav:
+        required: False
+        type: dict
+        excludes: [default, guidance]
+        schema:
+          name:
+            required: True
+            type: string
+          layer1: # First COLAV algorithm, necessary if provided
+            required: True
+            type: dict
+            allow_unknown: True
+          layer2: # Second COLAV algorithm on a layer above
+            required: False
+            type: dict
+            allow_unknown: True
+          layer3: # Third COLAV algorithm, again on a layer above
+            required: False
+            type: dict
+            allow_unknown: True
+      tracker:
+        required: False
+        type: dict
+        excludes: [default]
+        schema:
+          god_tracker:
+            type: string
+            empty: True
+            excludes: [kf]
+          kf:
+            type: dict
+            excludes: [god_tracker]
+            schema:
+              P_0:
+                required: True
+                type: list
+                minlength: 4
+                maxlength: 4
+                schema:
+                  type: float
+                  min: 0.001
+              q:
+                required: True
+                type: float
+                min: 0.00001
+                max: 1.0
+      sensors:
+        required: False
+        type: list
+        excludes: [default]
+        # schema:
+        #   type: dict
+        #   oneof:
+        #     - radar:
+        #         type: dict
+        #         schema:
+        #           max_range:
+        #             required: True
+        #             type: float
+        #             min: 100.0
+        #           measurement_rate:
+        #             required: True
+        #             type: float
+        #             min: 0.2
+        #             max: 1
+        #           R:
+        #             required: True
+        #             type: list
+        #             minlength: 2
+        #             maxlength: 2
+        #             schema:
+        #               type: float
+        #               min: 0.0001
+        #     - ais:
+        #         type: dict
+        #         schema:
+        #           max_range:
+        #             required: True
+        #             type: float
+        #             min: 100.0
+        #           ais_class:
+        #             required: True
+        #             type: string
+        #             allowed: ["A", "B"] # class A and B
+        #           R:
+        #             required: True
+        #             type: list
+        #             minlength: 2
+        #             maxlength: 2
+        #             schema:
+        #               type: float
+        #               min: 0.0001
+      guidance:
+        required: False
+        type: dict
+        excludes: [default, colav]
+        schema:
+          los:
+            type: dict
+            excludes: [ktp]
+            schema:
+              pass_angle_threshold:
+                required: True
+                type: float
+              R_a:
+                required: True
+                type: float
+              K_p:
+                required: True
+                type: float
+              K_i:
+                required: True
+                type: float
+              max_cross_track_error_int:
+                required: True
+                type: float
+              cross_track_error_int_threshold:
+                required: True
+                type: float
+          ktp:
+            type: dict
+            excludes: [los]
+            schema:
+              epsilon:
+                required: True
+                type: float
+
+      controller:
+        required: False
+        type: dict
+        excludes: [default]
+        schema:
+          pid:
+            type: dict
+            excludes: [flsc, pass_through_cs, csog, pass_through_inputs]
+            schema:
+              wn:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+              zeta:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+              eta_diff_max:
+                required: True
+                type: list
+                minlength: 3
+                maxlength: 3
+                schema:
+                  type: float
+                  min: 0.0
+          flsc:
+            type: dict
+            excludes: [pid, pass_through_cs, pass_through_inputs, csog]
+            schema:
+              K_p_u:
+                required: True
+                type: float
+                min: 0.0
+              K_i_u:
+                required: True
+                type: float
+                min: 0.0
+              K_p_chi:
+                required: True
+                type: float
+                min: 0.0
+              K_d_chi:
+                required: True
+                type: float
+                min: 0.0
+              K_i_chi:
+                required: True
+                type: float
+                min: 0.0
+              max_speed_error_int:
+                required: True
+                type: float
+                min: 0.0
+              speed_error_int_threshold:
+                required: True
+                type: float
+                min: 0.0
+              max_chi_error_int:
+                required: True
+                type: float
+                min: 0.0
+              chi_error_int_threshold:
+                required: True
+                type: float
+                min: 0.0
+          pass_through_cs:
+            type: string
+            empty: True
+            excludes: [pid, flsc, csog, pass_through_inputs]
+          pass_through_inputs:
+            type: dict
+            excludes: [pid, flsc, pass_through_cs, csog]
+            schema:
+              rudder_propeller_mapping:
+                required: True
+                type: boolean
+
+      model:
+        required: False
+        type: dict
+        excludes: [default]
+        schema:
+          csog:
+            type: dict
+            excludes: [telemetron, cybership2]
+            schema:
+              draft:
+                required: True
+                type: float
+              length:
+                required: True
+                type: float
+              width:
+                required: True
+                type: float
+              ship_vertices:
+                required: False
+                type: list
+              T_chi:
+                required: True
+                type: float
+              T_U:
+                required: True
+                type: float
+              r_max:
+                required: True
+                type: float
+              U_min:
+                required: True
+                type: float
+              U_max:
+                required: True
+                type: float
+              name:
+                required: False
+                type: string
+
+          telemetron:
+            type: string
+            empty: True
+            excludes: [csog, cybership2]
+
+          cybership2:
+            type: string
+            empty: True
+            excludes: [csog, telemetron]
+
+          rvgunnerus:
+            type: string
+            empty: True
+            excludes: [csog, telemetron, cybership2]

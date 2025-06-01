@@ -1,0 +1,157 @@
+save_scenario_results:
+  required: True
+  type: boolean
+verbose:
+  required: True
+  type: boolean
+tracking_from_ownship_only:
+  required: True
+  type: boolean
+visualizer:
+  required: True
+  type: dict
+  schema:
+    show_liveplot:
+      required: True
+      type: boolean
+    show_liveplot_colav_results:
+      required: True
+      type: boolean
+    show_results:
+      required: True
+      type: boolean
+    show_liveplot_disturbances:
+      required: True
+      type: boolean
+    show_liveplot_measurements:
+      required: True
+      type: boolean
+    show_liveplot_target_waypoints:
+      required: True
+      type: boolean
+    show_liveplot_ownship_waypoints:
+      required: True
+      type: boolean
+    show_liveplot_ownship_trajectory:
+      required: True
+      type: boolean
+    show_liveplot_ground_truth_target_pose:
+      required: True
+      type: boolean
+    show_liveplot_target_ships:
+      required: True
+      type: boolean
+    show_liveplot_target_tracks:
+      required: True
+      type: boolean
+    show_liveplot_target_trajectories:
+      required: True
+      type: boolean
+    show_target_tracking_results:
+      required: True
+      type: boolean
+    show_trajectory_tracking_results:
+      required: True
+      type: boolean
+    show_liveplot_map_axes:
+      required: True
+      type: boolean
+    show_liveplot_scalebar:
+      required: True
+      type: boolean
+    show_liveplot_time:
+      required: True
+      type: boolean
+    dark_mode_liveplot:
+      required: True
+      type: boolean
+    disable_ship_labels:
+      required: True
+      type: boolean
+    black_land:
+      required: True
+      type: boolean
+    black_shore:
+      required: True
+      type: boolean
+    uniform_seabed_color:
+      required: True
+      type: boolean
+    update_rate_liveplot:
+      required: True
+      type: float
+    zoom_in_liveplot_on_ownship:
+      required: True
+      type: boolean
+    zoom_window_width:
+      required: True
+      type: float
+    save_result_figures:
+      required: True
+      type: boolean
+    save_liveplot_animation:
+      required: True
+      type: boolean
+    n_snapshots:
+      required: False
+      type: integer
+    matplotlib_backend:
+      required: True
+      type: string
+    fig_size:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: integer
+    fig_dpi:
+      required: True
+      type: integer
+    margins:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: float
+    target_trajectory_color:
+      required: True
+      type: string
+    target_waypoint_color:
+      required: True
+      type: string
+    ownship_waypoint_color:
+      required: True
+      type: string
+    ownship_trajectory_color:
+      required: True
+      type: string
+    ship_linewidth:
+      required: True
+      type: float
+    ship_scaling:
+      required: True
+      type: list
+      minlength: 2
+      maxlength: 2
+      schema:
+        type: float
+    ship_info_fontsize:
+      required: True
+      type: integer
+    ship_colors:
+      required: True
+      type: list
+      minlength: 10
+      schema:
+        type: string
+    do_linewidth:
+      required: True
+      type: float
+    do_colors:
+      required: True
+      type: list
+      minlength: 10
+      schema:
+        type: string

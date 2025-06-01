@@ -1,0 +1,434 @@
+verbose:
+  required: True
+  type: boolean
+manual_episode_accept:
+  required: True
+  type: boolean
+scenario_files:
+  required: False
+  excludes: [scenario_folder]
+  type: list
+  minlength: 0
+  schema:
+    type: string
+scenario_folder:
+  required: False
+  excludes: [scenario_files]
+  type: string
+
+ho_bearing_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: -22.5
+    max: 22.5
+ho_course_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: -22.5
+    max: 22.5
+ot_bearing_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: -22.5
+    max: 22.5
+ot_course_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: -22.5
+    max: 22.5
+cr_bearing_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: 0.0
+    max: 120.0
+cr_course_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: -50.0
+    max: 50.0
+dist_between_ships_range:
+  required: True
+  type: list
+  maxlength: 2
+  schema:
+    type: float
+    min: 50.0
+    max: 100000.0
+gaussian_csog_state_perturbation_covariance:
+  required: True
+  type: list
+  minlength: 4
+  maxlength: 4
+  schema:
+    type: float
+perpendicular_csog_state_perturbation_pm_range:
+  required: True
+  type: list
+  minlength: 3
+  maxlength: 3
+  schema:
+    type: float
+
+t_cpa_threshold:
+  required: True
+  type: float
+d_cpa_threshold:
+  required: True
+  type: float
+behavior_generator:
+  required: True
+  type: dict
+  schema:
+    ownship_method:
+      required: True
+      type: string
+    target_ship_method:
+      required: True
+      type: string
+    target_ship_rrt_behavior_sampling_method:
+      required: True
+      type: string
+    n_wps_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: integer
+        min: 2
+    hazard_buffer:
+      required: True
+      type: float
+    speed_plan_variation_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+    waypoint_dist_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+        min: 50.0
+        max: 10000.0
+    waypoint_ang_range:
+      required: True
+      type: list
+      maxlength: 2
+      schema:
+        type: float
+
+    pqrrtstar:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            max_time:
+              required: True
+              type: float
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_node_dist:
+              required: True
+              type: float
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
+              required: True
+              type: float
+            gamma:
+              required: True
+              type: float
+            max_sample_adjustments:
+              required: True
+              type: integer
+            lambda_sample_adjustment:
+              required: True
+              type: float
+            safe_distance:
+              required: True
+              type: float
+            max_ancestry_level:
+              required: True
+              type: integer
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float
+            cross_track_error_int_threshold:
+              required: True
+              type: float
+    rrtstar:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            max_time:
+              required: True
+              type: float
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_node_dist:
+              required: True
+              type: float
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
+              required: True
+              type: float
+            gamma:
+              required: True
+              type: float
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float
+            cross_track_error_int_threshold:
+              required: True
+              type: float
+
+    rrt:
+      required: True
+      type: dict
+      schema:
+        params:
+          required: True
+          type: dict
+          schema:
+            max_iter:
+              required: True
+              type: integer
+            max_nodes:
+              required: True
+              type: integer
+            max_time:
+              required: True
+              type: float
+            iter_between_direct_goal_growth:
+              required: True
+              type: integer
+            min_steering_time:
+              required: True
+              type: float
+            goal_radius:
+              required: True
+              type: float
+            step_size:
+              required: True
+              type: float
+            max_steering_time:
+              required: True
+              type: float
+            steering_acceptance_radius:
+              required: True
+              type: float
+        model:
+          required: True
+          type: dict
+          schema:
+            csog:
+              type: dict
+              schema:
+                draft:
+                  required: True
+                  type: float
+                length:
+                  required: True
+                  type: float
+                width:
+                  required: True
+                  type: float
+                ship_vertices:
+                  required: False
+                  type: list
+                T_chi:
+                  required: True
+                  type: float
+                T_U:
+                  required: True
+                  type: float
+                r_max:
+                  required: True
+                  type: float
+                U_min:
+                  required: True
+                  type: float
+                U_max:
+                  required: True
+                  type: float
+        los:
+          type: dict
+          schema:
+            pass_angle_threshold:
+              required: True
+              type: float
+            R_a:
+              required: True
+              type: float
+            K_p:
+              required: True
+              type: float
+            K_i:
+              required: True
+              type: float
+            max_cross_track_error_int:
+              required: True
+              type: float
+            cross_track_error_int_threshold:
+              required: True
+              type: float

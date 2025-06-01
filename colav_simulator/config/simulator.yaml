@@ -1,0 +1,91 @@
+save_scenario_results: False
+verbose: True
+tracking_from_ownship_only: True
+visualizer:
+  show_liveplot: True
+  show_liveplot_colav_results: True
+  show_liveplot_measurements: False
+  show_liveplot_target_tracks: True
+  show_liveplot_target_waypoints: True
+  show_liveplot_target_trajectories: True
+  show_liveplot_ownship_waypoints: True
+  show_liveplot_ownship_trajectory: True
+  show_liveplot_ground_truth_target_pose: False
+  zoom_in_liveplot_on_ownship: True
+  zoom_window_width: 1500.0 #3000.0 #1500.0
+  show_liveplot_map_axes: False
+  show_liveplot_scalebar: True
+  show_liveplot_time: True
+  show_liveplot_disturbances: True
+  show_liveplot_target_ships: True
+  show_target_tracking_results: True
+  show_trajectory_tracking_results: True
+  save_result_figures: False
+  save_liveplot_animation: False
+  show_results: False
+  dark_mode_liveplot: True
+  update_rate_liveplot: 1.0 # relative to simulation time, not wall
+  uniform_seabed_color: False
+  black_land: False
+  black_shore: False
+  disable_ship_labels: True
+  ownship_trajectory_color: "xkcd:pink"
+  ownship_waypoint_color: "xkcd:white"
+  target_trajectory_color: "xkcd:peach"
+  target_waypoint_color: "xkcd:orange"
+  matplotlib_backend: "TkAgg"
+  fig_size: [512, 512]
+  fig_dpi: 64
+  margins: [0.0, 0.0]
+  ship_linewidth: 1.7
+  ship_scaling: [3.0, 3.0]
+  ship_info_fontsize: 10
+  ship_colors: ["xkcd:purple",
+              "xkcd:red",
+              "xkcd:eggshell",
+              "xkcd:purple",
+              "xkcd:cyan",
+              "xkcd:orange",
+              "xkcd:fuchsia",
+              "xkcd:yellow",
+              "xkcd:grey",
+              "xkcd:reddish brown",
+              "xkcd:bubblegum",
+              "xkcd:baby shit brown",
+              "xkcd:khaki",
+              "xkcd:cloudy blue",
+              "xkcd:pale aqua",
+              "xkcd:light lilac",
+              "xkcd:lemon",
+              "xkcd:powder blue",
+              "xkcd:wine",
+              "xkcd:amber",
+              "xkcd:wheat"]
+  do_linewidth: 1.7
+  do_colors: ["xkcd:red",
+              "xkcd:pale lilac",
+              "xkcd:aqua",
+              "xkcd:peach",
+              "xkcd:pale purple",
+              "xkcd:goldenrod",
+              "xkcd:light grey",
+              "xkcd:wine",
+              "xkcd:amber",
+              "xkcd:wheat",
+              "xkcd:burnt sienna",
+              "xkcd:barbie pink",
+              "xkcd:ugly brown",
+              "xkcd:light tan",
+              "xkcd:stormy blue",
+              "xkcd:light aquamarine",
+              "xkcd:lemon",
+              "xkcd:pastel blue",
+              "xkcd:blue green",
+              "xkcd:eggshell",
+              "xkcd:purple",
+              "xkcd:cyan",
+              "xkcd:orange",
+              "xkcd:fuchsia"
+          ]
+
+
