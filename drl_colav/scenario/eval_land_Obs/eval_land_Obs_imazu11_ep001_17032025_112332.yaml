@@ -1,0 +1,267 @@
+ais_data_file: null
+allowed_nav_statuses: null
+dt_sim: 0.5
+episode_generation:
+  delta_uniform_position_sample: 10000000
+  n_constant_disturbance_episodes: 1
+  n_constant_do_state_episodes: 1
+  n_constant_os_plan_episodes: 1
+  n_constant_os_state_episodes: 1
+  n_episodes: 1
+  n_plans_per_do_state: 1
+  ownship_position_generation: UniformInTheMapThenGaussian
+  target_position_generation: BasedOnOwnshipWaypointsThenGaussian
+filename: eval_imazu11_ep001_17032025_112332.yaml
+map_buffer: 0
+map_data_files:
+- Trondelag.gdb
+map_origin_enu:
+- 267492.637968
+- 7041883.359532
+map_size:
+- 16000.0
+- 18116.640468000434
+map_tolerance: 0
+n_random_ships: 2
+name: eval_imazu11_ep001_17032025_112332
+new_load_of_map_data: false
+rl:
+  action_sample_time: 2.0
+  action_type: sbmpc_parameter_setting_and_solver_action
+  observation_type:
+    dict_observation:
+    - path_relative_navigation_observation
+    - relative_tracking_observation
+    - time_observation
+    - sbmpc_parameter_observation
+    - distance_bearing_to_grounding_hazards_observation
+save_scenario: false
+ship_data_file: null
+ship_list:
+- controller:
+    flsc:
+      K_d_chi: 3.0
+      K_i_chi: 0.1
+      K_i_u: 0.3
+      K_p_chi: 2.5
+      K_p_u: 3.0
+      chi_error_int_threshold: 20.0
+      max_chi_error_int: 90.0
+      max_speed_error_int: 4.0
+      speed_error_int_threshold: 0.5
+  csog_state:
+  - 7044940.0
+  - 275000.0
+  - 10.0
+  - 0.0
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.024
+      R_a: 15.0
+      cross_track_error_int_threshold: 30.0
+      max_cross_track_error_int: 101.0
+      pass_angle_threshold: 80.0
+  id: 0
+  mmsi: 100
+  model:
+    telemetron: ''
+  sensors:
+  - radar:
+      R_ne:
+      - 30.0
+      - 30.0
+      R_ne_true:
+      - 25.0
+      - 25.0
+      R_polar_true:
+      - 64.0
+      - 0.0003
+      clutter_cardinality_expectation: 5
+      detection_probability: 0.95
+      generate_clutter: false
+      include_polar_meas_noise: false
+      max_range: 2000.0
+      measurement_rate: 0.5
+  - ais:
+      R:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      R_true:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      ais_class: A
+      max_range: 5000.0
+  speed_plan:
+  - 10.0
+  - 10.0
+  tracker:
+    kf:
+      P_0:
+      - 49.1
+      - 49.1
+      - 0.11
+      - 0.11
+      q: 0.15
+  waypoints:
+  - - 7044940.0
+    - 7060000.0
+  - - 275000.0
+    - 275000.0
+- controller:
+    flsc:
+      K_d_chi: 3.0
+      K_i_chi: 0.1
+      K_i_u: 0.3
+      K_p_chi: 2.5
+      K_p_u: 3.0
+      chi_error_int_threshold: 20.0
+      max_chi_error_int: 90.0
+      max_speed_error_int: 4.0
+      speed_error_int_threshold: 0.5
+  csog_state:
+  - 7052000.0
+  - 268000.0
+  - 10.0
+  - 90.0
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.024
+      R_a: 15.0
+      cross_track_error_int_threshold: 30.0
+      max_cross_track_error_int: 101.0
+      pass_angle_threshold: 80.0
+  id: 1
+  mmsi: 101
+  model:
+    telemetron: ''
+  sensors:
+  - radar:
+      R_ne:
+      - 30.0
+      - 30.0
+      R_ne_true:
+      - 25.0
+      - 25.0
+      R_polar_true:
+      - 64.0
+      - 0.0003
+      clutter_cardinality_expectation: 5
+      detection_probability: 0.95
+      generate_clutter: false
+      include_polar_meas_noise: false
+      max_range: 2000.0
+      measurement_rate: 0.5
+  - ais:
+      R:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      R_true:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      ais_class: A
+      max_range: 5000.0
+  speed_plan:
+  - 10.0
+  - 10.0
+  tracker:
+    kf:
+      P_0:
+      - 49.1
+      - 49.1
+      - 0.11
+      - 0.11
+      q: 0.15
+  waypoints:
+  - - 7052000.0
+    - 7052000.0
+  - - 268000.0
+    - 282000.0
+- controller:
+    flsc:
+      K_d_chi: 3.0
+      K_i_chi: 0.1
+      K_i_u: 0.3
+      K_p_chi: 2.5
+      K_p_u: 3.0
+      chi_error_int_threshold: 20.0
+      max_chi_error_int: 90.0
+      max_speed_error_int: 4.0
+      speed_error_int_threshold: 0.5
+  csog_state:
+  - 7045750.0
+  - 277950.0
+  - 10.0
+  - 345.0
+  guidance:
+    los:
+      K_i: 0.0
+      K_p: 0.024
+      R_a: 15.0
+      cross_track_error_int_threshold: 30.0
+      max_cross_track_error_int: 101.0
+      pass_angle_threshold: 80.0
+  id: 2
+  mmsi: 102
+  model:
+    telemetron: ''
+  sensors:
+  - radar:
+      R_ne:
+      - 30.0
+      - 30.0
+      R_ne_true:
+      - 25.0
+      - 25.0
+      R_polar_true:
+      - 64.0
+      - 0.0003
+      clutter_cardinality_expectation: 5
+      detection_probability: 0.95
+      generate_clutter: false
+      include_polar_meas_noise: false
+      max_range: 2000.0
+      measurement_rate: 0.5
+  - ais:
+      R:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      R_true:
+      - 26.3
+      - 26.3
+      - 0.1
+      - 0.1
+      ais_class: A
+      max_range: 5000.0
+  speed_plan:
+  - 10.0
+  - 10.0
+  tracker:
+    kf:
+      P_0:
+      - 49.1
+      - 49.1
+      - 0.11
+      - 0.11
+      q: 0.15
+  waypoints:
+  - - 7045750.0
+    - 7057500.0
+  - - 277950.0
+    - 272350.0
+stochasticity: null
+t_end: 1000.0
+t_start: 0.0
+type: MS
+utm_zone: 33
